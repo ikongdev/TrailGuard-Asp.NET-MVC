@@ -1,0 +1,24 @@
+{
+  "name": "trailguard",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ikongdev/TrailGuard-Asp.NET-MVC.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/ikongdev/TrailGuard-Asp.NET-MVC/issues"
+  },
+  "homepage": "https://github.com/ikongdev/TrailGuard-Asp.NET-MVC#readme",
+  "devDependencies": {
+    "tailwindcss": "^4.3.0"
+  }
+}
