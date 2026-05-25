@@ -42,9 +42,49 @@
 }
 
 @* About Section *@
-<section id="about" class="min-h-screen flex items-center pt-20 pb-18">
+<section id="about" class="min-h-screen flex items-center py-16 md:py-20">
     
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 w-full">
 
+        <div class="rounded-3xl border border-white/10 bg-[#030816]/70 px-5 py-10 sm:px-8 md:px-14 md:py-14">
+
+            <div class="text-center mb-8 md:mb-10">
+                <p class="inline-flex items-center gap-3 text-sm md:text-base font-semibold tracking-wide">
+                    <span class="text-orange-400">•</span>
+                    <span class="bg-linear-to-r from-orange-400 via-pink-400 to-violet-500 bg-clip-text text-transparent">
+                        What is TrailGuard
+                    </span>
+                    <span class="text-violet-400">•</span>
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10 items-center">
+
+                <div class="relative flex justify-center items-center w-full h-64 sm:h-80 md:h-96 overflow-visible order-1">
+                    <lottie-player 
+                        src="/animation/animation.json" 
+                        background="transparent" 
+                        speed="1" 
+                        class="w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96 scale-110 md:scale-140"
+                        loop 
+                        autoplay>
+                    </lottie-player>
+                </div>
+
+                <div class="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-7 md:p-8 shadow-lg shadow-black/20 order-2">
+                    <p class="text-slate-200 leading-relaxed text-sm md:text-base">
+                        <span class="text-white font-bold text-xl md:text-2xl">TrailGuard</span>
+                        is a web-based hiking event management and participant suitability assessment
+                        system designed to help hiking organizers manage trails, events, registrations,
+                        and participant screening in a structured and data-driven way.
+                        The system uses machine learning to assess whether a participant is a
+                        Good Match, Borderline, or Not Recommended for a specific hiking event
+                        based on their assessment responses and the trail or event’s difficulty factors.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
 
 </section>
 
