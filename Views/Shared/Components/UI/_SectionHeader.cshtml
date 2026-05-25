@@ -1,0 +1,31 @@
+@{
+    var label = ViewData["Label"]?.ToString();
+    var heading = ViewData["Heading"]?.ToString();
+    var description = ViewData["Description"]?.ToString();
+    var align = ViewData["Align"]?.ToString() ?? "center";
+
+    var alignmentClass = align == "left" ? "text-left mx-0" : "text-center mx-auto";
+}
+
+<div class="max-w-3xl @alignmentClass mb-12">
+    @if (!string.IsNullOrWhiteSpace(label))
+    {
+        <p class="text-green-700 font-semibold mb-3">
+            @label
+        </p>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(heading))
+    {
+        <h2 class="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
+            @heading
+        </h2>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(description))
+    {
+        <p class="text-slate-600 leading-relaxed">
+            @description
+        </p>
+    }
+</div>

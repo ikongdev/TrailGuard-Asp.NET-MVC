@@ -1,8 +1,63 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
+﻿@using Microsoft.AspNetCore.Mvc.ViewFeatures
+
+@{
+    ViewData["Title"] = "Home";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-</div>
+
+@* Hero Section *@
+@section PageHero {
+    <div class="min-h-[calc(100vh-90px)] flex items-center justify-center text-center">
+        <div id="#home" class="max-w-3xl pt-19 mx-auto px-6">
+
+            <div class="inline-flex items-center px-4 py-1.5 rounded-full bg-white/10 border border-white/10 backdrop-blur-sm mb-6">
+                <span class="text-sm bg-linear-to-r from-orange-400 via-pink-500 to-violet-500 bg-clip-text text-transparent tracking-wide">
+                    • Smarter Trails. Safer Adventure
+                </span>
+            </div>
+
+            <h1 class="text-4xl md:text-6xl lg:text-5xl font-extrabold leading-tight text-white mb-6">
+                Find Your
+                <span class="bg-linear-to-r from-orange-400 via-pink-500 to-violet-500 bg-clip-text text-transparent">
+                    Perfect Trail
+                </span>
+            </h1>
+
+            <p class="max-w-2xl mx-auto text-base md:text-lg text-slate-200 leading-relaxed mb-8">
+                Hike smarter, not harder. TrailGuard assesses your fitness,
+                matches you with the right mountain, and guides you safely from base camp
+                to summit — across the most breathtaking peaks of the Philippines.
+            </p>
+
+            <partial name="Components/UI/_PrimaryButton"
+                view-data='new ViewDataDictionary(ViewData)
+                {
+                    { "Text", "Get Started " },
+                    { "Href", "#" },
+                    { "Icon", "fa-solid fa-arrow-right" }
+                }' />
+
+        </div>
+    </div>
+}
+
+@* About Section *@
+<section id="about" class="min-h-screen flex items-center pt-20 pb-18">
+    
+
+
+</section>
+
+@* Popular Trails *@
+<section id="trails" class="min-h-screen flex items-center pt-20 pb-18">
+
+
+
+</section>
+
+@* How it Works *@
+<section id="how-it-works" class="min-h-screen flex items-center pt-20 pb-18">
+
+
+
+</section>

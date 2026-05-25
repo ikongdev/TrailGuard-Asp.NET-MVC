@@ -1,0 +1,10 @@
+@{
+    var background = ViewData["Background"]?.ToString() ?? "bg-slate-50";
+    var padding = ViewData["Padding"]?.ToString() ?? "py-20";
+}
+
+<section class="@background @padding">
+    <div class="max-w-7xl mx-auto px-6">
+        @RenderBody()
+    </div>
+</section>

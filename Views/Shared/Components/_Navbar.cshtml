@@ -1,0 +1,109 @@
+@using Microsoft.AspNetCore.Mvc.ViewFeatures
+
+<nav class="fixed top-0 left-0 w-full z-50 px-4 py-4">
+    <div class="max-w-2xl mx-auto">
+
+        <input type="checkbox" id="mobile-menu-toggle" class="peer hidden" />
+
+        <div class="relative flex items-center justify-between w-full rounded-full border border-white/15 bg-[#060B1A]/55 backdrop-blur-md shadow-lg shadow-black/20 px-4 py-1 min-h-11.5">
+
+            <a asp-controller="Home" asp-action="Index"
+                class="flex items-center gap-2 text-white font-bold whitespace-nowrap">
+                    <img src="~/images/logo.png"
+                        asp-append-version="true"
+                        alt="TrailGuard Logo"
+                        class="h-8 w-auto" />
+
+                <span class="text-sm leading-none">
+                    TrailGuard
+                </span>
+            </a>
+
+            <div class="hidden lg:flex absolute left-1/2 -translate-x-1/2 items-center justify-center gap-1 whitespace-nowrap">
+                <a href="/#top"
+                class="px-3 py-1.5 rounded-full text-xs font-bold text-white/75 hover:text-white hover:bg-white/10 transition">
+                    Home
+                </a>
+
+                <a href="/#about"
+                   class="px-3 py-1.5 rounded-full text-xs text-white/75 hover:text-white hover:bg-white/10 transition">
+                    About
+                </a>
+
+                <a href="/#trails"
+                   class="px-3 py-1.5 rounded-full text-xs text-white/75 hover:text-white hover:bg-white/10 transition">
+                    Trails
+                </a>
+
+                <a href="/#how-it-works"
+                   class="px-3 py-1.5 rounded-full text-xs text-white/75 hover:text-white hover:bg-white/10 transition">
+                    How It Works
+                </a>
+            </div>
+
+            <div class="hidden lg:flex items-center justify-end gap-2 whitespace-nowrap">
+                <a href="#"
+                   class="px-3 py-1.5 rounded-full text-xs text-white/75 hover:text-white hover:bg-white/10 transition">
+                    Login
+                </a>
+
+                <partial name="Components/UI/_PrimaryButton"
+                         view-data='new ViewDataDictionary(ViewData)
+                         {
+                             { "Text", "Register" },
+                             { "Href", "#" },
+                             { "Size", "xs" }
+                         }' />
+            </div>
+
+            <label for="mobile-menu-toggle"
+                   class="lg:hidden ml-auto w-8 h-8 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition flex items-center justify-center cursor-pointer">
+                <i class="fa-solid fa-bars text-sm"></i>
+            </label>
+
+        </div>
+
+        <div class="lg:hidden hidden peer-checked:block mt-3 rounded-3xl bg-[#060B1A]/80 backdrop-blur-md shadow-lg shadow-black/20 p-3">
+
+            <div class="flex flex-col gap-1">
+                <a asp-controller="Home" asp-action="Index"
+                   class="px-4 py-2 rounded-2xl text-sm text-white/80 hover:text-white hover:bg-white/10 transition">
+                    Home
+                </a>
+
+                <a href="#"
+                   class="px-4 py-2 rounded-2xl text-sm text-white/80 hover:text-white hover:bg-white/10 transition">
+                    About
+                </a>
+
+                <a href="#"
+                   class="px-4 py-2 rounded-2xl text-sm text-white/80 hover:text-white hover:bg-white/10 transition">
+                    Trails
+                </a>
+
+                <a href="#"
+                   class="px-4 py-2 rounded-2xl text-sm text-white/80 hover:text-white hover:bg-white/10 transition">
+                    How It Works
+                </a>
+
+                <div class="h-px bg-white/10 my-2"></div>
+
+                <a href="#"
+                   class="px-4 py-2 rounded-2xl text-sm text-white/80 hover:text-white hover:bg-white/10 transition">
+                    Login
+                </a>
+
+                <div class="pt-2">
+                    <partial name="Components/UI/_PrimaryButton"
+                             view-data='new ViewDataDictionary(ViewData)
+                             {
+                                 { "Text", "Register" },
+                                 { "Href", "#" },
+                                 { "Size", "sm" }
+                             }' />
+                </div>
+            </div>
+
+        </div>
+    </div>
+</nav>

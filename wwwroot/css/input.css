@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+@source "../../Views/**/*.cshtml";
+@source "../../Pages/**/*.cshtml";
+@source "../../wwwroot/js/**/*.js";
+
+@font-face {
+    font-family: 'Poppins';
+    src: url('/css/fonts/Poppins-Regular.ttf') format('truetype');
+    font-weight: 400;
+}
+@font-face {
+    font-family: 'Poppins';
+    src: url('/css/fonts/Poppins-Medium.ttf') format('truetype');
+    font-weight: 500;
+}
+@font-face {
+    font-family: 'Poppins';
+    src: url('/css/fonts/Poppins-SemiBold.ttf') format('truetype');
+    font-weight: 600;
+}
+@font-face {
+    font-family: 'Poppins';
+    src: url('/css/fonts/Poppins-Bold.ttf') format('truetype');
+    font-weight: 700;
+}
+
+/* Sinasabihan ang Tailwind v4 engine na Poppins ang default sans font */
+@theme {
+    --font-sans: 'Poppins', sans-serif;
+}
+
+/* Awtomatikong nilalagyan ang body ng font-sans class ng Tailwind v4 */
+@layer base {
+    html {
+        scroll-behavior: smooth;
+        scroll-padding-top: 5rem;
+    }
+
+    body {
+        @apply font-sans;
+    }
+}

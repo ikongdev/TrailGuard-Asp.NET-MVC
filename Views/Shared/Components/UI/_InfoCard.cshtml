@@ -1,0 +1,22 @@
+@{
+    var icon = ViewData["Icon"]?.ToString();
+    var heading = ViewData["Heading"]?.ToString() ?? "Card Title";
+    var description = ViewData["Description"]?.ToString() ?? "Card description goes here.";
+}
+
+<div class="p-6 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition">
+    @if (!string.IsNullOrWhiteSpace(icon))
+    {
+        <div class="w-12 h-12 rounded-xl bg-green-100 text-green-700 flex items-center justify-center mb-5">
+            <i class="@icon"></i>
+        </div>
+    }
+
+    <h3 class="text-xl font-bold text-slate-900 mb-3">
+        @heading
+    </h3>
+
+    <p class="text-slate-600 leading-relaxed">
+        @description
+    </p>
+</div>
