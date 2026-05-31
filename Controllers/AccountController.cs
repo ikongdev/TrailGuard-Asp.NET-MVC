@@ -44,6 +44,14 @@ public async Task<IActionResult> Login(LoginViewModel model)
     return View(model);
 }
 
+[HttpPost]
+public async Task<IActionResult> Logout()
+{
+    await _signInManager.SignOutAsync();
+
+    return RedirectToAction("Index", "Home");
+}
+
     [HttpGet]
     public IActionResult Register() => View();
 
@@ -72,7 +80,6 @@ public async Task<IActionResult> Login(LoginViewModel model)
             return RedirectToAction("Index", "Home");
         }
         
-        // 2. Kung nag-fail ang DB (e.g. Password too weak), ipapakita rin ito
         foreach (var error in result.Errors)
             ModelState.AddModelError(string.Empty, error.Description);
 

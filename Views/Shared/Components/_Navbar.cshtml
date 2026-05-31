@@ -1,4 +1,8 @@
 @using Microsoft.AspNetCore.Mvc.ViewFeatures
+@using Microsoft.AspNetCore.Identity
+@using TrailGuard.Models
+@inject SignInManager<TrailGuard.Models.ApplicationUser> SignInManager
+@inject UserManager<TrailGuard.Models.ApplicationUser> UserManager
 
 <nav class="fixed top-0 left-0 w-full z-50 px-4 py-4">
     <div class="max-w-2xl mx-auto">
@@ -41,19 +45,62 @@
                 </a>
             </div>
 
-            <div class="hidden lg:flex items-center justify-end gap-2 whitespace-nowrap">
-                <a asp-controller="Account" asp-action="Login"
-                   class="px-3 py-1.5 rounded-full text-xs text-white/75 hover:text-white hover:bg-white/10 transition">
-                    Login
-                </a>
+            <div class="hidden lg:flex items-center justify-end gap-3 whitespace-nowrap">
+                @if (SignInManager.IsSignedIn(User))
+                {
+                    var currentUser = await UserManager.GetUserAsync(User);
+                    var mainRole = "Admin"; // Default role
 
-                <partial name="Components/UI/_PrimaryButton"
-                         view-data='new ViewDataDictionary(ViewData)
-                         {
-                             { "Text", "Register" },
-                             { "Href", Url.Action("Register", "Account") },
-                             { "Size", "xs" }
-                         }' />
+                    <div class="relative">
+                        <button id="profileDropdownBtn" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#060B1A]/55 border border-white/20 hover:bg-white/15 focus:outline-none transition-all">
+                            
+                            <div class="w-8 h-8 rounded-full bg-linear-to-r from-purple-600 to-orange-500 flex items-center justify-center text-white text-xs font-bold shadow-lg shadow-purple-500/30">
+                                @(currentUser?.FirstName?.Substring(0, 1).ToUpper())
+                            </div>
+                            
+                            <div class="text-left hidden sm:block">
+                                <div class="text-xs font-bold text-white leading-tight">@currentUser?.FirstName</div>
+                                <div class="text-[9px] pl-2 font-medium text-orange-400 uppercase tracking-wide leading-tight">@mainRole</div>
+                            </div>
+                            
+                            <i class="fa-solid fa-chevron-down text-gray-400 text-xs"></i>
+                        </button>
+                        
+                        <div id="profileDropdownMenu" class="hidden absolute right-0 mt-3 w-48 bg-[#0B1325] border border-gray-800 rounded-2xl shadow-2xl p-1.5 z-50 transform origin-top-right transition-all">
+                            
+                            <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-800/60 rounded-xl transition-colors">
+                                <i class="fa-solid fa-layer-group text-gray-400 text-base w-4 text-center"></i> Dashboard
+                            </a>
+                            
+                            <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-800/60 rounded-xl transition-colors">
+                                <i class="fa-solid fa-gear text-gray-400 text-base w-4 text-center"></i> Settings
+                            </a>
+                            
+                            <div class="h-px bg-gray-800 my-1 mx-2"></div>
+                            
+                            <form asp-controller="Account" asp-action="Logout" method="post" class="block w-full m-0 p-0">
+                                <button type="submit" class="flex items-center gap-3 w-full text-left px-3 py-2.5 text-sm font-medium text-red-500 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-colors">
+                                    <i class="fa-solid fa-arrow-right-from-bracket text-base w-4 text-center"></i> Sign out
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <a asp-controller="Account" asp-action="Login"
+                    class="px-3 py-1.5 rounded-full text-xs text-white/75 hover:text-white hover:bg-white/10 transition">
+                        Login
+                    </a>
+
+                    <partial name="Components/UI/_PrimaryButton"
+                            view-data='new ViewDataDictionary(ViewData)
+                            {
+                                { "Text", "Register" },
+                                { "Href", Url.Action("Register", "Account") },
+                                { "Size", "xs" }
+                            }' />
+                }
             </div>
 
             <label for="mobile-menu-toggle"
@@ -71,39 +118,76 @@
                     Home
                 </a>
 
-                <a href="#"
+                <a href="/#about"
                    class="px-4 py-2 rounded-2xl text-sm text-white/80 hover:text-white hover:bg-white/10 transition">
                     About
                 </a>
 
-                <a href="#"
+                <a href="/#trails"
                    class="px-4 py-2 rounded-2xl text-sm text-white/80 hover:text-white hover:bg-white/10 transition">
                     Trails
                 </a>
 
-                <a href="#"
+                <a href="/#how-it-works"
                    class="px-4 py-2 rounded-2xl text-sm text-white/80 hover:text-white hover:bg-white/10 transition">
                     How It Works
                 </a>
 
                 <div class="h-px bg-white/10 my-2"></div>
 
-                <a asp-controller="Account" asp-action="Login"
-                   class="px-4 py-2 rounded-2xl text-sm text-white/80 hover:text-white hover:bg-white/10 transition">
-                    Login
-                </a>
+                @if (SignInManager.IsSignedIn(User))
+                {
+                    <a href="#" class="px-4 py-2 rounded-2xl text-sm text-gray-300 hover:text-white hover:bg-white/5 transition">
+                        <i class="fa-solid fa-chart-line w-5 text-purple-400"></i> Dashboard
+                    </a>
+                    <a href="#" class="px-4 py-2 rounded-2xl text-sm text-gray-300 hover:text-white hover:bg-white/5 transition">
+                        <i class="fa-solid fa-user-gear w-5 text-orange-400"></i> Settings
+                    </a>
+                    <form asp-controller="Account" asp-action="Logout" method="post" class="block w-full m-0 p-0">
+                        <button type="submit" class="w-full text-left px-4 py-2 rounded-2xl text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition">
+                            <i class="fa-solid fa-arrow-right-from-bracket w-5"></i> Log out
+                        </button>
+                    </form>
+                }
+                else
+                {
+                    <a asp-controller="Account" asp-action="Login"
+                       class="px-4 py-2 rounded-2xl text-sm text-white/80 hover:text-white hover:bg-white/10 transition">
+                        Login
+                    </a>
 
-                <div class="pt-2">
-                    <partial name="Components/UI/_PrimaryButton"
-                             view-data='new ViewDataDictionary(ViewData)
-                             {
-                                 { "Text", "Register" },
-                                 { "Href", Url.Action("Register", "Account") },
-                                 { "Size", "sm" }
-                             }' />
-                </div>
+                    <div class="pt-2">
+                        <partial name="Components/UI/_PrimaryButton"
+                                 view-data='new ViewDataDictionary(ViewData)
+                                 {
+                                     { "Text", "Register" },
+                                     { "Href", Url.Action("Register", "Account") },
+                                     { "Size", "sm" }
+                                 }' />
+                    </div>
+                }
             </div>
 
         </div>
     </div>
 </nav>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const profileBtn = document.getElementById("profileDropdownBtn");
+        const profileMenu = document.getElementById("profileDropdownMenu");
+
+        if (profileBtn && profileMenu) {
+            profileBtn.addEventListener("click", function (e) {
+                e.stopPropagation();
+                profileMenu.classList.toggle("hidden");
+            });
+
+            document.addEventListener("click", function (e) {
+                if (!profileBtn.contains(e.target) && !profileMenu.contains(e.target)) {
+                    profileMenu.classList.add("hidden");
+                }
+            });
+        }
+    });
+</script>
