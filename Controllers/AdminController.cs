@@ -81,5 +81,45 @@ namespace TrailGuard.Controllers
 
             return View("Error"); 
         }
+
+        [HttpGet]
+        public IActionResult AddAccount()
+        {
+            return View(new AddAccountViewModel());
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> AddAccount(AddAccountViewModel model)
+        {
+            if (ModelState.IsValid)
+            {
+                var user = new ApplicationUser
+                {
+                    UserName = model.Email,
+                    Email = model.Email,
+                    FirstName = model.FirstName,
+                    MiddleName = model.MiddleName,
+                    LastName = model.LastName,
+                    IsActive = true,
+                    DateCreated = DateTime.Now
+                };
+
+                var result = await _userManager.CreateAsync(user, model.Password);
+
+                if (result.Succeeded)
+                {
+                    await _userManager.AddToRoleAsync(user, model.Role);
+
+                    return RedirectToAction("Accounts");
+                }
+
+                foreach (var error in result.Errors)
+                {
+                    ModelState.AddModelError(string.Empty, error.Description);
+                }
+            }
+
+            return View(model);
+        }
     }
 }

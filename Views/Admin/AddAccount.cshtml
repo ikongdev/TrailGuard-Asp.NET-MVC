@@ -1,0 +1,105 @@
+@model TrailGuard.Models.AddAccountViewModel
+
+@{
+    ViewData["Title"] = "Add New Account";
+}
+
+@section PageHero {
+    <div class="pt-24 px-4 max-w-3xl mx-auto min-h-screen text-white pb-12">
+        
+        <div class="mb-8">
+            <a asp-controller="Admin" asp-action="Accounts" class="text-gray-400 hover:text-orange-400 transition-colors inline-flex items-center gap-2 mb-4 text-sm font-medium">
+                <i class="fa-solid fa-arrow-left"></i> Back to Accounts
+            </a>
+            <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-linear-to-r from-orange-400 to-purple-400">Create New Account</h1>
+            <p class="text-gray-400 mt-1 text-sm">Fill in the details to register a new Organizer or Participant.</p>
+        </div>
+
+        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+            <div class="absolute -right-20 -top-20 w-64 h-64 bg-orange-500/10 rounded-full blur-3xl"></div>
+            <div class="absolute -left-20 -bottom-20 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl"></div>
+
+            <form asp-controller="Admin" asp-action="AddAccount" method="post" class="relative z-10">
+                <div asp-validation-summary="ModelOnly" class="text-red-400 text-sm mb-4 bg-red-500/10 p-3 rounded-xl border border-red-500/20"></div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <label asp-for="FirstName" class="block text-sm font-medium text-gray-300 mb-2">First Name</label>
+                        <input asp-for="FirstName" class="w-full bg-black/20 border border-white/10 text-white rounded-full px-5 py-3 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 focus:outline-none transition-colors" placeholder="e.g. Juan" />
+                        <span asp-validation-for="FirstName" class="text-red-400 text-xs mt-1 block"></span>
+                    </div>
+
+                    <div>
+                        <label asp-for="LastName" class="block text-sm font-medium text-gray-300 mb-2">Last Name</label>
+                        <input asp-for="LastName" class="w-full bg-black/20 border border-white/10 text-white rounded-full px-5 py-3 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 focus:outline-none transition-colors" placeholder="e.g. Dela Cruz" />
+                        <span asp-validation-for="LastName" class="text-red-400 text-xs mt-1 block"></span>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <label asp-for="MiddleName" class="block text-sm font-medium text-gray-300 mb-2">Middle Name <span class="text-gray-500 text-xs">(Optional)</span></label>
+                    <input asp-for="MiddleName" class="w-full bg-black/20 border border-white/10 text-white rounded-full px-5 py-3 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 focus:outline-none transition-colors" placeholder="e.g. Reyes" />
+                </div>
+
+                <div class="mb-6">
+                    <label asp-for="Email" class="block text-sm font-medium text-gray-300 mb-2">Email Address</label>
+                    <input asp-for="Email" class="w-full bg-black/20 border border-white/10 text-white rounded-full px-5 py-3 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 focus:outline-none transition-colors" placeholder="e.g. juan@email.com" />
+                    <span asp-validation-for="Email" class="text-red-400 text-xs mt-1 block"></span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+                    <div>
+                        <label asp-for="Role" class="block text-sm font-medium text-gray-300 mb-2">Assign Role</label>
+                        <select asp-for="Role" class="w-full bg-black/20 border border-white/10 text-white rounded-full px-5 py-3 focus:border-orange-500 focus:outline-none cursor-pointer appearance-none transition-colors"
+                                style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 16px center; background-size: 16px;">
+                            <option value="" class="bg-[#0B1325] text-gray-400">Select a Role...</option>
+                            <option value="Admin" class="bg-[#0B1325] text-orange-400 font-medium">Admin</option>
+                            <option value="Organizer" class="bg-[#0B1325] text-blue-400 font-medium">Organizer</option>
+                            <option value="Participant" class="bg-[#0B1325] text-purple-400 font-medium">Participant</option>
+                        </select>
+                        <span asp-validation-for="Role" class="text-red-400 text-xs mt-1 block"></span>
+                    </div>
+
+                    <div>
+                        <label asp-for="Password" class="block text-sm font-medium text-gray-300 mb-2">Password <span class="text-orange-400">*</span></label>
+                        <div class="relative">
+                            <input asp-for="Password" id="passwordInput" type="password" class="w-full bg-black/20 border border-white/10 text-white rounded-full px-4 py-3 pr-12 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 focus:outline-none transition-colors" placeholder="••••••••" />
+                            <button type="button" onclick="togglePasswordVisibility('passwordInput', 'eyeIcon1')" class="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-white transition-colors cursor-pointer">
+                                <i id="eyeIcon1" class="fa-solid fa-eye"></i>
+                            </button>
+                        </div>
+                        <span asp-validation-for="Password" class="text-red-400 text-xs mt-1 block"></span>
+                    </div>
+                </div>
+
+                <hr class="border-white/10 mb-8" />
+
+                <div class="flex justify-end">
+                    <button type="submit" class="bg-linear-to-r from-orange-500 to-purple-600 hover:from-orange-400 hover:to-purple-500 text-white px-8 py-3 rounded-full font-bold shadow-[0_0_20px_rgba(249,115,22,0.4)] transition-all transform hover:-translate-y-0.5">
+                        Create Account
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        function togglePasswordVisibility(inputId, iconId) {
+            const input = document.getElementById(inputId);
+            const icon = document.getElementById(iconId);
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+    </script>
+}

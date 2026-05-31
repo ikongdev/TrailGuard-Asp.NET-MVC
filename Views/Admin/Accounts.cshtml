@@ -13,9 +13,10 @@
                 <p class="text-gray-400 mt-1 text-sm">Manage user roles, statuses, and system access.</p>
             </div>
             
-            <button class="bg-linear-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white px-5 py-2.5 rounded-full font-bold text-sm flex items-center gap-2 shadow-[0_0_15px_rgba(249,115,22,0.3)] transition-all">
+            <a asp-controller="Admin" asp-action="AddAccount" 
+            class="bg-linear-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white px-5 py-2.5 rounded-full font-bold text-sm flex items-center gap-2 shadow-[0_0_15px_rgba(249,115,22,0.3)] transition-all cursor-pointer transform hover:-translate-y-0.5">
                 <i class="fa-solid fa-plus"></i> Add Account
-            </button>
+            </a>
         </div>
 
         <!-- GLASSMORPHIC SUMMARY CARDS -->
