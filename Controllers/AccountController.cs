@@ -76,6 +76,7 @@ public async Task<IActionResult> Logout()
 
         if (result.Succeeded)
         {
+            await _userManager.AddToRoleAsync(user, "Participant");
             await _signInManager.SignInAsync(user, isPersistent: false);
             return RedirectToAction("Index", "Home");
         }
