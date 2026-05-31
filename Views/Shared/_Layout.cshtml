@@ -1,4 +1,8 @@
-﻿<!DOCTYPE html>
+﻿@using Microsoft.AspNetCore.Identity
+@inject SignInManager<TrailGuard.Models.ApplicationUser> SignInManager
+@inject UserManager<TrailGuard.Models.ApplicationUser> UserManager
+
+<!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
 <head>
     <meta charset="utf-8" />
@@ -10,10 +14,27 @@
     <link rel="stylesheet" href="~/lib/font-awesome/css/all.min.css" asp-append-version="true"/>
     <script src="~/animation/lottie-player.js"></script>
 
+    @if (SignInManager.IsSignedIn(User))
+    {
+        if (User.IsInRole("Admin"))
+        {
+            <partial name="Components/_NavbarAdmin" />
+        }
+        else if (User.IsInRole("Organizer"))
+        {
+            <partial name="Components/_NavbarOrganizer" />
+        }
+        else
+        {
+            <partial name="Components/_NavbarParticipant" />
+        }
+    }
+    else
+    {
+        <partial name="Components/_NavbarPublic" />
+    }
 </head>
 <body id="top" class="flex flex-col min-h-screen">
-    
-    <partial name="Components/_Navbar" />
 
     <section id="home" class="relative min-h-screen bg-cover bg-center bg-no-repeat"
              style="background-image: url('/images/bg-image.png');">
