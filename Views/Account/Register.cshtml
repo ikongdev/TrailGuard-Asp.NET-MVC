@@ -1,0 +1,122 @@
+@model TrailGuard.Models.RegisterViewModel
+@{
+    ViewData["Title"] = "Register";
+}
+
+@section PageHero {
+    <div class="min-h-screen flex items-center justify-center pt-18 pb-8 px-4 sm:px-6 lg:px-12 relative">
+        <div class="max-w-6xl w-full flex flex-col md:flex-row-reverse items-center justify-between gap-12 lg:gap-20 z-10">
+            
+            <div class="w-full md:w-1/2 flex flex-col items-center md:items-end text-center md:text-right">
+                <h1 class="text-4xl md:text-5xl lg:text-4xl font-extrabold text-white leading-tight tracking-tight">
+                    Start Your <span class="text-transparent bg-clip-text bg-linear-to-r from-orange-400 to-purple-500">Adventure</span>
+                </h1>
+                <p class="text-gray-400 text-base md:text-lg max-w-md">
+                    Create your TrailGuard account and join the community of adventurers across the Philippines.
+                </p>
+                
+                <div class="relative w-full max-w-sm hidden md:block">
+                    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-orange-500/20 blur-[80px] rounded-full -z-10"></div>
+                    <img src="/images/guide.png" alt="Hiker Character" class="w-full drop-shadow-[0_20px_50px_rgba(249,115,22,0.2)] hover:-translate-y-2 transition-transform duration-500">
+                </div>
+            </div>
+
+            <div class="w-full md:w-full max-w-3xl bg-[#0A1122]/80 backdrop-blur-xl rounded-[2.5rem] border border-gray-800/60 shadow-2xl shadow-purple-900/20 p-6 sm:p-12 relative">
+                <div class=" text-center md:text-left">
+                    <h2 class="text-2xl font-extrabold text-white pb-0.5">Create Account</h2>
+                    <p class="text-gray-400 text-xs">Join the TrailGuard community.</p>
+                </div>
+
+                <form asp-action="Register" method="POST" class="space-y-5">
+                    <div asp-validation-summary="All" class="text-red-500 text-xs mb-1"></div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label asp-for="FirstName" class="block text-sm font-medium text-gray-300">First Name</label>
+                            <input asp-for="FirstName" class="block w-full px-4 py-3 bg-[#0B1325] border border-gray-700 rounded-xl text-white focus:ring-1 focus:ring-purple-500" required>
+                        </div>
+                        <div>
+                            <label asp-for="MiddleName" class="block text-sm font-medium text-gray-300">Middle Name</label>
+                            <input asp-for="MiddleName" class="block w-full px-4 py-3 bg-[#0B1325] border border-gray-700 rounded-xl text-white focus:ring-1 focus:ring-purple-500">
+                        </div>
+                        <div>
+                            <label asp-for="LastName" class="block text-sm font-medium text-gray-300">Last Name</label>
+                            <input asp-for="LastName" class="block w-full px-4 py-3 bg-[#0B1325] border border-gray-700 rounded-xl text-white focus:ring-1 focus:ring-purple-500" required>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label asp-for="Email" class="block text-sm font-medium text-gray-300 mb-1.5">Email Address</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <i class="fa-regular fa-envelope text-gray-500"></i>
+                            </div>
+                            <input asp-for="Email" class="block w-full pl-11 pr-4 py-3 bg-[#0B1325] border border-gray-700 rounded-xl text-white focus:ring-1 focus:ring-purple-500" required>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label asp-for="Password" class="block text-sm font-medium text-gray-300 mb-1.5">Password</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                    <i class="fa-solid fa-lock text-gray-500"></i>
+                                </div>
+                                <input asp-for="Password" type="password" id="password" class="block w-full pl-11 pr-12 py-3 bg-[#0B1325] border border-gray-700 rounded-xl text-white focus:ring-1 focus:ring-purple-500" required>
+                                <button type="button" onclick="togglePasswordVisibility('password', 'eyeIcon1')" class="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-500 hover:text-gray-300 focus:outline-none">
+                                    <i id="eyeIcon1" class="fa-regular fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div>
+                            <label asp-for="ConfirmPassword" class="block text-sm font-medium text-gray-300 mb-1.5">Confirm</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                    <i class="fa-solid fa-lock text-gray-500"></i>
+                                </div>
+                                <input asp-for="ConfirmPassword" type="password" id="confirmPassword" class="block w-full pl-11 pr-12 py-3 bg-[#0B1325] border border-gray-700 rounded-xl text-white focus:ring-1 focus:ring-purple-500" required>
+                                <button type="button" onclick="togglePasswordVisibility('confirmPassword', 'eyeIcon2')" class="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-500 hover:text-gray-300 focus:outline-none">
+                                    <i id="eyeIcon2" class="fa-regular fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full flex justify-center py-3.5 px-4 mt-2 border border-transparent rounded-xl shadow-sm text-sm font-bold text-white bg-linear-to-r from-orange-500 via-purple-500 to-pink-500 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 focus:ring-offset-[#000714] transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/25 hover:-translate-y-0.5">
+                        Register Now
+                    </button>
+                </form>
+
+                <div class="text-center text-sm text-gray-400">
+                    Already have an account? 
+                    <a asp-controller="Account" asp-action="Login" class="font-bold text-orange-400 hover:text-orange-300 transition-colors">Sign in here</a>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    
+    <script>
+        function togglePasswordVisibility(inputId, iconId) {
+            const passwordInput = document.getElementById(inputId);
+            const eyeIcon = document.getElementById(iconId);
+
+            if (passwordInput && eyeIcon) {
+                const isPassword = passwordInput.getAttribute("type") === "password";
+                
+                passwordInput.setAttribute("type", isPassword ? "text" : "password");
+
+                if (isPassword) {
+                    eyeIcon.classList.remove("fa-eye");
+                    eyeIcon.classList.add("fa-eye-slash");
+                } else {
+                    eyeIcon.classList.remove("fa-eye-slash");
+                    eyeIcon.classList.add("fa-eye");
+                }
+            }
+        }
+    </script>
+}

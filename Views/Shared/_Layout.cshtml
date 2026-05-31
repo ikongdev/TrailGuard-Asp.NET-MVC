@@ -15,7 +15,7 @@
     
     <partial name="Components/_Navbar" />
 
-    <section id="home" class="relative h-screen bg-cover bg-center bg-no-repeat"
+    <section id="home" class="relative min-h-screen bg-cover bg-center bg-no-repeat"
              style="background-image: url('/images/bg-image.png');">
 
         <div class="relative z-10">
@@ -73,7 +73,7 @@
 
                             link.classList.add("text-white/80");
                             
-                            if (link.getAttribute("href") === `#${currentId}`) {
+                            if (link.getAttribute("href").endsWith(`#${currentId}`)) {
                                 link.classList.remove("text-white/80");
                                 link.classList.add("bg-white/15", "text-white", "font-bold", "ring-1", "ring-white/30"); 
                             }

@@ -1,0 +1,103 @@
+@{
+    ViewData["Title"] = "Log in";
+}
+@section PageHero {
+    <div class="min-h-screen flex items-center justify-center pt-18 pb-5 px-4 sm:px-6 lg:px-12 relative">
+    
+        <div class="max-w-6xl w-full flex flex-col md:flex-row items-center justify-between gap-12 lg:gap-20 z-10">
+            
+            <div class="w-full md:w-1/2 flex flex-col items-center md:items-start text-center md:text-left">
+                <h1 class="text-4xl md:text-5xl lg:text-4xl font-extrabold text-white leading-tight mb-4 tracking-tight">
+                    Explore the <span class="text-transparent bg-clip-text bg-linear-to-r from-orange-400 to-purple-500">Beauty</span> <br class="hidden md:block" /> of the Journey
+                </h1>
+                <p class="text-gray-400 text-base md:text-lg max-w-md">
+                    Sign in to your TrailGuard account and continue your safe and guided adventures across the Philippines.
+                </p>
+                
+                <div class="relative w-full max-w-sm hidden md:block">
+                    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-purple-500/20 blur-[80px] rounded-full -z-10"></div>
+                    <img src="/images/guide.png" alt="Hiker Character" class="w-full drop-shadow-[0_20px_50px_rgba(168,85,247,0.2)] hover:-translate-y-2 transition-transform duration-500">
+                </div>
+            </div>
+
+            <div class="w-full md:w-[45%] max-w-md bg-[#0A1122]/80 backdrop-blur-xl rounded-[2.5rem] border border-gray-800/60 shadow-2xl shadow-purple-900/20 p-5 sm:p-10 relative">
+                <div class="mb-8 text-center md:text-left">
+                    <h2 class="text-3xl font-extrabold text-white mb-2">Welcome Back!</h2>
+                    <p class="text-gray-400 text-sm">Sign in to continue your adventure.</p>
+                </div>
+
+                <form action="#" method="POST" class="space-y-6">
+                    
+                    <div>
+                        <label for="email" class="block text-sm font-medium text-gray-300 mb-2">Email Address</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <i class="fa-regular fa-envelope text-gray-500"></i>
+                            </div>
+                            <input type="email" id="email" name="email" class="block w-full pl-11 pr-4 py-3 bg-[#0B1325] border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-colors" placeholder="account@trailguard.com" required>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-300 mb-2">Password</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <i class="fa-solid fa-lock text-gray-500"></i>
+                            </div>
+                            <input type="password" id="password" name="password" class="block w-full pl-11 pr-12 py-3 bg-[#0B1325] border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-colors" placeholder="••••••••" required>
+                            <button type="button" id="togglePasswordBtn" class="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-500 hover:text-gray-300 focus:outline-none">
+                                <i id="eyeIcon" class="fa-regular fa-eye"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="flex items-center justify-between mt-3">
+                            <div class="flex items-center">
+                                <input id="remember-me" name="remember-me" type="checkbox" class="h-4 w-4 rounded border-gray-700 bg-[#0B1325] text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-900 cursor-pointer">
+                                <label for="remember-me" class="ml-2 block text-sm text-gray-400 cursor-pointer">
+                                    Remember me
+                                </label>
+                            </div>
+                            <a href="#" class="text-sm font-medium text-purple-400 hover:text-purple-300 transition-colors">Forgot Password?</a>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full flex justify-center py-3.5 px-4 mt-2 border border-transparent rounded-xl shadow-sm text-sm font-bold text-white bg-linear-to-r from-orange-500 via-purple-500 to-pink-500 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 focus:ring-offset-[#000714] transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/25 hover:-translate-y-0.5">
+                        Sign In
+                    </button>
+                </form>
+
+                <div class="mt-8 text-center text-sm text-gray-400">
+                    Don't have an account? 
+                    <a href="#" class="font-bold text-orange-400 hover:text-orange-300 transition-colors">Create one now</a>
+                </div>
+            </div>
+
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const togglePasswordBtn = document.getElementById("togglePasswordBtn");
+            const passwordInput = document.getElementById("password");
+            const eyeIcon = document.getElementById("eyeIcon");
+
+            if (togglePasswordBtn && passwordInput && eyeIcon) {
+                togglePasswordBtn.addEventListener("click", function () {
+                    const isPassword = passwordInput.getAttribute("type") === "password";
+                    
+                    passwordInput.setAttribute("type", isPassword ? "text" : "password");
+                
+                    if (isPassword) {
+                        eyeIcon.classList.remove("fa-eye");
+                        eyeIcon.classList.add("fa-eye-slash");
+                    } else {
+                        eyeIcon.classList.remove("fa-eye-slash");
+                        eyeIcon.classList.add("fa-eye");
+                    }
+                });
+            }
+        });
+    </script>
+}
