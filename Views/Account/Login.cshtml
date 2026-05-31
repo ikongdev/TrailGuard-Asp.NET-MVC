@@ -1,3 +1,5 @@
+@model TrailGuard.Models.LoginViewModel
+
 @{
     ViewData["Title"] = "Log in";
 }
@@ -26,8 +28,8 @@
                     <p class="text-gray-400 text-sm">Sign in to continue your adventure.</p>
                 </div>
 
-                <form action="#" method="POST" class="space-y-6">
-                    
+                <form asp-action="Login" method="POST" class="space-y-6">
+                    <div asp-validation-summary="All" class="text-red-500 text-xs mb-5"></div>
                     <div>
                         <label for="email" class="block text-sm font-medium text-gray-300 mb-2">Email Address</label>
                         <div class="relative">
@@ -68,7 +70,7 @@
 
                 <div class="mt-8 text-center text-sm text-gray-400">
                     Don't have an account? 
-                    <a href="#" class="font-bold text-orange-400 hover:text-orange-300 transition-colors">Create one now</a>
+                    <a asp-controller="Account" asp-action="Register" class="font-bold text-orange-400 hover:text-orange-300 transition-colors">Create one now</a>
                 </div>
             </div>
 

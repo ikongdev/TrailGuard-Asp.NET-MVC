@@ -19,6 +19,31 @@ public class AccountController : Controller
         return View();
     }
 
+    [HttpPost]
+public async Task<IActionResult> Login(LoginViewModel model)
+{
+    if (ModelState.IsValid)
+    {
+        var result = await _signInManager.PasswordSignInAsync(model.Email, model.Password, model.RememberMe, lockoutOnFailure: false);
+
+        if (result.Succeeded)
+        {
+            return RedirectToAction("Index", "Home");
+        }
+        else if (result.IsLockedOut)
+        {
+            ModelState.AddModelError(string.Empty, "This account has been locked. Please contact support.");
+            return View(model);
+        }
+        else
+        {
+            ModelState.AddModelError(string.Empty, "Invalid email or password.");
+            return View(model);
+        }
+    }
+    return View(model);
+}
+
     [HttpGet]
     public IActionResult Register() => View();
 
