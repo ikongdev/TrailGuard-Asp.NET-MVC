@@ -1,0 +1,264 @@
+@model TrailGuard.Models.AccountManagementViewModel
+
+@{
+    ViewData["Title"] = "Account Management";
+}
+
+@section PageHero {
+    <div class="pt-24 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
+        
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-linear-to-r from-orange-400 to-purple-400">Account Management</h1>
+                <p class="text-gray-400 mt-1 text-sm">Manage user roles, statuses, and system access.</p>
+            </div>
+            
+            <button class="bg-linear-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white px-5 py-2.5 rounded-full font-bold text-sm flex items-center gap-2 shadow-[0_0_15px_rgba(249,115,22,0.3)] transition-all">
+                <i class="fa-solid fa-plus"></i> Add Account
+            </button>
+        </div>
+
+        <!-- GLASSMORPHIC SUMMARY CARDS -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+            
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl flex flex-col justify-between relative overflow-hidden group hover:bg-white/10 transition-all duration-300">
+                <div class="absolute -right-6 -top-6 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-all duration-500"></div>
+                <div class="flex items-center justify-between mb-4 relative z-10">
+                    <h3 class="text-gray-300 text-sm font-medium">Total Accounts</h3>
+                    <div class="w-10 h-10 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center backdrop-blur-sm">
+                        <i class="fa-solid fa-users text-blue-400 text-sm"></i>
+                    </div>
+                </div>
+                <p class="text-4xl font-black text-white relative z-10">@Model.TotalAccounts</p>
+            </div>
+
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl flex flex-col justify-between relative overflow-hidden group hover:bg-white/10 transition-all duration-300">
+                <div class="absolute -right-6 -top-6 w-24 h-24 bg-purple-500/10 rounded-full blur-2xl group-hover:bg-purple-500/20 transition-all duration-500"></div>
+                <div class="flex items-center justify-between mb-4 relative z-10">
+                    <h3 class="text-gray-300 text-sm font-medium">Total Organizers</h3>
+                    <div class="w-10 h-10 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center backdrop-blur-sm">
+                        <i class="fa-solid fa-user-tie text-purple-400 text-sm"></i>
+                    </div>
+                </div>
+                <p class="text-4xl font-black text-white relative z-10">@Model.TotalOrganizers</p>
+            </div>
+
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl flex flex-col justify-between relative overflow-hidden group hover:bg-white/10 transition-all duration-300">
+                <div class="absolute -right-6 -top-6 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl group-hover:bg-emerald-500/20 transition-all duration-500"></div>
+                <div class="flex items-center justify-between mb-4 relative z-10">
+                    <h3 class="text-gray-300 text-sm font-medium">Total Participants</h3>
+                    <div class="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center backdrop-blur-sm">
+                        <i class="fa-solid fa-person-hiking text-emerald-400 text-sm"></i>
+                    </div>
+                </div>
+                <p class="text-4xl font-black text-white relative z-10">@Model.TotalParticipants</p>
+            </div>
+
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl flex flex-col justify-between relative overflow-hidden group hover:bg-white/10 transition-all duration-300">
+                <div class="absolute -right-6 -top-6 w-24 h-24 bg-orange-500/10 rounded-full blur-2xl group-hover:bg-orange-500/20 transition-all duration-500"></div>
+                <div class="flex items-center justify-between mb-4 relative z-10">
+                    <h3 class="text-gray-300 text-sm font-medium">Active Accounts</h3>
+                    <div class="w-10 h-10 rounded-full bg-orange-500/20 border border-orange-500/30 flex items-center justify-center backdrop-blur-sm">
+                        <i class="fa-solid fa-user-check text-orange-400 text-sm"></i>
+                    </div>
+                </div>
+                <p class="text-4xl font-black text-white relative z-10">@Model.ActiveAccounts</p>
+            </div>
+        </div>
+
+        <!-- GLASSMORPHIC FILTER BAR & DROPDOWNS -->
+        <div class="flex flex-col lg:flex-row gap-4 mb-6 bg-white/5 backdrop-blur-xl p-5 rounded-3xl border border-white/10 shadow-2xl">
+            <div class="relative grow">
+                <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                <input type="text" id="searchInput" placeholder="Search accounts by name or email..." 
+                    class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-11 pr-4 py-3 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 focus:outline-none transition-colors placeholder-gray-500">
+            </div>
+
+            <div class="flex flex-wrap sm:flex-nowrap gap-3">
+                <select id="roleFilter" class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-orange-500 focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors" 
+                        style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 14px center; background-size: 16px;">
+                    <option value="all" class="bg-[#0B1325] text-white">All Roles</option>
+                    <option value="admin" class="bg-[#0B1325] text-white">Admin</option>
+                    <option value="organizer" class="bg-[#0B1325] text-white">Organizer</option>
+                    <option value="participant" class="bg-[#0B1325] text-white">Participant</option>
+                </select>
+
+                <select id="statusFilter" class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-orange-500 focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors"
+                        style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 14px center; background-size: 16px;">
+                    <option value="all" class="bg-[#0B1325] text-white">All Status</option>
+                    <option value="active" class="bg-[#0B1325] text-white">Active</option>
+                    <option value="disabled" class="bg-[#0B1325] text-white">Disabled</option>
+                </select>
+
+                <select id="sortFilter" class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-orange-500 focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors"
+                        style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 14px center; background-size: 16px;">
+                    <option value="newest" class="bg-[#0B1325] text-white">Sort by: Newest</option>
+                    <option value="oldest" class="bg-[#0B1325] text-white">Sort by: Oldest</option>
+                    <option value="name" class="bg-[#0B1325] text-white">Name (A-Z)</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- GLASSMORPHIC TABLE -->
+        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden overflow-x-auto shadow-2xl">
+            <table class="w-full text-left border-collapse whitespace-nowrap">
+                <thead class="bg-white/5 border-b border-white/10 text-xs uppercase text-gray-400 font-semibold tracking-wider">
+                    <tr>
+                        <th class="px-6 py-5">Name</th>
+                        <th class="px-6 py-5">Email</th>
+                        <th class="px-6 py-5">Role</th>
+                        <th class="px-6 py-5">Status</th>
+                        <th class="px-6 py-5">Date Created</th>
+                        <th class="px-6 py-5 text-right">Actions</th>
+                    </tr>
+                </thead>
+                
+                <tbody id="tableBody" class="divide-y divide-white/5">
+                    @if (Model.Accounts.Any())
+                    {
+                        foreach (var account in Model.Accounts)
+                        {
+                            var roleColorClass = account.Role == "Admin" ? "text-orange-300 bg-orange-500/10 border-orange-500/20" : 
+                                                 account.Role == "Organizer" ? "text-blue-300 bg-blue-500/10 border-blue-500/20" : 
+                                                 "text-purple-300 bg-purple-500/10 border-purple-500/20";
+                                                 
+                            var initialColorClass = account.Role == "Admin" ? "from-orange-500 to-purple-600" : 
+                                                    account.Role == "Organizer" ? "from-blue-500 to-cyan-500" : 
+                                                    "from-purple-500 to-pink-500";
+                                                    
+                            var statusOpacity = account.IsActive ? "" : "opacity-60 grayscale-[50%]";
+                            var avatarBg = account.IsActive ? $"bg-gradient-to-r {initialColorClass}" : "bg-white/10 border border-white/20";
+                            var nameTextColor = account.IsActive ? "text-white" : "text-gray-400";
+
+                            <tr class="account-row hover:bg-white/5 transition-colors @statusOpacity"
+                                data-name="@account.FullName"
+                                data-email="@account.Email"
+                                data-role="@account.Role"
+                                data-status="@(account.IsActive ? "active" : "disabled")"
+                                data-date="@account.DateCreated">
+                                
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-full @avatarBg flex items-center justify-center text-white font-bold text-sm shadow-lg">
+                                            @account.Initials
+                                        </div>
+                                        <span class="@nameTextColor font-medium tracking-wide">@account.FullName</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-gray-400 text-sm">@account.Email</td>
+                                <td class="px-6 py-4">
+                                    <span class="@roleColorClass border px-3 py-1.5 rounded-full text-xs font-semibold tracking-wide backdrop-blur-sm">
+                                        @account.Role
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    @if (account.IsActive)
+                                    {
+                                        <div class="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full w-max backdrop-blur-sm">
+                                            <div class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"></div>
+                                            <span class="text-emerald-300 text-xs font-semibold tracking-wide">Active</span>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="flex items-center gap-2 bg-red-500/10 border border-red-500/20 px-3 py-1.5 rounded-full w-max backdrop-blur-sm">
+                                            <div class="w-2 h-2 rounded-full bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.8)]"></div>
+                                            <span class="text-red-300 text-xs font-semibold tracking-wide">Disabled</span>
+                                        </div>
+                                    }
+                                </td>
+                                <td class="px-6 py-4 text-gray-400 text-sm font-medium">@account.DateCreated</td>
+                                <td class="px-6 py-4 text-right">
+                                    <form asp-controller="Admin" asp-action="ToggleAccountStatus" method="post" class="m-0 p-0 inline-block">
+                                        <input type="hidden" name="id" value="@account.Id" />
+                                        @if (account.IsActive)
+                                        {
+                                            <button type="submit" class="text-red-300 hover:text-white bg-red-500/10 hover:bg-red-500 border border-red-500/30 px-4 py-2 rounded-full text-xs font-semibold transition-all backdrop-blur-sm">
+                                                Disable
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button type="submit" class="text-emerald-300 hover:text-white bg-emerald-500/10 hover:bg-emerald-500 border border-emerald-500/30 px-4 py-2 rounded-full text-xs font-semibold transition-all backdrop-blur-sm">
+                                                Enable
+                                            </button>
+                                        }
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="6" class="px-6 py-12 text-center text-gray-400 bg-white/5">
+                                <i class="fa-solid fa-folder-open text-3xl mb-3 opacity-50"></i>
+                                <p>No accounts found.</p>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const searchInput = document.getElementById("searchInput");
+        const roleFilter = document.getElementById("roleFilter");
+        const statusFilter = document.getElementById("statusFilter");
+        const sortFilter = document.getElementById("sortFilter");
+        const tableBody = document.getElementById("tableBody");
+        
+        if (!searchInput || !tableBody) return;
+
+        const rows = Array.from(document.querySelectorAll(".account-row"));
+
+        function updateTable() {
+            const searchVal = (searchInput.value || "").toLowerCase();
+            const roleVal = (roleFilter.value || "").toLowerCase();
+            const statusVal = (statusFilter.value || "").toLowerCase();
+            const sortVal = sortFilter.value;
+
+            let visibleRows = rows.filter(row => {
+
+                const name = (row.getAttribute("data-name") || "").toLowerCase();
+                const email = (row.getAttribute("data-email") || "").toLowerCase();
+                const role = (row.getAttribute("data-role") || "").toLowerCase();
+                const status = (row.getAttribute("data-status") || "").toLowerCase();
+
+                const matchesSearch = name.includes(searchVal) || email.includes(searchVal);
+                const matchesRole = roleVal === "all" || role === roleVal;
+                const matchesStatus = statusVal === "all" || status === statusVal;
+
+                if (matchesSearch && matchesRole && matchesStatus) {
+                    row.style.display = ""; 
+                    return true;
+                } else {
+                    row.style.display = "none"; 
+                    return false;
+                }
+            });
+            visibleRows.sort((a, b) => {
+                if (sortVal === "name") {
+                    return (a.getAttribute("data-name") || "").localeCompare(b.getAttribute("data-name") || "");
+                } else {
+                    const dateA = new Date(a.getAttribute("data-date") || 0);
+                    const dateB = new Date(b.getAttribute("data-date") || 0);
+                    
+                    if (sortVal === "newest") return dateB - dateA;
+                    if (sortVal === "oldest") return dateA - dateB;
+                }
+                return 0;
+            });
+
+            visibleRows.forEach(row => tableBody.appendChild(row));
+        }
+
+        searchInput.addEventListener("input", updateTable);
+        roleFilter.addEventListener("change", updateTable);
+        statusFilter.addEventListener("change", updateTable);
+        sortFilter.addEventListener("change", updateTable);
+    });
+</script>

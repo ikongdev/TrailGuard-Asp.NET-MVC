@@ -34,21 +34,26 @@
         <partial name="Components/_NavbarPublic" />
     }
 </head>
-<body id="top" class="flex flex-col min-h-screen">
 
-    <section id="home" class="relative min-h-screen bg-cover bg-center bg-no-repeat"
-             style="background-image: url('/images/bg-image.png');">
+<body id="top" class="flex flex-col min-h-screen bg-[#000714] relative">
 
-        <div class="relative z-10">
-            @RenderSection("PageHero", required: false)
-        </div>
+    <div class="absolute top-0 left-0 w-full h-screen z-0 bg-[url('/images/bg-image.png')] bg-cover bg-center bg-no-repeat">
+
+        <div class="absolute inset-0 bg-linear-to-b from-transparent via-transparent to-[#000714]"></div>
+
+    </div>
+
+    <section id="home" class="relative z-10 w-full">
+        @RenderSection("PageHero", required: false)
     </section>
 
-    <main class="grow bg-[#000714] text-white">
+    <main class="grow text-white w-full relative z-10">
         @RenderBody()
     </main>
 
-    <partial name="Components/_Footer" />
+    <div class="relative z-10 w-full">
+        <partial name="Components/_Footer" />
+    </div>
 
     <button id="backToTopBtn" class="fixed bottom-8 right-8 z-50 w-10 h-10 flex items-center justify-center rounded-full border border-purple-500/50 text-purple-400 bg-transparent shadow-lg transition-all duration-300 opacity-0 translate-y-10 pointer-events-none hover:border-purple-400 hover:text-purple-300 hover:bg-purple-500/10 hover:shadow-purple-500/20 hover:-translate-y-1 cursor-pointer">
         <i class="fa-solid fa-arrow-up text-sm"></i>
@@ -91,7 +96,6 @@
 
                         navLinks.forEach(link => {
                             link.classList.remove("bg-white/15", "text-white", "font-bold", "ring-1", "ring-white/30");
-
                             link.classList.add("text-white/80");
                             
                             if (link.getAttribute("href").endsWith(`#${currentId}`)) {

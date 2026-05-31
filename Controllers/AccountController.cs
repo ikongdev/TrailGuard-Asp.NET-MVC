@@ -87,7 +87,9 @@ namespace TrailGuard.Controllers
                 Email = model.Email,
                 FirstName = model.FirstName,
                 MiddleName = model.MiddleName,
-                LastName = model.LastName
+                LastName = model.LastName,
+                IsActive = true,
+                DateCreated = DateTime.Now
             };
 
             var result = await _userManager.CreateAsync(user, model.Password);
