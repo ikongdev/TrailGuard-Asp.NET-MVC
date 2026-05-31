@@ -1,10 +1,11 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - TrailGuard</title>
     
+    <link rel="icon" href="/images/logo.png" type="image/x-icon" />
     <link rel="stylesheet" href="~/css/output.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/lib/font-awesome/css/all.min.css" asp-append-version="true"/>
     <script src="~/animation/lottie-player.js"></script>
@@ -12,28 +13,80 @@
 </head>
 <body id="top" class="flex flex-col min-h-screen">
     
-    <!-- Navbar -->
     <partial name="Components/_Navbar" />
 
-    <section class="relative h-screen bg-cover bg-center bg-no-repeat"
+    <section id="home" class="relative h-screen bg-cover bg-center bg-no-repeat"
              style="background-image: url('/images/bg-image.png');">
 
-        <!-- Dark overlay -->
-        @* <div class="absolute inset-0 bg-[#000714]/70"></div> *@
-
-        <!-- Optional space/container over image -->
         <div class="relative z-10">
             @RenderSection("PageHero", required: false)
         </div>
     </section>
 
-    <!-- Main Content -->
     <main class="grow bg-[#000714] text-white">
         @RenderBody()
     </main>
 
-    <!-- Footer -->
     <partial name="Components/_Footer" />
+
+    <button id="backToTopBtn" class="fixed bottom-8 right-8 z-50 w-10 h-10 flex items-center justify-center rounded-full border border-purple-500/50 text-purple-400 bg-transparent shadow-lg transition-all duration-300 opacity-0 translate-y-10 pointer-events-none hover:border-purple-400 hover:text-purple-300 hover:bg-purple-500/10 hover:shadow-purple-500/20 hover:-translate-y-1 cursor-pointer">
+        <i class="fa-solid fa-arrow-up text-sm"></i>
+    </button>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const backToTopBtn = document.getElementById("backToTopBtn");
+
+            window.addEventListener("scroll", function () {
+                if (window.scrollY > 300) {
+                    backToTopBtn.classList.remove("opacity-0", "translate-y-10", "pointer-events-none");
+                    backToTopBtn.classList.add("opacity-100", "translate-y-0", "pointer-events-auto");
+                } else {
+                    backToTopBtn.classList.remove("opacity-100", "translate-y-0", "pointer-events-auto");
+                    backToTopBtn.classList.add("opacity-0", "translate-y-10", "pointer-events-none");
+                }
+            });
+
+            backToTopBtn.addEventListener("click", function () {
+                window.scrollTo({
+                    top: 0,
+                    behavior: "smooth"
+                });
+            });
+
+            const sections = document.querySelectorAll("section[id]");
+            const navLinks = document.querySelectorAll(".nav-link");
+
+            const spyOptions = {
+                root: null,
+                rootMargin: "-20% 0px -40% 0px",
+                threshold: 0
+            };
+
+            const spyObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const currentId = entry.target.getAttribute("id");
+
+                        navLinks.forEach(link => {
+                            link.classList.remove("bg-white/15", "text-white", "font-bold", "ring-1", "ring-white/30");
+
+                            link.classList.add("text-white/80");
+                            
+                            if (link.getAttribute("href") === `#${currentId}`) {
+                                link.classList.remove("text-white/80");
+                                link.classList.add("bg-white/15", "text-white", "font-bold", "ring-1", "ring-white/30"); 
+                            }
+                        });
+                    }
+                });
+            }, spyOptions);
+
+            sections.forEach(section => {
+                spyObserver.observe(section);
+            });
+        });
+    </script>
 
     @await RenderSectionAsync("Scripts", required: false)
 </body>

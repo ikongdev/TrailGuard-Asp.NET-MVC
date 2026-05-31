@@ -25,12 +25,10 @@
     font-weight: 700;
 }
 
-/* Sinasabihan ang Tailwind v4 engine na Poppins ang default sans font */
 @theme {
     --font-sans: 'Poppins', sans-serif;
 }
 
-/* Awtomatikong nilalagyan ang body ng font-sans class ng Tailwind v4 */
 @layer base {
     html {
         scroll-behavior: smooth;

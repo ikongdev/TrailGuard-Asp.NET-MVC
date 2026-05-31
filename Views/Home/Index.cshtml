@@ -8,7 +8,7 @@
 @* Hero Section *@
 @section PageHero {
     <div class="min-h-[calc(100vh-90px)] flex items-center justify-center text-center">
-        <div id="#home" class="max-w-3xl pt-19 mx-auto px-6">
+        <div class="max-w-3xl pt-19 mx-auto px-6">
 
             <div class="inline-flex items-center px-4 py-1.5 rounded-full bg-white/10 border border-white/10 backdrop-blur-sm mb-6">
                 <span class="text-sm bg-linear-to-r from-orange-400 via-pink-500 to-violet-500 bg-clip-text text-transparent tracking-wide">
@@ -37,11 +37,18 @@
                     { "Icon", "fa-solid fa-arrow-right" }
                 }' />
         </div>
+        
+        <div class="absolute -bottom-20 left-1/2 -translate-x-1/2">
+            <a href="#about" id="scroll-to-about" class="text-white/60 hover:text-white transition-colors duration-300 flex justify-center">
+                <i class="fa-solid fa-arrow-down text-xl md:text-2xl animate-bounce"></i>
+            </a>
+        </div>
+
     </div>
 }
 
 @* About Section *@
-<section id="about" class="min-h-screen flex items-center py-16 md:py-20">
+<section id="about" class="scroll-reveal opacity-0 translate-y-12 transition-all duration-1000 ease-out min-h-screen flex items-center py-16 md:py-20">
     
     <div class="max-w-5xl mx-auto px-4 sm:px-6 w-full">
 
@@ -88,7 +95,7 @@
 </section>
 
 @* Popular Trails *@
-<section id="trails" class="min-h-screen flex items-center pt-20 pb-18">
+<section id="trails" class="scroll-reveal opacity-0 translate-y-12 transition-all duration-1000 ease-out py-24 bg-[#000714]">
     <div class="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
         <div class="text-center mb-20">
             <div class="flex items-center justify-center space-x-3 mb-5">
@@ -106,7 +113,7 @@
         <div class="border border-gray-800/60 bg-[#0A1122]/40 rounded-[2.5rem] p-8 md:p-12 shadow-2xl shadow-indigo-950/10">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-10">
                 
-                <div class="bg-[#0B1325] rounded-4xl overflow-hidden border border-purple-500/40 hover:border-purple-500/80 hover:shadow-purple-500/20 hover:shadow-2xl transition-all duration-300 flex flex-col group h-full">
+                <div class="bg-[#0B1325] rounded-4xl overflow-hidden border border-red-500/40 hover:border-red-500/80 hover:shadow-red-500/20 hover:shadow-2xl transition-all duration-300 flex flex-col group h-full">
                     <div class="relative h-40 sm:h-44 w-full overflow-hidden shrink-0">
                         <img src="/images/trails/Mt.Pulag.jpg" alt="Mt. Apo" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
                         <div class="absolute inset-0 bg-linear-to-t from-[#0B1325] to-transparent opacity-90"></div>
@@ -268,8 +275,84 @@
 </section>
 
 @* How it Works *@
-<section id="how-it-works" class="min-h-screen flex items-center pt-20 pb-18">
+<section id="how-it-works" class="scroll-reveal opacity-0 translate-y-12 transition-all duration-1000 ease-out py-24 bg-[#000714]">
+    <div class="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
+        <div class="text-center mb-20">
+            <div class="flex items-center justify-center space-x-3 mb-5">
+                <span class="text-orange-500 text-3xl font-extralight">•</span>
+                <h2 class="text-transparent bg-clip-text bg-linear-to-r from-orange-400 via-purple-500 to-pink-500 font-extrabold text-2xl tracking-[0.2em] uppercase">
+                    How it Works
+                </h2>
+                <span class="text-purple-500 text-3xl font-extralight">•</span>
+            </div>
+            <p class="text-white text-3xl md:text-4xl font-black leading-tight tracking-tighter max-w-3xl mx-auto">
+                Three steps from couch to summit
+            </p>
+        </div>
 
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12 relative">
+            <div class="hidden md:block absolute top-[40%] left-0 w-full h-0.5 bg-linear-to-r from-orange-500/20 via-purple-500/20 to-pink-500/20 -z-10"></div>
 
+            <div class="bg-[#0A1122]/80 border border-gray-800/60 rounded-[2.5rem] p-10 text-center hover:border-orange-500/50 hover:shadow-orange-500/10 hover:shadow-2xl transition-all duration-500 flex flex-col items-center group relative z-10 backdrop-blur-sm">
+                <div class="w-24 h-24 bg-[#0B1325] rounded-full border border-gray-700 flex items-center justify-center mb-8 group-hover:-translate-y-2 group-hover:border-orange-500/50 transition-all duration-300 shadow-xl shadow-black/50">
+                    <i class="fa-solid fa-clipboard-list text-3xl text-orange-400"></i>
+                </div>
+                <h3 class="text-white font-bold text-2xl mb-4">Assess</h3>
+                <p class="text-gray-400 text-base leading-relaxed">
+                    Hikers answer a suitability assessment based on experience, fitness, and readiness.
+                </p>
+            </div>
 
+            <div class="bg-[#0A1122]/80 border border-gray-800/60 rounded-[2.5rem] p-10 text-center hover:border-purple-500/50 hover:shadow-purple-500/10 hover:shadow-2xl transition-all duration-500 flex flex-col items-center group relative z-10 backdrop-blur-sm">
+                <div class="w-24 h-24 bg-[#0B1325] rounded-full border border-gray-700 flex items-center justify-center mb-8 group-hover:-translate-y-2 group-hover:border-purple-500/50 transition-all duration-300 shadow-xl shadow-black/50">
+                    <i class="fa-solid fa-mountain text-3xl text-purple-400"></i>
+                </div>
+                <h3 class="text-white font-bold text-2xl mb-4">Match</h3>
+                <p class="text-gray-400 text-base leading-relaxed">
+                    TrailGuard recommends suitable trails or events based on the participant's profile.
+                </p>
+            </div>
+
+            <div class="bg-[#0A1122]/80 border border-gray-800/60 rounded-[2.5rem] p-10 text-center hover:border-pink-500/50 hover:shadow-pink-500/10 hover:shadow-2xl transition-all duration-500 flex flex-col items-center group relative z-10 backdrop-blur-sm">
+                <div class="w-24 h-24 bg-[#0B1325] rounded-full border border-gray-700 flex items-center justify-center mb-8 group-hover:-translate-y-2 group-hover:border-pink-500/50 transition-all duration-300 shadow-xl shadow-black/50">
+                    <i class="fa-solid fa-person-hiking text-3xl text-pink-400"></i>
+                </div>
+                <h3 class="text-white font-bold text-2xl mb-4">Hike</h3>
+                <p class="text-gray-400 text-base leading-relaxed">
+                    Organizers guide approved participants with trail details, reminders, and event instructions.
+                </p>
+            </div>
+        </div>
+    </div>
 </section>
+
+@section Scripts {
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.remove('opacity-0', 'translate-y-12');
+                        entry.target.classList.add('opacity-100', 'translate-y-0');
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, {
+                threshold: 0.15 
+            });
+
+            const hiddenElements = document.querySelectorAll('.scroll-reveal');
+            hiddenElements.forEach((el) => observer.observe(el));
+
+            const scrollArrow = document.getElementById('scroll-to-about');
+            if (scrollArrow) {
+                scrollArrow.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    document.querySelector('#about').scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                });
+            }
+        });
+    </script>
+}
