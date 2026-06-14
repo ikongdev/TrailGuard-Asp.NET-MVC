@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TrailGuard.Data;
 
@@ -11,9 +12,11 @@ using TrailGuard.Data;
 namespace TrailGuard.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260614111051_AddTrailTable")]
+    partial class AddTrailTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -250,15 +253,8 @@ namespace TrailGuard.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("AdditionalMediaUrls")
-                        .HasColumnType("longtext");
-
                     b.Property<DateTime>("DateAdded")
                         .HasColumnType("datetime(6)");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasColumnType("longtext");
 
                     b.Property<string>("Difficulty")
                         .IsRequired()
@@ -267,12 +263,11 @@ namespace TrailGuard.Migrations
                     b.Property<double>("DistanceKm")
                         .HasColumnType("double");
 
-                    b.Property<string>("Duration")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
                     b.Property<int>("ElevationGainMeters")
                         .HasColumnType("int");
+
+                    b.Property<string>("ImageUrl")
+                        .HasColumnType("longtext");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("tinyint(1)");
@@ -287,9 +282,6 @@ namespace TrailGuard.Migrations
 
                     b.Property<string>("Terrain")
                         .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("ThumbnailUrl")
                         .HasColumnType("longtext");
 
                     b.HasKey("Id");

@@ -1,3 +1,4 @@
+@model IEnumerable<TrailGuard.Models.Trail>
 @{
     ViewData["Title"] = "Trail Management";
 }
@@ -14,162 +15,524 @@
             <div class="flex flex-wrap items-center gap-4">
                 <div class="bg-white/5 border border-white/10 px-4 py-2.5 rounded-full flex items-center gap-2 backdrop-blur-sm shadow-lg">
                     <i class="fa-solid fa-mountain text-gray-400"></i>
-                    <span class="text-sm font-medium text-gray-300">Total Trails: <strong class="text-white">24</strong></span>
+                    <span class="text-sm font-medium text-gray-300">Total Trails: <strong class="text-white">@Model.Count()</strong></span>
                 </div>
                 
-                <a href="#" class="bg-linear-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white px-5 py-2.5 rounded-full font-bold text-sm flex items-center gap-2 shadow-[0_0_15px_rgba(249,115,22,0.3)] transition-all">
-                    <i class="fa-solid fa-plus"></i> Add Trail
-                </a>
+                <button onclick="openAddTrailModal()" class="group inline-flex items-center justify-center gap-2 px-7 py-3 text-sm rounded-full bg-linear-to-r from-orange-400 via-pink-500 to-violet-500 text-white font-bold shadow-lg shadow-violet-500/30 hover:scale-105 hover:opacity-90 transform transition duration-300 ease-out">
+                    <span>Add Trail</span>
+                    <i class="fa-solid fa-plus transition-transform duration-300 group-hover:translate-x-1"></i>
+                </button>
             </div>
         </div>
 
-        <div class="flex flex-col lg:flex-row gap-4 mb-8 bg-white/5 backdrop-blur-xl p-5 rounded-3xl border border-white/10 shadow-2xl">
-            <div class="relative grow">
-                <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                <input type="text" placeholder="Search trails by name, location, or terrain..." 
-                    class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-11 pr-4 py-3 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 focus:outline-none transition-colors placeholder-gray-500">
-            </div>
+        <form method="get" asp-action="Index" id="filterForm">
+            <div class="flex flex-col lg:flex-row gap-4 mb-8 bg-white/5 backdrop-blur-xl p-5 rounded-3xl border border-white/10 shadow-2xl">
+                
+                <div class="relative grow">
+                    <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    <input type="text" name="searchString" value="@ViewData["CurrentFilter"]" placeholder="Search trails by name, location, or terrain..." 
+                        class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-11 pr-4 py-3 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 focus:outline-none transition-colors placeholder-gray-500">
+                </div>
 
-            <div class="flex flex-wrap sm:flex-nowrap gap-3">
-                <select class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-orange-500 focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors" 
-                        style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 14px center; background-size: 16px;">
-                    <option value="all" class="bg-[#0B1325] text-white">All Difficulties</option>
-                    <option value="easy" class="bg-[#0B1325] text-white">Easy</option>
-                    <option value="moderate" class="bg-[#0B1325] text-white">Moderate</option>
-                    <option value="hard" class="bg-[#0B1325] text-white">Hard</option>
-                </select>
+                <div class="flex flex-wrap sm:flex-nowrap gap-3">
+                    <select name="difficulty" onchange="this.form.submit()" 
+                            class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-orange-500 focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors" 
+                            style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 14px center; background-size: 16px;">
+                        <option value="All" class="bg-[#0B1325] text-white">All Difficulties</option>
+                        <option value="Easy" selected="@(ViewData["CurrentDifficulty"]?.ToString() == "Easy")" class="bg-[#0B1325] text-white">Easy</option>
+                        <option value="Moderate" selected="@(ViewData["CurrentDifficulty"]?.ToString() == "Moderate")" class="bg-[#0B1325] text-white">Moderate</option>
+                        <option value="Hard" selected="@(ViewData["CurrentDifficulty"]?.ToString() == "Hard")" class="bg-[#0B1325] text-white">Hard</option>
+                        <option value="Extreme" selected="@(ViewData["CurrentDifficulty"]?.ToString() == "Extreme")" class="bg-[#0B1325] text-white">Extreme</option>
+                    </select>
 
-                <select class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-orange-500 focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors"
-                        style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 14px center; background-size: 16px;">
-                    <option value="newest" class="bg-[#0B1325] text-white">Sort by: Newest</option>
-                    <option value="oldest" class="bg-[#0B1325] text-white">Sort by: Oldest</option>
-                    <option value="az" class="bg-[#0B1325] text-white">Name (A-Z)</option>
-                </select>
+                    <select name="sortOrder" onchange="this.form.submit()"
+                            class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-orange-500 focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors"
+                            style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 14px center; background-size: 16px;">
+                        <option value="newest" selected="@(ViewData["CurrentSort"]?.ToString() == "newest")" class="bg-[#0B1325] text-white">Sort by: Newest</option>
+                        <option value="oldest" selected="@(ViewData["CurrentSort"]?.ToString() == "oldest")" class="bg-[#0B1325] text-white">Sort by: Oldest</option>
+                        <option value="name_asc" selected="@(ViewData["CurrentSort"]?.ToString() == "name_asc")" class="bg-[#0B1325] text-white">Name (A-Z)</option>
+                        <option value="name_desc" selected="@(ViewData["CurrentSort"]?.ToString() == "name_desc")" class="bg-[#0B1325] text-white">Name (Z-A)</option>
+                    </select>
+                </div>
             </div>
-        </div>
+        </form>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            
-            <!-- Trail Card 1: Mt. Pulag -->
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden shadow-2xl hover:bg-white/10 transition-all duration-300 group flex flex-col">
-                <div class="relative h-48 overflow-hidden">
-                    <img src="https://images.unsplash.com/photo-1518837695005-2083093ee35b?auto=format&fit=crop&w=600&q=80" alt="Mt. Pulag" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
-                    <div class="absolute inset-0 bg-linear-to-t from-[#0B1325] to-transparent opacity-90"></div>
+            @if (!Model.Any())
+            {
+                <div class="col-span-full text-center py-20 bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl">
+                    <i class="fa-solid fa-mountain text-5xl text-gray-500 mb-4"></i>
+                    <h3 class="text-xl font-bold text-gray-300">No trails found</h3>
+                    <p class="text-gray-500 mt-2">Try searching a different name or clearing the filters.</p>
                 </div>
-                <div class="p-6 flex flex-col grow relative z-10 -mt-10">
-                    <h3 class="text-xl font-bold text-white mb-1">Mt. Pulag Summit Trail</h3>
-                    <p class="text-gray-400 text-sm mb-5 flex items-center gap-1.5"><i class="fa-solid fa-location-dot text-red-400"></i> Kabayan, Benguet</p>
-                    
-                    <div class="grid grid-cols-2 gap-4 mb-6">
-                        <div>
-                            <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Distance</p>
-                            <p class="text-gray-200 text-sm font-medium flex items-center gap-2"><i class="fa-solid fa-route text-gray-400"></i> 14.5 km</p>
+            }
+            else
+            {
+                @foreach (var trail in Model)
+                {
+                    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden shadow-2xl hover:bg-white/10 transition-all duration-300 group flex flex-col">
+                        <div class="relative h-48 overflow-hidden bg-gray-900">
+                            @if (!string.IsNullOrEmpty(trail.ThumbnailUrl))
+                            {
+                                <img src="@trail.ThumbnailUrl" alt="@trail.Name" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
+                            }
+                            else
+                            {
+                                <div class="w-full h-full flex items-center justify-center">
+                                    <i class="fa-solid fa-image text-4xl text-gray-600"></i>
+                                </div>
+                            }
+                            <div class="absolute inset-0 bg-linear-to-t from-[#0B1325] to-transparent opacity-90"></div>
                         </div>
-                        <div>
-                            <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Elev. Gain</p>
-                            <p class="text-gray-200 text-sm font-medium flex items-center gap-2"><i class="fa-solid fa-arrow-trend-up text-gray-400"></i> 1,586 m</p>
-                        </div>
-                        <div>
-                            <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Terrain</p>
-                            <p class="text-gray-200 text-sm font-medium flex items-center gap-2"><i class="fa-solid fa-tree text-emerald-400"></i> Grassland</p>
-                        </div>
-                        <div>
-                            <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Difficulty</p>
-                            <span class="text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded text-xs font-semibold inline-block">Easy</span>
+                        
+                        <div class="p-6 flex flex-col grow relative z-10 -mt-10">
+                            <h3 class="text-xl font-bold text-white mb-1">@trail.Name</h3>
+                            <p class="text-gray-400 text-sm mb-5 flex items-center gap-1.5"><i class="fa-solid fa-location-dot text-red-400"></i> @trail.Location</p>
+                            
+                            <div class="grid grid-cols-2 gap-4 mb-6">
+                                <div>
+                                    <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Distance</p>
+                                    <p class="text-gray-200 text-sm font-medium flex items-center gap-2"><i class="fa-solid fa-route text-gray-400"></i> @trail.DistanceKm km</p>
+                                </div>
+                                <div>
+                                    <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Elev. Gain</p>
+                                    <p class="text-gray-200 text-sm font-medium flex items-center gap-2"><i class="fa-solid fa-arrow-trend-up text-gray-400"></i> @trail.ElevationGainMeters m</p>
+                                </div>
+                                <div>
+                                    <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Terrain</p>
+                                    <p class="text-gray-200 text-sm font-medium flex items-center gap-2 truncate" title="@trail.Terrain"><i class="fa-solid fa-tree text-emerald-400"></i> @trail.Terrain</p>
+                                </div>
+                                <div>
+                                    <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Difficulty</p>
+                                    @if (trail.Difficulty == "Easy") {
+                                        <span class="text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded text-xs font-semibold inline-block">Easy</span>
+                                    } else if (trail.Difficulty == "Moderate") {
+                                        <span class="text-orange-300 bg-orange-500/10 border border-orange-500/20 px-2 py-0.5 rounded text-xs font-semibold inline-block">Moderate</span>
+                                    } else if (trail.Difficulty == "Hard") {
+                                        <span class="text-red-300 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded text-xs font-semibold inline-block">Hard</span>
+                                    } else {
+                                        <span class="text-red-500 bg-red-900/40 border border-red-700/50 px-2 py-0.5 rounded text-xs font-bold inline-block">Extreme</span>
+                                    }
+                                </div>
+                            </div>
+
+                            <div class="flex gap-3 mt-auto">
+                                <button type="button" onclick="openViewModal(this)"
+                                        data-name="@trail.Name"
+                                        data-location="@trail.Location"
+                                        data-distance="@trail.DistanceKm"
+                                        data-elevation="@trail.ElevationGainMeters"
+                                        data-duration="@trail.Duration"
+                                        data-terrain="@trail.Terrain"
+                                        data-difficulty="@trail.Difficulty"
+                                        data-description="@trail.Description"
+                                        data-image="@(string.IsNullOrEmpty(trail.ThumbnailUrl) ? "" : trail.ThumbnailUrl)"
+                                        class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
+                                    <i class="fa-regular fa-eye"></i> View
+                                </button>
+                                <button class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-pen"></i> Edit
+                                </button>
+                            </div>
                         </div>
                     </div>
-
-                    <div class="flex gap-3 mt-auto">
-                        <button class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
-                            <i class="fa-regular fa-eye"></i> View
-                        </button>
-                        <button class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
-                            <i class="fa-solid fa-pen"></i> Edit
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Trail Card 2: Mt. Daraitan -->
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden shadow-2xl hover:bg-white/10 transition-all duration-300 group flex flex-col">
-                <div class="relative h-48 overflow-hidden">
-                    <img src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=600&q=80" alt="Mt. Daraitan" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
-                    <div class="absolute inset-0 bg-linear-to-t from-[#0B1325] to-transparent opacity-90"></div>
-                </div>
-                <div class="p-6 flex flex-col grow relative z-10 -mt-10">
-                    <h3 class="text-xl font-bold text-white mb-1">Mt. Daraitan</h3>
-                    <p class="text-gray-400 text-sm mb-5 flex items-center gap-1.5"><i class="fa-solid fa-location-dot text-red-400"></i> Tanay, Rizal</p>
-                    
-                    <div class="grid grid-cols-2 gap-4 mb-6">
-                        <div>
-                            <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Distance</p>
-                            <p class="text-gray-200 text-sm font-medium flex items-center gap-2"><i class="fa-solid fa-route text-gray-400"></i> 7.3 km</p>
-                        </div>
-                        <div>
-                            <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Elev. Gain</p>
-                            <p class="text-gray-200 text-sm font-medium flex items-center gap-2"><i class="fa-solid fa-arrow-trend-up text-gray-400"></i> 739 m</p>
-                        </div>
-                        <div>
-                            <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Terrain</p>
-                            <p class="text-gray-200 text-sm font-medium flex items-center gap-2"><i class="fa-solid fa-hill-rockslide text-orange-400"></i> Rocky, Forest</p>
-                        </div>
-                        <div>
-                            <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Difficulty</p>
-                            <span class="text-orange-300 bg-orange-500/10 border border-orange-500/20 px-2 py-0.5 rounded text-xs font-semibold inline-block">Moderate</span>
-                        </div>
-                    </div>
-
-                    <div class="flex gap-3 mt-auto">
-                        <button class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
-                            <i class="fa-regular fa-eye"></i> View
-                        </button>
-                        <button class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
-                            <i class="fa-solid fa-pen"></i> Edit
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Trail Card 3: Mt. Apo -->
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden shadow-2xl hover:bg-white/10 transition-all duration-300 group flex flex-col">
-                <div class="relative h-48 overflow-hidden">
-                    <img src="https://images.unsplash.com/photo-1622397333309-3056849bc70b?auto=format&fit=crop&w=600&q=80" alt="Mt. Apo" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
-                    <div class="absolute inset-0 bg-linear-to-t from-[#0B1325] to-transparent opacity-90"></div>
-                </div>
-                <div class="p-6 flex flex-col grow relative z-10 -mt-10">
-                    <h3 class="text-xl font-bold text-white mb-1">Mt. Apo Peak</h3>
-                    <p class="text-gray-400 text-sm mb-5 flex items-center gap-1.5"><i class="fa-solid fa-location-dot text-red-400"></i> Davao del Sur, Mindanao</p>
-                    
-                    <div class="grid grid-cols-2 gap-4 mb-6">
-                        <div>
-                            <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Distance</p>
-                            <p class="text-gray-200 text-sm font-medium flex items-center gap-2"><i class="fa-solid fa-route text-gray-400"></i> 18.2 km</p>
-                        </div>
-                        <div>
-                            <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Elev. Gain</p>
-                            <p class="text-gray-200 text-sm font-medium flex items-center gap-2"><i class="fa-solid fa-arrow-trend-up text-gray-400"></i> 2,954 m</p>
-                        </div>
-                        <div>
-                            <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Terrain</p>
-                            <p class="text-gray-200 text-sm font-medium flex items-center gap-2"><i class="fa-solid fa-volcano text-red-400"></i> Volcanic</p>
-                        </div>
-                        <div>
-                            <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Difficulty</p>
-                            <span class="text-red-300 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded text-xs font-semibold inline-block">Hard</span>
-                        </div>
-                    </div>
-
-                    <div class="flex gap-3 mt-auto">
-                        <button class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
-                            <i class="fa-regular fa-eye"></i> View
-                        </button>
-                        <button class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
-                            <i class="fa-solid fa-pen"></i> Edit
-                        </button>
-                    </div>
-                </div>
-            </div>
-
+                }
+            }
         </div>
     </div>
+}
+
+@section Modals {
+
+    <div id="viewTrailModal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4">
+        
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onclick="closeViewModal()"></div>
+
+        <div class="relative w-full max-w-6xl flex flex-col bg-gray-900 border border-white/10 rounded-3xl shadow-2xl overflow-hidden max-h-[95vh]">
+            
+            <div class="flex justify-between items-center px-8 py-5 border-b border-white/10 shrink-0 bg-gray-900 z-20">
+                <h3 class="text-xl font-bold text-white flex items-center gap-3">
+                    <i class="fa-solid fa-mountain text-orange-400"></i> Trail Verification
+                </h3>
+                <button type="button" onclick="closeViewModal()" class="text-gray-400 hover:text-white transition-colors bg-white/5 hover:bg-white/10 p-2 rounded-full">
+                    <i class="fa-solid fa-xmark text-lg w-5 h-5 flex items-center justify-center"></i>
+                </button>
+            </div>
+
+            <div class="p-8 overflow-y-auto custom-scrollbar relative">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    
+                    <div class="lg:col-span-2">
+                        
+                        <div class="relative h-96 rounded-3xl overflow-hidden mb-6 border border-white/10 group">
+                            <img id="viewHeroImage" src="" alt="Trail Hero" class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                            <div class="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/40 to-transparent"></div>
+                            
+                            <div class="absolute bottom-0 left-0 p-8 w-full z-10">
+                                <div class="flex items-center gap-3 mb-3">
+                                    <span class="px-3 py-1 bg-blue-500/20 text-blue-300 text-xs font-bold rounded-full border border-blue-500/30 backdrop-blur-sm">Verified Trail</span>
+                                </div>
+                                <h2 id="viewNameLarge" class="text-4xl font-bold text-white tracking-tight mb-2"></h2>
+                                <p id="viewLocationLarge" class="text-gray-300 text-lg flex items-center gap-2">
+                                    <i class="fa-solid fa-location-dot text-orange-400"></i> <span></span>
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-8 border-b border-white/10 mb-6 px-2">
+                            <button class="pb-3 text-orange-400 font-semibold border-b-2 border-orange-500 text-sm">Overview</button>
+                            <button class="pb-3 text-gray-500 font-medium text-sm hover:text-gray-300 transition-colors">Requirements</button>
+                            <button class="pb-3 text-gray-500 font-medium text-sm hover:text-gray-300 transition-colors">Organizer Details</button>
+                        </div>
+
+                        <div class="mb-8">
+                            <h3 class="text-lg font-bold text-white mb-4">About This Trail</h3>
+                            <p id="viewDescription" class="text-gray-400 text-sm leading-relaxed whitespace-pre-wrap"></p>
+                        </div>
+
+                        <div>
+                            <h4 class="text-sm font-bold text-gray-300 mb-3">Key Features / Terrain</h4>
+                            <div id="viewTerrainTags" class="flex flex-wrap gap-2.5">
+                                </div>
+                        </div>
+
+                    </div>
+
+                    <div class="lg:col-span-1">
+                        <div class="bg-white/5 border border-white/10 rounded-3xl p-7 shadow-xl backdrop-blur-sm">
+                            <h3 class="text-base font-bold text-white mb-6">Trail Statistics</h3>
+                            
+                            <div class="space-y-5">
+                                <div class="flex items-center justify-between gap-4 pb-3 border-b border-white/5">
+                                    <div class="flex items-center gap-3 text-gray-400">
+                                        <i class="fa-solid fa-location-dot w-5 text-center"></i> <span class="text-sm font-medium">Location</span>
+                                    </div>
+                                    <p id="viewStatLocation" class="text-sm text-white font-semibold text-right"></p>
+                                </div>
+                                <div class="flex items-center justify-between gap-4 pb-3 border-b border-white/5">
+                                    <div class="flex items-center gap-3 text-gray-400">
+                                        <i class="fa-solid fa-mountain w-5 text-center"></i> <span class="text-sm font-medium">Difficulty</span>
+                                    </div>
+                                    <span id="viewStatDifficulty" class="px-3 py-1 rounded text-xs font-bold uppercase tracking-wider"></span>
+                                </div>
+                                <div class="flex items-center justify-between gap-4 pb-3 border-b border-white/5">
+                                    <div class="flex items-center gap-3 text-gray-400">
+                                        <i class="fa-solid fa-arrow-trend-up w-5 text-center"></i> <span class="text-sm font-medium">Elev. Gain</span>
+                                    </div>
+                                    <p id="viewStatElevation" class="text-sm text-white font-semibold"></p>
+                                </div>
+                                <div class="flex items-center justify-between gap-4 pb-3 border-b border-white/5">
+                                    <div class="flex items-center gap-3 text-gray-400">
+                                        <i class="fa-solid fa-route w-5 text-center"></i> <span class="text-sm font-medium">Distance</span>
+                                    </div>
+                                    <p id="viewStatDistance" class="text-sm text-white font-semibold"></p>
+                                </div>
+                                <div class="flex items-center justify-between gap-4 pb-3 border-b border-white/5">
+                                    <div class="flex items-center gap-3 text-gray-400">
+                                        <i class="fa-solid fa-clock w-5 text-center"></i> <span class="text-sm font-medium">Duration</span>
+                                    </div>
+                                    <p id="viewStatDuration" class="text-sm text-white font-semibold"></p>
+                                </div>
+                                <div class="flex items-center justify-between gap-4">
+                                    <div class="flex items-center gap-3 text-gray-400">
+                                        <i class="fa-solid fa-tree w-5 text-center"></i> <span class="text-sm font-medium">Terrain</span>
+                                    </div>
+                                    <p id="viewStatTerrain" class="text-sm text-white font-semibold text-right truncate max-w-[150px]"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="px-8 py-5 border-t border-white/10 shrink-0 flex justify-end bg-gray-900 z-20">
+                <button type="button" onclick="closeViewModal()" class="px-7 py-2.5 rounded-full text-sm font-bold text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-colors shadow-lg">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="addTrailModal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity" onclick="closeAddTrailModal()"></div>
+        <div class="relative w-full max-w-6xl flex flex-col bg-gray-800 border border-gray-700 rounded-xl shadow-2xl overflow-hidden max-h-[95vh]">
+            <div class="flex justify-between items-center px-8 py-5 border-b border-gray-700 shrink-0">
+                <h3 class="text-xl font-bold text-white">Add Trail</h3>
+                <button type="button" onclick="closeAddTrailModal()" class="text-gray-400 hover:text-white transition-colors">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            <form id="addTrailForm" asp-controller="Trail" asp-action="AddTrail" method="post" enctype="multipart/form-data" class="flex flex-col flex-1 overflow-hidden relative z-10">
+                <div class="p-8 overflow-y-auto custom-scrollbar">
+                    <div class="grid grid-cols-1 lg:grid-cols-5 gap-10">
+                        <div class="lg:col-span-3 flex flex-col gap-5">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-1.5">Trail Name</label>
+                                <input name="Name" required class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-4 py-2.5 focus:border-blue-500 focus:outline-none transition-all placeholder-gray-400 text-sm" placeholder="e.g., Mt. Pulag" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-1.5">Location</label>
+                                <input name="Location" required class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-4 py-2.5 focus:border-blue-500 focus:outline-none transition-all placeholder-gray-400 text-sm" placeholder="e.g., Kabayan, Benguet" />
+                            </div>
+                            <div class="grid grid-cols-2 gap-5">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-300 mb-1.5">Total Distance (km)</label>
+                                    <input name="DistanceKm" type="number" step="0.1" required class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-4 py-2.5 focus:border-blue-500 focus:outline-none transition-all placeholder-gray-400 text-sm" placeholder="e.g., 14.5" />
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-300 mb-1.5">Elevation Gain (MASL)</label>
+                                    <input name="ElevationGainMeters" type="number" required class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-4 py-2.5 focus:border-blue-500 focus:outline-none transition-all placeholder-gray-400 text-sm" placeholder="e.g., 2928" />
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-5">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-300 mb-1.5">Estimated Duration</label>
+                                    <input type="text" name="Duration" required class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-4 py-2.5 focus:border-blue-500 focus:outline-none transition-all placeholder-gray-400 text-sm" placeholder="e.g., 2 Days, 1 Night" />
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-300 mb-1.5">Terrain Type</label>
+                                    <select name="Terrain" required class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-4 py-2.5 focus:border-blue-500 focus:outline-none appearance-none text-sm cursor-pointer"
+                                            style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;">
+                                        <option value="" disabled selected class="text-gray-400">Select Terrain</option>
+                                        <option value="Grassland" class="bg-gray-800">Grassland</option>
+                                        <option value="Mossy Forest" class="bg-gray-800">Mossy Forest</option>
+                                        <option value="Pine Forest" class="bg-gray-800">Pine Forest</option>
+                                        <option value="River Trek" class="bg-gray-800">River Trek</option>
+                                        <option value="Rocky / Boulders" class="bg-gray-800">Rocky / Boulders</option>
+                                        <option value="Volcanic" class="bg-gray-800">Volcanic</option>
+                                        <option value="Muddy Trail" class="bg-gray-800">Muddy Trail</option>
+                                        <option value="Mixed Terrain" class="bg-gray-800">Mixed Terrain</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-1.5">Difficulty Level</label>
+                                <select name="Difficulty" required class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-4 py-2.5 focus:border-blue-500 focus:outline-none appearance-none text-sm cursor-pointer"
+                                        style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;">
+                                    <option value="" disabled selected class="text-gray-400">Select Difficulty</option>
+                                    <option value="Easy" class="bg-gray-800">Easy</option>
+                                    <option value="Moderate" class="bg-gray-800">Moderate</option>
+                                    <option value="Hard" class="bg-gray-800">Hard</option>
+                                    <option value="Extreme" class="bg-gray-800">Extreme</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-1.5">Description</label>
+                                <textarea name="Description" required rows="4" class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-4 py-3 focus:border-blue-500 focus:outline-none transition-all placeholder-gray-400 text-sm resize-none" placeholder="Write a brief overview or history of the trail..."></textarea>
+                            </div>
+                        </div>
+                        <div class="lg:col-span-2 flex flex-col gap-6">
+                            <div class="mb-2">
+                                <h4 class="text-lg font-bold text-white mb-1">Upload Photos</h4>
+                                <p class="text-sm text-gray-400 leading-relaxed">Upload a thumbnail photo and additional photos for the trail gallery.</p>
+                            </div>
+                            <div class="flex flex-col">
+                                <label class="block text-sm font-medium text-gray-300 mb-2">Thumbnail Photo <span class="text-red-500">*</span></label>
+                                <div id="thumbnailBox" class="relative bg-gray-700/50 border-2 border-dashed border-gray-500 rounded-xl flex flex-col items-center justify-center text-center hover:bg-gray-700 transition-all cursor-pointer group h-[180px]">
+                                    <i class="fa-solid fa-cloud-arrow-up text-4xl text-gray-400 mb-3 group-hover:text-blue-400 transition-colors"></i>
+                                    <p class="text-sm text-gray-300 mb-1"><span class="font-semibold text-white">Click to upload</span> or drag and drop</p>
+                                    <p class="text-xs text-gray-500">SVG, PNG, JPG or GIF (MAX. 800x400px)</p>
+                                    <input type="file" id="thumbnailInput" name="ThumbnailImage" accept="image/png, image/jpeg, image/gif, image/svg+xml" required class="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" onchange="handleAddThumbnailPreview(this)" />
+                                </div>
+                                <div id="thumbnailPreviewContainer" class="relative hidden h-[180px] w-full rounded-xl overflow-hidden border border-gray-600 mt-2 group">
+                                    <img id="thumbnailPreviewImage" class="w-full h-full object-cover" alt="Thumbnail Preview" />
+                                    <button type="button" onclick="removeAddThumbnail()" class="absolute top-2 right-2 w-8 h-8 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg z-20">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="flex flex-col">
+                                <label class="block text-sm font-medium text-gray-300 mb-2">Additional Photos</label>
+                                <div class="relative bg-gray-700/50 border-2 border-dashed border-gray-500 rounded-xl flex flex-col items-center justify-center text-center hover:bg-gray-700 transition-all cursor-pointer group h-[140px]">
+                                    <i class="fa-solid fa-images text-3xl text-gray-400 mb-2 group-hover:text-blue-400 transition-colors"></i>
+                                    <p class="text-sm text-gray-300 mb-1"><span class="font-semibold text-white">Click to upload</span> gallery images</p>
+                                    <p class="text-xs text-gray-500">Select multiple files</p>
+                                    <input type="file" id="additionalInput" name="AdditionalImages" accept="image/png, image/jpeg, image/gif" multiple class="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" onchange="handleAdditionalPhotos(this)" />
+                                </div>
+                                <div id="additionalPhotosGrid" class="grid grid-cols-3 gap-3 mt-4 empty:hidden"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="px-8 py-5 border-t border-gray-700 shrink-0 flex justify-end gap-3 bg-gray-800 rounded-b-xl">
+                    <button type="button" onclick="closeAddTrailModal()" class="px-7 py-2.5 rounded-full text-sm font-bold text-gray-300 hover:text-white bg-transparent hover:bg-gray-700 transition-colors">
+                        Cancel
+                    </button>
+                    <button type="submit" class="group inline-flex items-center justify-center gap-2 px-7 py-3 text-sm rounded-full bg-linear-to-r from-orange-400 via-pink-500 to-violet-500 text-white font-bold shadow-lg shadow-violet-500/30 hover:scale-105 hover:opacity-90 transform transition duration-300 ease-out">
+                        <span>Save Trail</span>
+                        <i class="fa-solid fa-check transition-transform duration-300 group-hover:translate-x-1"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+    </style>
+
+    <script>
+        /* ------------------------------------------- */
+        /* VIEW MODAL LOGIC (Match `image_1eb777.jpg`) */
+        /* ------------------------------------------- */
+        function openViewModal(button) {
+            // Get data from clicked button attributes
+            const name = button.getAttribute('data-name');
+            const location = button.getAttribute('data-location');
+            const distance = button.getAttribute('data-distance');
+            const elevation = button.getAttribute('data-elevation');
+            const duration = button.getAttribute('data-duration');
+            const terrain = button.getAttribute('data-terrain');
+            const difficulty = button.getAttribute('data-difficulty');
+            const description = button.getAttribute('data-description');
+            const image = button.getAttribute('data-image');
+
+            // Populate Hero Section (Left/Image Overlay)
+            document.getElementById('viewNameLarge').textContent = name;
+            document.getElementById('viewLocationLarge').querySelector('span').textContent = location;
+            
+            const heroImgElement = document.getElementById('viewHeroImage');
+            const fallbackImg = "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1000&q=80";
+            heroImgElement.src = image ? image : fallbackImg;
+
+            // Populate Description
+            document.getElementById('viewDescription').textContent = description || "No description provided.";
+
+            // Populate Terrain Tags
+            const tagsContainer = document.getElementById('viewTerrainTags');
+            tagsContainer.innerHTML = ''; // Clear existing
+            if (terrain) {
+                // Split terrains by comma and map to tags
+                terrain.split(',').forEach(t => {
+                    const cleanTerrain = t.trim();
+                    if (cleanTerrain) {
+                        const span = document.createElement('span');
+                        span.className = "px-3 py-1.5 bg-white/5 text-gray-300 text-xs font-medium rounded-full border border-white/10 backdrop-blur-sm";
+                        span.textContent = cleanTerrain;
+                        tagsContainer.appendChild(span);
+                    }
+                });
+            }
+
+            // Populate Sidebar Statistics (Right)
+            document.getElementById('viewStatLocation').textContent = location;
+            document.getElementById('viewStatElevation').textContent = elevation + " MASL";
+            document.getElementById('viewStatDistance').textContent = distance + " km";
+            document.getElementById('viewStatDuration').textContent = duration;
+            document.getElementById('viewStatTerrain').textContent = terrain;
+            document.getElementById('viewStatTerrain').title = terrain; // tooltip if truncated
+
+            // Difficulty Badge Logic (Color code as in design)
+            const diffBadge = document.getElementById('viewStatDifficulty');
+            diffBadge.textContent = difficulty;
+            diffBadge.className = "px-3 py-1 rounded text-xs font-bold uppercase tracking-wider "; // Reset
+            
+            if (difficulty === "Easy") {
+                diffBadge.classList.add('text-green-300', 'bg-green-500/10', 'border', 'border-green-500/20');
+            } else if (difficulty === "Moderate") {
+                diffBadge.classList.add('text-orange-300', 'bg-orange-500/10', 'border', 'border-orange-500/20');
+            } else if (difficulty === "Hard") {
+                diffBadge.classList.add('text-red-300', 'bg-red-500/10', 'border', 'border-red-500/20');
+            } else {
+                diffBadge.classList.add('text-red-500', 'bg-red-900/40', 'border', 'border-red-700/50');
+            }
+
+            // Open Modal
+            document.getElementById('viewTrailModal').classList.remove('hidden');
+        }
+
+        function closeViewModal() {
+            document.getElementById('viewTrailModal').classList.add('hidden');
+        }
+
+        /* ------------------------------------------- */
+        /* ADD TRAIL MODAL LOGIC (Existing)           */
+        /* ------------------------------------------- */
+        function handleAddThumbnailPreview(input) {
+            const box = document.getElementById('thumbnailBox');
+            const previewContainer = document.getElementById('thumbnailPreviewContainer');
+            const previewImage = document.getElementById('thumbnailPreviewImage');
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    previewImage.src = e.target.result;
+                    box.classList.add('hidden');
+                    previewContainer.classList.remove('hidden');
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function removeAddThumbnail() {
+            document.getElementById('thumbnailInput').value = '';
+            document.getElementById('thumbnailPreviewContainer').classList.add('hidden');
+            document.getElementById('thumbnailPreviewImage').src = '';
+            document.getElementById('thumbnailBox').classList.remove('hidden');
+        }
+
+        let additionalFilesArray = [];
+
+        function handleAdditionalPhotos(input) {
+            if (!input.files || input.files.length === 0) return;
+            for (let i = 0; i < input.files.length; i++) {
+                additionalFilesArray.push(input.files[i]);
+            }
+            updateAdditionalUIAndInput();
+        }
+
+        function removeAdditionalPhoto(index) {
+            additionalFilesArray.splice(index, 1);
+            updateAdditionalUIAndInput();
+        }
+
+        function updateAdditionalUIAndInput() {
+            const grid = document.getElementById('additionalPhotosGrid');
+            const input = document.getElementById('additionalInput');
+            grid.innerHTML = '';
+            const dataTransfer = new DataTransfer();
+
+            additionalFilesArray.forEach((file, index) => {
+                dataTransfer.items.add(file);
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const div = document.createElement('div');
+                    div.className = 'relative aspect-square rounded-lg overflow-hidden border border-gray-600 group';
+                    div.innerHTML = `
+                        <img src="${e.target.result}" class="w-full h-full object-cover" />
+                        <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        <button type="button" onclick="removeAdditionalPhoto(${index})" class="absolute top-1 right-1 w-6 h-6 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    `;
+                    grid.appendChild(div);
+                };
+                reader.readAsDataURL(file);
+            });
+            input.files = dataTransfer.files;
+        }
+
+        function openAddTrailModal() {
+            document.getElementById('addTrailModal').classList.remove('hidden');
+        }
+
+        function closeAddTrailModal() {
+            document.getElementById('addTrailModal').classList.add('hidden');
+            document.getElementById('addTrailForm').reset();
+            removeAddThumbnail();
+            additionalFilesArray = [];
+            updateAdditionalUIAndInput();
+        }
+        
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') { 
+                closeAddTrailModal(); 
+                closeViewModal(); 
+            }
+        });
+    </script>
 }
