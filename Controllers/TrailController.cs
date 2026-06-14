@@ -18,14 +18,12 @@ namespace TrailGuard.Controllers
             _webHostEnvironment = webHostEnvironment;
         }
 
-        public IActionResult Index(string searchString, string difficulty, string sortOrder)
+        public IActionResult Index(string searchString, string sortOrder)
         {
             ViewData["CurrentFilter"] = searchString;
-            ViewData["CurrentDifficulty"] = difficulty;
             ViewData["CurrentSort"] = sortOrder;
 
-            var trails = from t in _context.Trails
-                        select t;
+            var trails = from t in _context.Trails select t;
 
             if (!string.IsNullOrEmpty(searchString))
             {
@@ -204,19 +202,18 @@ namespace TrailGuard.Controllers
             var photos = await _context.TrailPhotos
                 .Where(p => p.TrailId == trailId)
                 .OrderBy(p => p.DisplayOrder)
-                .Select(p => p.ImageUrl)
+                .Select(p => new { id = p.Id, url = p.ImageUrl })
                 .ToListAsync();
             
             return Json(photos);
         }
 
         [HttpPost]
-        public async Task<JsonResult> DeleteTrailPhoto(int trailId, string imageUrl)
+        public async Task<JsonResult> DeleteTrailPhoto([FromBody] DeletePhotoRequest request)
         {
             try
             {
-                var photo = await _context.TrailPhotos
-                    .FirstOrDefaultAsync(p => p.TrailId == trailId && p.ImageUrl == imageUrl);
+                var photo = await _context.TrailPhotos.FindAsync(request.PhotoId);
                 
                 if (photo == null)
                 {
@@ -242,5 +239,60 @@ namespace TrailGuard.Controllers
             }
         }
 
+        [HttpPost]
+        public async Task<JsonResult> DeleteTrail([FromBody] DeleteTrailRequest request)
+        {
+            try
+            {
+                var trail = await _context.Trails
+                    .Include(t => t.TrailPhotos)
+                    .FirstOrDefaultAsync(t => t.Id == request.Id);
+                
+                if (trail == null)
+                {
+                    return Json(new { success = false, message = "Trail not found" });
+                }
+
+                if (!string.IsNullOrEmpty(trail.ThumbnailUrl))
+                {
+                    string thumbnailPath = Path.Combine(_webHostEnvironment.WebRootPath,
+                        trail.ThumbnailUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+                    if (System.IO.File.Exists(thumbnailPath))
+                    {
+                        System.IO.File.Delete(thumbnailPath);
+                    }
+                }
+
+                foreach (var photo in trail.TrailPhotos)
+                {
+                    string photoPath = Path.Combine(_webHostEnvironment.WebRootPath,
+                        photo.ImageUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+                    if (System.IO.File.Exists(photoPath))
+                    {
+                        System.IO.File.Delete(photoPath);
+                    }
+                }
+                
+                _context.TrailPhotos.RemoveRange(trail.TrailPhotos);
+                _context.Trails.Remove(trail);
+                await _context.SaveChangesAsync();
+                
+                return Json(new { success = true, message = "Trail deleted successfully" });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = ex.Message });
+            }
+        }
+        public class DeleteTrailRequest
+        {
+            public int Id { get; set; }
+        }
+
+    }
+
+    public class DeletePhotoRequest
+    {
+        public int PhotoId { get; set; }
     }
 }

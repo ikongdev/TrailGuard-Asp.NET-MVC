@@ -51,7 +51,7 @@
                 
                 <div class="relative grow">
                     <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                    <input type="text" id="searchInput" name="searchString" value="@ViewData["CurrentFilter"]" placeholder="Search trails by name or location..." 
+                    <input type="text" name="searchString" value="@ViewData["CurrentFilter"]" placeholder="Search trails by name or location..." 
                          class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-11 pr-4 py-3 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 focus:outline-none transition-colors placeholder-gray-500">
                 </div>
 
@@ -145,6 +145,10 @@
                                         class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
                                     <i class="fa-solid fa-pen"></i> Edit
                                 </button>
+                                <button type="button" onclick="deleteTrail(@trail.Id, '@trail.Name')" 
+                                        class="delete-trail-btn bg-red-500/20 hover:bg-red-500 border border-red-500/30 hover:border-red-500 text-red-400 hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 w-12">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -155,8 +159,8 @@
 }
 
 @section Modals {
-    <div id="viewTrailModal" class="fixed inset-0 z-[100] hidden" style="display: none; align-items: center; justify-content: center; padding: 1rem;" role="dialog" aria-modal="true" aria-labelledby="viewTrailTitle">
-        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="closeViewModal()" aria-hidden="true"></div>
+    <div id="viewTrailModal" class="fixed inset-0 z-[100] hidden" style="display: none; align-items: center; justify-content: center; padding: 1rem;">
+        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="closeViewModal()"></div>
         <div class="relative bg-[#0B1325] border border-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" style="margin: auto; z-index: 10;">
             
             <div class="flex justify-between items-center px-6 py-4 border-b border-gray-800 shrink-0">
@@ -164,7 +168,7 @@
                     <div class="w-8 h-8 rounded-full bg-linear-to-r from-blue-500 to-cyan-500 flex items-center justify-center">
                         <i class="fa-solid fa-mountain text-white text-sm"></i>
                     </div>
-                    <h2 id="viewTrailTitle" class="text-xl font-bold text-white">Trail Details</h2>
+                    <h2 class="text-xl font-bold text-white">Trail Details</h2>
                 </div>
                 <button onclick="closeViewModal()" class="text-gray-400 hover:text-white transition-colors">
                     <i class="fa-solid fa-xmark text-2xl"></i>
@@ -187,21 +191,21 @@
                             <span id="viewLocation"></span>
                         </p>
                         
-                        <div class="grid grid-cols-2 gap-4 mb-4" role="region" aria-label="Trail statistics">
+                        <div class="grid grid-cols-2 gap-4 mb-4">
                             <div class="bg-[#111A2E] rounded-lg p-3 border border-gray-700">
-                                <p class="text-gray-500 text-xs uppercase tracking-wider flex items-center gap-1"><i class="fa-solid fa-route" aria-hidden="true"></i> Distance</p>
+                                <p class="text-gray-500 text-xs uppercase tracking-wider flex items-center gap-1"><i class="fa-solid fa-route"></i> Distance</p>
                                 <p class="text-white font-semibold text-lg"><span id="viewDistance"></span> <span class="text-xs text-gray-400">km</span></p>
                             </div>
                             <div class="bg-[#111A2E] rounded-lg p-3 border border-gray-700">
-                                <p class="text-gray-500 text-xs uppercase tracking-wider flex items-center gap-1"><i class="fa-solid fa-arrow-trend-up" aria-hidden="true"></i> Elevation</p>
+                                <p class="text-gray-500 text-xs uppercase tracking-wider flex items-center gap-1"><i class="fa-solid fa-arrow-trend-up"></i> Elevation</p>
                                 <p class="text-white font-semibold text-lg"><span id="viewElevation"></span> <span class="text-xs text-gray-400">m</span></p>
                             </div>
                             <div class="bg-[#111A2E] rounded-lg p-3 border border-gray-700">
-                                <p class="text-gray-500 text-xs uppercase tracking-wider flex items-center gap-1"><i class="fa-solid fa-tree" aria-hidden="true"></i> Terrain</p>
+                                <p class="text-gray-500 text-xs uppercase tracking-wider flex items-center gap-1"><i class="fa-solid fa-tree"></i> Terrain</p>
                                 <p class="text-white font-semibold text-lg"><span id="viewTerrainType"></span></p>
                             </div>
                             <div class="bg-[#111A2E] rounded-lg p-3 border border-gray-700">
-                                <p class="text-gray-500 text-xs uppercase tracking-wider flex items-center gap-1"><i class="fa-regular fa-calendar" aria-hidden="true"></i> Date Added</p>
+                                <p class="text-gray-500 text-xs uppercase tracking-wider flex items-center gap-1"><i class="fa-regular fa-calendar"></i> Date Added</p>
                                 <p class="text-white font-semibold text-sm"><span id="viewDateAdded"></span></p>
                             </div>
                         </div>
@@ -215,7 +219,7 @@
                 
                 <div class="mt-6">
                     <p class="text-gray-500 text-xs uppercase tracking-wider mb-3 flex items-center gap-2"><i class="fa-solid fa-images"></i> Additional Photos</p>
-                    <div id="viewAdditionalPhotos" class="grid grid-cols-3 gap-3" role="region" aria-label="Trail photos"></div>
+                    <div id="viewAdditionalPhotos" class="grid grid-cols-3 gap-3"></div>
                 </div>
             </div>
 
@@ -230,7 +234,7 @@
         </div>
     </div>
 
-    <div id="addTrailModal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="addTrailTitle">
+    <div id="addTrailModal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4">
         <div class="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity" onclick="closeAddTrailModal()"></div>
         <div class="relative w-full max-w-6xl flex flex-col bg-[#0B1325] border border-gray-800 rounded-xl shadow-2xl overflow-hidden max-h-[95vh]">
             
@@ -240,7 +244,7 @@
                         <i class="fa-solid fa-plus text-white text-sm"></i>
                     </div>
                     <div>
-                        <h3 id="addTrailTitle" class="text-xl font-bold text-white">Add Trail</h3>
+                        <h3 class="text-xl font-bold text-white">Add Trail</h3>
                         <p class="text-xs text-gray-400">Create a new trail listing for hikers and organizers.</p>
                     </div>
                 </div>
@@ -347,7 +351,7 @@
         </div>
     </div>
 
-    <div id="editTrailModal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="editTrailTitle">
+    <div id="editTrailModal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4">
         <div class="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity" onclick="closeEditTrailModal()"></div>
         <div class="relative w-full max-w-6xl flex flex-col bg-[#0B1325] border border-gray-800 rounded-xl shadow-2xl overflow-hidden max-h-[95vh]">
             
@@ -357,11 +361,11 @@
                         <i class="fa-solid fa-pen text-white text-sm"></i>
                     </div>
                     <div>
-                        <h3 id="editTrailTitle" class="text-xl font-bold text-white">Edit Trail</h3>
+                        <h3 class="text-xl font-bold text-white">Edit Trail</h3>
                         <p class="text-xs text-gray-400">Update trail details and manage photos.</p>
                     </div>
                 </div>
-                <button type="button" onclick="closeEditTrailModal()" aria-label="Close edit trail modal" class="text-gray-400 hover:text-white transition-colors">
+                <button type="button" onclick="closeEditTrailModal()" class="text-gray-400 hover:text-white transition-colors">
                     <i class="fa-solid fa-xmark text-xl"></i>
                 </button>
             </div>
@@ -474,41 +478,14 @@
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
         #viewTrailModal { display: none; }
-        .photo-container { aspect-ratio: 1; }
+        
+        @@keyframes fadeOut {
+            from { opacity: 1; transform: scale(1); }
+            to { opacity: 0; transform: scale(0.95); }
+        }
     </style>
 
     <script>
-        // Debounce utility
-        function debounce(func, wait) {
-            let timeout;
-            return function executedFunction(...args) {
-                const later = () => {
-                    clearTimeout(timeout);
-                    func(...args);
-                };
-                clearTimeout(timeout);
-                timeout = setTimeout(later, wait);
-            };
-        }
-
-        // Photo cache to reduce API calls
-        const photoCache = {};
-
-        // App state management
-        const AppState = {
-            currentEditTrailId: null,
-            additionalFilesArray: [],
-            editAdditionalFilesArray: [],
-            searchTimeout: null,
-            
-            reset() {
-                this.currentEditTrailId = null;
-                this.additionalFilesArray = [];
-                this.editAdditionalFilesArray = [];
-            }
-        };
-
-        // Auto-hide messages
         setTimeout(function() {
             const successMsg = document.getElementById('successMessage');
             const errorMsg = document.getElementById('errorMessage');
@@ -516,29 +493,10 @@
             if (errorMsg) errorMsg.remove();
         }, 3000);
 
-        // Debounced search
-        const debouncedSearch = debounce(() => {
-            document.getElementById('filterForm').submit();
-        }, 500);
-
-        document.getElementById('searchInput')?.addEventListener('keyup', debouncedSearch);
-
-        function showNotification(message, type = 'success') {
-            const notification = document.createElement('div');
-            notification.className = `fixed top-24 right-4 z-50 ${type === 'success' ? 'bg-green-500/90' : 'bg-red-500/90'} text-white px-6 py-3 rounded-xl shadow-lg backdrop-blur-sm flex items-center gap-3`;
-            notification.innerHTML = `
-                <i class="fa-solid fa-${type === 'success' ? 'check-circle' : 'exclamation-triangle'}"></i>
-                <span>${message}</span>
-                <button onclick="this.parentElement.remove()" class="hover:text-gray-200 transition-colors">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            `;
-            document.body.appendChild(notification);
-            setTimeout(() => notification.remove(), 4000);
-        }
+        let currentEditTrailId = null;
 
         function openViewModal(button) {
-            AppState.currentEditTrailId = button.getAttribute('data-id');
+            currentEditTrailId = button.getAttribute('data-id');
             
             const name = button.getAttribute('data-name');
             const location = button.getAttribute('data-location');
@@ -563,47 +521,33 @@
 
             const modal = document.getElementById('viewTrailModal');
             const additionalContainer = document.getElementById('viewAdditionalPhotos');
-            additionalContainer.innerHTML = '<div class="col-span-3 text-center text-gray-500 text-sm py-4"><i class="fa-solid fa-spinner animate-spin mr-2"></i>Loading photos...</div>';
+            additionalContainer.innerHTML = '<div class="col-span-3 text-center text-gray-500 text-sm py-4">Loading photos...</div>';
             
             modal.style.display = 'flex';
             modal.style.alignItems = 'center';
             modal.style.justifyContent = 'center';
             document.body.style.overflow = 'hidden';
 
-            // Check cache first
-            if (photoCache[AppState.currentEditTrailId]) {
-                renderPhotos(photoCache[AppState.currentEditTrailId], additionalContainer);
-                return;
-            }
-
-            fetch(`/Trail/GetTrailPhotos?trailId=${AppState.currentEditTrailId}`)
-                .then(response => {
-                    if (!response.ok) throw new Error('Failed to fetch photos');
-                    return response.json();
-                })
+            fetch(`/Trail/GetTrailPhotos?trailId=${currentEditTrailId}`)
+                .then(response => response.json())
                 .then(data => {
-                    photoCache[AppState.currentEditTrailId] = data;
-                    renderPhotos(data, additionalContainer);
+                    additionalContainer.innerHTML = '';
+                    
+                    if (data && data.length > 0) {
+                        data.forEach(photo => {
+                            const imgDiv = document.createElement('div');
+                            imgDiv.className = 'aspect-square rounded-lg overflow-hidden border border-gray-700';
+                            imgDiv.innerHTML = `<img src="${photo.url}" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/400x400?text=Error'">`;
+                            additionalContainer.appendChild(imgDiv);
+                        });
+                    } else {
+                        additionalContainer.innerHTML = '<div class="col-span-3 text-center text-gray-500 text-sm py-4">No additional photos</div>';
+                    }
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    additionalContainer.innerHTML = '<div class="col-span-3 text-center text-red-500 text-sm py-4"><i class="fa-solid fa-exclamation-triangle mr-2"></i>Error loading photos</div>';
-                    showNotification('Failed to load photos', 'error');
+                    additionalContainer.innerHTML = '<div class="col-span-3 text-center text-red-500 text-sm py-4">Error loading photos</div>';
                 });
-        }
-
-        function renderPhotos(photos, container) {
-            container.innerHTML = '';
-            if (photos && photos.length > 0) {
-                photos.forEach(url => {
-                    const imgDiv = document.createElement('div');
-                    imgDiv.className = 'photo-container rounded-lg overflow-hidden border border-gray-700';
-                    imgDiv.innerHTML = `<img src="${url}" class="w-full h-full object-cover" alt="Trail photo" onerror="this.src='https://placehold.co/400x400?text=Error'">`;
-                    container.appendChild(imgDiv);
-                });
-            } else {
-                container.innerHTML = '<div class="col-span-3 text-center text-gray-500 text-sm py-4"><i class="fa-solid fa-image mr-2"></i>No additional photos</div>';
-            }
         }
 
         function closeViewModal() {
@@ -616,7 +560,7 @@
             closeViewModal();
             
             setTimeout(() => {
-                if (AppState.currentEditTrailId) {
+                if (currentEditTrailId) {
                     const fakeButton = document.createElement('button');
                     fakeButton.setAttribute('data-id', currentEditTrailId);
                     fakeButton.setAttribute('data-name', document.getElementById('viewName').textContent);
@@ -661,16 +605,17 @@
             document.getElementById('thumbnailBox').classList.remove('hidden');
         }
 
+        let additionalFilesArray = [];
         function handleAdditionalPhotos(input) {
             if (!input.files || input.files.length === 0) return;
             for (let i = 0; i < input.files.length; i++) {
-                AppState.additionalFilesArray.push(input.files[i]);
+                additionalFilesArray.push(input.files[i]);
             }
             updateAdditionalUIAndInput();
         }
 
         function removeAdditionalPhoto(index) {
-            AppState.additionalFilesArray.splice(index, 1);
+            additionalFilesArray.splice(index, 1);
             updateAdditionalUIAndInput();
         }
 
@@ -680,7 +625,7 @@
             grid.innerHTML = '';
 
             const dataTransfer = new DataTransfer();
-            AppState.additionalFilesArray.forEach((file, index) => {
+            additionalFilesArray.forEach((file, index) => {
                 dataTransfer.items.add(file);
                 const reader = new FileReader();
                 reader.onload = function(e) {
@@ -708,7 +653,7 @@
             document.getElementById('addTrailModal').classList.add('hidden');
             document.getElementById('addTrailForm').reset();
             removeAddThumbnail();
-            AppState.additionalFilesArray = [];
+            additionalFilesArray = [];
             updateAdditionalUIAndInput();
         }
 
@@ -764,13 +709,13 @@
                 
                 if (photos && photos.length > 0) {
                     for (let i = 0; i < photos.length; i++) {
-                        const photoUrl = photos[i];
+                        const photo = photos[i];
                         const div = document.createElement('div');
                         div.className = 'relative aspect-square rounded-lg overflow-hidden border border-gray-600 group';
                         div.innerHTML = `
-                            <img src="${photoUrl}" class="w-full h-full object-cover" />
+                            <img src="${photo.url}" class="w-full h-full object-cover" />
                             <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                            <button type="button" data-trail-id="${id}" data-photo-url="${encodeURIComponent(photoUrl)}" onclick="deleteExistingPhoto(this)" class="absolute top-1 right-1 w-6 h-6 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity z-20" aria-label="Delete photo">
+                            <button type="button" class="delete-photo-btn absolute top-1 right-1 w-6 h-6 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity z-20" data-photo-id="${photo.id}">
                                 <i class="fa-solid fa-xmark"></i>
                             </button>
                         `;
@@ -787,15 +732,15 @@
             document.getElementById('editTrailModal').classList.remove('hidden');
         }
 
-        async function deleteExistingPhoto(buttonElement) {
-            const trailId = buttonElement.getAttribute('data-trail-id');
-            const photoUrl = decodeURIComponent(buttonElement.getAttribute('data-photo-url'));
+        async function deleteExistingPhoto(buttonElement, event) {
+            if (event) event.preventDefault();
+            if (event) event.stopPropagation();
             
-            if (!confirm('Are you sure you want to delete this photo?')) return;
-            
+            const photoId = parseInt(buttonElement.getAttribute('data-photo-id'));
             const photoDiv = buttonElement.closest('.group');
+            
             buttonElement.disabled = true;
-            buttonElement.innerHTML = '<i class="fa-solid fa-spinner animate-spin" aria-hidden="true"></i>';
+            photoDiv.style.opacity = '0.5';
             
             try {
                 const response = await fetch('/Trail/DeleteTrailPhoto', {
@@ -803,7 +748,7 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ trailId: trailId, imageUrl: photoUrl })
+                    body: JSON.stringify({ photoId: photoId })
                 });
                 
                 const result = await response.json();
@@ -814,30 +759,108 @@
                         photoDiv.remove();
                         const existingGrid = document.getElementById('existingPhotosGrid');
                         if (existingGrid && existingGrid.children.length === 0) {
-                            existingGrid.innerHTML = '<div class="col-span-3 text-center text-gray-500 text-sm py-4"><i class="fa-solid fa-image mr-2"></i>No additional photos yet</div>';
+                            existingGrid.innerHTML = '<div class="col-span-3 text-center text-gray-500 text-sm py-4">No additional photos yet</div>';
                         }
+                        showToast('Photo deleted successfully', 'success');
                     }, 300);
-                    // Clear cache for this trail
-                    delete photoCache[trailId];
-                    showNotification('Photo deleted successfully', 'success');
                 } else {
                     buttonElement.disabled = false;
-                    buttonElement.innerHTML = '<i class="fa-solid fa-xmark"></i>';
-                    showNotification('Error deleting photo: ' + result.message, 'error');
+                    photoDiv.style.opacity = '1';
+                    showToast('Error deleting photo: ' + (result.message || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting photo:', error);
+                buttonElement.disabled = false;
+                photoDiv.style.opacity = '1';
+                showToast('Error deleting photo', 'error');
+            }
+        }
+
+        async function deleteTrail(id, name) {
+            console.log('Deleting trail with ID:', id);
+            console.log('Trail name:', name);
+            
+            if (!confirm(`Are you sure you want to delete "${name}"? This action cannot be undone.`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/Trail/DeleteTrail', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ id: id })
+                });
+                
+                const result = await response.json();
+                console.log('Response:', result);
+                
+                if (result.success) {
+                    showToast('Trail deleted successfully', 'success');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    showToast('Error deleting trail: ' + result.message, 'error');
                 }
             } catch (error) {
                 console.error('Error:', error);
-                buttonElement.disabled = false;
-                buttonElement.innerHTML = '<i class="fa-solid fa-xmark"></i>';
-                showNotification('Error deleting photo. Please try again.', 'error');
+                showToast('Error deleting trail', 'error');
             }
         }
+
+        function showToast(message, type) {
+            const existingToast = document.querySelector('.toast-message');
+            if (existingToast) existingToast.remove();
+            
+            const toast = document.createElement('div');
+            toast.className = `toast-message fixed top-24 right-4 z-50 ${type === 'success' ? 'bg-green-500/90' : 'bg-red-500/90'} text-white px-6 py-3 rounded-xl shadow-lg backdrop-blur-sm flex items-center gap-3`;
+            toast.innerHTML = `
+                <i class="fa-solid ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle'}"></i>
+                <span>${message}</span>
+                <button onclick="this.parentElement.remove()" class="hover:text-gray-200 transition-colors">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            `;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                if (toast) toast.remove();
+            }, 3000);
+        }
+
+        function showTempMessage(message, type) {
+            const existingMsg = document.querySelector('.temp-message');
+            if (existingMsg) existingMsg.remove();
+            
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `temp-message fixed top-24 right-4 z-50 ${type === 'success' ? 'bg-green-500/90' : 'bg-red-500/90'} text-white px-4 py-2 rounded-xl shadow-lg backdrop-blur-sm text-sm`;
+            msgDiv.innerHTML = `
+                <i class="fa-solid ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle'} mr-2"></i>
+                ${message}
+            `;
+            document.body.appendChild(msgDiv);
+            
+            setTimeout(() => {
+                msgDiv.remove();
+            }, 2000);
+        }
+        
+        document.addEventListener('click', function(e) {
+            const deleteBtn = e.target.closest('.delete-photo-btn');
+            if (deleteBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                deleteExistingPhoto(deleteBtn, e);
+            }
+        });
 
         function closeEditTrailModal() {
             document.getElementById('editTrailModal').classList.add('hidden');
             document.getElementById('editTrailForm').reset();
             removeEditThumbnail();
-            AppState.editAdditionalFilesArray = [];
+            editAdditionalFilesArray = [];
             updateEditAdditionalUIAndInput();
         }
 
@@ -864,16 +887,17 @@
             document.getElementById('editThumbnailBox').classList.remove('hidden');
         }
 
+        let editAdditionalFilesArray = [];
         function handleEditAdditionalPhotos(input) {
             if (!input.files || input.files.length === 0) return;
             for (let i = 0; i < input.files.length; i++) {
-                AppState.editAdditionalFilesArray.push(input.files[i]);
+                editAdditionalFilesArray.push(input.files[i]);
             }
             updateEditAdditionalUIAndInput();
         }
 
         function removeEditAdditionalPhoto(index) {
-            AppState.editAdditionalFilesArray.splice(index, 1);
+            editAdditionalFilesArray.splice(index, 1);
             updateEditAdditionalUIAndInput();
         }
 
@@ -883,7 +907,7 @@
             grid.innerHTML = '';
 
             const dataTransfer = new DataTransfer();
-            AppState.editAdditionalFilesArray.forEach((file, index) => {
+            editAdditionalFilesArray.forEach((file, index) => {
                 dataTransfer.items.add(file);
                 const reader = new FileReader();
                 reader.onload = function(e) {
@@ -910,15 +934,5 @@
                 closeEditTrailModal();
             }
         });
-
-        @* Fade out animation for smooth photo deletion *@
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes fadeOut {
-                from { opacity: 1; transform: scale(1); }
-                to { opacity: 0; transform: scale(0.95); }
-            }
-        `;
-        document.head.appendChild(style);
     </script>
 }
