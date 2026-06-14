@@ -41,30 +41,15 @@ app.MapRazorPages();
 
 using (var scope = app.Services.CreateScope())
 {
-    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-
-    // 1. Gagawa ito ng Roles kung wala pa sa database
-    string[] roleNames = { "Admin", "Organizer", "Participant" };
-    foreach (var roleName in roleNames)
+    var services = scope.ServiceProvider;
+    try
     {
-        if (!await roleManager.RoleExistsAsync(roleName))
-        {
-            await roleManager.CreateAsync(new IdentityRole(roleName));
-        }
+        await TrailGuard.Data.DbSeeder.SeedRolesAndAdminAsync(services);
     }
-
-    // 2. I-a-assign nito ang Admin role sa account mo
-    // PALITAN MO ITO ng eksaktong email na ginamit mo sa pag-register
-    var adminEmail = "admin@trailguard.com"; 
-    
-    var adminUser = await userManager.FindByEmailAsync(adminEmail);
-    if (adminUser != null)
+    catch (Exception ex)
     {
-        if (!await userManager.IsInRoleAsync(adminUser, "Admin"))
-        {
-            await userManager.AddToRoleAsync(adminUser, "Admin");
-        }
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "An error occurred while seeding the database.");
     }
 }
 

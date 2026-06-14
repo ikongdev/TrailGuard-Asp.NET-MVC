@@ -1,0 +1,175 @@
+@{
+    ViewData["Title"] = "Trail Management";
+}
+
+@section PageHero {
+    <div class="pt-24 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
+
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-linear-to-r from-orange-400 to-purple-400">Trail Management</h1>
+                <p class="text-gray-400 mt-1 text-sm">Manage trail listings, review trail details, and keep your hiking catalog up to date.</p>
+            </div>
+            
+            <div class="flex flex-wrap items-center gap-4">
+                <div class="bg-white/5 border border-white/10 px-4 py-2.5 rounded-full flex items-center gap-2 backdrop-blur-sm shadow-lg">
+                    <i class="fa-solid fa-mountain text-gray-400"></i>
+                    <span class="text-sm font-medium text-gray-300">Total Trails: <strong class="text-white">24</strong></span>
+                </div>
+                
+                <a href="#" class="bg-linear-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white px-5 py-2.5 rounded-full font-bold text-sm flex items-center gap-2 shadow-[0_0_15px_rgba(249,115,22,0.3)] transition-all">
+                    <i class="fa-solid fa-plus"></i> Add Trail
+                </a>
+            </div>
+        </div>
+
+        <div class="flex flex-col lg:flex-row gap-4 mb-8 bg-white/5 backdrop-blur-xl p-5 rounded-3xl border border-white/10 shadow-2xl">
+            <div class="relative grow">
+                <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                <input type="text" placeholder="Search trails by name, location, or terrain..." 
+                    class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-11 pr-4 py-3 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 focus:outline-none transition-colors placeholder-gray-500">
+            </div>
+
+            <div class="flex flex-wrap sm:flex-nowrap gap-3">
+                <select class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-orange-500 focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors" 
+                        style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 14px center; background-size: 16px;">
+                    <option value="all" class="bg-[#0B1325] text-white">All Difficulties</option>
+                    <option value="easy" class="bg-[#0B1325] text-white">Easy</option>
+                    <option value="moderate" class="bg-[#0B1325] text-white">Moderate</option>
+                    <option value="hard" class="bg-[#0B1325] text-white">Hard</option>
+                </select>
+
+                <select class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-orange-500 focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors"
+                        style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 14px center; background-size: 16px;">
+                    <option value="newest" class="bg-[#0B1325] text-white">Sort by: Newest</option>
+                    <option value="oldest" class="bg-[#0B1325] text-white">Sort by: Oldest</option>
+                    <option value="az" class="bg-[#0B1325] text-white">Name (A-Z)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            
+            <!-- Trail Card 1: Mt. Pulag -->
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden shadow-2xl hover:bg-white/10 transition-all duration-300 group flex flex-col">
+                <div class="relative h-48 overflow-hidden">
+                    <img src="https://images.unsplash.com/photo-1518837695005-2083093ee35b?auto=format&fit=crop&w=600&q=80" alt="Mt. Pulag" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
+                    <div class="absolute inset-0 bg-linear-to-t from-[#0B1325] to-transparent opacity-90"></div>
+                </div>
+                <div class="p-6 flex flex-col grow relative z-10 -mt-10">
+                    <h3 class="text-xl font-bold text-white mb-1">Mt. Pulag Summit Trail</h3>
+                    <p class="text-gray-400 text-sm mb-5 flex items-center gap-1.5"><i class="fa-solid fa-location-dot text-red-400"></i> Kabayan, Benguet</p>
+                    
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div>
+                            <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Distance</p>
+                            <p class="text-gray-200 text-sm font-medium flex items-center gap-2"><i class="fa-solid fa-route text-gray-400"></i> 14.5 km</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Elev. Gain</p>
+                            <p class="text-gray-200 text-sm font-medium flex items-center gap-2"><i class="fa-solid fa-arrow-trend-up text-gray-400"></i> 1,586 m</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Terrain</p>
+                            <p class="text-gray-200 text-sm font-medium flex items-center gap-2"><i class="fa-solid fa-tree text-emerald-400"></i> Grassland</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Difficulty</p>
+                            <span class="text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded text-xs font-semibold inline-block">Easy</span>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-3 mt-auto">
+                        <button class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
+                            <i class="fa-regular fa-eye"></i> View
+                        </button>
+                        <button class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-pen"></i> Edit
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trail Card 2: Mt. Daraitan -->
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden shadow-2xl hover:bg-white/10 transition-all duration-300 group flex flex-col">
+                <div class="relative h-48 overflow-hidden">
+                    <img src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=600&q=80" alt="Mt. Daraitan" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
+                    <div class="absolute inset-0 bg-linear-to-t from-[#0B1325] to-transparent opacity-90"></div>
+                </div>
+                <div class="p-6 flex flex-col grow relative z-10 -mt-10">
+                    <h3 class="text-xl font-bold text-white mb-1">Mt. Daraitan</h3>
+                    <p class="text-gray-400 text-sm mb-5 flex items-center gap-1.5"><i class="fa-solid fa-location-dot text-red-400"></i> Tanay, Rizal</p>
+                    
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div>
+                            <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Distance</p>
+                            <p class="text-gray-200 text-sm font-medium flex items-center gap-2"><i class="fa-solid fa-route text-gray-400"></i> 7.3 km</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Elev. Gain</p>
+                            <p class="text-gray-200 text-sm font-medium flex items-center gap-2"><i class="fa-solid fa-arrow-trend-up text-gray-400"></i> 739 m</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Terrain</p>
+                            <p class="text-gray-200 text-sm font-medium flex items-center gap-2"><i class="fa-solid fa-hill-rockslide text-orange-400"></i> Rocky, Forest</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Difficulty</p>
+                            <span class="text-orange-300 bg-orange-500/10 border border-orange-500/20 px-2 py-0.5 rounded text-xs font-semibold inline-block">Moderate</span>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-3 mt-auto">
+                        <button class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
+                            <i class="fa-regular fa-eye"></i> View
+                        </button>
+                        <button class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-pen"></i> Edit
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trail Card 3: Mt. Apo -->
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden shadow-2xl hover:bg-white/10 transition-all duration-300 group flex flex-col">
+                <div class="relative h-48 overflow-hidden">
+                    <img src="https://images.unsplash.com/photo-1622397333309-3056849bc70b?auto=format&fit=crop&w=600&q=80" alt="Mt. Apo" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
+                    <div class="absolute inset-0 bg-linear-to-t from-[#0B1325] to-transparent opacity-90"></div>
+                </div>
+                <div class="p-6 flex flex-col grow relative z-10 -mt-10">
+                    <h3 class="text-xl font-bold text-white mb-1">Mt. Apo Peak</h3>
+                    <p class="text-gray-400 text-sm mb-5 flex items-center gap-1.5"><i class="fa-solid fa-location-dot text-red-400"></i> Davao del Sur, Mindanao</p>
+                    
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div>
+                            <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Distance</p>
+                            <p class="text-gray-200 text-sm font-medium flex items-center gap-2"><i class="fa-solid fa-route text-gray-400"></i> 18.2 km</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Elev. Gain</p>
+                            <p class="text-gray-200 text-sm font-medium flex items-center gap-2"><i class="fa-solid fa-arrow-trend-up text-gray-400"></i> 2,954 m</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Terrain</p>
+                            <p class="text-gray-200 text-sm font-medium flex items-center gap-2"><i class="fa-solid fa-volcano text-red-400"></i> Volcanic</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Difficulty</p>
+                            <span class="text-red-300 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded text-xs font-semibold inline-block">Hard</span>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-3 mt-auto">
+                        <button class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
+                            <i class="fa-regular fa-eye"></i> View
+                        </button>
+                        <button class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-pen"></i> Edit
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+}
