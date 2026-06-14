@@ -24,19 +24,12 @@ namespace TrailGuard.Models
         public int ElevationGainMeters { get; set; } 
 
         [Required]
-        public string Duration { get; set; } = string.Empty;
-
-        [Required]
-        public string Terrain { get; set; } = string.Empty; 
-
-        [Required]
-        public string Difficulty { get; set; } = string.Empty;
+        public string Terrain { get; set; } = string.Empty;
 
         [Required]
         public string Description { get; set; } = string.Empty;
 
         public string? ThumbnailUrl { get; set; } 
-        public string? AdditionalMediaUrls { get; set; }
 
         [NotMapped]
         public IFormFile? ThumbnailImage { get; set; }
@@ -44,9 +37,10 @@ namespace TrailGuard.Models
         [NotMapped]
         public List<IFormFile>? AdditionalImages { get; set; }
 
-
         public bool IsActive { get; set; } = true;
         
         public DateTime DateAdded { get; set; } = DateTime.Now;
+
+        public virtual ICollection<TrailPhoto>? TrailPhotos { get; set; }
     }
 }
