@@ -273,7 +273,7 @@ namespace TrailGuard.Controllers
                 existingEvent.EstimatedDuration = model.EstimatedDuration;
                 existingEvent.Capacity = model.Capacity;
                 existingEvent.OrganizedBy = model.OrganizedBy;
-                existingEvent.Status = model.Status;
+                existingEvent.Status = model.Status ?? existingEvent.Status;
                 existingEvent.MASL = trail.ElevationGainMeters;
                 existingEvent.WeatherForecastAdvisory = model.WeatherForecastAdvisory;
                 existingEvent.Announcements = model.Announcements;

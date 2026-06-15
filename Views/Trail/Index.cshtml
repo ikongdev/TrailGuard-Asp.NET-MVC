@@ -51,23 +51,26 @@
                 
                 <div class="relative grow">
                     <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                    <input type="text" name="searchString" value="@ViewData["CurrentFilter"]" placeholder="Search trails by name or location..." 
-                         class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-11 pr-4 py-3 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 focus:outline-none transition-colors placeholder-gray-500">
+                    <input type="text" name="searchString" id="searchInput" value="@ViewData["CurrentFilter"]" placeholder="Search trails by name or location..." 
+                        class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-11 pr-4 py-3 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 focus:outline-none transition-colors placeholder-gray-500">
                 </div>
 
                 <div class="flex flex-wrap sm:flex-nowrap gap-3">
-                    <select name="sortOrder" onchange="this.form.submit()"
-                            class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-orange-500 focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors"
-                            style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 14px center; background-size: 16px;">
-                        <option value="newest" selected="@(ViewData["CurrentSort"]?.ToString() == "newest")" class="bg-[#0B1325] text-white">Sort by: Newest</option>
-                        <option value="oldest" selected="@(ViewData["CurrentSort"]?.ToString() == "oldest")" class="bg-[#0B1325] text-white">Sort by: Oldest</option>
-                        <option value="name_asc" selected="@(ViewData["CurrentSort"]?.ToString() == "name_asc")" class="bg-[#0B1325] text-white">Name (A-Z)</option>
-                        <option value="name_desc" selected="@(ViewData["CurrentSort"]?.ToString() == "name_desc")" class="bg-[#0B1325] text-white">Name (Z-A)</option>
-                        <option value="distance_asc" selected="@(ViewData["CurrentSort"]?.ToString() == "distance_asc")" class="bg-[#0B1325] text-white">Distance (Low to High)</option>
-                        <option value="distance_desc" selected="@(ViewData["CurrentSort"]?.ToString() == "distance_desc")" class="bg-[#0B1325] text-white">Distance (High to Low)</option>
-                        <option value="elevation_asc" selected="@(ViewData["CurrentSort"]?.ToString() == "elevation_asc")" class="bg-[#0B1325] text-white">Elevation (Low to High)</option>
-                        <option value="elevation_desc" selected="@(ViewData["CurrentSort"]?.ToString() == "elevation_desc")" class="bg-[#0B1325] text-white">Elevation (High to Low)</option>
-                    </select>
+                    <div class="relative inline-block">
+                        <select id="sortOrder" name="sortOrder" class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-orange-500 focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors w-full">
+                            <option value="newest" selected="@(ViewData["CurrentSort"]?.ToString() == "newest")" class="bg-[#0b1329] text-white py-2">Sort by: Newest</option>
+                            <option value="oldest" selected="@(ViewData["CurrentSort"]?.ToString() == "oldest")" class="bg-[#0b1329] text-white py-2">Sort by: Oldest</option>
+                            <option value="name_asc" selected="@(ViewData["CurrentSort"]?.ToString() == "name_asc")" class="bg-[#0b1329] text-white py-2">Name (A-Z)</option>
+                            <option value="name_desc" selected="@(ViewData["CurrentSort"]?.ToString() == "name_desc")" class="bg-[#0b1329] text-white py-2">Name (Z-A)</option>
+                            <option value="distance_asc" selected="@(ViewData["CurrentSort"]?.ToString() == "distance_asc")" class="bg-[#0b1329] text-white py-2">Distance (Low to High)</option>
+                            <option value="distance_desc" selected="@(ViewData["CurrentSort"]?.ToString() == "distance_desc")" class="bg-[#0b1329] text-white py-2">Distance (High to Low)</option>
+                            <option value="elevation_asc" selected="@(ViewData["CurrentSort"]?.ToString() == "elevation_asc")" class="bg-[#0b1329] text-white py-2">Elevation (Low to High)</option>
+                            <option value="elevation_desc" selected="@(ViewData["CurrentSort"]?.ToString() == "elevation_desc")" class="bg-[#0b1329] text-white py-2">Elevation (High to Low)</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
+                            <i class="fa-solid fa-chevron-down text-xs"></i>
+                        </div>
+                    </div>
                 </div>
             </div>
         </form>
@@ -159,9 +162,9 @@
 }
 
 @section Modals {
-    <div id="viewTrailModal" class="fixed inset-0 z-100 hidden" style="display: none; align-items: center; justify-content: center; padding: 1rem;">
+    <div id="viewTrailModal" class="fixed inset-0 z-100 modal-hidden" style="padding-top: 30px;">
         <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="closeViewModal()"></div>
-        <div class="relative bg-[#0B1325] border border-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" style="margin: auto; z-index: 10;">
+        <div class="relative bg-[#0B1325] border border-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col mx-auto my-auto" style="z-index: 10;">
             
             <div class="flex justify-between items-center px-6 py-4 border-b border-gray-800 shrink-0">
                 <div class="flex items-center gap-3">
@@ -175,7 +178,7 @@
                 </button>
             </div>
 
-            <div class="overflow-y-auto p-6">
+            <div class="overflow-y-auto p-6 custom-scrollbar">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="relative">
                         <img id="viewImage" src="" alt="Trail" class="w-full h-64 object-cover rounded-xl border border-gray-700">
@@ -234,9 +237,9 @@
         </div>
     </div>
 
-    <div id="addTrailModal" class="fixed inset-0 z-100 hidden items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity" onclick="closeAddTrailModal()"></div>
-        <div class="relative w-full max-w-6xl flex flex-col bg-[#0B1325] border border-gray-800 rounded-xl shadow-2xl overflow-hidden max-h-[95vh]">
+    <div id="addTrailModal" class="fixed inset-0 z-100 modal-hidden" style="padding-top: 30px;">
+        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="closeAddTrailModal()"></div>
+        <div class="relative bg-[#0B1325] border border-gray-800 rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col mx-auto my-auto" style="z-index: 10;">
             
             <div class="flex justify-between items-center px-8 py-5 border-b border-gray-800 shrink-0">
                 <div class="flex items-center gap-3">
@@ -253,7 +256,7 @@
                 </button>
             </div>
 
-            <form id="addTrailForm" asp-controller="Trail" asp-action="AddTrail" method="post" enctype="multipart/form-data" class="flex flex-col flex-1 overflow-hidden relative z-10">
+            <form id="addTrailForm" asp-controller="Trail" asp-action="AddTrail" method="post" enctype="multipart/form-data" class="flex flex-col flex-1 overflow-hidden">
                 <div class="p-8 overflow-y-auto custom-scrollbar">
                     <div class="grid grid-cols-1 lg:grid-cols-5 gap-10">
                         <div class="lg:col-span-3 flex flex-col gap-5">
@@ -304,7 +307,6 @@
                         </div>
 
                         <div class="lg:col-span-2 flex flex-col gap-6">
-                            
                             <div class="flex flex-col">
                                 <label class="block text-sm font-medium text-gray-300 mb-2"><i class="fa-solid fa-cloud-arrow-up text-purple-400 mr-1.5"></i> Upload Trail Photo <span class="text-red-500">*</span></label>
                                 <div id="thumbnailBox" class="relative bg-[#111A2E] border border-dashed border-gray-600 rounded-xl flex flex-col items-center justify-center text-center hover:bg-gray-800 transition-all cursor-pointer group h-45">
@@ -324,7 +326,7 @@
 
                             <div class="flex flex-col mt-4">
                                 <label class="block text-sm font-medium text-gray-300 mb-2"><i class="fa-solid fa-image text-purple-400 mr-1.5"></i> Upload Additional Photos</label>
-                                <div class="relative bg-[#111A2E] border border-dashed border-gray-600 rounded-xl flex flex-col items-center justify-center text-center hover:bg-gray-800 transition-all cursor-pointer group h-[140px]">
+                                <div class="relative bg-[#111A2E] border border-dashed border-gray-600 rounded-xl flex flex-col items-center justify-center text-center hover:bg-gray-800 transition-all cursor-pointer group h-35">
                                     <i class="fa-solid fa-images text-3xl text-purple-500 mb-2 group-hover:text-purple-400 transition-colors"></i>
                                     <p class="text-sm text-gray-300 mb-1">Drag & drop images here or <span class="font-semibold text-purple-400">click to browse</span></p>
                                     <p class="text-xs text-gray-500">JPG, PNG up to 5MB each</p>
@@ -333,7 +335,6 @@
                                 <div id="additionalPhotosGrid" class="grid grid-cols-3 gap-3 mt-4 empty:hidden"></div>
                                 <p class="text-xs text-gray-500 mt-2">Add up to 8 photos to showcase the trail. JPG or PNG, up to 5MB each.</p>
                             </div>
-
                         </div>
                     </div>
                 </div>
@@ -351,9 +352,9 @@
         </div>
     </div>
 
-    <div id="editTrailModal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity" onclick="closeEditTrailModal()"></div>
-        <div class="relative w-full max-w-6xl flex flex-col bg-[#0B1325] border border-gray-800 rounded-xl shadow-2xl overflow-hidden max-h-[95vh]">
+    <div id="editTrailModal" class="fixed inset-0 z-100 modal-hidden" style="padding-top: 30px;">
+        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="closeEditTrailModal()"></div>
+        <div class="relative bg-[#0B1325] border border-gray-800 rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col mx-auto my-auto" style="z-index: 10;">
             
             <div class="flex justify-between items-center px-8 py-5 border-b border-gray-800 shrink-0">
                 <div class="flex items-center gap-3">
@@ -370,7 +371,7 @@
                 </button>
             </div>
 
-            <form id="editTrailForm" asp-controller="Trail" asp-action="EditTrail" method="post" enctype="multipart/form-data" class="flex flex-col flex-1 overflow-hidden relative z-10">
+            <form id="editTrailForm" asp-controller="Trail" asp-action="EditTrail" method="post" enctype="multipart/form-data" class="flex flex-col flex-1 overflow-hidden">
                 <input type="hidden" id="editTrailId" name="Id" />
                 <div class="p-8 overflow-y-auto custom-scrollbar">
                     <div class="grid grid-cols-1 lg:grid-cols-5 gap-10">
@@ -422,22 +423,20 @@
                         </div>
 
                         <div class="lg:col-span-2 flex flex-col gap-6">
-                            
                             <div class="flex flex-col">
                                 <label class="block text-sm font-medium text-gray-300 mb-2"><i class="fa-solid fa-cloud-arrow-up text-purple-400 mr-1.5"></i> Upload Trail Photo</label>
-                                <div id="editThumbnailBox" class="relative bg-[#111A2E] border border-dashed border-gray-600 rounded-xl flex flex-col items-center justify-center text-center hover:bg-gray-800 transition-all cursor-pointer group h-[180px]">
+                                <div id="editThumbnailBox" class="relative bg-[#111A2E] border border-dashed border-gray-600 rounded-xl flex flex-col items-center justify-center text-center hover:bg-gray-800 transition-all cursor-pointer group h-45">
                                     <i class="fa-solid fa-cloud-arrow-up text-4xl text-purple-500 mb-3 group-hover:text-purple-400 transition-colors"></i>
                                     <p class="text-sm text-gray-300 mb-1">Drag & drop image here or <span class="font-semibold text-purple-400">click to browse</span></p>
                                     <p class="text-xs text-gray-500">JPG, PNG up to 5MB</p>
                                     <input type="file" id="editThumbnailInput" name="ThumbnailImage" accept="image/png, image/jpeg" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" onchange="handleEditThumbnailPreview(this)" />
                                 </div>
-                                <div id="editThumbnailPreviewContainer" class="relative h-[180px] w-full rounded-xl overflow-hidden border border-gray-700 mt-2 group hidden">
+                                <div id="editThumbnailPreviewContainer" class="relative h-45 w-full rounded-xl overflow-hidden border border-gray-700 mt-2 group hidden">
                                     <img id="editThumbnailPreviewImage" class="w-full h-full object-cover" alt="Thumbnail Preview" />
                                     <button type="button" onclick="removeEditThumbnail()" class="absolute top-2 right-2 w-8 h-8 bg-gray-900/80 hover:bg-gray-700 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg z-20">
                                         <i class="fa-solid fa-xmark"></i>
                                     </button>
                                 </div>
-                                <p class="text-xs text-gray-500 mt-2">Leave empty to keep current thumbnail.</p>
                             </div>
 
                             <div class="flex flex-col mt-4">
@@ -445,16 +444,16 @@
                                 <div id="existingPhotosGrid" class="grid grid-cols-3 gap-3 mb-4"></div>
                                 
                                 <label class="block text-sm font-medium text-gray-300 mb-2 mt-2"><i class="fa-solid fa-plus text-purple-400 mr-1.5"></i> Add New Photos</label>
-                                <div class="relative bg-[#111A2E] border border-dashed border-gray-600 rounded-xl flex flex-col items-center justify-center text-center hover:bg-gray-800 transition-all cursor-pointer group h-[140px]">
-                                    <i class="fa-solid fa-images text-3xl text-purple-500 mb-2 group-hover:text-purple-400 transition-colors"></i>
-                                    <p class="text-sm text-gray-300 mb-1">Drag & drop images here or <span class="font-semibold text-purple-400">click to browse</span></p>
+                                <div class="relative bg-[#111A2E] border border-dashed border-gray-600 rounded-xl flex flex-col items-center justify-center text-center hover:bg-slate-800/50 transition-all cursor-pointer group h-44 px-4 py-6">
+                                    <i class="fa-solid fa-images text-4xl text-purple-500 mb-3 group-hover:text-purple-400 transition-colors"></i>
+                                    <p class="text-sm text-gray-300 mb-1">
+                                        Drag & drop images here or <span class="font-semibold text-purple-400 hover:underline">click to browse</span>
+                                    </p>
                                     <p class="text-xs text-gray-500">JPG, PNG up to 5MB each</p>
                                     <input type="file" id="editAdditionalInput" name="AdditionalImages" accept="image/png, image/jpeg" multiple class="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" onchange="handleEditAdditionalPhotos(this)" />
                                 </div>
                                 <div id="editAdditionalPhotosGrid" class="grid grid-cols-3 gap-3 mt-4 empty:hidden"></div>
-                                <p class="text-xs text-gray-500 mt-2">New photos will be added to the gallery.</p>
                             </div>
-
                         </div>
                     </div>
                 </div>
@@ -477,7 +476,28 @@
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
-        #viewTrailModal { display: none; }
+        
+        .modal-hidden {
+            display: none !important;
+        }
+        
+        .modal-visible {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+
+        #addTrailModal.modal-visible,
+        #editTrailModal.modal-visible,
+        #viewTrailModal.modal-visible {
+            padding: 1rem;
+            padding-top: 80px;
+        }
+        
+        .modal-visible .relative {
+            margin: auto;
+            max-height: 85vh;
+        }
         
         @@keyframes fadeOut {
             from { opacity: 1; transform: scale(1); }
@@ -523,9 +543,8 @@
             const additionalContainer = document.getElementById('viewAdditionalPhotos');
             additionalContainer.innerHTML = '<div class="col-span-3 text-center text-gray-500 text-sm py-4">Loading photos...</div>';
             
-            modal.style.display = 'flex';
-            modal.style.alignItems = 'center';
-            modal.style.justifyContent = 'center';
+            modal.classList.remove('modal-hidden');
+            modal.classList.add('modal-visible');
             document.body.style.overflow = 'hidden';
 
             fetch(`/Trail/GetTrailPhotos?trailId=${currentEditTrailId}`)
@@ -552,7 +571,8 @@
 
         function closeViewModal() {
             const modal = document.getElementById('viewTrailModal');
-            modal.style.display = 'none';
+            modal.classList.remove('modal-visible');
+            modal.classList.add('modal-hidden');
             document.body.style.overflow = 'auto';
         }
 
@@ -646,11 +666,15 @@
         }
 
         function openAddTrailModal() {
-            document.getElementById('addTrailModal').classList.remove('hidden');
+            const modal = document.getElementById('addTrailModal');
+            modal.classList.remove('modal-hidden');
+            modal.classList.add('modal-visible');
         }
 
         function closeAddTrailModal() {
-            document.getElementById('addTrailModal').classList.add('hidden');
+            const modal = document.getElementById('addTrailModal');
+            modal.classList.remove('modal-visible');
+            modal.classList.add('modal-hidden');
             document.getElementById('addTrailForm').reset();
             removeAddThumbnail();
             additionalFilesArray = [];
@@ -729,7 +753,9 @@
                 existingGrid.innerHTML = '<div class="col-span-3 text-center text-red-500 text-sm py-4">Error loading photos</div>';
             }
 
-            document.getElementById('editTrailModal').classList.remove('hidden');
+            const modal = document.getElementById('editTrailModal');
+            modal.classList.remove('modal-hidden');
+            modal.classList.add('modal-visible');
         }
 
         async function deleteExistingPhoto(buttonElement, event) {
@@ -777,9 +803,6 @@
         }
 
         async function deleteTrail(id, name) {
-            console.log('Deleting trail with ID:', id);
-            console.log('Trail name:', name);
-            
             if (!confirm(`Are you sure you want to delete "${name}"? This action cannot be undone.`)) {
                 return;
             }
@@ -794,7 +817,6 @@
                 });
                 
                 const result = await response.json();
-                console.log('Response:', result);
                 
                 if (result.success) {
                     showToast('Trail deleted successfully', 'success');
@@ -829,23 +851,6 @@
                 if (toast) toast.remove();
             }, 3000);
         }
-
-        function showTempMessage(message, type) {
-            const existingMsg = document.querySelector('.temp-message');
-            if (existingMsg) existingMsg.remove();
-            
-            const msgDiv = document.createElement('div');
-            msgDiv.className = `temp-message fixed top-24 right-4 z-50 ${type === 'success' ? 'bg-green-500/90' : 'bg-red-500/90'} text-white px-4 py-2 rounded-xl shadow-lg backdrop-blur-sm text-sm`;
-            msgDiv.innerHTML = `
-                <i class="fa-solid ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle'} mr-2"></i>
-                ${message}
-            `;
-            document.body.appendChild(msgDiv);
-            
-            setTimeout(() => {
-                msgDiv.remove();
-            }, 2000);
-        }
         
         document.addEventListener('click', function(e) {
             const deleteBtn = e.target.closest('.delete-photo-btn');
@@ -857,7 +862,9 @@
         });
 
         function closeEditTrailModal() {
-            document.getElementById('editTrailModal').classList.add('hidden');
+            const modal = document.getElementById('editTrailModal');
+            modal.classList.remove('modal-visible');
+            modal.classList.add('modal-hidden');
             document.getElementById('editTrailForm').reset();
             removeEditThumbnail();
             editAdditionalFilesArray = [];
@@ -934,5 +941,111 @@
                 closeEditTrailModal();
             }
         });
+
+        const searchInput = document.getElementById('searchInput');
+        const sortSelect = document.getElementById('sortOrder');
+        let trailCards = [];
+        let originalDisplay = [];
+
+        function refreshTrailCards() {
+            trailCards = Array.from(document.querySelectorAll('.grid > div[class*="bg-white/5"]'));
+            originalDisplay = trailCards.map(card => window.getComputedStyle(card).display);
+        }
+
+        function filterTrails() {
+            refreshTrailCards();
+            const searchTerm = searchInput.value.toLowerCase();
+            const sortValue = sortSelect.value;
+            
+            let filteredTrails = trailCards.filter((card, index) => {
+                const name = card.querySelector('h3')?.textContent.toLowerCase() || '';
+                const location = card.querySelector('.text-gray-400.text-sm')?.textContent.toLowerCase() || '';
+                const matches = name.includes(searchTerm) || location.includes(searchTerm);
+                if (!matches) {
+                    card.style.display = 'none';
+                }
+                return matches;
+            });
+
+            trailCards.forEach((card, idx) => {
+                card.style.display = 'none';
+            });
+
+            filteredTrails.sort((a, b) => {
+                if (sortValue === 'newest') {
+                    const dateA = a.getAttribute('data-date-added') || '';
+                    const dateB = b.getAttribute('data-date-added') || '';
+                    return new Date(dateB) - new Date(dateA);
+                } else if (sortValue === 'oldest') {
+                    const dateA = a.getAttribute('data-date-added') || '';
+                    const dateB = b.getAttribute('data-date-added') || '';
+                    return new Date(dateA) - new Date(dateB);
+                } else if (sortValue === 'name_asc') {
+                    const nameA = a.querySelector('h3')?.textContent || '';
+                    const nameB = b.querySelector('h3')?.textContent || '';
+                    return nameA.localeCompare(nameB);
+                } else if (sortValue === 'name_desc') {
+                    const nameA = a.querySelector('h3')?.textContent || '';
+                    const nameB = b.querySelector('h3')?.textContent || '';
+                    return nameB.localeCompare(nameA);
+                } else if (sortValue === 'distance_asc') {
+                    const distA = parseFloat(a.querySelector('.grid-cols-3 > div:first-child p:last-child')?.textContent) || 0;
+                    const distB = parseFloat(b.querySelector('.grid-cols-3 > div:first-child p:last-child')?.textContent) || 0;
+                    return distA - distB;
+                } else if (sortValue === 'distance_desc') {
+                    const distA = parseFloat(a.querySelector('.grid-cols-3 > div:first-child p:last-child')?.textContent) || 0;
+                    const distB = parseFloat(b.querySelector('.grid-cols-3 > div:first-child p:last-child')?.textContent) || 0;
+                    return distB - distA;
+                } else if (sortValue === 'elevation_asc') {
+                    const elevA = parseFloat(a.querySelector('.grid-cols-3 > div:nth-child(2) p:last-child')?.textContent) || 0;
+                    const elevB = parseFloat(b.querySelector('.grid-cols-3 > div:nth-child(2) p:last-child')?.textContent) || 0;
+                    return elevA - elevB;
+                } else if (sortValue === 'elevation_desc') {
+                    const elevA = parseFloat(a.querySelector('.grid-cols-3 > div:nth-child(2) p:last-child')?.textContent) || 0;
+                    const elevB = parseFloat(b.querySelector('.grid-cols-3 > div:nth-child(2) p:last-child')?.textContent) || 0;
+                    return elevB - elevA;
+                }
+                return 0;
+            });
+
+            filteredTrails.forEach(card => {
+                card.style.display = 'flex';
+            });
+
+            const totalCountSpan = document.querySelector('.bg-white\\/5.border.border-white\\/10 .text-white strong');
+            if (totalCountSpan) {
+                totalCountSpan.textContent = filteredTrails.length;
+            }
+
+            const grid = document.querySelector('.grid');
+            let noResultsDiv = document.getElementById('noResultsMessage');
+            
+            if (filteredTrails.length === 0) {
+                if (!noResultsDiv) {
+                    noResultsDiv = document.createElement('div');
+                    noResultsDiv.id = 'noResultsMessage';
+                    noResultsDiv.className = 'col-span-full text-center py-20 bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl';
+                    noResultsDiv.innerHTML = `
+                        <i class="fa-solid fa-mountain text-5xl text-gray-500 mb-4"></i>
+                        <h3 class="text-xl font-bold text-gray-300">No trails found</h3>
+                        <p class="text-gray-500 mt-2">Try searching a different name or clearing the filters.</p>
+                    `;
+                    grid.appendChild(noResultsDiv);
+                }
+            } else {
+                if (noResultsDiv) noResultsDiv.remove();
+            }
+        }
+
+        if (searchInput) {
+            searchInput.addEventListener('input', filterTrails);
+        }
+        if (sortSelect) {
+            sortSelect.addEventListener('change', filterTrails);
+        }
+
+        setTimeout(() => {
+            refreshTrailCards();
+        }, 500);
     </script>
 }
