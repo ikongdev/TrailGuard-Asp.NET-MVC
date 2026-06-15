@@ -3,6 +3,11 @@
 @inject SignInManager<ApplicationUser> SignInManager
 @inject UserManager<ApplicationUser> UserManager
 
+@{
+    var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
+    var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
+}
+
 <nav class="fixed top-0 left-0 w-full z-50 px-4 py-4">
     <div class="max-w-4xl mx-auto">
 
@@ -24,27 +29,32 @@
 
             <div class="hidden lg:flex absolute left-1/2 -translate-x-1/2 items-center justify-center gap-1 whitespace-nowrap">
                 <a asp-controller="Admin" asp-action="Index"
-                   class="nav-link px-3 py-1.5 rounded-full text-sm font-meduim text-white/80 bg-white/10 transition">
+                   class="nav-link px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-200
+                          @(currentController == "Admin" && currentAction == "Index" ? "bg-white/10 text-white" : "text-white/80 hover:text-white hover:bg-white/10")">
                     Dashboard
                 </a>
 
                 <a asp-controller="Trail" asp-action="Index"
-                   class="nav-link px-4 py-2 rounded-2xl text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 transition">
+                   class="nav-link px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-200
+                          @(currentController == "Trail" ? "bg-white/10 text-white" : "text-white/80 hover:text-white hover:bg-white/10")">
                     Trails
                 </a>
 
                 <a asp-controller="Event" asp-action="Index"
-                class="nav-link px-4 py-2 rounded-2xl text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 transition">
+                   class="nav-link px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-200
+                          @(currentController == "Event" ? "bg-white/10 text-white" : "text-white/80 hover:text-white hover:bg-white/10")">
                     Events
                 </a>
 
                 <a asp-controller="Admin" asp-action="Accounts"
-                   class="nav-link px-4 py-2 rounded-2xl text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 transition">
+                   class="nav-link px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-200
+                          @(currentAction == "Accounts" ? "bg-white/10 text-white" : "text-white/80 hover:text-white hover:bg-white/10")">
                     Accounts
                 </a>
 
-                <a href="#"
-                   class="nav-link px-4 py-2 rounded-2xl text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 transition">
+                <a asp-controller="Records" asp-action="Index"
+                   class="nav-link px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-200
+                          @(currentController == "Records" ? "bg-white/10 text-white" : "text-white/80 hover:text-white hover:bg-white/10")">
                     Records
                 </a>
             </div>
@@ -98,27 +108,32 @@
         <div class="lg:hidden hidden peer-checked:block mt-3 rounded-3xl bg-[#060B1A]/80 backdrop-blur-md shadow-lg shadow-black/20 p-3">
             <div class="flex flex-col gap-1">
                 <a asp-controller="Admin" asp-action="Index"
-                   class="px-4 py-2 rounded-2xl text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 transition">
+                   class="px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-200
+                          @(currentController == "Admin" && currentAction == "Index" ? "bg-white/10 text-white" : "text-white/80 hover:text-white hover:bg-white/10")">
                     Dashboard
                 </a>
 
                 <a asp-controller="Trail" asp-action="Index"
-                   class="px-4 py-2 rounded-2xl text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 transition">
+                   class="px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-200
+                          @(currentController == "Trail" ? "bg-white/10 text-white" : "text-white/80 hover:text-white hover:bg-white/10")">
                     Trails
                 </a>
 
                 <a asp-controller="Event" asp-action="Index"
-                class="px-4 py-2 rounded-2xl text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 transition">
+                   class="px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-200
+                          @(currentController == "Event" ? "bg-white/10 text-white" : "text-white/80 hover:text-white hover:bg-white/10")">
                     Events
                 </a>
 
                 <a asp-controller="Admin" asp-action="Accounts"
-                   class="px-4 py-2 rounded-2xl text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 transition">
+                   class="px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-200
+                          @(currentAction == "Accounts" ? "bg-white/10 text-white" : "text-white/80 hover:text-white hover:bg-white/10")">
                     Accounts
                 </a>
 
-                <a href="#"
-                   class="px-4 py-2 rounded-2xl text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 transition">
+                <a asp-controller="Records" asp-action="Index"
+                   class="px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-200
+                          @(currentController == "Records" ? "bg-white/10 text-white" : "text-white/80 hover:text-white hover:bg-white/10")">
                     Records
                 </a>
 

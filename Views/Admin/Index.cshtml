@@ -1,169 +1,262 @@
+@using TrailGuard.Models
+@model AdminDashboardViewModel
 @{
     ViewData["Title"] = "Admin Dashboard";
 }
 
 @section PageHero {
-    <div class="pt-24 px-4 w-full max-w-7xl mx-auto min-h-screen text-white text-left pb-12">
-        
+    <div class="pt-24 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
         <div class="mb-8">
             <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-linear-to-r from-orange-400 to-purple-400">Admin Dashboard</h1>
-            <p class="text-gray-400 mt-2 text-sm">Here's what's happening in TrailGuard today.</p>
+            <p class="text-gray-400 mt-1 text-sm">Overview of trails, events, participants, and revenue.</p>
         </div>
-        
-        <div class="mt-8">
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                
-                <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl relative overflow-hidden group hover:bg-white/10 transition-all duration-300">
-                    <div class="absolute -right-6 -top-6 w-24 h-24 bg-orange-500/10 rounded-full blur-2xl group-hover:bg-orange-500/20 transition-all duration-500"></div>
-                    <div class="flex items-center justify-between mb-2 relative z-10">
-                        <h3 class="text-gray-300 text-sm font-medium">Total Users</h3>
-                        <div class="w-10 h-10 rounded-full bg-orange-500/20 border border-orange-500/30 flex items-center justify-center backdrop-blur-sm">
-                            <i class="fa-solid fa-users text-orange-400 text-sm"></i>
-                        </div>
-                    </div>
-                    <p class="text-3xl font-black text-white relative z-10">1,248</p>
-                    <p class="text-xs text-emerald-400 mt-2 relative z-10"><i class="fa-solid fa-arrow-trend-up mr-1"></i> +12 new this week</p>
-                </div>
 
-                <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl relative overflow-hidden group hover:bg-white/10 transition-all duration-300">
-                    <div class="absolute -right-6 -top-6 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl group-hover:bg-emerald-500/20 transition-all duration-500"></div>
-                    <div class="flex items-center justify-between mb-2 relative z-10">
-                        <h3 class="text-gray-300 text-sm font-medium">Registered Trails</h3>
-                        <div class="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center backdrop-blur-sm">
-                            <i class="fa-solid fa-mountain text-emerald-400 text-sm"></i>
-                        </div>
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
+                        <i class="fa-solid fa-mountain text-orange-400 text-lg"></i>
                     </div>
-                    <p class="text-3xl font-black text-white relative z-10">42</p>
-                    <p class="text-xs text-emerald-400 mt-2 relative z-10"><i class="fa-solid fa-check-circle mr-1"></i> All operational</p>
-                </div>
-
-                <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl relative overflow-hidden group hover:bg-white/10 transition-all duration-300">
-                    <div class="absolute -right-6 -top-6 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-all duration-500"></div>
-                    <div class="flex items-center justify-between mb-2 relative z-10">
-                        <h3 class="text-gray-300 text-sm font-medium">Upcoming Events</h3>
-                        <div class="w-10 h-10 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center backdrop-blur-sm">
-                            <i class="fa-solid fa-calendar-check text-blue-400 text-sm"></i>
-                        </div>
+                    <div>
+                        <p class="text-gray-400 text-xs">Total Trails</p>
+                        <p class="text-2xl font-bold text-white">@Model.TotalTrails</p>
                     </div>
-                    <p class="text-3xl font-black text-white relative z-10">18</p>
-                    <p class="text-xs text-blue-400 mt-2 relative z-10"><i class="fa-solid fa-clock mr-1"></i> 3 starting tomorrow</p>
                 </div>
-
-                <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl relative overflow-hidden group hover:bg-white/10 transition-all duration-300">
-                    <div class="absolute -right-6 -top-6 w-24 h-24 bg-purple-500/10 rounded-full blur-2xl group-hover:bg-purple-500/20 transition-all duration-500"></div>
-                    <div class="flex items-center justify-between mb-2 relative z-10">
-                        <h3 class="text-gray-300 text-sm font-medium">System Reports</h3>
-                        <div class="w-10 h-10 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center backdrop-blur-sm">
-                            <i class="fa-solid fa-bell text-purple-400 text-sm"></i>
-                        </div>
-                    </div>
-                    <p class="text-3xl font-black text-white relative z-10">5</p>
-                    <p class="text-xs text-orange-400 mt-2 relative z-10"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Needs review</p>
-                </div>
-
             </div>
-
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                
-                <div class="lg:col-span-2">
-                    <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                        <i class="fa-solid fa-user-clock text-gray-400"></i> Newest Accounts
-                    </h2>
-                    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-1 overflow-hidden shadow-2xl">
-                        <table class="w-full text-left border-collapse whitespace-nowrap">
-                            <tbody class="divide-y divide-white/5">
-                                <tr class="hover:bg-white/5 transition-colors">
-                                    <td class="px-6 py-4">
-                                        <div class="flex items-center gap-3">
-                                            <div class="w-10 h-10 rounded-full bg-linear-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm shadow-lg">MC</div>
-                                            <div>
-                                                <div class="text-white font-medium">Maria Clara</div>
-                                                <div class="text-xs text-gray-400">maria@example.com</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <span class="text-purple-300 bg-purple-500/10 border border-purple-500/20 px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-sm">Participant</span>
-                                    </td>
-                                    <td class="px-6 py-4 text-gray-400 text-sm text-right">Just now</td>
-                                </tr>
-                                <tr class="hover:bg-white/5 transition-colors">
-                                    <td class="px-6 py-4">
-                                        <div class="flex items-center gap-3">
-                                            <div class="w-10 h-10 rounded-full bg-linear-to-r from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold text-sm shadow-lg">JD</div>
-                                            <div>
-                                                <div class="text-white font-medium">Juan Dela Cruz</div>
-                                                <div class="text-xs text-gray-400">juan.org@example.com</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <span class="text-blue-300 bg-blue-500/10 border border-blue-500/20 px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-sm">Organizer</span>
-                                    </td>
-                                    <td class="px-6 py-4 text-gray-400 text-sm text-right">2 hours ago</td>
-                                </tr>
-                                <tr class="hover:bg-white/5 transition-colors">
-                                    <td class="px-6 py-4">
-                                        <div class="flex items-center gap-3">
-                                            <div class="w-10 h-10 rounded-full bg-linear-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm shadow-lg">AS</div>
-                                            <div>
-                                                <div class="text-white font-medium">Ana Santos</div>
-                                                <div class="text-xs text-gray-400">ana@example.com</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <span class="text-purple-300 bg-purple-500/10 border border-purple-500/20 px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-sm">Participant</span>
-                                    </td>
-                                    <td class="px-6 py-4 text-gray-400 text-sm text-right">Yesterday</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                        <div class="p-3 text-center border-t border-white/5">
-                            <a asp-controller="Admin" asp-action="Accounts" class="text-sm text-orange-400 hover:text-orange-300 font-medium transition-colors">View All Accounts <i class="fa-solid fa-arrow-right ml-1"></i></a>
-                        </div>
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
+                        <i class="fa-solid fa-calendar text-orange-400 text-lg"></i>
+                    </div>
+                    <div>
+                        <p class="text-gray-400 text-xs">Total Events</p>
+                        <p class="text-2xl font-bold text-white">@Model.TotalEvents</p>
                     </div>
                 </div>
-
-                <div>
-                    <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                        <i class="fa-solid fa-bolt text-gray-400"></i> Quick Actions
-                    </h2>
-                    <div class="flex flex-col gap-3">
-                        <a asp-controller="Admin" asp-action="AddAccount" class="bg-white/5 hover:bg-white/10 border border-white/10 backdrop-blur-xl p-4 rounded-2xl flex items-center gap-4 group transition-all">
-                            <div class="w-10 h-10 rounded-full bg-orange-500/20 text-orange-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                <i class="fa-solid fa-user-plus"></i>
-                            </div>
-                            <div>
-                                <h4 class="text-white font-semibold text-sm">Add New Account</h4>
-                                <p class="text-gray-400 text-xs mt-0.5">Register a new user manually</p>
-                            </div>
-                        </a>
-
-                        <a href="#" class="bg-white/5 hover:bg-white/10 border border-white/10 backdrop-blur-xl p-4 rounded-2xl flex items-center gap-4 group transition-all">
-                            <div class="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                <i class="fa-solid fa-map-location-dot"></i>
-                            </div>
-                            <div>
-                                <h4 class="text-white font-semibold text-sm">Manage Trails</h4>
-                                <p class="text-gray-400 text-xs mt-0.5">Add or update hiking locations</p>
-                            </div>
-                        </a>
-
-                        <a href="#" class="bg-white/5 hover:bg-white/10 border border-white/10 backdrop-blur-xl p-4 rounded-2xl flex items-center gap-4 group transition-all">
-                            <div class="w-10 h-10 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                <i class="fa-solid fa-calendar-plus"></i>
-                            </div>
-                            <div>
-                                <h4 class="text-white font-semibold text-sm">Review Events</h4>
-                                <p class="text-gray-400 text-xs mt-0.5">Approve organizer events</p>
-                            </div>
-                        </a>
+            </div>
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
+                        <i class="fa-solid fa-users text-orange-400 text-lg"></i>
+                    </div>
+                    <div>
+                        <p class="text-gray-400 text-xs">Total Participants</p>
+                        <p class="text-2xl font-bold text-white">@Model.TotalParticipants.ToString("N0")</p>
                     </div>
                 </div>
-
+            </div>
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
+                        <i class="fa-solid fa-chart-line text-orange-400 text-lg"></i>
+                    </div>
+                    <div>
+                        <p class="text-gray-400 text-xs">Total Revenue</p>
+                        <p class="text-2xl font-bold text-green-400">₱ @Model.TotalRevenue.ToString("N0")</p>
+                    </div>
+                </div>
             </div>
         </div>
 
+        <!-- Charts Row - 3 columns -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4">
+                <h2 class="text-sm font-bold text-white mb-3"><i class="fa-solid fa-chart-line text-orange-400 mr-2"></i>Events per Month</h2>
+                <div style="height: 220px;">
+                    <canvas id="eventsChart"></canvas>
+                </div>
+            </div>
+
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4">
+                <h2 class="text-sm font-bold text-white mb-3"><i class="fa-solid fa-mountain text-orange-400 mr-2"></i>Popular Trails</h2>
+                <div style="height: 220px;">
+                    <canvas id="popularTrailsChart"></canvas>
+                </div>
+            </div>
+
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4">
+                <h2 class="text-sm font-bold text-white mb-3"><i class="fa-solid fa-chart-pie text-orange-400 mr-2"></i>Event Status</h2>
+                <div style="height: 220px; display: flex; align-items: center; justify-content: center;">
+                    <canvas id="statusChart" style="max-width: 200px; max-height: 200px;"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Data Tables -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
+                <div class="px-4 py-3 border-b border-gray-700">
+                    <h2 class="text-sm font-bold text-white"><i class="fa-solid fa-calendar-week text-orange-400 mr-2"></i>Upcoming Events</h2>
+                </div>
+                <div class="p-3 space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
+                    @if (Model.UpcomingEvents.Any())
+                    {
+                        @foreach (var e in Model.UpcomingEvents)
+                        {
+                            <div class="flex justify-between items-center p-2 hover:bg-white/5 rounded-lg transition-colors">
+                                <div>
+                                    <p class="text-white font-medium text-sm">@e.EventTitle</p>
+                                    <p class="text-gray-400 text-xs">@e.EventDate.ToString("MMM dd, yyyy")</p>
+                                </div>
+                                <span class="text-xs px-2 py-1 rounded-full bg-green-600 text-white">@e.Status</span>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p class="text-gray-500 text-sm text-center py-4">No upcoming events</p>
+                    }
+                </div>
+                <div class="px-4 py-2 border-t border-gray-700">
+                    <a asp-controller="Event" asp-action="Index" class="text-xs text-orange-400 hover:text-orange-300 transition">View all events →</a>
+                </div>
+            </div>
+
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
+                <div class="px-4 py-3 border-b border-gray-700">
+                    <h2 class="text-sm font-bold text-white"><i class="fa-solid fa-user-plus text-orange-400 mr-2"></i>Recent Registrations</h2>
+                </div>
+                <div class="p-3 space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
+                    @if (Model.RecentRegistrations.Any())
+                    {
+                        @foreach (var r in Model.RecentRegistrations)
+                        {
+                            <div class="flex justify-between items-center p-2 hover:bg-white/5 rounded-lg transition-colors">
+                                <div>
+                                    <p class="text-white font-medium text-sm">@r.ParticipantName</p>
+                                    <p class="text-gray-400 text-xs">@r.Event?.EventTitle</p>
+                                </div>
+                                <span class="text-xs px-2 py-1 rounded-full @(r.IsPaid ? "bg-green-600 text-white" : "bg-yellow-600 text-white")">
+                                    @(r.IsPaid ? "Paid" : "Pending")
+                                </span>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p class="text-gray-500 text-sm text-center py-4">No registrations yet</p>
+                    }
+                </div>
+            </div>
+        </div>
     </div>
 }
+
+<style>
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+    // Events per Month Chart
+    const eventsCtx = document.getElementById('eventsChart')?.getContext('2d');
+    if (eventsCtx) {
+        new Chart(eventsCtx, {
+            type: 'line',
+            data: {
+                labels: @Html.Raw(Json.Serialize(Model.EventsPerMonth.Select(m => m.Month))),
+                datasets: [{
+                    label: 'Number of Events',
+                    data: @Html.Raw(Json.Serialize(Model.EventsPerMonth.Select(m => m.Count))),
+                    borderColor: '#f97316',
+                    backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                    tension: 0.3,
+                    fill: true,
+                    pointBackgroundColor: '#f97316',
+                    pointBorderColor: '#fff',
+                    pointRadius: 3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: { labels: { color: '#9ca3af', font: { size: 10 } } }
+                },
+                scales: {
+                    y: { 
+                        grid: { color: '#374151' }, 
+                        ticks: { color: '#9ca3af', font: { size: 10 }, stepSize: 1 } 
+                    },
+                    x: { 
+                        grid: { display: false }, 
+                        ticks: { color: '#9ca3af', font: { size: 10 }, maxRotation: 45, minRotation: 45 } 
+                    }
+                }
+            }
+        });
+    }
+
+    // Popular Trails Chart
+    const trailsCtx = document.getElementById('popularTrailsChart')?.getContext('2d');
+    if (trailsCtx) {
+        new Chart(trailsCtx, {
+            type: 'bar',
+            data: {
+                labels: @Html.Raw(Json.Serialize(Model.PopularTrails.Select(t => t.TrailName))),
+                datasets: [{
+                    label: 'Number of Events',
+                    data: @Html.Raw(Json.Serialize(Model.PopularTrails.Select(t => t.EventCount))),
+                    backgroundColor: '#f97316',
+                    borderRadius: 6,
+                    barPercentage: 0.7
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: { labels: { color: '#9ca3af', font: { size: 10 } } }
+                },
+                scales: {
+                    y: { 
+                        grid: { color: '#374151' }, 
+                        ticks: { color: '#9ca3af', font: { size: 10 }, stepSize: 1, precision: 0 } 
+                    },
+                    x: { 
+                        grid: { display: false }, 
+                        ticks: { color: '#9ca3af', font: { size: 10 } } 
+                    }
+                }
+            }
+        });
+    }
+
+    const statusCtx = document.getElementById('statusChart')?.getContext('2d');
+    if (statusCtx) {
+        const statusLabels = @Html.Raw(Json.Serialize(Model.EventStatusDistribution.Select(s => s.Status)));
+        const statusData = @Html.Raw(Json.Serialize(Model.EventStatusDistribution.Select(s => s.Count)));
+        
+        new Chart(statusCtx, {
+            type: 'doughnut',
+            data: {
+                labels: statusLabels,
+                datasets: [{
+                    data: statusData,
+                    backgroundColor: ['#10b981', '#3b82f6', '#ef4444', '#f59e0b'],
+                    borderWidth: 0,
+                    cutout: '60%'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: { 
+                        position: 'bottom', 
+                        labels: { 
+                            color: '#e5e7eb', 
+                            font: { size: 13, weight: '500' },
+                            boxWidth: 12,
+                            padding: 10
+                        } 
+                    }
+                }
+            }
+        });
+    }
+</script>
