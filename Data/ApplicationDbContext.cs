@@ -14,6 +14,7 @@ namespace TrailGuard.Data
 
         public DbSet<Trail> Trails { get; set; }
         public DbSet<TrailPhoto> TrailPhotos { get; set; }
+        public DbSet<Event> Events { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

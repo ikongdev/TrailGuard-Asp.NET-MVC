@@ -263,17 +263,21 @@ namespace TrailGuard.Controllers
                     }
                 }
 
-                foreach (var photo in trail.TrailPhotos)
+                if (trail.TrailPhotos != null)
                 {
-                    string photoPath = Path.Combine(_webHostEnvironment.WebRootPath,
-                        photo.ImageUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
-                    if (System.IO.File.Exists(photoPath))
+                    foreach (var photo in trail.TrailPhotos)
                     {
-                        System.IO.File.Delete(photoPath);
+                        string photoPath = Path.Combine(_webHostEnvironment.WebRootPath,
+                            photo.ImageUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+                        if (System.IO.File.Exists(photoPath))
+                        {
+                            System.IO.File.Delete(photoPath);
+                        }
                     }
+
+                    _context.TrailPhotos.RemoveRange(trail.TrailPhotos);
                 }
-                
-                _context.TrailPhotos.RemoveRange(trail.TrailPhotos);
+
                 _context.Trails.Remove(trail);
                 await _context.SaveChangesAsync();
                 

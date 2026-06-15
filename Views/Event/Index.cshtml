@@ -1,0 +1,1373 @@
+@model IEnumerable<TrailGuard.Models.EventGroupViewModel>
+@{
+    ViewData["Title"] = "Event Management";
+}
+
+@if (TempData["Success"] != null)
+{
+    <div id="successMessage" class="fixed top-24 right-4 z-50 bg-green-500/90 text-white px-6 py-3 rounded-xl shadow-lg backdrop-blur-sm flex items-center gap-3">
+        <i class="fa-solid fa-check-circle"></i>
+        <span>@TempData["Success"]</span>
+        <button type="button" onclick="this.parentElement.remove()" class="hover:text-gray-200 transition-colors">
+            <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+    </div>
+}
+
+@if (TempData["Error"] != null)
+{
+    <div id="errorMessage" class="fixed top-24 right-4 z-50 bg-red-500/90 text-white px-6 py-3 rounded-xl shadow-lg backdrop-blur-sm flex items-center gap-3">
+        <i class="fa-solid fa-exclamation-triangle"></i>
+        <span>@TempData["Error"]</span>
+        <button type="button" onclick="this.parentElement.remove()" class="hover:text-gray-200 transition-colors">
+            <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+    </div>
+}
+
+@section PageHero {
+    <div class="pt-24 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-linear-to-r from-orange-400 to-purple-400">Event Management</h1>
+                <p class="text-gray-400 mt-1 text-sm">Manage hiking events grouped by trail.</p>
+            </div>
+            
+            <div class="flex flex-wrap items-center gap-4">
+                <div class="bg-white/5 border border-white/10 px-4 py-2.5 rounded-full flex items-center gap-2 backdrop-blur-sm shadow-lg">
+                    <i class="fa-solid fa-calendar text-gray-400"></i>
+                    <span class="text-sm font-medium text-gray-300">Total Trails with Events: <strong class="text-white" id="totalTrailsCount">@Model.Count()</strong></span>
+                </div>
+                
+                <button onclick="openAddEventModal()" class="primary-btn group inline-flex items-center justify-center gap-2 px-7 py-3 text-sm rounded-full bg-linear-to-r from-orange-500 to-purple-600 text-white font-bold shadow-lg shadow-purple-500/30 hover:scale-105 hover:opacity-90 transform transition duration-300 ease-out">
+                    <span>Add Event</span>
+                    <i class="fa-solid fa-plus transition-transform duration-300 group-hover:translate-x-1"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="flex flex-col lg:flex-row gap-4 mb-8 bg-white/10 backdrop-blur-xl p-5 rounded-3xl border border-white/20 shadow-2xl">
+    <div class="relative grow">
+        <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+        <input type="text" id="searchInput" placeholder="Search events by title or location..." 
+             class="w-full bg-black/30 border border-white/20 text-white text-sm rounded-full pl-11 pr-4 py-3 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 focus:outline-none transition-colors placeholder-gray-400">
+    </div>
+
+    <div class="flex flex-wrap sm:flex-nowrap gap-3">
+        <select id="statusFilter" class="bg-[#1E2A45] border border-gray-600 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-orange-500 focus:outline-none cursor-pointer appearance-none hover:bg-[#2A3A60] transition-colors"
+                style="background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%239CA3AF%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3e%3cpolyline points=%276 9 12 15 18 9%27%3e%3c/polyline%3e%3c/svg%3e'); background-repeat: no-repeat; background-position: right 14px center; background-size: 16px;">
+            <option value="All" class="bg-[#0B1325] text-white">All Status</option>
+            <option value="Upcoming" class="bg-[#0B1325] text-white">Upcoming</option>
+            <option value="Cancelled" class="bg-[#0B1325] text-white">Cancelled</option>
+            <option value="Postponed" class="bg-[#0B1325] text-white">Postponed</option>
+            <option value="Completed" class="bg-[#0B1325] text-white">Completed</option>
+        </select>
+
+        <select id="sortFilter" class="bg-[#1E2A45] border border-gray-600 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-orange-500 focus:outline-none cursor-pointer appearance-none hover:bg-[#2A3A60] transition-colors"
+                style="background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%239CA3AF%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3e%3cpolyline points=%276 9 12 15 18 9%27%3e%3c/polyline%3e%3c/svg%3e'); background-repeat: no-repeat; background-position: right 14px center; background-size: 16px;">
+            <option value="date_asc" class="bg-[#0B1325] text-white">Date (Earliest first)</option>
+            <option value="date_desc" class="bg-[#0B1325] text-white">Date (Latest first)</option>
+            <option value="title_asc" class="bg-[#0B1325] text-white">Title (A-Z)</option>
+            <option value="title_desc" class="bg-[#0B1325] text-white">Title (Z-A)</option>
+        </select>
+    </div>
+</div>
+
+        <div id="eventsContainer">
+            @if (!Model.Any())
+            {
+                <div class="text-center py-20 bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl">
+                    <i class="fa-solid fa-calendar-plus text-5xl text-gray-500 mb-4"></i>
+                    <h3 class="text-xl font-bold text-gray-300">No events found</h3>
+                    <p class="text-gray-500 mt-2">Click "Add Event" to create your first hiking event.</p>
+                </div>
+            }
+            else
+            {
+                @foreach (var group in Model)
+                {
+                    <div class="trail-group mb-10" data-trail-name="@group.TrailName.ToLower()" data-trail-location="@group.TrailLocation.ToLower()">
+                        <div class="flex items-center gap-3 mb-4 pb-3 border-b border-gray-700">
+                            <div class="w-10 h-10 rounded-full bg-linear-to-r from-orange-500 to-purple-500 flex items-center justify-center">
+                                <i class="fa-solid fa-mountain text-white text-sm"></i>
+                            </div>
+                            <div>
+                                <h2 class="text-xl font-bold text-white trail-name">@group.TrailName</h2>
+                                <p class="text-gray-400 text-sm"><i class="fa-solid fa-location-dot text-red-400 mr-1"></i> @group.TrailLocation</p>
+                            </div>
+                            <div class="ml-auto">
+                                <span class="text-xs px-3 py-1 bg-white/10 rounded-full text-gray-300">
+                                    <i class="fa-regular fa-calendar mr-1"></i> <span class="event-count">@group.Events.Count</span> event(s)
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="events-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            @foreach (var eventItem in group.Events)
+                            {
+                                <div class="event-card bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-xl hover:bg-white/10 transition-all duration-300"
+                                     data-event-title="@eventItem.EventTitle.ToLower()"
+                                     data-event-location="@eventItem.Location.ToLower()"
+                                     data-event-status="@eventItem.Status"
+                                     data-event-date="@eventItem.EventDate.ToString("yyyy-MM-dd")">
+                                    
+                                    <div class="relative h-40 overflow-hidden bg-gray-900">
+                                        @if (!string.IsNullOrEmpty(eventItem.Trail?.ThumbnailUrl))
+                                        {
+                                            <img src="@eventItem.Trail.ThumbnailUrl" alt="@eventItem.Trail.Name" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
+                                        }
+                                        else
+                                        {
+                                            <div class="w-full h-full flex items-center justify-center bg-gray-800">
+                                                <i class="fa-solid fa-mountain text-4xl text-gray-600"></i>
+                                            </div>
+                                        }
+                                        <div class="absolute inset-0 bg-linear-to-t from-[#0B1325] to-transparent opacity-80"></div>
+                                        <div class="absolute top-3 right-3">
+                                            <span class="text-xs px-2 py-1 rounded-full @(eventItem.Status == "Upcoming" ? "bg-green-500/20 text-green-400" : eventItem.Status == "Cancelled" ? "bg-red-500/20 text-red-400" : eventItem.Status == "Postponed" ? "bg-yellow-500/20 text-yellow-400" : "bg-gray-500/20 text-gray-400")">
+                                                @eventItem.Status
+                                            </span>
+                                        </div>
+                                        <div class="absolute bottom-3 left-3">
+                                            <span class="text-xs text-white/80 bg-black/50 px-2 py-1 rounded-full">
+                                                <i class="fa-regular fa-calendar mr-1"></i> @eventItem.EventDate.ToString("MMM dd, yyyy")
+                                            </span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="p-4">
+                                        <div class="flex justify-between items-start mb-2">
+                                            <h3 class="text-lg font-bold text-white">@eventItem.EventTitle</h3>
+                                        </div>
+                                        
+                                        <div class="flex items-center gap-2 text-sm text-gray-400 mb-3">
+                                            <i class="fa-solid fa-clock text-blue-400"></i>
+                                            <span>@($"{eventItem.EventTime.Hours:D2}:{eventItem.EventTime.Minutes:D2} {(eventItem.EventTime.Hours >= 12 ? "PM" : "AM")}")</span>
+                                            <span class="mx-1">•</span>
+                                            <i class="fa-solid fa-users text-green-400"></i>
+                                            <span>@eventItem.Capacity slots</span>
+                                        </div>
+                                        
+                                        <div class="flex flex-wrap gap-2 mb-4">
+                                            <span class="text-xs px-2 py-1 bg-purple-500/20 text-purple-300 rounded-full">
+                                                <i class="fa-solid fa-signal"></i> @eventItem.Difficulty
+                                            </span>
+                                            <span class="text-xs px-2 py-1 bg-blue-500/20 text-blue-300 rounded-full">
+                                                <i class="fa-regular fa-clock"></i> @eventItem.EstimatedDuration hrs
+                                            </span>
+                                        </div>
+
+                                        <div class="flex gap-2">
+                                            <a asp-controller="Event" asp-action="Details" asp-route-id="@eventItem.Id" 
+                                               class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
+                                                <i class="fa-regular fa-eye"></i> View
+                                            </a>
+                                            <button type="button" onclick="openEditModal(@eventItem.Id)" 
+                                                    class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
+                                                <i class="fa-solid fa-pen"></i> Edit
+                                            </button>
+                                            <button type="button" onclick="deleteEvent(@eventItem.Id, '@eventItem.EventTitle.Replace("'", "\\'")')" 
+                                                    class="bg-red-500/20 hover:bg-red-500 border border-red-500/30 hover:border-red-500 text-red-400 hover:text-white py-2 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 w-12">
+                                                <i class="fa-solid fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+}
+
+<!-- Add Event Modal -->
+<div id="addEventModal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4" style="padding-top: 80px;">
+    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeAddEventModal()"></div>
+    <div class="relative bg-[#0B1325] border border-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col" style="margin: auto; z-index: 10;">
+        
+        <div class="flex justify-between items-center px-6 py-4 border-b border-gray-800 shrink-0">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-linear-to-r from-orange-500 to-purple-500 flex items-center justify-center">
+                    <i class="fa-solid fa-plus text-white text-sm"></i>
+                </div>
+                <h2 class="text-xl font-bold text-white">Add New Event</h2>
+            </div>
+            <button onclick="closeAddEventModal()" class="text-gray-400 hover:text-white transition-colors">
+                <i class="fa-solid fa-xmark text-2xl"></i>
+            </button>
+        </div>
+
+        <div class="px-6 pt-4 shrink-0">
+            <div class="flex items-center justify-between max-w-md mx-auto">
+                <div class="step-indicator flex-1 text-center">
+                    <div class="step-circle w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center mx-auto mb-1">1</div>
+                    <span class="text-xs text-gray-400">Select Trail</span>
+                </div>
+                <div class="step-line flex-1 h-0.5 bg-gray-700 mx-2"></div>
+                <div class="step-indicator flex-1 text-center">
+                    <div class="step-circle w-8 h-8 rounded-full bg-gray-700 text-white flex items-center justify-center mx-auto mb-1">2</div>
+                    <span class="text-xs text-gray-400">Pickup & Date</span>
+                </div>
+                <div class="step-line flex-1 h-0.5 bg-gray-700 mx-2"></div>
+                <div class="step-indicator flex-1 text-center">
+                    <div class="step-circle w-8 h-8 rounded-full bg-gray-700 text-white flex items-center justify-center mx-auto mb-1">3</div>
+                    <span class="text-xs text-gray-400">Details</span>
+                </div>
+            </div>
+        </div>
+
+        <form id="addEventForm" class="flex flex-col flex-1 overflow-hidden">
+            <div class="overflow-y-auto p-6 custom-scrollbar" style="flex: 1;">
+                <!-- Step 1 -->
+                <div id="step1" class="step-content">
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Select Trail <span class="text-red-400">*</span></label>
+                        <select id="eventTrailId" name="TrailId" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none">
+                            <option value="">-- Select a trail --</option>
+                            @{
+                                var trails = ViewBag.Trails as List<TrailGuard.Models.Trail>;
+                                if (trails != null)
+                                {
+                                    foreach (var trail in trails)
+                                    {
+                                        <option value="@trail.Id">@trail.Name - @trail.Location</option>
+                                    }
+                                }
+                            }
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div class="bg-[#111A2E] rounded-lg p-3 border border-gray-700">
+                            <p class="text-gray-500 text-xs uppercase tracking-wider">Difficulty</p>
+                            <p id="previewDifficulty" class="text-white font-semibold">-</p>
+                        </div>
+                        <div class="bg-[#111A2E] rounded-lg p-3 border border-gray-700">
+                            <p class="text-gray-500 text-xs uppercase tracking-wider">Distance</p>
+                            <p id="previewDistance" class="text-white font-semibold">-</p>
+                        </div>
+                        <div class="bg-[#111A2E] rounded-lg p-3 border border-gray-700">
+                            <p class="text-gray-500 text-xs uppercase tracking-wider">Elevation Gain</p>
+                            <p id="previewElevation" class="text-white font-semibold">-</p>
+                        </div>
+                        <div class="bg-[#111A2E] rounded-lg p-3 border border-gray-700">
+                            <p class="text-gray-500 text-xs uppercase tracking-wider">Location</p>
+                            <p id="previewLocation" class="text-white font-semibold">-</p>
+                        </div>
+                        <div class="bg-[#111A2E] rounded-lg p-3 border border-gray-700">
+                            <p class="text-gray-500 text-xs uppercase tracking-wider">Terrain Type</p>
+                            <p id="previewTerrain" class="text-white font-semibold">-</p>
+                        </div>
+                        <div class="bg-[#111A2E] rounded-lg p-3 border border-gray-700">
+                            <p class="text-gray-500 text-xs uppercase tracking-wider">MASL</p>
+                            <p id="previewMASL" class="text-white font-semibold">-</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Estimated Duration (Hours) <span class="text-red-400">*</span></label>
+                            <input type="number" step="0.5" id="eventDuration" name="EstimatedDuration" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none" placeholder="e.g., 6">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Slots Available (Capacity) <span class="text-red-400">*</span></label>
+                            <input type="number" id="eventCapacity" name="Capacity" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none" placeholder="e.g., 20">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2 -->
+                <div id="step2" class="step-content hidden">
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Pickup Points <span class="text-red-400">*</span></label>
+                        <textarea id="eventPickupPoints" name="PickupPoints" rows="3" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none" placeholder="Enter pickup points..."></textarea>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Event Date <span class="text-red-400">*</span></label>
+                            <input type="date" id="eventDate" name="EventDate" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Event Time <span class="text-red-400">*</span></label>
+                            <input type="time" id="eventTime" name="EventTime" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none">
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Weather Forecast Advisory</label>
+                        <div class="relative">
+                            <textarea id="eventWeather" name="WeatherForecastAdvisory" rows="6" readonly class="w-full bg-[#111A2E]/50 border border-gray-700 text-gray-300 rounded-lg px-4 py-2.5 focus:outline-none cursor-default" placeholder="Weather forecast will auto-fill when you select trail and date..."></textarea>
+                            <div id="weatherLoadingSpinner" class="absolute inset-0 bg-[#111A2E]/80 rounded-lg items-center justify-center hidden">
+                                <div class="flex flex-col items-center gap-2">
+                                    <div class="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+                                    <span class="text-sm text-gray-300">Fetching weather forecast...</span>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">Weather forecast auto-fills based on trail location and event date. Field is read-only.</p>
+                    </div>
+                </div>
+
+                <!-- Step 3 -->
+                <div id="step3" class="step-content hidden">
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Event Title <span class="text-red-400">*</span></label>
+                        <input type="text" id="eventTitle" name="EventTitle" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none" placeholder="e.g., Mount Pulag Sunrise Hike">
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Organizer <span class="text-red-400">*</span></label>
+                        <select id="eventOrganizer" name="OrganizedBy" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none">
+                            <option value="">-- Select organizer --</option>
+                            @{
+                                var organizers = ViewBag.Organizers as List<TrailGuard.Models.ApplicationUser>;
+                                if (organizers != null)
+                                {
+                                    foreach (var org in organizers)
+                                    {
+                                        <option value="@org.Id">@org.FirstName @org.LastName - @org.Email</option>
+                                    }
+                                }
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Payment Details</label>
+                        <textarea id="eventPaymentDetails" name="PaymentDetails" rows="4" class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none" placeholder="Enter registration fee, payment instructions, bank details, GCASH number, etc.&#10;&#10;Example:&#10;Registration Fee: ₱1,200&#10;Payment Methods: GCASH 0912xxxxxxx, BPI Account #xxxx"></textarea>
+                        <p class="text-xs text-gray-500 mt-1">Include registration fee and payment instructions here.</p>
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Event Description <span class="text-red-400">*</span></label>
+                        <textarea id="eventDescription" name="Description" required rows="4" class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none" placeholder="Provide a detailed description about the event..."></textarea>
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Notes & Announcements</label>
+                        <textarea id="eventAnnouncements" name="Announcements" rows="3" class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none" placeholder="Important reminders and things participants should know..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="px-6 py-4 border-t border-gray-800 shrink-0 flex justify-between gap-3 bg-[#0B1325]">
+                <button type="button" id="prevBtn" class="px-5 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white bg-gray-800 hover:bg-gray-700 transition-colors hidden">
+                    ← Back
+                </button>
+                <div class="flex-1"></div>
+                <button type="button" id="nextBtn" class="primary-btn px-5 py-2 rounded-lg text-sm font-medium text-white bg-linear-to-r from-orange-500 to-purple-600 hover:opacity-90 transition-all">
+                    Next →
+                </button>
+                <button type="submit" id="submitBtn" class="primary-btn px-5 py-2 rounded-lg text-sm font-medium text-white bg-linear-to-r from-orange-500 to-purple-600 hover:opacity-90 transition-all hidden">
+                    Add Event
+                </button>
+                <button type="button" onclick="closeAddEventModal()" class="px-5 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white bg-gray-800 hover:bg-gray-700 transition-colors">
+                    Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Event Modal -->
+<div id="editEventModal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4" style="padding-top: 80px;">
+    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeEditEventModal()"></div>
+    <div class="relative bg-[#0B1325] border border-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col" style="margin: auto; z-index: 10;">
+        
+        <div class="flex justify-between items-center px-6 py-4 border-b border-gray-800 shrink-0">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-linear-to-r from-orange-500 to-purple-500 flex items-center justify-center">
+                    <i class="fa-solid fa-pen text-white text-sm"></i>
+                </div>
+                <h2 class="text-xl font-bold text-white">Edit Event</h2>
+            </div>
+            <button onclick="closeEditEventModal()" class="text-gray-400 hover:text-white transition-colors">
+                <i class="fa-solid fa-xmark text-2xl"></i>
+            </button>
+        </div>
+
+        <div class="px-6 pt-4 shrink-0">
+            <div class="flex items-center justify-between max-w-md mx-auto">
+                <div class="step-indicator-edit flex-1 text-center">
+                    <div class="step-circle-edit w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center mx-auto mb-1">1</div>
+                    <span class="text-xs text-gray-400">Select Trail</span>
+                </div>
+                <div class="step-line-edit flex-1 h-0.5 bg-gray-700 mx-2"></div>
+                <div class="step-indicator-edit flex-1 text-center">
+                    <div class="step-circle-edit w-8 h-8 rounded-full bg-gray-700 text-white flex items-center justify-center mx-auto mb-1">2</div>
+                    <span class="text-xs text-gray-400">Pickup & Date</span>
+                </div>
+                <div class="step-line-edit flex-1 h-0.5 bg-gray-700 mx-2"></div>
+                <div class="step-indicator-edit flex-1 text-center">
+                    <div class="step-circle-edit w-8 h-8 rounded-full bg-gray-700 text-white flex items-center justify-center mx-auto mb-1">3</div>
+                    <span class="text-xs text-gray-400">Details</span>
+                </div>
+            </div>
+        </div>
+
+        <form id="editEventForm" class="flex flex-col flex-1 overflow-hidden">
+            <input type="hidden" id="editEventId" name="Id" />
+            <div class="overflow-y-auto p-6 custom-scrollbar" style="flex: 1;">
+                <!-- Edit Step 1 -->
+                <div id="editStep1" class="edit-step-content">
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Select Trail <span class="text-red-400">*</span></label>
+                        <select id="editEventTrailId" name="TrailId" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none">
+                            <option value="">-- Select a trail --</option>
+                            @{
+                                var editTrails = ViewBag.Trails as List<TrailGuard.Models.Trail>;
+                                if (editTrails != null)
+                                {
+                                    foreach (var trail in editTrails)
+                                    {
+                                        <option value="@trail.Id">@trail.Name - @trail.Location</option>
+                                    }
+                                }
+                            }
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div class="bg-[#111A2E] rounded-lg p-3 border border-gray-700">
+                            <p class="text-gray-500 text-xs uppercase tracking-wider">Difficulty</p>
+                            <p id="editPreviewDifficulty" class="text-white font-semibold">-</p>
+                        </div>
+                        <div class="bg-[#111A2E] rounded-lg p-3 border border-gray-700">
+                            <p class="text-gray-500 text-xs uppercase tracking-wider">Distance</p>
+                            <p id="editPreviewDistance" class="text-white font-semibold">-</p>
+                        </div>
+                        <div class="bg-[#111A2E] rounded-lg p-3 border border-gray-700">
+                            <p class="text-gray-500 text-xs uppercase tracking-wider">Elevation Gain</p>
+                            <p id="editPreviewElevation" class="text-white font-semibold">-</p>
+                        </div>
+                        <div class="bg-[#111A2E] rounded-lg p-3 border border-gray-700">
+                            <p class="text-gray-500 text-xs uppercase tracking-wider">Location</p>
+                            <p id="editPreviewLocation" class="text-white font-semibold">-</p>
+                        </div>
+                        <div class="bg-[#111A2E] rounded-lg p-3 border border-gray-700">
+                            <p class="text-gray-500 text-xs uppercase tracking-wider">Terrain Type</p>
+                            <p id="editPreviewTerrain" class="text-white font-semibold">-</p>
+                        </div>
+                        <div class="bg-[#111A2E] rounded-lg p-3 border border-gray-700">
+                            <p class="text-gray-500 text-xs uppercase tracking-wider">MASL</p>
+                            <p id="editPreviewMASL" class="text-white font-semibold">-</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Estimated Duration (Hours) <span class="text-red-400">*</span></label>
+                            <input type="number" step="0.5" id="editEventDuration" name="EstimatedDuration" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none" placeholder="e.g., 6">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Slots Available (Capacity) <span class="text-red-400">*</span></label>
+                            <input type="number" id="editEventCapacity" name="Capacity" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none" placeholder="e.g., 20">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Edit Step 2 -->
+                <div id="editStep2" class="edit-step-content hidden">
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Pickup Points <span class="text-red-400">*</span></label>
+                        <textarea id="editEventPickupPoints" name="PickupPoints" rows="3" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none" placeholder="Enter pickup points..."></textarea>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Event Date <span class="text-red-400">*</span></label>
+                            <input type="date" id="editEventDate" name="EventDate" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Event Time <span class="text-red-400">*</span></label>
+                            <input type="time" id="editEventTime" name="EventTime" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none">
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Weather Forecast Advisory</label>
+                        <div class="relative">
+                            <textarea id="editEventWeather" name="WeatherForecastAdvisory" rows="6" readonly class="w-full bg-[#111A2E]/50 border border-gray-700 text-gray-300 rounded-lg px-4 py-2.5 focus:outline-none cursor-default" placeholder="Weather forecast will auto-fill when you select trail and date..."></textarea>
+                            <div id="editWeatherLoadingSpinner" class="absolute inset-0 bg-[#111A2E]/80 rounded-lg items-center justify-center hidden">
+                                <div class="flex flex-col items-center gap-2">
+                                    <div class="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+                                    <span class="text-sm text-gray-300">Fetching weather forecast...</span>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">Weather forecast auto-fills based on trail location and event date. Field is read-only.</p>
+                    </div>
+                </div>
+
+                <!-- Edit Step 3 -->
+                <div id="editStep3" class="edit-step-content hidden">
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Event Title <span class="text-red-400">*</span></label>
+                        <input type="text" id="editEventTitle" name="EventTitle" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none" placeholder="e.g., Mount Pulag Sunrise Hike">
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Organizer</label>
+                        <input type="text" id="editEventOrganizer" name="OrganizedBy" class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none" placeholder="Organizer name">
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Status</label>
+                        <select id="editEventStatus" name="Status" class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none">
+                            <option value="Upcoming">Upcoming</option>
+                            <option value="Cancelled">Cancelled</option>
+                            <option value="Postponed">Postponed</option>
+                            <option value="Completed">Completed</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Payment Details</label>
+                        <textarea id="editEventPaymentDetails" name="PaymentDetails" rows="4" class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none" placeholder="Enter registration fee, payment instructions, bank details, GCASH number, etc."></textarea>
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Event Description <span class="text-red-400">*</span></label>
+                        <textarea id="editEventDescription" name="Description" required rows="4" class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none" placeholder="Provide a detailed description about the event..."></textarea>
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Notes & Announcements</label>
+                        <textarea id="editEventAnnouncements" name="Announcements" rows="3" class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none" placeholder="Important reminders and things participants should know..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="px-6 py-4 border-t border-gray-800 shrink-0 flex justify-between gap-3 bg-[#0B1325]">
+                <button type="button" id="editPrevBtn" class="px-5 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white bg-gray-800 hover:bg-gray-700 transition-colors hidden">
+                    ← Back
+                </button>
+                <div class="flex-1"></div>
+                <button type="button" id="editNextBtn" class="primary-btn px-5 py-2 rounded-lg text-sm font-medium text-white bg-linear-to-r from-orange-500 to-purple-600 hover:opacity-90 transition-all">
+                    Next →
+                </button>
+                <button type="submit" id="editSubmitBtn" class="primary-btn px-5 py-2 rounded-lg text-sm font-medium text-white bg-linear-to-r from-orange-500 to-purple-600 hover:opacity-90 transition-all hidden">
+                    Save Changes
+                </button>
+                <button type="button" onclick="closeEditEventModal()" class="px-5 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white bg-gray-800 hover:bg-gray-700 transition-colors">
+                    Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+    .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    .primary-btn {
+        background: linear-gradient(to right, #f97316, #9333ea);
+    }
+    .primary-btn:hover {
+        opacity: 0.9;
+        transform: scale(1.02);
+    }
+    @@keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+    .animate-spin {
+        animation: spin 1s linear infinite;
+    }
+</style>
+
+<script>
+    setTimeout(function() {
+        const successMsg = document.getElementById('successMessage');
+        const errorMsg = document.getElementById('errorMessage');
+        if (successMsg) successMsg.remove();
+        if (errorMsg) errorMsg.remove();
+    }, 3000);
+
+    let currentStep = 1;
+    const totalSteps = 3;
+
+    function filterAndSortEvents() {
+        const searchTerm = document.getElementById('searchInput')?.value.toLowerCase() || '';
+        const statusFilter = document.getElementById('statusFilter')?.value || 'All';
+        const sortFilter = document.getElementById('sortFilter')?.value || 'date_asc';
+        
+        const trailGroups = document.querySelectorAll('.trail-group');
+        let totalVisibleTrails = 0;
+        
+        trailGroups.forEach(group => {
+            const trailName = group.getAttribute('data-trail-name') || '';
+            const trailLocation = group.getAttribute('data-trail-location') || '';
+            const trailMatchesSearch = trailName.includes(searchTerm) || trailLocation.includes(searchTerm);
+            
+            const eventCards = group.querySelectorAll('.event-card');
+            let visibleEvents = [];
+            
+            eventCards.forEach(card => {
+                const eventTitle = card.getAttribute('data-event-title') || '';
+                const eventLocation = card.getAttribute('data-event-location') || '';
+                const eventStatus = card.getAttribute('data-event-status') || '';
+                const eventDate = card.getAttribute('data-event-date') || '';
+                
+                const matchesSearch = trailMatchesSearch || eventTitle.includes(searchTerm) || eventLocation.includes(searchTerm);
+                const matchesStatus = statusFilter === 'All' || eventStatus === statusFilter;
+                
+                if (matchesSearch && matchesStatus) {
+                    visibleEvents.push(card);
+                } else {
+                    card.classList.add('hidden');
+                }
+            });
+            
+            visibleEvents.forEach(card => card.classList.remove('hidden'));
+            
+            visibleEvents.sort((a, b) => {
+                if (sortFilter === 'date_asc') {
+                    return new Date(a.getAttribute('data-event-date')) - new Date(b.getAttribute('data-event-date'));
+                } else if (sortFilter === 'date_desc') {
+                    return new Date(b.getAttribute('data-event-date')) - new Date(a.getAttribute('data-event-date'));
+                } else if (sortFilter === 'title_asc') {
+                    return (a.getAttribute('data-event-title') || '').localeCompare(b.getAttribute('data-event-title') || '');
+                } else if (sortFilter === 'title_desc') {
+                    return (b.getAttribute('data-event-title') || '').localeCompare(a.getAttribute('data-event-title') || '');
+                }
+                return 0;
+            });
+            
+            const container = group.querySelector('.events-grid');
+            if (container && visibleEvents.length > 0) {
+                visibleEvents.forEach(card => container.appendChild(card));
+                group.classList.remove('hidden');
+                const eventCountSpan = group.querySelector('.event-count');
+                if (eventCountSpan) eventCountSpan.textContent = visibleEvents.length;
+                totalVisibleTrails++;
+            } else {
+                group.classList.add('hidden');
+            }
+        });
+        
+        const totalTrailsSpan = document.getElementById('totalTrailsCount');
+        if (totalTrailsSpan) totalTrailsSpan.textContent = totalVisibleTrails;
+        
+        const noResultsDiv = document.getElementById('noResultsMessage');
+        if (totalVisibleTrails === 0) {
+            if (!noResultsDiv) {
+                const container = document.getElementById('eventsContainer');
+                const noResult = document.createElement('div');
+                noResult.id = 'noResultsMessage';
+                noResult.className = 'text-center py-20 bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl';
+                noResult.innerHTML = `
+                    <i class="fa-solid fa-calendar-times text-5xl text-gray-500 mb-4"></i>
+                    <h3 class="text-xl font-bold text-gray-300">No events found</h3>
+                    <p class="text-gray-500 mt-2">Try adjusting your search or filter criteria.</p>
+                `;
+                container.appendChild(noResult);
+            }
+        } else {
+            if (noResultsDiv) noResultsDiv.remove();
+        }
+    }
+    
+    document.getElementById('searchInput')?.addEventListener('input', filterAndSortEvents);
+    document.getElementById('statusFilter')?.addEventListener('change', filterAndSortEvents);
+    document.getElementById('sortFilter')?.addEventListener('change', filterAndSortEvents);
+
+    function validateStep(step) {
+        if (step === 1) {
+            const trailId = document.getElementById('eventTrailId')?.value;
+            const duration = document.getElementById('eventDuration')?.value;
+            const capacity = document.getElementById('eventCapacity')?.value;
+            
+            if (!trailId) {
+                showToast('Please select a trail', 'error');
+                return false;
+            }
+            if (!duration || duration <= 0) {
+                showToast('Please enter estimated duration', 'error');
+                return false;
+            }
+            if (!capacity || capacity <= 0) {
+                showToast('Please enter valid capacity', 'error');
+                return false;
+            }
+            return true;
+        }
+        
+        if (step === 2) {
+            const pickupPoints = document.getElementById('eventPickupPoints')?.value;
+            const eventDate = document.getElementById('eventDate')?.value;
+            const eventTime = document.getElementById('eventTime')?.value;
+            
+            if (!pickupPoints) {
+                showToast('Please enter pickup points', 'error');
+                return false;
+            }
+            if (!eventDate) {
+                showToast('Please select event date', 'error');
+                return false;
+            }
+            if (!eventTime) {
+                showToast('Please select event time', 'error');
+                return false;
+            }
+            return true;
+        }
+        
+        if (step === 3) {
+            const title = document.getElementById('eventTitle')?.value;
+            const organizer = document.getElementById('eventOrganizer')?.value;
+            const description = document.getElementById('eventDescription')?.value;
+            
+            if (!title) {
+                showToast('Please enter event title', 'error');
+                return false;
+            }
+            if (!organizer) {
+                showToast('Please select an organizer', 'error');
+                return false;
+            }
+            if (!description) {
+                showToast('Please enter event description', 'error');
+                return false;
+            }
+            return true;
+        }
+        
+        return true;
+    }
+
+    function updateStepUI() {
+        for (let i = 1; i <= totalSteps; i++) {
+            const content = document.getElementById(`step${i}`);
+            const circles = document.querySelectorAll('.step-circle');
+            const lines = document.querySelectorAll('.step-line');
+            
+            if (content) {
+                if (i === currentStep) {
+                    content.classList.remove('hidden');
+                    if (circles[i-1]) {
+                        circles[i-1].classList.remove('bg-gray-700');
+                        circles[i-1].classList.add('bg-orange-500');
+                    }
+                    if (lines[i-1] && i < totalSteps) {
+                        lines[i-1].classList.remove('bg-gray-700');
+                        lines[i-1].classList.add('bg-orange-500');
+                    }
+                } else {
+                    content.classList.add('hidden');
+                    if (circles[i-1] && i < currentStep) {
+                        circles[i-1].classList.remove('bg-gray-700', 'bg-orange-500');
+                        circles[i-1].classList.add('bg-green-500');
+                    } else if (circles[i-1] && i > currentStep) {
+                        circles[i-1].classList.remove('bg-orange-500', 'bg-green-500');
+                        circles[i-1].classList.add('bg-gray-700');
+                    }
+                    if (lines[i-1] && i < currentStep && i < totalSteps) {
+                        lines[i-1].classList.remove('bg-gray-700');
+                        lines[i-1].classList.add('bg-green-500');
+                    } else if (lines[i-1] && i >= currentStep && i < totalSteps) {
+                        lines[i-1].classList.remove('bg-orange-500', 'bg-green-500');
+                        lines[i-1].classList.add('bg-gray-700');
+                    }
+                }
+            }
+        }
+        
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const submitBtn = document.getElementById('submitBtn');
+        
+        if (currentStep === 1) {
+            prevBtn.classList.add('hidden');
+        } else {
+            prevBtn.classList.remove('hidden');
+        }
+        
+        if (currentStep === totalSteps) {
+            nextBtn.classList.add('hidden');
+            submitBtn.classList.remove('hidden');
+        } else {
+            nextBtn.classList.remove('hidden');
+            submitBtn.classList.add('hidden');
+        }
+    }
+
+    document.getElementById('nextBtn')?.addEventListener('click', () => {
+        if (validateStep(currentStep)) {
+            if (currentStep < totalSteps) {
+                currentStep++;
+                updateStepUI();
+            }
+        }
+    });
+
+    document.getElementById('prevBtn')?.addEventListener('click', () => {
+        if (currentStep > 1) {
+            currentStep--;
+            updateStepUI();
+        }
+    });
+
+    async function fetchWeatherForecast(trailId, eventDate) {
+        if (!trailId || !eventDate) return;
+        
+        const weatherTextarea = document.getElementById('eventWeather');
+        const loadingSpinner = document.getElementById('weatherLoadingSpinner');
+        
+        if (!weatherTextarea) return;
+        
+        weatherTextarea.classList.add('opacity-50');
+        if (loadingSpinner) loadingSpinner.classList.remove('hidden');
+        
+        try {
+            const response = await fetch(`/Event/GetWeatherForecast?trailId=${trailId}&eventDate=${eventDate}`);
+            const data = await response.json();
+            
+            if (data.success && data.forecast) {
+                weatherTextarea.value = data.forecast;
+            } else {
+                weatherTextarea.value = 'Weather forecast temporarily unavailable. Please check manually.';
+            }
+        } catch (error) {
+            console.error('Error fetching weather:', error);
+            weatherTextarea.value = 'Error loading weather forecast. Please check manually.';
+        } finally {
+            weatherTextarea.classList.remove('opacity-50');
+            if (loadingSpinner) loadingSpinner.classList.add('hidden');
+        }
+    }
+
+    document.getElementById('eventTrailId')?.addEventListener('change', async function() {
+        const trailId = this.value;
+        if (!trailId) return;
+        
+        try {
+            const response = await fetch(`/Event/GetTrailDetails?trailId=${trailId}`);
+            const data = await response.json();
+            
+            if (data.success) {
+                document.getElementById('previewDifficulty').textContent = 'Calculating...';
+                document.getElementById('previewDistance').textContent = data.distance + ' km';
+                document.getElementById('previewElevation').textContent = data.masl + ' m';
+                document.getElementById('previewLocation').textContent = data.location;
+                document.getElementById('previewTerrain').textContent = data.terrain;
+                document.getElementById('previewMASL').textContent = data.masl + ' m';
+                
+                const duration = document.getElementById('eventDuration').value;
+                if (duration) {
+                    const diffResponse = await fetch(`/Event/GetCalculatedDifficulty?trailId=${trailId}&duration=${duration}`);
+                    const diffData = await diffResponse.json();
+                    if (diffData.success) {
+                        document.getElementById('previewDifficulty').textContent = diffData.difficulty;
+                    }
+                }
+                
+                const eventDate = document.getElementById('eventDate')?.value;
+                if (eventDate) {
+                    await fetchWeatherForecast(trailId, eventDate);
+                }
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    });
+
+    document.getElementById('eventDuration')?.addEventListener('change', async function() {
+        const trailId = document.getElementById('eventTrailId').value;
+        const duration = this.value;
+        if (!trailId || !duration) return;
+        
+        try {
+            const response = await fetch(`/Event/GetCalculatedDifficulty?trailId=${trailId}&duration=${duration}`);
+            const data = await response.json();
+            if (data.success) {
+                document.getElementById('previewDifficulty').textContent = data.difficulty;
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    });
+
+    document.getElementById('eventDate')?.addEventListener('change', async function() {
+        const trailId = document.getElementById('eventTrailId')?.value;
+        const eventDate = this.value;
+        
+        if (trailId && eventDate) {
+            await fetchWeatherForecast(trailId, eventDate);
+        }
+    });
+
+    document.getElementById('addEventForm')?.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const eventData = {
+            EventTitle: document.getElementById('eventTitle')?.value,
+            Description: document.getElementById('eventDescription')?.value,
+            EventDate: document.getElementById('eventDate')?.value,
+            EventTime: document.getElementById('eventTime')?.value,
+            TrailId: parseInt(document.getElementById('eventTrailId')?.value),
+            EstimatedDuration: parseFloat(document.getElementById('eventDuration')?.value),
+            Capacity: parseInt(document.getElementById('eventCapacity')?.value),
+            OrganizedBy: document.getElementById('eventOrganizer')?.value,
+            WeatherForecastAdvisory: document.getElementById('eventWeather')?.value,
+            Announcements: document.getElementById('eventAnnouncements')?.value,
+            PaymentDetails: document.getElementById('eventPaymentDetails')?.value,
+            PickupPoints: document.getElementById('eventPickupPoints')?.value
+        };
+        
+        const submitBtn = document.getElementById('submitBtn');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Saving...';
+        
+        try {
+            const response = await fetch('/Event/AddEvent', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(eventData)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showToast('Event added successfully!', 'success');
+                closeAddEventModal();
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showToast('Error: ' + result.message, 'error');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Add Event';
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showToast('Error adding event', 'error');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Add Event';
+        }
+    });
+
+    function openAddEventModal() {
+        const modal = document.getElementById('addEventModal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            currentStep = 1;
+            updateStepUI();
+            const scrollContainer = document.querySelector('#addEventModal .overflow-y-auto');
+            if (scrollContainer) {
+                scrollContainer.scrollTop = 0;
+            }
+        }
+    }
+
+    function closeAddEventModal() {
+        const modal = document.getElementById('addEventModal');
+        if (modal) {
+            modal.classList.add('hidden');
+            document.body.style.overflow = 'auto';
+            const form = document.getElementById('addEventForm');
+            if (form) form.reset();
+            
+            const scrollContainer = document.querySelector('#addEventModal .overflow-y-auto');
+            if (scrollContainer) {
+                scrollContainer.scrollTop = 0;
+            }
+            
+            document.getElementById('previewDifficulty').textContent = '-';
+            document.getElementById('previewDistance').textContent = '-';
+            document.getElementById('previewElevation').textContent = '-';
+            document.getElementById('previewLocation').textContent = '-';
+            document.getElementById('previewTerrain').textContent = '-';
+            document.getElementById('previewMASL').textContent = '-';
+        }
+    }
+
+    let editCurrentStep = 1;
+    const editTotalSteps = 3;
+
+    function editUpdateStepUI() {
+        for (let i = 1; i <= editTotalSteps; i++) {
+            const content = document.getElementById(`editStep${i}`);
+            const circles = document.querySelectorAll('.step-circle-edit');
+            const lines = document.querySelectorAll('.step-line-edit');
+            
+            if (content) {
+                if (i === editCurrentStep) {
+                    content.classList.remove('hidden');
+                    if (circles[i-1]) {
+                        circles[i-1].classList.remove('bg-gray-700');
+                        circles[i-1].classList.add('bg-orange-500');
+                    }
+                    if (lines[i-1] && i < editTotalSteps) {
+                        lines[i-1].classList.remove('bg-gray-700');
+                        lines[i-1].classList.add('bg-orange-500');
+                    }
+                } else {
+                    content.classList.add('hidden');
+                    if (circles[i-1] && i < editCurrentStep) {
+                        circles[i-1].classList.remove('bg-gray-700', 'bg-orange-500');
+                        circles[i-1].classList.add('bg-green-500');
+                    } else if (circles[i-1] && i > editCurrentStep) {
+                        circles[i-1].classList.remove('bg-orange-500', 'bg-green-500');
+                        circles[i-1].classList.add('bg-gray-700');
+                    }
+                    if (lines[i-1] && i < editCurrentStep && i < editTotalSteps) {
+                        lines[i-1].classList.remove('bg-gray-700');
+                        lines[i-1].classList.add('bg-green-500');
+                    } else if (lines[i-1] && i >= editCurrentStep && i < editTotalSteps) {
+                        lines[i-1].classList.remove('bg-orange-500', 'bg-green-500');
+                        lines[i-1].classList.add('bg-gray-700');
+                    }
+                }
+            }
+        }
+        
+        const prevBtn = document.getElementById('editPrevBtn');
+        const nextBtn = document.getElementById('editNextBtn');
+        const submitBtn = document.getElementById('editSubmitBtn');
+        
+        if (editCurrentStep === 1) {
+            prevBtn.classList.add('hidden');
+        } else {
+            prevBtn.classList.remove('hidden');
+        }
+        
+        if (editCurrentStep === editTotalSteps) {
+            nextBtn.classList.add('hidden');
+            submitBtn.classList.remove('hidden');
+        } else {
+            nextBtn.classList.remove('hidden');
+            submitBtn.classList.add('hidden');
+        }
+    }
+
+    document.getElementById('editNextBtn')?.addEventListener('click', () => {
+        if (editValidateStep(editCurrentStep)) {
+            if (editCurrentStep < editTotalSteps) {
+                editCurrentStep++;
+                editUpdateStepUI();
+            }
+        }
+    });
+
+    document.getElementById('editPrevBtn')?.addEventListener('click', () => {
+        if (editCurrentStep > 1) {
+            editCurrentStep--;
+            editUpdateStepUI();
+        }
+    });
+
+    function editValidateStep(step) {
+        if (step === 1) {
+            const trailId = document.getElementById('editEventTrailId')?.value;
+            const duration = document.getElementById('editEventDuration')?.value;
+            const capacity = document.getElementById('editEventCapacity')?.value;
+            
+            if (!trailId) {
+                showToast('Please select a trail', 'error');
+                return false;
+            }
+            if (!duration || duration <= 0) {
+                showToast('Please enter estimated duration', 'error');
+                return false;
+            }
+            if (!capacity || capacity <= 0) {
+                showToast('Please enter valid capacity', 'error');
+                return false;
+            }
+            return true;
+        }
+        
+        if (step === 2) {
+            const pickupPoints = document.getElementById('editEventPickupPoints')?.value;
+            const eventDate = document.getElementById('editEventDate')?.value;
+            const eventTime = document.getElementById('editEventTime')?.value;
+            
+            if (!pickupPoints) {
+                showToast('Please enter pickup points', 'error');
+                return false;
+            }
+            if (!eventDate) {
+                showToast('Please select event date', 'error');
+                return false;
+            }
+            if (!eventTime) {
+                showToast('Please select event time', 'error');
+                return false;
+            }
+            return true;
+        }
+        
+        if (step === 3) {
+            const title = document.getElementById('editEventTitle')?.value;
+            const description = document.getElementById('editEventDescription')?.value;
+            
+            if (!title) {
+                showToast('Please enter event title', 'error');
+                return false;
+            }
+            if (!description) {
+                showToast('Please enter event description', 'error');
+                return false;
+            }
+            return true;
+        }
+        
+        return true;
+    }
+
+    async function editFetchWeatherForecast(trailId, eventDate) {
+        if (!trailId || !eventDate) return;
+        
+        const weatherTextarea = document.getElementById('editEventWeather');
+        const loadingSpinner = document.getElementById('editWeatherLoadingSpinner');
+        
+        if (!weatherTextarea) return;
+        
+        weatherTextarea.classList.add('opacity-50');
+        if (loadingSpinner) loadingSpinner.classList.remove('hidden');
+        
+        try {
+            const response = await fetch(`/Event/GetWeatherForecast?trailId=${trailId}&eventDate=${eventDate}`);
+            const data = await response.json();
+            
+            if (data.success && data.forecast) {
+                weatherTextarea.value = data.forecast;
+            } else {
+                weatherTextarea.value = 'Weather forecast temporarily unavailable. Please check manually.';
+            }
+        } catch (error) {
+            console.error('Error fetching weather:', error);
+            weatherTextarea.value = 'Error loading weather forecast. Please check manually.';
+        } finally {
+            weatherTextarea.classList.remove('opacity-50');
+            if (loadingSpinner) loadingSpinner.classList.add('hidden');
+        }
+    }
+
+    document.getElementById('editEventTrailId')?.addEventListener('change', async function() {
+        const trailId = this.value;
+        if (!trailId) return;
+        
+        try {
+            const response = await fetch(`/Event/GetTrailDetails?trailId=${trailId}`);
+            const data = await response.json();
+            
+            if (data.success) {
+                document.getElementById('editPreviewDifficulty').textContent = 'Calculating...';
+                document.getElementById('editPreviewDistance').textContent = data.distance + ' km';
+                document.getElementById('editPreviewElevation').textContent = data.masl + ' m';
+                document.getElementById('editPreviewLocation').textContent = data.location;
+                document.getElementById('editPreviewTerrain').textContent = data.terrain;
+                document.getElementById('editPreviewMASL').textContent = data.masl + ' m';
+                
+                const duration = document.getElementById('editEventDuration').value;
+                if (duration) {
+                    const diffResponse = await fetch(`/Event/GetCalculatedDifficulty?trailId=${trailId}&duration=${duration}`);
+                    const diffData = await diffResponse.json();
+                    if (diffData.success) {
+                        document.getElementById('editPreviewDifficulty').textContent = diffData.difficulty;
+                    }
+                }
+                
+                const eventDate = document.getElementById('editEventDate')?.value;
+                if (eventDate) {
+                    await editFetchWeatherForecast(trailId, eventDate);
+                }
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    });
+
+    document.getElementById('editEventDuration')?.addEventListener('change', async function() {
+        const trailId = document.getElementById('editEventTrailId').value;
+        const duration = this.value;
+        if (!trailId || !duration) return;
+        
+        try {
+            const response = await fetch(`/Event/GetCalculatedDifficulty?trailId=${trailId}&duration=${duration}`);
+            const data = await response.json();
+            if (data.success) {
+                document.getElementById('editPreviewDifficulty').textContent = data.difficulty;
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    });
+
+    document.getElementById('editEventDate')?.addEventListener('change', async function() {
+        const trailId = document.getElementById('editEventTrailId')?.value;
+        const eventDate = this.value;
+        
+        if (trailId && eventDate) {
+            await editFetchWeatherForecast(trailId, eventDate);
+        }
+    });
+
+    async function openEditModal(id) {
+        try {
+            const response = await fetch(`/Event/GetEvent?id=${id}`);
+            const event = await response.json();
+            
+            if (!event.success) {
+                showToast('Error loading event data', 'error');
+                return;
+            }
+            
+            document.getElementById('editEventId').value = event.id;
+            document.getElementById('editEventTitle').value = event.eventTitle;
+            document.getElementById('editEventDescription').value = event.description;
+            document.getElementById('editEventDate').value = event.eventDate;
+            document.getElementById('editEventTime').value = event.eventTime;
+            document.getElementById('editEventTrailId').value = event.trailId;
+            document.getElementById('editEventDuration').value = event.estimatedDuration;
+            document.getElementById('editEventCapacity').value = event.capacity;
+            document.getElementById('editEventOrganizer').value = event.organizedBy;
+            document.getElementById('editEventWeather').value = event.weatherForecastAdvisory || '';
+            document.getElementById('editEventAnnouncements').value = event.announcements || '';
+            document.getElementById('editEventPaymentDetails').value = event.paymentDetails || '';
+            document.getElementById('editEventPickupPoints').value = event.pickupPoints || '';
+            document.getElementById('editEventStatus').value = event.status || 'Upcoming';
+            
+            const trailSelect = document.getElementById('editEventTrailId');
+            const changeEvent = new Event('change');
+            trailSelect.dispatchEvent(changeEvent);
+            
+            editCurrentStep = 1;
+            editUpdateStepUI();
+            
+            const modal = document.getElementById('editEventModal');
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            
+            const scrollContainer = document.querySelector('#editEventModal .overflow-y-auto');
+            if (scrollContainer) {
+                scrollContainer.scrollTop = 0;
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showToast('Error loading event data', 'error');
+        }
+    }
+
+    function closeEditEventModal() {
+        const modal = document.getElementById('editEventModal');
+        if (modal) {
+            modal.classList.add('hidden');
+            document.body.style.overflow = 'auto';
+            const form = document.getElementById('editEventForm');
+            if (form) form.reset();
+        }
+    }
+
+    document.getElementById('editEventForm')?.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const eventData = {
+            Id: parseInt(document.getElementById('editEventId')?.value),
+            EventTitle: document.getElementById('editEventTitle')?.value,
+            Description: document.getElementById('editEventDescription')?.value,
+            EventDate: document.getElementById('editEventDate')?.value,
+            EventTime: document.getElementById('editEventTime')?.value,
+            TrailId: parseInt(document.getElementById('editEventTrailId')?.value),
+            EstimatedDuration: parseFloat(document.getElementById('editEventDuration')?.value),
+            Capacity: parseInt(document.getElementById('editEventCapacity')?.value),
+            OrganizedBy: document.getElementById('editEventOrganizer')?.value,
+            WeatherForecastAdvisory: document.getElementById('editEventWeather')?.value,
+            Announcements: document.getElementById('editEventAnnouncements')?.value,
+            PaymentDetails: document.getElementById('editEventPaymentDetails')?.value,
+            PickupPoints: document.getElementById('editEventPickupPoints')?.value,
+            Status: document.getElementById('editEventStatus')?.value
+        };
+        
+        const submitBtn = document.getElementById('editSubmitBtn');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Saving...';
+        
+        try {
+            const response = await fetch('/Event/EditEvent', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(eventData)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showToast('Event updated successfully!', 'success');
+                closeEditEventModal();
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showToast('Error: ' + result.message, 'error');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Save Changes';
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showToast('Error updating event', 'error');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Save Changes';
+        }
+    });
+
+    async function deleteEvent(id, title) {
+        if (!confirm(`Are you sure you want to delete "${title}"? This action cannot be undone.`)) {
+            return;
+        }
+        
+        try {
+            const response = await fetch('/Event/DeleteEvent', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ id: id })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showToast('Event deleted successfully', 'success');
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            } else {
+                showToast('Error deleting event: ' + result.message, 'error');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showToast('Error deleting event', 'error');
+        }
+    }
+
+    function showToast(message, type) {
+        const existingToast = document.querySelector('.toast-message');
+        if (existingToast) existingToast.remove();
+        
+        const toast = document.createElement('div');
+        toast.className = `toast-message fixed top-24 right-4 z-50 ${type === 'success' ? 'bg-green-500/90' : 'bg-red-500/90'} text-white px-6 py-3 rounded-xl shadow-lg backdrop-blur-sm flex items-center gap-3`;
+        toast.innerHTML = `
+            <i class="fa-solid ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle'}"></i>
+            <span>${message}</span>
+            <button onclick="this.parentElement.remove()" class="hover:text-gray-200 transition-colors">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        `;
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            if (toast) toast.remove();
+        }, 3000);
+    }
+</script>

@@ -1,0 +1,402 @@
+@model TrailGuard.Models.Event
+@{
+    ViewData["Title"] = Model.EventTitle;
+    var trail = ViewBag.Trail as TrailGuard.Models.Trail;
+    var isCompleted = Model.Status == "Completed";
+}
+
+@section PageHero {
+    <div class="pt-24 px-4 max-w-6xl mx-auto min-h-screen text-white pb-12">
+        
+        <!-- Back Button -->
+        <div class="mb-6">
+            <a asp-controller="Event" asp-action="Index" class="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
+                <i class="fa-solid fa-arrow-left"></i> Back to Events
+            </a>
+        </div>
+
+        <!-- Hero Section -->
+        <div class="relative rounded-3xl overflow-hidden mb-8">
+            @if (!string.IsNullOrEmpty(trail?.ThumbnailUrl))
+            {
+                <img src="@trail.ThumbnailUrl" alt="@trail.Name" class="w-full h-80 object-cover">
+            }
+            else
+            {
+                <div class="w-full h-80 bg-gradient-to-r from-orange-500/30 to-purple-500/30 flex items-center justify-center">
+                    <i class="fa-solid fa-mountain text-6xl text-white/50"></i>
+                </div>
+            }
+            <div class="absolute inset-0 bg-gradient-to-t from-[#0B1325] via-[#0B1325]/50 to-transparent"></div>
+            <div class="absolute bottom-0 left-0 p-8">
+                <div class="flex items-center gap-3 mb-3">
+                    <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold @(Model.Status == "Upcoming" ? "bg-green-500/20 text-green-400" : Model.Status == "Cancelled" ? "bg-red-500/20 text-red-400" : Model.Status == "Postponed" ? "bg-yellow-500/20 text-yellow-400" : "bg-gray-500/20 text-gray-400")">
+                        @Model.Status
+                    </span>
+                    
+                    <!-- Status Dropdown -->
+                    <select id="statusDropdown" class="bg-black/50 border border-white/20 text-white text-xs rounded-full px-3 py-1 focus:border-orange-500 focus:outline-none">
+                        <option value="Upcoming" selected="@(Model.Status == "Upcoming")">Upcoming</option>
+                        <option value="Cancelled" selected="@(Model.Status == "Cancelled")">Cancelled</option>
+                        <option value="Postponed" selected="@(Model.Status == "Postponed")">Postponed</option>
+                        <option value="Completed" selected="@(Model.Status == "Completed")">Completed</option>
+                    </select>
+                </div>
+                <h1 class="text-4xl font-bold text-white mb-2">@Model.EventTitle</h1>
+                <div class="flex flex-wrap gap-4 text-gray-300">
+                    <span><i class="fa-regular fa-calendar text-orange-400 mr-2"></i>@Model.EventDate.ToString("MMMM dd, yyyy")</span>
+                    <span><i class="fa-regular fa-clock text-orange-400 mr-2"></i>@($"{Model.EventTime.Hours:D2}:{Model.EventTime.Minutes:D2} {(Model.EventTime.Hours >= 12 ? "PM" : "AM")}")</span>
+                    <span><i class="fa-solid fa-location-dot text-orange-400 mr-2"></i>@Model.Location</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Main Content -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- Event Overview -->
+                <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+                    <h2 class="text-xl font-bold text-white mb-4"><i class="fa-solid fa-info-circle text-orange-400 mr-2"></i>Event Overview</h2>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <p class="text-gray-500 text-xs uppercase tracking-wider"><i class="fa-solid fa-mountain text-orange-400 mr-1"></i>Trail</p>
+                            <p class="text-white font-semibold">@trail?.Name</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500 text-xs uppercase tracking-wider"><i class="fa-solid fa-route text-orange-400 mr-1"></i>Distance</p>
+                            <p class="text-white font-semibold">@trail?.DistanceKm km</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500 text-xs uppercase tracking-wider"><i class="fa-solid fa-tree text-orange-400 mr-1"></i>Terrain Type</p>
+                            <p class="text-white font-semibold">@trail?.Terrain</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500 text-xs uppercase tracking-wider"><i class="fa-solid fa-signal text-orange-400 mr-1"></i>Difficulty</p>
+                            <p class="text-white font-semibold">@Model.Difficulty</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500 text-xs uppercase tracking-wider"><i class="fa-solid fa-arrow-trend-up text-orange-400 mr-1"></i>Elevation Gain</p>
+                            <p class="text-white font-semibold">@trail?.ElevationGainMeters m</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500 text-xs uppercase tracking-wider"><i class="fa-solid fa-mountain-city text-orange-400 mr-1"></i>MASL</p>
+                            <p class="text-white font-semibold">@trail?.ElevationGainMeters m</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500 text-xs uppercase tracking-wider"><i class="fa-solid fa-clock text-orange-400 mr-1"></i>Estimated Duration</p>
+                            <p class="text-white font-semibold">@Model.EstimatedDuration hours</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500 text-xs uppercase tracking-wider"><i class="fa-solid fa-cloud-sun text-orange-400 mr-1"></i>Weather Forecast</p>
+                            <p class="text-white font-semibold text-sm">@(Model.WeatherForecastAdvisory?.Split('\n').FirstOrDefault() ?? "N/A")</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Payment Details -->
+                <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+                    <h2 class="text-xl font-bold text-white mb-4"><i class="fa-solid fa-credit-card text-orange-400 mr-2"></i>Payment Details</h2>
+                    <div class="prose prose-invert max-w-none">
+                        <p class="text-gray-300 whitespace-pre-wrap">@Model.PaymentDetails</p>
+                    </div>
+                </div>
+
+                <!-- Pickup Points -->
+                <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+                    <h2 class="text-xl font-bold text-white mb-4"><i class="fa-solid fa-bus text-orange-400 mr-2"></i>Pickup Points</h2>
+                    <div class="prose prose-invert max-w-none">
+                        <p class="text-gray-300 whitespace-pre-wrap">@Model.PickupPoints</p>
+                    </div>
+                </div>
+
+                <!-- Reminders and Announcements -->
+                <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+                    <h2 class="text-xl font-bold text-white mb-4"><i class="fa-solid fa-bullhorn text-orange-400 mr-2"></i>Reminders and Announcements</h2>
+                    <div class="prose prose-invert max-w-none">
+                        <p class="text-gray-300 whitespace-pre-wrap">@Model.Announcements</p>
+                    </div>
+                </div>
+
+                <!-- Event Description -->
+                <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+                    <h2 class="text-xl font-bold text-white mb-4"><i class="fa-solid fa-file-lines text-orange-400 mr-2"></i>Event Description</h2>
+                    <p class="text-gray-300 leading-relaxed">@Model.Description</p>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="space-y-6">
+                <!-- Summary Card -->
+                <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+                    <h2 class="text-lg font-bold text-white mb-4"><i class="fa-solid fa-chart-simple text-orange-400 mr-2"></i>Summary</h2>
+                    <div class="space-y-3">
+                        <div class="flex justify-between">
+                            <span class="text-gray-400"><i class="fa-solid fa-mountain text-orange-400 mr-2"></i>Trail</span>
+                            <span class="text-white font-semibold">@trail?.Name</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400"><i class="fa-solid fa-signal text-orange-400 mr-2"></i>Difficulty</span>
+                            <span class="text-white font-semibold">@Model.Difficulty</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400"><i class="fa-regular fa-calendar text-orange-400 mr-2"></i>Date & Time</span>
+                            <span class="text-white font-semibold text-right">@Model.EventDate.ToString("MMM dd, yyyy")<br />@($"{Model.EventTime.Hours:D2}:{Model.EventTime.Minutes:D2} {(Model.EventTime.Hours >= 12 ? "PM" : "AM")}")</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400"><i class="fa-regular fa-clock text-orange-400 mr-2"></i>Duration</span>
+                            <span class="text-white font-semibold">@Model.EstimatedDuration hrs</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400"><i class="fa-solid fa-users text-orange-400 mr-2"></i>Capacity</span>
+                            <span class="text-white font-semibold">@Model.Capacity slots</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Organizer Card -->
+                <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-12 h-12 rounded-full bg-linear-to-r from-orange-500 to-purple-500 flex items-center justify-center">
+                            <i class="fa-solid fa-user text-white text-lg"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-white font-bold">@Model.OrganizedBy</h3>
+                            <p class="text-gray-500 text-xs">Event Organizer</p>
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        <a href="#" class="flex items-center gap-2 text-gray-400 hover:text-orange-400 transition-colors text-sm">
+                            <i class="fa-brands fa-facebook w-5"></i> facebook.com/justen.macaya
+                        </a>
+                        <a href="#" class="flex items-center gap-2 text-gray-400 hover:text-orange-400 transition-colors text-sm">
+                            <i class="fa-regular fa-envelope w-5"></i> organizer@example.com
+                        </a>
+                        <a href="#" class="flex items-center gap-2 text-gray-400 hover:text-orange-400 transition-colors text-sm">
+                            <i class="fa-solid fa-phone w-5"></i> +63 912 345 6789
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Registered Participants -->
+                <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+                    <h2 class="text-lg font-bold text-white mb-4"><i class="fa-solid fa-users-viewfinder text-orange-400 mr-2"></i>Registered Participants</h2>
+                    <div class="space-y-3 max-h-80 overflow-y-auto custom-scrollbar">
+                        <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors">
+                            <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center">
+                                <i class="fa-solid fa-user text-gray-400 text-xs"></i>
+                            </div>
+                            <div>
+                                <p class="text-white text-sm font-medium">Justen Macaya</p>
+                                <p class="text-gray-500 text-xs">Pasay City, SM Mall of Asia</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors">
+                            <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center">
+                                <i class="fa-solid fa-user text-gray-400 text-xs"></i>
+                            </div>
+                            <div>
+                                <p class="text-white text-sm font-medium">Juan Dela Cruz</p>
+                                <p class="text-gray-500 text-xs">Makati City</p>
+                            </div>
+                        </div>
+                        <div class="text-center text-gray-500 text-sm py-2">
+                            <i class="fa-solid fa-user-plus mb-1 block"></i>
+                            <span>+ 22 more participants</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Feedback Button - Bottom Right, inside container, not floating -->
+        <div class="flex justify-end mt-8">
+            @if (isCompleted)
+            {
+                <button onclick="openFeedbackModal()" class="primary-btn px-6 py-3 rounded-xl text-white font-bold bg-linear-to-r from-orange-500 to-purple-600 hover:opacity-90 transition-all flex items-center gap-2">
+                    <i class="fa-solid fa-comment"></i> Give Feedback
+                </button>
+            }
+            else
+            {
+                <button disabled class="px-6 py-3 rounded-xl text-gray-500 font-bold bg-gray-800 cursor-not-allowed flex items-center gap-2">
+                    <i class="fa-solid fa-comment"></i> Feedback Available After Event
+                </button>
+            }
+        </div>
+    </div>
+}
+
+<!-- Feedback Modal -->
+<div id="feedbackModal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4" style="padding-top: 80px;">
+    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeFeedbackModal()"></div>
+    <div class="relative bg-[#0B1325] border border-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col" style="margin: auto; z-index: 10;">
+        
+        <div class="flex justify-between items-center px-6 py-4 border-b border-gray-800 shrink-0">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-linear-to-r from-orange-500 to-purple-500 flex items-center justify-center">
+                    <i class="fa-solid fa-comment text-white text-sm"></i>
+                </div>
+                <h2 class="text-xl font-bold text-white">Event Feedback</h2>
+            </div>
+            <button onclick="closeFeedbackModal()" class="text-gray-400 hover:text-white transition-colors">
+                <i class="fa-solid fa-xmark text-2xl"></i>
+            </button>
+        </div>
+
+        <form id="feedbackForm" class="flex flex-col flex-1 overflow-hidden">
+            <div class="overflow-y-auto p-6 custom-scrollbar">
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Rating</label>
+                    <div class="flex gap-2 text-2xl" id="ratingStars">
+                        <i class="fa-regular fa-star text-gray-400 cursor-pointer hover:text-yellow-400 transition-colors" data-rating="1"></i>
+                        <i class="fa-regular fa-star text-gray-400 cursor-pointer hover:text-yellow-400 transition-colors" data-rating="2"></i>
+                        <i class="fa-regular fa-star text-gray-400 cursor-pointer hover:text-yellow-400 transition-colors" data-rating="3"></i>
+                        <i class="fa-regular fa-star text-gray-400 cursor-pointer hover:text-yellow-400 transition-colors" data-rating="4"></i>
+                        <i class="fa-regular fa-star text-gray-400 cursor-pointer hover:text-yellow-400 transition-colors" data-rating="5"></i>
+                    </div>
+                    <input type="hidden" id="feedbackRating" name="Rating" value="0">
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Your Feedback</label>
+                    <textarea id="feedbackComment" name="Comment" rows="5" class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none" placeholder="Share your experience..."></textarea>
+                </div>
+            </div>
+
+            <div class="px-6 py-4 border-t border-gray-800 shrink-0 flex justify-end gap-3 bg-[#0B1325]">
+                <button type="button" onclick="closeFeedbackModal()" class="px-5 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white bg-gray-800 hover:bg-gray-700 transition-colors">
+                    Cancel
+                </button>
+                <button type="submit" class="primary-btn px-5 py-2 rounded-lg text-sm font-medium text-white bg-linear-to-r from-orange-500 to-purple-600 hover:opacity-90 transition-all">
+                    Submit Feedback
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+    .primary-btn {
+        background: linear-gradient(to right, #f97316, #9333ea);
+    }
+    .primary-btn:hover {
+        opacity: 0.9;
+        transform: scale(1.02);
+    }
+</style>
+
+<script>
+    // Rating stars
+    const stars = document.querySelectorAll('#ratingStars i');
+    const ratingInput = document.getElementById('feedbackRating');
+    
+    stars.forEach(star => {
+        star.addEventListener('click', function() {
+            const rating = parseInt(this.getAttribute('data-rating'));
+            ratingInput.value = rating;
+            
+            stars.forEach((s, index) => {
+                if (index < rating) {
+                    s.className = 'fa-solid fa-star text-yellow-400 cursor-pointer hover:text-yellow-400 transition-colors';
+                } else {
+                    s.className = 'fa-regular fa-star text-gray-400 cursor-pointer hover:text-yellow-400 transition-colors';
+                }
+            });
+        });
+    });
+
+    // Status update
+    document.getElementById('statusDropdown')?.addEventListener('change', async function() {
+        const newStatus = this.value;
+        const eventId = @Model.Id;
+        
+        try {
+            const response = await fetch('/Event/UpdateStatus', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: eventId, status: newStatus })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showToast('Status updated successfully!', 'success');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast('Error: ' + result.message, 'error');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showToast('Error updating status', 'error');
+        }
+    });
+
+    function openFeedbackModal() {
+        const modal = document.getElementById('feedbackModal');
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeFeedbackModal() {
+        const modal = document.getElementById('feedbackModal');
+        modal.classList.add('hidden');
+        document.body.style.overflow = 'auto';
+        document.getElementById('feedbackForm').reset();
+        ratingInput.value = '0';
+        stars.forEach(star => {
+            star.className = 'fa-regular fa-star text-gray-400 cursor-pointer hover:text-yellow-400 transition-colors';
+        });
+    }
+
+    document.getElementById('feedbackForm')?.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const rating = document.getElementById('feedbackRating').value;
+        const comment = document.getElementById('feedbackComment').value;
+        
+        if (rating == 0) {
+            showToast('Please select a rating', 'error');
+            return;
+        }
+        
+        const submitBtn = this.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting...';
+        
+        try {
+            // TODO: Implement feedback submission API
+            showToast('Feedback submitted successfully!', 'success');
+            closeFeedbackModal();
+        } catch (error) {
+            console.error('Error:', error);
+            showToast('Error submitting feedback', 'error');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit Feedback';
+        }
+    });
+
+    function showToast(message, type) {
+        const existingToast = document.querySelector('.toast-message');
+        if (existingToast) existingToast.remove();
+        
+        const toast = document.createElement('div');
+        toast.className = `toast-message fixed top-24 right-4 z-50 ${type === 'success' ? 'bg-green-500/90' : 'bg-red-500/90'} text-white px-6 py-3 rounded-xl shadow-lg backdrop-blur-sm flex items-center gap-3`;
+        toast.innerHTML = `
+            <i class="fa-solid ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle'}"></i>
+            <span>${message}</span>
+            <button onclick="this.parentElement.remove()" class="hover:text-gray-200 transition-colors">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        `;
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            if (toast) toast.remove();
+        }, 3000);
+    }
+</script>
