@@ -59,31 +59,29 @@
             </div>
         </div>
 
-        <!-- Charts Row - 3 columns -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4">
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
                 <h2 class="text-sm font-bold text-white mb-3"><i class="fa-solid fa-chart-line text-orange-400 mr-2"></i>Events per Month</h2>
-                <div style="height: 220px;">
-                    <canvas id="eventsChart"></canvas>
+                <div style="height: 280px; display: flex; align-items: center; justify-content: center;">
+                    <canvas id="eventsChart" style="width: 100% !important; height: 100% !important;"></canvas>
                 </div>
             </div>
 
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4">
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
                 <h2 class="text-sm font-bold text-white mb-3"><i class="fa-solid fa-mountain text-orange-400 mr-2"></i>Popular Trails</h2>
-                <div style="height: 220px;">
-                    <canvas id="popularTrailsChart"></canvas>
+                <div style="height: 280px; display: flex; align-items: center; justify-content: center;">
+                    <canvas id="popularTrailsChart" style="width: 100% !important; height: 100% !important;"></canvas>
                 </div>
             </div>
 
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4">
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
                 <h2 class="text-sm font-bold text-white mb-3"><i class="fa-solid fa-chart-pie text-orange-400 mr-2"></i>Event Status</h2>
-                <div style="height: 220px; display: flex; align-items: center; justify-content: center;">
-                    <canvas id="statusChart" style="max-width: 200px; max-height: 200px;"></canvas>
+                <div style="height: 280px; display: flex; align-items: center; justify-content: center;">
+                    <canvas id="statusChart" style="max-width: 220px; max-height: 220px; width: 100%; height: 100%;"></canvas>
                 </div>
             </div>
         </div>
 
-        <!-- Recent Data Tables -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
                 <div class="px-4 py-3 border-b border-gray-700">
@@ -99,7 +97,14 @@
                                     <p class="text-white font-medium text-sm">@e.EventTitle</p>
                                     <p class="text-gray-400 text-xs">@e.EventDate.ToString("MMM dd, yyyy")</p>
                                 </div>
-                                <span class="text-xs px-2 py-1 rounded-full bg-green-600 text-white">@e.Status</span>
+                                <span class="text-xs px-2 py-1 rounded-full font-semibold
+                                    @(e.Status == "Upcoming" ? "bg-green-600 text-white" :
+                                    e.Status == "Completed" ? "bg-blue-600 text-white" :
+                                    e.Status == "Cancelled" ? "bg-red-600 text-white" :
+                                    e.Status == "Postponed" ? "bg-yellow-600 text-white" :
+                                    "bg-gray-600 text-white")">
+                                    @e.Status
+                                </span>
                             </div>
                         }
                     }
@@ -152,7 +157,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-    // Events per Month Chart
     const eventsCtx = document.getElementById('eventsChart')?.getContext('2d');
     if (eventsCtx) {
         new Chart(eventsCtx, {
@@ -163,35 +167,36 @@
                     label: 'Number of Events',
                     data: @Html.Raw(Json.Serialize(Model.EventsPerMonth.Select(m => m.Count))),
                     borderColor: '#f97316',
-                    backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                    backgroundColor: 'rgba(249, 115, 22, 0.15)',
                     tension: 0.3,
                     fill: true,
                     pointBackgroundColor: '#f97316',
                     pointBorderColor: '#fff',
-                    pointRadius: 3
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    borderWidth: 2
                 }]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: true,
+                maintainAspectRatio: false,
                 plugins: {
-                    legend: { labels: { color: '#9ca3af', font: { size: 10 } } }
+                    legend: { labels: { color: '#9ca3af', font: { size: 11 } } }
                 },
                 scales: {
-                    y: { 
-                        grid: { color: '#374151' }, 
-                        ticks: { color: '#9ca3af', font: { size: 10 }, stepSize: 1 } 
+                    y: {
+                        grid: { color: '#374151' },
+                        ticks: { color: '#9ca3af', font: { size: 11 }, stepSize: 1 }
                     },
-                    x: { 
-                        grid: { display: false }, 
-                        ticks: { color: '#9ca3af', font: { size: 10 }, maxRotation: 45, minRotation: 45 } 
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#9ca3af', font: { size: 10 }, maxRotation: 45, minRotation: 45 }
                     }
                 }
             }
         });
     }
 
-    // Popular Trails Chart
     const trailsCtx = document.getElementById('popularTrailsChart')?.getContext('2d');
     if (trailsCtx) {
         new Chart(trailsCtx, {
@@ -201,25 +206,25 @@
                 datasets: [{
                     label: 'Number of Events',
                     data: @Html.Raw(Json.Serialize(Model.PopularTrails.Select(t => t.EventCount))),
-                    backgroundColor: '#f97316',
+                    backgroundColor: ['#f97316', '#fb923c', '#f59e0b', '#eab308', '#d97706'],
                     borderRadius: 6,
-                    barPercentage: 0.7
+                    barPercentage: 0.6
                 }]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: true,
+                maintainAspectRatio: false,
                 plugins: {
-                    legend: { labels: { color: '#9ca3af', font: { size: 10 } } }
+                    legend: { labels: { color: '#9ca3af', font: { size: 11 } } }
                 },
                 scales: {
-                    y: { 
-                        grid: { color: '#374151' }, 
-                        ticks: { color: '#9ca3af', font: { size: 10 }, stepSize: 1, precision: 0 } 
+                    y: {
+                        grid: { color: '#374151' },
+                        ticks: { color: '#9ca3af', font: { size: 11 }, stepSize: 1, precision: 0 }
                     },
-                    x: { 
-                        grid: { display: false }, 
-                        ticks: { color: '#9ca3af', font: { size: 10 } } 
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#9ca3af', font: { size: 10 } }
                     }
                 }
             }
@@ -239,21 +244,23 @@
                     data: statusData,
                     backgroundColor: ['#10b981', '#3b82f6', '#ef4444', '#f59e0b'],
                     borderWidth: 0,
-                    cutout: '60%'
+                    cutout: '65%'
                 }]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: true,
+                maintainAspectRatio: false,
                 plugins: {
-                    legend: { 
-                        position: 'bottom', 
-                        labels: { 
-                            color: '#e5e7eb', 
-                            font: { size: 13, weight: '500' },
-                            boxWidth: 12,
-                            padding: 10
-                        } 
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: '#e5e7eb',
+                            font: { size: 12, weight: '500' },
+                            boxWidth: 14,
+                            padding: 12,
+                            usePointStyle: true,
+                            pointStyle: 'circle'
+                        }
                     }
                 }
             }

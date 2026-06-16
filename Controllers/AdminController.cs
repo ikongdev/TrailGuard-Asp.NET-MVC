@@ -113,8 +113,7 @@ namespace TrailGuard.Controllers
             {
                 var roles = await _userManager.GetRolesAsync(user);
                 var role = roles.FirstOrDefault() ?? "Participant";
-                
-                // Generate initials from first and last name
+
                 string initials = "";
                 if (!string.IsNullOrEmpty(user.FirstName))
                     initials += user.FirstName[0];
@@ -130,7 +129,8 @@ namespace TrailGuard.Controllers
                     Role = role,
                     IsActive = user.IsActive,
                     DateCreated = user.DateCreated.ToString("MMM dd, yyyy"),
-                    Initials = initials
+                    Initials = initials,
+                    ProfilePictureUrl = user.ProfilePictureUrl // <-- Idagdag ito
                 });
             }
             
@@ -141,6 +141,70 @@ namespace TrailGuard.Controllers
             model.ActiveAccounts = accountList.Count(u => u.IsActive);
             
             return View(model);
+        }
+
+        [HttpGet]
+        public IActionResult AddAccount()
+        {
+            return View();
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AddAccount(AddAccountViewModel model)
+        {
+            if (ModelState.IsValid)
+            {
+                var user = new ApplicationUser
+                {
+                    FirstName = model.FirstName,
+                    MiddleName = model.MiddleName,
+                    LastName = model.LastName,
+                    Email = model.Email,
+                    UserName = model.Email,
+                    IsActive = true,
+                    DateCreated = DateTime.UtcNow
+                };
+
+                var result = await _userManager.CreateAsync(user, model.Password);
+                if (result.Succeeded)
+                {
+                    await _userManager.AddToRoleAsync(user, model.Role);
+                    TempData["Success"] = $"Account for {user.FirstName} {user.LastName} created successfully!";
+                    return RedirectToAction(nameof(Accounts));
+                }
+
+                foreach (var error in result.Errors)
+                {
+                    ModelState.AddModelError(string.Empty, error.Description);
+                }
+            }
+            return View(model);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ToggleAccountStatus(string id)
+        {
+            if (string.IsNullOrEmpty(id))
+            {
+                TempData["Error"] = "Invalid account ID.";
+                return RedirectToAction(nameof(Accounts));
+            }
+
+            var user = await _userManager.FindByIdAsync(id);
+            if (user == null)
+            {
+                TempData["Error"] = "Account not found.";
+                return RedirectToAction(nameof(Accounts));
+            }
+
+            user.IsActive = !user.IsActive;
+            await _userManager.UpdateAsync(user);
+
+            var status = user.IsActive ? "enabled" : "disabled";
+            TempData["Success"] = $"Account for {user.FirstName} {user.LastName} has been {status}.";
+            return RedirectToAction(nameof(Accounts));
         }
 
         private static decimal ExtractRegistrationFee(string paymentDetails)
