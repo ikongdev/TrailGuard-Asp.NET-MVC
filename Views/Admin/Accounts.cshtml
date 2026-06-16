@@ -168,9 +168,16 @@
                                     data-date="@account.DateCreated">
                                     <td class="px-6 py-4">
                                         <div class="flex items-center gap-3">
-                                            <div class="w-8 h-8 rounded-full bg-linear-to-r from-orange-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold shadow-lg">
-                                                @account.Initials
-                                            </div>
+                                            @if (!string.IsNullOrEmpty(account.ProfilePictureUrl))
+                                            {
+                                                <img src="@account.ProfilePictureUrl" alt="Profile" class="w-8 h-8 rounded-full object-cover shadow-lg" />
+                                            }
+                                            else
+                                            {
+                                                <div class="w-8 h-8 rounded-full bg-linear-to-r from-orange-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold shadow-lg">
+                                                    @account.Initials
+                                                </div>
+                                            }
                                             <span class="text-white font-medium">@account.FullName</span>
                                         </div>
                                     </td>

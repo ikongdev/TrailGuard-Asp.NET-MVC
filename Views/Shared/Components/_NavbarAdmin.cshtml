@@ -6,6 +6,22 @@
 @{
     var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
     var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
+    var currentUser = await UserManager.GetUserAsync(User);
+    var profilePictureUrl = currentUser?.ProfilePictureUrl;
+    var firstName = currentUser?.FirstName ?? "User";
+    var initials = "";
+    if (!string.IsNullOrEmpty(firstName) && !string.IsNullOrEmpty(currentUser?.LastName))
+    {
+        initials = (firstName[0].ToString() + currentUser.LastName[0].ToString()).ToUpper();
+    }
+    else if (!string.IsNullOrEmpty(firstName))
+    {
+        initials = firstName.Substring(0, 1).ToUpper();
+    }
+    else
+    {
+        initials = "U";
+    }
 }
 
 <nav class="fixed top-0 left-0 w-full z-50 px-4 py-4">
@@ -62,17 +78,25 @@
             <div class="hidden lg:flex items-center justify-end gap-3 whitespace-nowrap">
                 @if (SignInManager.IsSignedIn(User))
                 {
-                    var currentUser = await UserManager.GetUserAsync(User);
                     var mainRole = "Admin"; 
 
                     <div class="relative">
                         <button id="profileDropdownBtn" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20 hover:bg-white/15 focus:outline-none transition-all">
-                            <div class="w-8 h-8 rounded-full bg-linear-to-r from-purple-600 to-orange-500 flex items-center justify-center text-white text-xs font-bold shadow-lg shadow-purple-500/30">
-                                @(currentUser?.FirstName?.Substring(0, 1).ToUpper())
+                            <!-- Avatar: Profile Picture or Initials -->
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg shadow-purple-500/30 overflow-hidden
+                                    @(!string.IsNullOrEmpty(profilePictureUrl) ? "" : "bg-linear-to-r from-purple-600 to-orange-500")">
+                                @if (!string.IsNullOrEmpty(profilePictureUrl))
+                                {
+                                    <img src="@profilePictureUrl" alt="Profile" class="w-full h-full object-cover" />
+                                }
+                                else
+                                {
+                                    @initials
+                                }
                             </div>
                             
                             <div class="text-left hidden sm:block">
-                                <div class="text-xs text-center font-bold text-white leading-tight">@currentUser?.FirstName</div>
+                                <div class="text-xs text-center font-bold text-white leading-tight">@firstName</div>
                                 <div class="text-[9px] text-center pt-1 font-medium text-orange-400 uppercase tracking-wide leading-tight">@mainRole</div>
                             </div>
                             
@@ -83,7 +107,7 @@
                             <a asp-controller="Admin" asp-action="Index" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-800/60 rounded-xl transition-colors">
                                 <i class="fa-solid fa-layer-group text-gray-400 text-base w-4 text-center"></i> Dashboard
                             </a>
-                            <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-800/60 rounded-xl transition-colors">
+                            <a asp-controller="Settings" asp-action="Index" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-800/60 rounded-xl transition-colors">
                                 <i class="fa-solid fa-gear text-gray-400 text-base w-4 text-center"></i> Settings
                             </a>
                             
@@ -141,7 +165,7 @@
 
                 @if (SignInManager.IsSignedIn(User))
                 {
-                    <a href="#" class="px-4 py-2 rounded-2xl text-sm text-gray-300 hover:text-white hover:bg-white/5 transition">
+                    <a asp-controller="Settings" asp-action="Index" class="px-4 py-2 rounded-2xl text-sm text-gray-300 hover:text-white hover:bg-white/5 transition">
                         <i class="fa-solid fa-gear w-5 text-white-80 pr-5"></i> Settings
                     </a>
                     <form asp-controller="Account" asp-action="Logout" method="post" class="block w-full m-0 p-0">

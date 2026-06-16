@@ -15,8 +15,10 @@ namespace TrailGuard.Models
         [Required]
         [MaxLength(50)]
         public string LastName { get; set; } = string.Empty;
-
-        public bool IsActive { get; set; } = true; 
+        public bool IsActive { get; set; } = true;
         public DateTime DateCreated { get; set; } = DateTime.UtcNow;
+        public string? FacebookLink { get; set; }
+        public string? ProfilePictureUrl { get; set; }
+        public string? Bio { get; set; }
     }
 }
