@@ -318,29 +318,212 @@
 </style>
 
 <script>
-    let debounceTimer;
-
-    function applyFilters() {
-        const search = document.getElementById('searchInput')?.value || '';
-        const dateFrom = document.getElementById('dateFrom')?.value || '';
-        const dateTo = document.getElementById('dateTo')?.value || '';
+    document.addEventListener("DOMContentLoaded", function () {
+        const searchInput = document.getElementById('searchInput');
+        const dateFrom = document.getElementById('dateFrom');
+        const dateTo = document.getElementById('dateTo');
+        const exportBtn = document.getElementById('exportBtn');
         
-        window.location.href = `/Records/Index?searchString=${encodeURIComponent(search)}&dateFrom=${dateFrom}&dateTo=${dateTo}`;
-    }
+        // Get all table bodies
+        const eventTableBody = document.querySelector('#eventsSection tbody');
+        const registrationTableBody = document.querySelector('#registrationsSection tbody');
+        const financialTableBody = document.querySelector('#financialSection tbody');
+        const feedbackContainer = document.querySelector('#feedbackSection .space-y-4');
+        const trailCards = document.querySelectorAll('#trailsSection .grid > div');
 
-    document.getElementById('searchInput')?.addEventListener('input', function() {
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(applyFilters, 500);
-    });
+        // Store original data
+        let originalEventRows = [];
+        let originalRegistrationRows = [];
+        let originalFinancialRows = [];
+        let originalFeedbackItems = [];
+        let originalTrailCards = [];
 
-    document.getElementById('dateFrom')?.addEventListener('change', applyFilters);
-    document.getElementById('dateTo')?.addEventListener('change', applyFilters);
+        // Store rows on load
+        if (eventTableBody) {
+            originalEventRows = Array.from(eventTableBody.querySelectorAll('tr'));
+        }
+        if (registrationTableBody) {
+            originalRegistrationRows = Array.from(registrationTableBody.querySelectorAll('tr'));
+        }
+        if (financialTableBody) {
+            originalFinancialRows = Array.from(financialTableBody.querySelectorAll('tr'));
+        }
+        if (feedbackContainer) {
+            originalFeedbackItems = Array.from(feedbackContainer.querySelectorAll('.bg-white\\/5.backdrop-blur-xl.border.border-white\\/10.rounded-2xl.p-5'));
+        }
+        if (trailCards.length > 0) {
+            originalTrailCards = Array.from(trailCards);
+        }
 
-    document.getElementById('exportBtn')?.addEventListener('click', function() {
-        const search = document.getElementById('searchInput')?.value || '';
-        const dateFrom = document.getElementById('dateFrom')?.value || '';
-        const dateTo = document.getElementById('dateTo')?.value || '';
-        
-        window.location.href = `/Records/Export?searchString=${encodeURIComponent(search)}&dateFrom=${dateFrom}&dateTo=${dateTo}`;
+        // Function to filter a table by search term
+        function filterTableRows(rows, searchTerm, columns) {
+            rows.forEach(row => {
+                let match = false;
+                for (let i = 0; i < columns.length; i++) {
+                    const cell = row.cells[columns[i]];
+                    if (cell && cell.textContent.toLowerCase().includes(searchTerm)) {
+                        match = true;
+                        break;
+                    }
+                }
+                row.style.display = match ? '' : 'none';
+            });
+        }
+
+        // Function to filter feedback items
+        function filterFeedbackItems(items, searchTerm) {
+            items.forEach(item => {
+                const text = item.textContent.toLowerCase();
+                item.style.display = text.includes(searchTerm) ? '' : 'none';
+            });
+        }
+
+        // Function to filter trail cards
+        function filterTrailCards(cards, searchTerm) {
+            cards.forEach(card => {
+                const text = card.textContent.toLowerCase();
+                card.style.display = text.includes(searchTerm) ? '' : 'none';
+            });
+        }
+
+        // Check if there are any visible rows
+        function updateNoDataMessages() {
+            // Event History
+            const eventRows = eventTableBody?.querySelectorAll('tr');
+            const eventNoData = document.querySelector('#eventsSection .no-data-message');
+            if (eventRows) {
+                const visible = Array.from(eventRows).filter(r => r.style.display !== 'none');
+                if (visible.length === 0) {
+                    if (!eventNoData) {
+                        const msg = document.createElement('tr');
+                        msg.className = 'no-data-message';
+                        msg.innerHTML = `<td colspan="6" class="px-6 py-8 text-center text-gray-500">No events match your search</td>`;
+                        eventTableBody.appendChild(msg);
+                    }
+                } else if (eventNoData) {
+                    eventNoData.remove();
+                }
+            }
+
+            // Registrations
+            const regRows = registrationTableBody?.querySelectorAll('tr');
+            const regNoData = document.querySelector('#registrationsSection .no-data-message');
+            if (regRows) {
+                const visible = Array.from(regRows).filter(r => r.style.display !== 'none');
+                if (visible.length === 0) {
+                    if (!regNoData) {
+                        const msg = document.createElement('tr');
+                        msg.className = 'no-data-message';
+                        msg.innerHTML = `<td colspan="5" class="px-6 py-8 text-center text-gray-500">No registrations match your search</td>`;
+                        registrationTableBody.appendChild(msg);
+                    }
+                } else if (regNoData) {
+                    regNoData.remove();
+                }
+            }
+
+            // Financial
+            const finRows = financialTableBody?.querySelectorAll('tr');
+            const finNoData = document.querySelector('#financialSection .no-data-message');
+            if (finRows) {
+                const visible = Array.from(finRows).filter(r => r.style.display !== 'none');
+                if (visible.length === 0) {
+                    if (!finNoData) {
+                        const msg = document.createElement('tr');
+                        msg.className = 'no-data-message';
+                        msg.innerHTML = `<td colspan="5" class="px-6 py-8 text-center text-gray-500">No financial records match your search</td>`;
+                        financialTableBody.appendChild(msg);
+                    }
+                } else if (finNoData) {
+                    finNoData.remove();
+                }
+            }
+        }
+
+        // Main filter function
+        function filterAll() {
+            const searchTerm = searchInput.value.toLowerCase().trim();
+
+            // Filter Event History
+            if (originalEventRows.length > 0) {
+                originalEventRows.forEach(row => row.style.display = '');
+                if (searchTerm) {
+                    filterTableRows(originalEventRows, searchTerm, [0, 1]); // Title and Trail columns
+                }
+            }
+
+            // Filter Registrations
+            if (originalRegistrationRows.length > 0) {
+                originalRegistrationRows.forEach(row => row.style.display = '');
+                if (searchTerm) {
+                    filterTableRows(originalRegistrationRows, searchTerm, [0, 1]); // Participant and Event columns
+                }
+            }
+
+            // Filter Financial Records
+            if (originalFinancialRows.length > 0) {
+                originalFinancialRows.forEach(row => row.style.display = '');
+                if (searchTerm) {
+                    filterTableRows(originalFinancialRows, searchTerm, [0]); // Event column only
+                }
+            }
+
+            // Filter Feedback
+            if (originalFeedbackItems.length > 0) {
+                originalFeedbackItems.forEach(item => item.style.display = '');
+                if (searchTerm) {
+                    filterFeedbackItems(originalFeedbackItems, searchTerm);
+                }
+            }
+
+            // Filter Trail Cards
+            if (originalTrailCards.length > 0) {
+                originalTrailCards.forEach(card => card.style.display = '');
+                if (searchTerm) {
+                    filterTrailCards(originalTrailCards, searchTerm);
+                }
+            }
+
+            // Update no data messages
+            updateNoDataMessages();
+        }
+
+        // Real-time: trigger on input with debounce
+        let debounceTimer;
+        searchInput?.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(filterAll, 200);
+        });
+
+        // Date filters still cause page reload (for server-side filtering)
+        dateFrom?.addEventListener('change', function() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(applyFilters, 500);
+        });
+
+        dateTo?.addEventListener('change', function() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(applyFilters, 500);
+        });
+
+        function applyFilters() {
+            const search = searchInput?.value || '';
+            const from = dateFrom?.value || '';
+            const to = dateTo?.value || '';
+            window.location.href = `/Records/Index?searchString=${encodeURIComponent(search)}&dateFrom=${from}&dateTo=${to}`;
+        }
+
+        // Export
+        exportBtn?.addEventListener('click', function() {
+            const search = searchInput?.value || '';
+            const from = dateFrom?.value || '';
+            const to = dateTo?.value || '';
+            window.location.href = `/Records/Export?searchString=${encodeURIComponent(search)}&dateFrom=${from}&dateTo=${to}`;
+        });
+
+        // Initial filter on page load (if there's a search term)
+        if (searchInput?.value) {
+            setTimeout(filterAll, 300);
+        }
     });
 </script>

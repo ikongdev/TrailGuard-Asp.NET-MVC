@@ -1,0 +1,312 @@
+@using TrailGuard.Models
+@model List<RegistrationWithAssessmentViewModel>
+@{
+    ViewData["Title"] = "Registrations";
+    var totalRegistrations = ViewBag.TotalRegistrations ?? 0;
+    var goodMatchCount = ViewBag.GoodMatchCount ?? 0;
+    var borderlineCount = ViewBag.BorderlineCount ?? 0;
+    var notRecommendedCount = ViewBag.NotRecommendedCount ?? 0;
+}
+
+@if (TempData["Success"] != null)
+{
+    <div id="successMessage" class="fixed top-24 right-4 z-50 bg-green-500/90 text-white px-6 py-3 rounded-xl shadow-lg backdrop-blur-sm flex items-center gap-3">
+        <i class="fa-solid fa-check-circle"></i>
+        <span>@TempData["Success"]</span>
+        <button type="button" onclick="this.parentElement.remove()" class="hover:text-gray-200 transition-colors">
+            <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+    </div>
+}
+
+@if (TempData["Error"] != null)
+{
+    <div id="errorMessage" class="fixed top-24 right-4 z-50 bg-red-500/90 text-white px-6 py-3 rounded-xl shadow-lg backdrop-blur-sm flex items-center gap-3">
+        <i class="fa-solid fa-exclamation-triangle"></i>
+        <span>@TempData["Error"]</span>
+        <button type="button" onclick="this.parentElement.remove()" class="hover:text-gray-200 transition-colors">
+            <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+    </div>
+}
+
+<div class="pt-24 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-linear-to-r from-blue-400 to-cyan-400">Registrations</h1>
+        <p class="text-gray-400 mt-1 text-sm">View and manage participant registrations for your events.</p>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <!-- Total Registrations -->
+        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+                    <i class="fa-solid fa-users text-blue-400 text-lg"></i>
+                </div>
+                <div>
+                    <p class="text-gray-400 text-xs">Total Registrations</p>
+                    <p class="text-2xl font-bold text-white">@totalRegistrations</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Good-Match -->
+        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
+                    <i class="fa-solid fa-circle-check text-green-400 text-lg"></i>
+                </div>
+                <div>
+                    <p class="text-gray-400 text-xs">Good-Match</p>
+                    <p class="text-2xl font-bold text-white">@goodMatchCount</p>
+                    <p class="text-xs text-gray-500">
+                        @if (totalRegistrations > 0)
+                        {
+                            <span>@Math.Round((double)goodMatchCount / totalRegistrations * 100, 1)% of total</span>
+                        }
+                        else
+                        {
+                            <span>0% of total</span>
+                        }
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Borderline -->
+        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                    <i class="fa-solid fa-triangle-exclamation text-yellow-400 text-lg"></i>
+                </div>
+                <div>
+                    <p class="text-gray-400 text-xs">Borderline</p>
+                    <p class="text-2xl font-bold text-white">@borderlineCount</p>
+                    <p class="text-xs text-gray-500">
+                        @if (totalRegistrations > 0)
+                        {
+                            <span>@Math.Round((double)borderlineCount / totalRegistrations * 100, 1)% of total</span>
+                        }
+                        else
+                        {
+                            <span>0% of total</span>
+                        }
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Not Recommended -->
+        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+                    <i class="fa-solid fa-circle-xmark text-red-400 text-lg"></i>
+                </div>
+                <div>
+                    <p class="text-gray-400 text-xs">Not Recommended</p>
+                    <p class="text-2xl font-bold text-white">@notRecommendedCount</p>
+                    <p class="text-xs text-gray-500">
+                        @if (totalRegistrations > 0)
+                        {
+                            <span>@Math.Round((double)notRecommendedCount / totalRegistrations * 100, 1)% of total</span>
+                        }
+                        else
+                        {
+                            <span>0% of total</span>
+                        }
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="flex flex-col lg:flex-row gap-4 mb-8 bg-white/5 backdrop-blur-xl p-5 rounded-3xl border border-white/10 shadow-2xl">
+        <div class="relative grow">
+            <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+            <input type="text" id="searchInput" placeholder="Search by participant or event..." 
+                   class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-11 pr-4 py-3 focus:border-orange-500 focus:outline-none transition-colors placeholder-gray-500">
+        </div>
+
+        <div class="flex flex-wrap sm:flex-nowrap gap-3">
+            <div class="relative inline-block">
+                <select id="eventFilter" class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-orange-500 focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors w-full">
+                    <option value="All">All Events</option>
+                    @{
+                        var events = ViewBag.OrganizerEvents as List<Event>;
+                        if (events != null)
+                        {
+                            foreach (var ev in events)
+                            {
+                                <option value="@ev.Id">@ev.EventTitle</option>
+                            }
+                        }
+                    }
+                </select>
+                <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
+                    <i class="fa-solid fa-chevron-down text-xs"></i>
+                </div>
+            </div>
+
+            <div class="relative inline-block">
+                <select id="resultFilter" class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-orange-500 focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors w-full">
+                    <option value="All">All Results</option>
+                    <option value="Good-Match">Good-Match</option>
+                    <option value="Borderline">Borderline</option>
+                    <option value="Not Recommended">Not Recommended</option>
+                    <option value="Not Assessed">Not Assessed</option>
+                </select>
+                <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
+                    <i class="fa-solid fa-chevron-down text-xs"></i>
+                </div>
+            </div>
+
+            <div class="relative inline-block">
+                <select id="sortFilter" class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-orange-500 focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors w-full">
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                </select>
+                <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
+                    <i class="fa-solid fa-chevron-down text-xs"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead class="border-b border-gray-700">
+                    <tr>
+                        <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase">Participant</th>
+                        <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase">Event</th>
+                        <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase">Registration Date</th>
+                        <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase">Assessment Result</th>
+                        <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    @if (Model != null && Model.Any())
+                    {
+                        @foreach (var item in Model)
+                        {
+                            var resultColor = item.AssessmentResult == "Good-Match" ? "bg-green-600 text-white" : 
+                                              item.AssessmentResult == "Borderline" ? "bg-yellow-600 text-white" : 
+                                              item.AssessmentResult == "Not Recommended" ? "bg-red-600 text-white" : 
+                                              "bg-gray-600 text-white";
+                            
+                            <tr class="registration-row border-b border-gray-800 hover:bg-white/5 transition-colors"
+                                data-participant="@item.Registration.ParticipantName.ToLower()"
+                                data-event="@item.Registration.Event?.EventTitle?.ToLower()"
+                                data-result="@item.AssessmentResult">
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-8 h-8 rounded-full bg-linear-to-r from-blue-500 to-cyan-500 flex items-center justify-center text-white text-xs font-bold">
+                                            @{
+                                                var initials = string.IsNullOrEmpty(item.Registration.ParticipantName) ? "U" : 
+                                                    string.Join("", item.Registration.ParticipantName.Split(' ').Select(s => s.FirstOrDefault()));
+                                            }
+                                            @initials
+                                        </div>
+                                        <span class="text-white font-medium">@item.Registration.ParticipantName</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-gray-300">@item.Registration.Event?.EventTitle</td>
+                                <td class="px-6 py-4 text-gray-300">@item.Registration.RegisteredAt.ToString("MMM dd, yyyy")</td>
+                                <td class="px-6 py-4">
+                                    <span class="text-xs px-2 py-1 rounded-full font-semibold @resultColor">
+                                        @item.AssessmentResult
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-right">
+                                    <a asp-controller="Organizer" asp-action="RegistrationDetails" asp-route-id="@item.Registration.Id" 
+                                       class="text-blue-400 hover:text-blue-300 transition-colors inline-flex items-center gap-1">
+                                        <i class="fa-regular fa-eye"></i> View
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="5" class="px-6 py-12 text-center text-gray-500">
+                                <i class="fa-solid fa-users-slash text-3xl mb-2 block opacity-50"></i>
+                                <p>No registrations found</p>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const searchInput = document.getElementById('searchInput');
+        const eventFilter = document.getElementById('eventFilter');
+        const resultFilter = document.getElementById('resultFilter');
+        const sortFilter = document.getElementById('sortFilter');
+        const tableBody = document.getElementById('tableBody');
+        
+        if (!tableBody) return;
+
+        function filterAndSort() {
+            let rows = Array.from(document.querySelectorAll('.registration-row'));
+            if (rows.length === 0) return;
+
+            const searchTerm = searchInput?.value.toLowerCase() || '';
+            const eventVal = eventFilter?.value || 'All';
+            const resultVal = resultFilter?.value || 'All';
+            const sortVal = sortFilter?.value || 'newest';
+
+            let visibleRows = rows.filter(row => {
+                const participant = row.getAttribute('data-participant') || '';
+                const event = row.getAttribute('data-event') || '';
+                const result = row.getAttribute('data-result') || '';
+
+                const matchesSearch = participant.includes(searchTerm) || event.includes(searchTerm);
+                const matchesEvent = eventVal === 'All' || event === eventVal.toLowerCase();
+                const matchesResult = resultVal === 'All' || result === resultVal;
+
+                row.style.display = (matchesSearch && matchesEvent && matchesResult) ? '' : 'none';
+                return matchesSearch && matchesEvent && matchesResult;
+            });
+
+            // Sort by date (using the registration date from the row data)
+            if (sortVal === 'newest') {
+                visibleRows.sort((a, b) => {
+                    const dateA = new Date(a.cells[2]?.innerText || 0);
+                    const dateB = new Date(b.cells[2]?.innerText || 0);
+                    return dateB - dateA;
+                });
+            } else {
+                visibleRows.sort((a, b) => {
+                    const dateA = new Date(a.cells[2]?.innerText || 0);
+                    const dateB = new Date(b.cells[2]?.innerText || 0);
+                    return dateA - dateB;
+                });
+            }
+
+            visibleRows.forEach(row => tableBody.appendChild(row));
+
+            // Update count in summary if needed
+            const totalSpan = document.querySelector('.bg-blue-500\\/20 + div .text-2xl');
+            if (totalSpan) {
+                // Optional: update total count
+            }
+        }
+
+        searchInput?.addEventListener('input', filterAndSort);
+        eventFilter?.addEventListener('change', filterAndSort);
+        resultFilter?.addEventListener('change', filterAndSort);
+        sortFilter?.addEventListener('change', filterAndSort);
+
+        // Initial filter
+        setTimeout(filterAndSort, 100);
+    });
+</script>

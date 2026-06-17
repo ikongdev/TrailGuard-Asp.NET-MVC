@@ -32,10 +32,7 @@
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Left Column: Profile Information + Security -->
         <div class="lg:col-span-2 space-y-6">
-
-            <!-- Profile Information Container -->
             <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 relative overflow-hidden">
                 <div class="absolute -right-20 -top-20 w-64 h-64 bg-orange-500/5 rounded-full blur-3xl"></div>
                 <h2 class="text-lg font-bold text-white mb-4"><i class="fa-solid fa-user text-orange-400 mr-2"></i>Profile Information</h2>
@@ -44,9 +41,8 @@
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="confirmPassword" id="profileConfirmPassword" value="" />
 
-                    <!-- Profile Picture -->
                     <div class="flex items-center gap-6 mb-6">
-                        <div class="relative flex-shrink-0">
+                        <div class="relative shrink-0">
                             @if (!string.IsNullOrEmpty(Model.CurrentProfilePictureUrl))
                             {
                                 <img id="currentAvatar" src="@Model.CurrentProfilePictureUrl" alt="Profile" class="w-24 h-24 rounded-full object-cover border-2 border-orange-500/30">
@@ -181,9 +177,8 @@
             </div>
         </div>
 
-        <!-- Right Column: Account Information -->
         <div class="lg:col-span-1">
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 sticky top-24 relative overflow-hidden">
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 sticky top-24 overflow-hidden">
                 <div class="absolute -right-20 -top-20 w-64 h-64 bg-green-500/5 rounded-full blur-3xl"></div>
                 <h2 class="text-lg font-bold text-white mb-4"><i class="fa-solid fa-circle-info text-orange-400 mr-2"></i>Account Information</h2>
 
@@ -215,8 +210,7 @@
     </div>
 </div>
 
-<!-- Password Confirmation Modal -->
-<div id="passwordModal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4" style="padding-top: 80px;">
+<div id="passwordModal" class="fixed inset-0 z-100 hidden items-center justify-center p-4" style="padding-top: 80px;">
     <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closePasswordModal()"></div>
     <div class="relative bg-[#0B1325] border border-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col" style="margin: auto; z-index: 10;">
         <div class="flex justify-between items-center px-6 py-4 border-b border-gray-800 shrink-0">

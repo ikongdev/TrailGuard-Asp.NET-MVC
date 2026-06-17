@@ -30,5 +30,20 @@ namespace TrailGuard.Models
         public bool IsPaid { get; set; } = false;
 
         public DateTime RegisteredAt { get; set; } = DateTime.Now;
+
+        // Registration Status
+        public string Status { get; set; } = "Pending"; // Pending, Accepted, Rejected, Recommended
+
+        // Alternative Event Recommendation
+        public int? AlternativeEventId { get; set; }
+
+        [ForeignKey("AlternativeEventId")]
+        public virtual Event? AlternativeEvent { get; set; }
+
+        // Assessment reference
+        public int? AssessmentId { get; set; }
+
+        [ForeignKey("AssessmentId")]
+        public virtual Assessment? Assessment { get; set; }
     }
 }

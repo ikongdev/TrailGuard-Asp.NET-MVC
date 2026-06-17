@@ -6,7 +6,7 @@ using TrailGuard.Models;
 
 namespace TrailGuard.Controllers
 {
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Organizer")]
     public class RecordsController : Controller
     {
         private readonly ApplicationDbContext _context;
