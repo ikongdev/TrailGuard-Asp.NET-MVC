@@ -145,7 +145,7 @@ namespace TrailGuard.Controllers
                     Location = trail.Location,
                     Difficulty = DifficultyCalculator.ComputeDifficulty(trail, model.EstimatedDuration),
                     EstimatedDuration = model.EstimatedDuration,
-                    Capacity = model.Capacity,
+                    Capacity = model.Capacity, // ✅ IMPORTANTE ITO!
                     OrganizedBy = organizerName,
                     Status = "Upcoming",
                     MASL = trail.ElevationGainMeters,
@@ -212,6 +212,27 @@ namespace TrailGuard.Controllers
                 return RedirectToAction("Index");
             }
 
+            var registrations = await _context.EventRegistrations
+                .Include(r => r.User)
+                .Where(r => r.EventId == id && r.Status != "Rejected")
+                .ToListAsync();
+
+            ViewBag.Registrations = registrations;
+            ViewBag.RegisteredCount = registrations.Count;
+            ViewBag.AvailableSlots = eventItem.Capacity - registrations.Count;
+
+            if (!string.IsNullOrEmpty(eventItem.OrganizedBy))
+            {
+                var organizer = await _context.Users
+                    .FirstOrDefaultAsync(u => 
+                        (u.FirstName + " " + u.LastName) == eventItem.OrganizedBy ||
+                        (u.FirstName + " " + u.MiddleName + " " + u.LastName) == eventItem.OrganizedBy ||
+                        u.Email == eventItem.OrganizedBy ||
+                        u.Id == eventItem.OrganizedBy
+                    );
+                ViewBag.Organizer = organizer;
+            }
+            
             ViewBag.Trail = eventItem.Trail;
             return View(eventItem);
         }
