@@ -17,6 +17,7 @@ namespace TrailGuard.Data
         public DbSet<Event> Events { get; set; }
         public DbSet<EventRegistration> EventRegistrations { get; set; }
         public DbSet<EventFeedback> EventFeedbacks { get; set; }
+        public DbSet<Assessment> Assessments { get; set; } // <-- Add this line if missing
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

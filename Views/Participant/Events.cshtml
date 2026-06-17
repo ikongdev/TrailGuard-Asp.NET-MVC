@@ -1,0 +1,283 @@
+@model IEnumerable<EventGroupViewModel>
+@{
+    ViewData["Title"] = "Browse Events";
+}
+
+@if (TempData["Success"] != null)
+{
+    <div id="successMessage" class="fixed top-24 right-4 z-50 bg-green-500/90 text-white px-6 py-3 rounded-xl shadow-lg backdrop-blur-sm flex items-center gap-3">
+        <i class="fa-solid fa-check-circle"></i>
+        <span>@TempData["Success"]</span>
+        <button type="button" onclick="this.parentElement.remove()" class="hover:text-gray-200 transition-colors">
+            <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+    </div>
+}
+
+@if (TempData["Error"] != null)
+{
+    <div id="errorMessage" class="fixed top-24 right-4 z-50 bg-red-500/90 text-white px-6 py-3 rounded-xl shadow-lg backdrop-blur-sm flex items-center gap-3">
+        <i class="fa-solid fa-exclamation-triangle"></i>
+        <span>@TempData["Error"]</span>
+        <button type="button" onclick="this.parentElement.remove()" class="hover:text-gray-200 transition-colors">
+            <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+    </div>
+}
+
+<div class="pt-24 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-linear-to-r from-purple-400 to-pink-400">Browse Events</h1>
+            <p class="text-gray-400 mt-1 text-sm">Discover upcoming hiking events and register for your next adventure.</p>
+        </div>
+        <div class="bg-white/5 border border-white/10 px-4 py-2 rounded-full flex items-center gap-2">
+            <i class="fa-regular fa-calendar text-purple-400"></i>
+            <span class="text-sm text-gray-300">@Model.Sum(g => g.Events.Count) events available</span>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="flex flex-col lg:flex-row gap-4 mb-8 bg-white/5 backdrop-blur-xl p-5 rounded-3xl border border-white/10 shadow-2xl">
+        <div class="relative grow">
+            <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+            <input type="text" id="searchInput" placeholder="Search events by title or location..." 
+                   class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-11 pr-4 py-3 focus:border-purple-500 focus:outline-none transition-colors placeholder-gray-500">
+        </div>
+
+        <div class="flex flex-wrap sm:flex-nowrap gap-3">
+            <div class="relative inline-block">
+                <select id="trailFilter" class="bg-[#111A2E] border border-gray-700 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-purple-500 focus:outline-none cursor-pointer appearance-none hover:bg-[#1A2A4A] transition-colors w-full"
+                        style="background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%239CA3AF%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3e%3cpolyline points=%276 9 12 15 18 9%27%3e%3c/polyline%3e%3c/svg%3e'); background-repeat: no-repeat; background-position: right 14px center; background-size: 16px;">
+                    <option value="All" class="bg-[#0B1325] text-white">All Trails</option>
+                    @{
+                        var trails = ViewBag.Trails as List<TrailGuard.Models.Trail>;
+                        if (trails != null)
+                        {
+                            foreach (var trail in trails)
+                            {
+                                <option value="@trail.Id" class="bg-[#0B1325] text-white">@trail.Name</option>
+                            }
+                        }
+                    }
+                </select>
+                <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
+                    <i class="fa-solid fa-chevron-down text-xs"></i>
+                </div>
+            </div>
+
+            <div class="relative inline-block">
+                <select id="difficultyFilter" class="bg-[#111A2E] border border-gray-700 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-purple-500 focus:outline-none cursor-pointer appearance-none hover:bg-[#1A2A4A] transition-colors w-full"
+                        style="background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%239CA3AF%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3e%3cpolyline points=%276 9 12 15 18 9%27%3e%3c/polyline%3e%3c/svg%3e'); background-repeat: no-repeat; background-position: right 14px center; background-size: 16px;">
+                    <option value="All" class="bg-[#0B1325] text-white">All Difficulties</option>
+                    <option value="Easy" class="bg-[#0B1325] text-white">Easy</option>
+                    <option value="Moderate" class="bg-[#0B1325] text-white">Moderate</option>
+                    <option value="Difficult" class="bg-[#0B1325] text-white">Difficult</option>
+                </select>
+                <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
+                    <i class="fa-solid fa-chevron-down text-xs"></i>
+                </div>
+            </div>
+
+            <div class="relative inline-block">
+                <select id="sortFilter" class="bg-[#111A2E] border border-gray-700 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-purple-500 focus:outline-none cursor-pointer appearance-none hover:bg-[#1A2A4A] transition-colors w-full"
+                        style="background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%239CA3AF%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3e%3cpolyline points=%276 9 12 15 18 9%27%3e%3c/polyline%3e%3c/svg%3e'); background-repeat: no-repeat; background-position: right 14px center; background-size: 16px;">
+                    <option value="date_asc" class="bg-[#0B1325] text-white">Date (Earliest)</option>
+                    <option value="date_desc" class="bg-[#0B1325] text-white">Date (Latest)</option>
+                    <option value="title_asc" class="bg-[#0B1325] text-white">Title (A-Z)</option>
+                    <option value="title_desc" class="bg-[#0B1325] text-white">Title (Z-A)</option>
+                    <option value="difficulty_asc" class="bg-[#0B1325] text-white">Difficulty (Easy to Hard)</option>
+                    <option value="difficulty_desc" class="bg-[#0B1325] text-white">Difficulty (Hard to Easy)</option>
+                </select>
+                <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
+                    <i class="fa-solid fa-chevron-down text-xs"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Events Grouped by Trail -->
+    @if (Model.Any())
+    {
+        @foreach (var group in Model)
+        {
+            <div class="trail-group mb-10" data-trail-id="@group.TrailId" data-trail-name="@group.TrailName.ToLower()">
+                <!-- Trail Header -->
+                <div class="flex items-center gap-3 mb-4 pb-3 border-b border-gray-700">
+                    <div class="w-10 h-10 rounded-full bg-linear-to-r from-purple-500 to-pink-500 flex items-center justify-center">
+                        <i class="fa-solid fa-mountain text-white text-sm"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-bold text-white">@group.TrailName</h2>
+                        <p class="text-gray-400 text-sm"><i class="fa-solid fa-location-dot text-red-400 mr-1"></i> @group.TrailLocation</p>
+                    </div>
+                    <div class="ml-auto">
+                        <span class="text-xs px-3 py-1 bg-white/10 rounded-full text-gray-300">
+                            <i class="fa-regular fa-calendar mr-1"></i> @group.Events.Count event(s)
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Events Grid -->
+                <div class="events-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    @foreach (var eventItem in group.Events)
+                    {
+                        var diffColor = eventItem.Difficulty == "Easy" ? "bg-green-600" : 
+                                        eventItem.Difficulty == "Moderate" ? "bg-yellow-600" : 
+                                        "bg-red-600";
+                        
+                        <div class="event-card bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden hover:bg-white/10 transition-all duration-300"
+                             data-title="@eventItem.EventTitle.ToLower()"
+                             data-location="@eventItem.Location.ToLower()"
+                             data-difficulty="@eventItem.Difficulty"
+                             data-date="@eventItem.EventDate.ToString("yyyy-MM-dd")">
+                            
+                            <div class="relative h-48 overflow-hidden bg-gray-900">
+                                @if (!string.IsNullOrEmpty(eventItem.Trail?.ThumbnailUrl))
+                                {
+                                    <img src="@eventItem.Trail.ThumbnailUrl" alt="@eventItem.Trail.Name" class="w-full h-full object-cover">
+                                }
+                                else
+                                {
+                                    <div class="w-full h-full flex items-center justify-center bg-gray-800">
+                                        <i class="fa-solid fa-mountain text-4xl text-gray-600"></i>
+                                    </div>
+                                }
+                                <div class="absolute inset-0 bg-linear-to-t from-[#0B1325] to-transparent opacity-80"></div>
+                                <div class="absolute top-3 right-3">
+                                    <span class="text-xs px-2 py-1 rounded-full @diffColor text-white font-semibold">
+                                        @eventItem.Difficulty
+                                    </span>
+                                </div>
+                                <div class="absolute bottom-3 left-3">
+                                    <span class="text-xs text-white/80 bg-black/50 px-2 py-1 rounded-full">
+                                        <i class="fa-regular fa-calendar mr-1"></i> @eventItem.EventDate.ToString("MMM dd, yyyy")
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="p-4">
+                                <h3 class="text-lg font-bold text-white mb-1">@eventItem.EventTitle</h3>
+                                <p class="text-gray-400 text-sm mb-3">
+                                    <i class="fa-solid fa-location-dot text-red-400 mr-1"></i> @eventItem.Location
+                                </p>
+
+                                <div class="flex flex-wrap gap-2 mb-4">
+                                    <span class="text-xs px-2 py-1 bg-blue-500/20 text-blue-300 rounded-full">
+                                        <i class="fa-regular fa-clock"></i> @eventItem.EstimatedDuration hrs
+                                    </span>
+                                    <span class="text-xs px-2 py-1 bg-orange-500/20 text-orange-300 rounded-full">
+                                        <i class="fa-solid fa-users"></i> @eventItem.Capacity slots
+                                    </span>
+                                </div>
+
+                                <div class="flex gap-2">
+                                    <a asp-controller="Event" asp-action="Details" asp-route-id="@eventItem.Id"
+                                       class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
+                                        <i class="fa-regular fa-eye"></i> View
+                                    </a>
+                                    <a asp-controller="Registration" asp-action="Register" asp-route-eventId="@eventItem.Id"
+                                       class="flex-1 bg-linear-to-r from-purple-500 to-pink-500 hover:opacity-90 text-white py-2 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
+                                        <i class="fa-regular fa-clipboard"></i> Register
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="text-center py-20 bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl">
+            <i class="fa-solid fa-calendar-plus text-5xl text-gray-500 mb-4"></i>
+            <h3 class="text-xl font-bold text-gray-300">No events available</h3>
+            <p class="text-gray-500 mt-2">Check back later for new hiking events.</p>
+        </div>
+    }
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const searchInput = document.getElementById('searchInput');
+        const trailFilter = document.getElementById('trailFilter');
+        const difficultyFilter = document.getElementById('difficultyFilter');
+        const sortFilter = document.getElementById('sortFilter');
+        
+        const trailGroups = document.querySelectorAll('.trail-group');
+        let totalVisibleTrails = 0;
+
+        function filterAndSort() {
+            const searchTerm = searchInput?.value.toLowerCase() || '';
+            const trail = trailFilter?.value || 'All';
+            const difficulty = difficultyFilter?.value || 'All';
+            const sort = sortFilter?.value || 'date_asc';
+
+            trailGroups.forEach(group => {
+                const trailId = group.getAttribute('data-trail-id') || '';
+                const trailName = group.getAttribute('data-trail-name') || '';
+                
+                const matchesTrailFilter = trail === 'All' || trailId === trail;
+                const matchesSearch = trailName.includes(searchTerm);
+
+                const eventCards = group.querySelectorAll('.event-card');
+                let visibleEvents = [];
+
+                eventCards.forEach(card => {
+                    const title = card.getAttribute('data-title') || '';
+                    const location = card.getAttribute('data-location') || '';
+                    const cardDifficulty = card.getAttribute('data-difficulty') || '';
+                    const date = card.getAttribute('data-date') || '';
+
+                    const matchesSearchCard = title.includes(searchTerm) || location.includes(searchTerm);
+                    const matchesDifficulty = difficulty === 'All' || cardDifficulty === difficulty;
+
+                    if (matchesSearchCard && matchesDifficulty) {
+                        visibleEvents.push(card);
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+
+                visibleEvents.forEach(card => card.style.display = '');
+
+                // Sort visible events
+                const diffOrder = { 'Easy': 1, 'Moderate': 2, 'Difficult': 3 };
+                visibleEvents.sort((a, b) => {
+                    const titleA = a.getAttribute('data-title') || '';
+                    const titleB = b.getAttribute('data-title') || '';
+                    const dateA = a.getAttribute('data-date') || '';
+                    const dateB = b.getAttribute('data-date') || '';
+                    const diffA = a.getAttribute('data-difficulty') || '';
+                    const diffB = b.getAttribute('data-difficulty') || '';
+
+                    if (sort === 'date_asc') return new Date(dateA) - new Date(dateB);
+                    if (sort === 'date_desc') return new Date(dateB) - new Date(dateA);
+                    if (sort === 'title_asc') return titleA.localeCompare(titleB);
+                    if (sort === 'title_desc') return titleB.localeCompare(titleA);
+                    if (sort === 'difficulty_asc') return (diffOrder[diffA] || 0) - (diffOrder[diffB] || 0);
+                    if (sort === 'difficulty_desc') return (diffOrder[diffB] || 0) - (diffOrder[diffA] || 0);
+                    return 0;
+                });
+
+                const container = group.querySelector('.events-grid');
+                if (container && visibleEvents.length > 0 && matchesTrailFilter && matchesSearch) {
+                    visibleEvents.forEach(card => container.appendChild(card));
+                    group.style.display = '';
+                    totalVisibleTrails++;
+                } else {
+                    group.style.display = 'none';
+                }
+            });
+        }
+
+        searchInput?.addEventListener('input', filterAndSort);
+        trailFilter?.addEventListener('change', filterAndSort);
+        difficultyFilter?.addEventListener('change', filterAndSort);
+        sortFilter?.addEventListener('change', filterAndSort);
+
+        setTimeout(filterAndSort, 100);
+    });
+</script>

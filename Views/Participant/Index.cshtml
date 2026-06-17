@@ -1,15 +1,143 @@
+@model List<Event>
 @{
-    ViewData["Title"] = "My Dashboard";
+    ViewData["Title"] = "Participant Dashboard";
 }
 
-@section PageHero {
-    <div class="pt-24 px-4 w-full max-w-7xl mx-auto min-h-screen text-white text-left pb-12">
-        
-        <h1 class="text-3xl font-bold text-purple-400">Participant Dashboard</h1>
-        <p class="text-gray-400 mt-2">Welcome to your TrailGuard profile.</p>
-        
-        <div class="mt-8">
-            </div>
-
+@if (TempData["Success"] != null)
+{
+    <div id="successMessage" class="fixed top-24 right-4 z-50 bg-green-500/90 text-white px-6 py-3 rounded-xl shadow-lg backdrop-blur-sm flex items-center gap-3">
+        <i class="fa-solid fa-check-circle"></i>
+        <span>@TempData["Success"]</span>
+        <button type="button" onclick="this.parentElement.remove()" class="hover:text-gray-200 transition-colors">
+            <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
     </div>
 }
+
+@if (TempData["Error"] != null)
+{
+    <div id="errorMessage" class="fixed top-24 right-4 z-50 bg-red-500/90 text-white px-6 py-3 rounded-xl shadow-lg backdrop-blur-sm flex items-center gap-3">
+        <i class="fa-solid fa-exclamation-triangle"></i>
+        <span>@TempData["Error"]</span>
+        <button type="button" onclick="this.parentElement.remove()" class="hover:text-gray-200 transition-colors">
+            <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+    </div>
+}
+
+<div class="pt-24 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+                <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-linear-to-r from-purple-400 to-pink-400">Participant Dashboard</h1>
+                <p class="text-gray-400 mt-1 text-sm">Discover upcoming hikes, check your registrations, and prepare for your next adventure.</p>
+            </div>
+            <div class="bg-white/5 border border-white/10 px-4 py-2 rounded-full flex items-center gap-2">
+                <i class="fa-regular fa-calendar text-purple-400"></i>
+                <span class="text-sm text-gray-300">@DateTime.Now.ToString("dddd, MMMM dd, yyyy")</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
+                    <i class="fa-solid fa-mountain text-purple-400 text-lg"></i>
+                </div>
+                <div>
+                    <p class="text-gray-400 text-xs">Upcoming Events</p>
+                    <p class="text-2xl font-bold text-white">@Model.Count</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
+                    <i class="fa-solid fa-check-circle text-green-400 text-lg"></i>
+                </div>
+                <div>
+                    <p class="text-gray-400 text-xs">My Registrations</p>
+                    <p class="text-2xl font-bold text-white">0</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                    <i class="fa-solid fa-clock text-yellow-400 text-lg"></i>
+                </div>
+                <div>
+                    <p class="text-gray-400 text-xs">Pending</p>
+                    <p class="text-2xl font-bold text-white">0</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upcoming Events -->
+    <h2 class="text-xl font-bold text-white mb-4"><i class="fa-solid fa-calendar-week text-purple-400 mr-2"></i>Upcoming Events</h2>
+
+    @if (Model.Any())
+    {
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            @foreach (var eventItem in Model)
+            {
+                <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden hover:bg-white/10 transition-all duration-300">
+                    <div class="relative h-40 overflow-hidden bg-gray-900">
+                        @if (!string.IsNullOrEmpty(eventItem.Trail?.ThumbnailUrl))
+                        {
+                            <img src="@eventItem.Trail.ThumbnailUrl" alt="@eventItem.Trail.Name" class="w-full h-full object-cover">
+                        }
+                        else
+                        {
+                            <div class="w-full h-full flex items-center justify-center">
+                                <i class="fa-solid fa-mountain text-4xl text-gray-600"></i>
+                            </div>
+                        }
+                        <div class="absolute inset-0 bg-linear-to-t from-[#0B1325] to-transparent opacity-80"></div>
+                        <div class="absolute bottom-3 left-3">
+                            <span class="text-xs text-white/80 bg-black/50 px-2 py-1 rounded-full">
+                                <i class="fa-regular fa-calendar mr-1"></i> @eventItem.EventDate.ToString("MMM dd, yyyy")
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="p-4">
+                        <h3 class="text-lg font-bold text-white mb-1">@eventItem.EventTitle</h3>
+                        <p class="text-gray-400 text-sm mb-3">
+                            <i class="fa-solid fa-location-dot text-red-400 mr-1"></i> @eventItem.Location
+                        </p>
+
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span class="text-xs px-2 py-1 bg-purple-500/20 text-purple-300 rounded-full">
+                                <i class="fa-solid fa-signal"></i> @eventItem.Difficulty
+                            </span>
+                            <span class="text-xs px-2 py-1 bg-blue-500/20 text-blue-300 rounded-full">
+                                <i class="fa-regular fa-clock"></i> @eventItem.EstimatedDuration hrs
+                            </span>
+                            <span class="text-xs px-2 py-1 bg-orange-500/20 text-orange-300 rounded-full">
+                                <i class="fa-solid fa-users"></i> @eventItem.Capacity slots
+                            </span>
+                        </div>
+
+                        <a asp-controller="Event" asp-action="Details" asp-route-id="@eventItem.Id"
+                           class="w-full bg-linear-to-r from-purple-500 to-pink-500 hover:opacity-90 text-white py-2 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
+                            <i class="fa-regular fa-eye"></i> View Event
+                        </a>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="text-center py-20 bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl">
+            <i class="fa-solid fa-calendar-plus text-5xl text-gray-500 mb-4"></i>
+            <h3 class="text-xl font-bold text-gray-300">No upcoming events</h3>
+            <p class="text-gray-500 mt-2">Check back later for new hiking events.</p>
+        </div>
+    }
+</div>
