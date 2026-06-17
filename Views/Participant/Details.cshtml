@@ -8,9 +8,20 @@
     var availableSlots = ViewBag.AvailableSlots ?? 0;
     var isFull = availableSlots <= 0;
     var organizer = ViewBag.Organizer as ApplicationUser;
+    var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+    var isLoggedIn = User.Identity?.IsAuthenticated ?? false;
     var isCompleted = Model.Status == "Completed";
     var isCancelled = Model.Status == "Cancelled";
     var isUpcoming = Model.Status == "Upcoming";
+    
+    var isRegistered = false;
+    var registrationStatus = "";
+    var userRegistration = registrations.FirstOrDefault(r => r.UserId == userId);
+    if (userRegistration != null)
+    {
+        isRegistered = true;
+        registrationStatus = userRegistration.Status;
+    }
     
     var joinedParticipants = registrations
         .Where(r => r.Status == "Accepted" || r.Status == "Pending")
@@ -45,7 +56,7 @@
     }
 
     <div class="mb-6">
-        <a asp-action="Index" class="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors group">
+        <a asp-action="Events" class="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors group">
             <i class="fa-solid fa-arrow-left group-hover:-translate-x-1 transition-transform"></i>
             Back to Events
         </a>
@@ -72,18 +83,28 @@
                       "bg-gray-500/20 text-gray-400")">
                     @Model.Status
                 </span>
-                
-                <select id="statusDropdown" class="bg-black/50 border border-white/20 text-white text-xs rounded-full px-3 py-1 focus:border-orange-500 focus:outline-none">
-                    <option value="Upcoming" selected="@(Model.Status == "Upcoming")">Upcoming</option>
-                    <option value="Cancelled" selected="@(Model.Status == "Cancelled")">Cancelled</option>
-                    <option value="Postponed" selected="@(Model.Status == "Postponed")">Postponed</option>
-                    <option value="Completed" selected="@(Model.Status == "Completed")">Completed</option>
-                </select>
-                
                 @if (isFull && isUpcoming)
                 {
                     <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-red-500/20 text-red-400">
                         <i class="fa-solid fa-circle-exclamation mr-1"></i> Full
+                    </span>
+                }
+                @if (isRegistered && registrationStatus == "Pending")
+                {
+                    <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-yellow-500/20 text-yellow-400">
+                        <i class="fa-solid fa-clock mr-1"></i> Pending Approval
+                    </span>
+                }
+                @if (isRegistered && registrationStatus == "Accepted")
+                {
+                    <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-green-500/20 text-green-400">
+                        <i class="fa-solid fa-check mr-1"></i> Registered
+                    </span>
+                }
+                @if (isRegistered && registrationStatus == "Rejected")
+                {
+                    <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-red-500/20 text-red-400">
+                        <i class="fa-solid fa-xmark mr-1"></i> Registration Rejected
                     </span>
                 }
             </div>
@@ -334,10 +355,10 @@
 
             <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 flex flex-col flex-1">
                 <h2 class="text-lg font-bold text-white mb-4 flex-shrink-0">
-                    <i class="fa-solid fa-users-viewfinder text-orange-400 mr-2"></i>Registered Participants
+                    <i class="fa-solid fa-users-viewfinder text-orange-400 mr-2"></i>Joined Participants
                     <span class="text-sm font-normal text-gray-400 ml-2">(@totalJoined)</span>
                 </h2>
-                <div class="flex-1 min-h-[280px] max-h-[500px] overflow-y-auto custom-scrollbar">
+                <div class="flex-1 min-h-[340px] max-h-[340px] overflow-y-auto custom-scrollbar">
                     @if (joinedParticipants.Any())
                     {
                         <div class="space-y-3">
@@ -365,10 +386,6 @@
                                             {
                                                 <span class="text-yellow-400"><i class="fa-solid fa-clock"></i> Pending</span>
                                             }
-                                            else if (reg.Status == "Rejected")
-                                            {
-                                                <span class="text-red-400"><i class="fa-solid fa-xmark-circle"></i> Rejected</span>
-                                            }
                                         </p>
                                     </div>
                                 </div>
@@ -388,8 +405,8 @@
                         <div class="h-full flex items-center justify-center">
                             <div class="text-center text-gray-500">
                                 <i class="fa-regular fa-user text-3xl mb-2 block"></i>
-                                <p class="text-sm">No participants registered yet.</p>
-                                <p class="text-xs text-gray-600">Waiting for participants to join.</p>
+                                <p class="text-sm">No participants yet.</p>
+                                <p class="text-xs text-gray-600">Be the first to join!</p>
                             </div>
                         </div>
                     }
@@ -422,13 +439,52 @@
             </p>
         </div>
         
-        <div class="flex gap-3">
-            <button onclick="openEditModal(@Model.Id)" class="primary-btn px-6 py-3 rounded-xl text-white font-bold bg-gradient-to-r from-orange-500 to-purple-600 hover:opacity-90 transition-all flex items-center gap-2">
-                <i class="fa-solid fa-pen"></i> Edit Event
-            </button>
-            <button onclick="deleteEvent(@Model.Id, '@Model.EventTitle.Replace("'", "\\'")')" class="px-6 py-3 rounded-xl text-white font-bold bg-red-500/20 border border-red-500/50 hover:bg-red-500 hover:border-red-500 transition-all flex items-center gap-2">
-                <i class="fa-solid fa-trash"></i> Delete
-            </button>
+        <div>
+            @if (!isLoggedIn)
+            {
+                <a asp-area="Identity" asp-page="/Account/Login" asp-route-returnUrl="@Context.Request.Path" 
+                   class="primary-btn px-8 py-3 rounded-xl text-white font-bold bg-gradient-to-r from-orange-500 to-purple-600 hover:opacity-90 transition-all flex items-center gap-2">
+                    <i class="fa-solid fa-right-to-bracket"></i> Login to Register
+                </a>
+            }
+            else if (isRegistered && registrationStatus == "Pending")
+            {
+                <button disabled class="px-8 py-3 rounded-xl text-white font-bold bg-yellow-500/30 border border-yellow-500/50 cursor-not-allowed flex items-center gap-2">
+                    <i class="fa-solid fa-clock"></i> Pending Approval
+                </button>
+            }
+            else if (isRegistered && registrationStatus == "Accepted")
+            {
+                <button disabled class="px-8 py-3 rounded-xl text-white font-bold bg-green-500/30 border border-green-500/50 cursor-not-allowed flex items-center gap-2">
+                    <i class="fa-solid fa-check"></i> Already Registered
+                </button>
+            }
+            else if (isRegistered && registrationStatus == "Rejected")
+            {
+                <button disabled class="px-8 py-3 rounded-xl text-white font-bold bg-red-500/30 border border-red-500/50 cursor-not-allowed flex items-center gap-2">
+                    <i class="fa-solid fa-xmark"></i> Registration Rejected
+                </button>
+            }
+            else if (isFull && isUpcoming)
+            {
+                <button disabled class="px-8 py-3 rounded-xl text-white font-bold bg-red-500/30 border border-red-500/50 cursor-not-allowed flex items-center gap-2">
+                    <i class="fa-solid fa-ban"></i> Event Full
+                </button>
+            }
+            else if (isCompleted || isCancelled)
+            {
+                <button disabled class="px-8 py-3 rounded-xl text-gray-500 font-bold bg-gray-700/50 border border-gray-700 cursor-not-allowed flex items-center gap-2">
+                    <i class="fa-solid fa-lock"></i> Registration Closed
+                </button>
+            }
+            else if (isUpcoming)
+            {
+                <form method="post" asp-controller="Registration" asp-action="Register" asp-route-eventId="@Model.Id" class="inline">
+                    <button type="submit" class="primary-btn px-8 py-3 rounded-xl text-white font-bold bg-gradient-to-r from-orange-500 to-purple-600 hover:opacity-90 hover:scale-105 transition-all flex items-center gap-2">
+                        <i class="fa-regular fa-clipboard"></i> Register Now
+                    </button>
+                </form>
+            }
         </div>
     </div>
 
@@ -436,7 +492,7 @@
     {
         <div class="flex justify-end mt-4">
             <button onclick="openFeedbackModal()" class="primary-btn px-6 py-3 rounded-xl text-white font-bold bg-gradient-to-r from-orange-500 to-purple-600 hover:opacity-90 transition-all flex items-center gap-2">
-                <i class="fa-solid fa-comment"></i> View Feedback
+                <i class="fa-solid fa-comment"></i> Give Feedback
             </button>
         </div>
     }
@@ -458,15 +514,35 @@
             </button>
         </div>
 
-        <div class="p-6">
-            <p class="text-gray-300">Feedback list will be displayed here.</p>
-        </div>
+        <form id="feedbackForm" class="flex flex-col flex-1 overflow-hidden">
+            <div class="overflow-y-auto p-6 custom-scrollbar">
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Rating</label>
+                    <div class="flex gap-2 text-2xl" id="ratingStars">
+                        <i class="fa-regular fa-star text-gray-400 cursor-pointer hover:text-yellow-400 transition-colors" data-rating="1"></i>
+                        <i class="fa-regular fa-star text-gray-400 cursor-pointer hover:text-yellow-400 transition-colors" data-rating="2"></i>
+                        <i class="fa-regular fa-star text-gray-400 cursor-pointer hover:text-yellow-400 transition-colors" data-rating="3"></i>
+                        <i class="fa-regular fa-star text-gray-400 cursor-pointer hover:text-yellow-400 transition-colors" data-rating="4"></i>
+                        <i class="fa-regular fa-star text-gray-400 cursor-pointer hover:text-yellow-400 transition-colors" data-rating="5"></i>
+                    </div>
+                    <input type="hidden" id="feedbackRating" name="Rating" value="0">
+                </div>
 
-        <div class="px-6 py-4 border-t border-gray-800 shrink-0 flex justify-end bg-[#0B1325]">
-            <button onclick="closeFeedbackModal()" class="px-5 py-2 rounded-lg text-sm font-medium text-white bg-gradient-to-r from-orange-500 to-purple-600 hover:opacity-90 transition-all">
-                Close
-            </button>
-        </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Your Feedback</label>
+                    <textarea id="feedbackComment" name="Comment" rows="5" class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none" placeholder="Share your experience..."></textarea>
+                </div>
+            </div>
+
+            <div class="px-6 py-4 border-t border-gray-800 shrink-0 flex justify-end gap-3 bg-[#0B1325]">
+                <button type="button" onclick="closeFeedbackModal()" class="px-5 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white bg-gray-800 hover:bg-gray-700 transition-colors">
+                    Cancel
+                </button>
+                <button type="submit" class="primary-btn px-5 py-2 rounded-lg text-sm font-medium text-white bg-gradient-to-r from-orange-500 to-purple-600 hover:opacity-90 transition-all">
+                    Submit Feedback
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -482,11 +558,11 @@
         opacity: 0.9;
         transform: scale(1.02);
     }
-    .min-h-\[350px\] {
-        min-height: 350px;
+    .min-h-\[200px\] {
+        min-height: 200px;
     }
-    .max-h-\[500px\] {
-        max-height: 500px;
+    .max-h-\[300px\] {
+        max-height: 300px;
     }
     .truncate {
         overflow: hidden;
@@ -499,29 +575,22 @@
 </style>
 
 <script>
-    document.getElementById('statusDropdown')?.addEventListener('change', async function() {
-        const newStatus = this.value;
-        const eventId = @Model.Id;
-        
-        try {
-            const response = await fetch('/Event/UpdateStatus', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: eventId, status: newStatus })
+    const stars = document.querySelectorAll('#ratingStars i');
+    const ratingInput = document.getElementById('feedbackRating');
+    
+    stars.forEach(star => {
+        star.addEventListener('click', function() {
+            const rating = parseInt(this.getAttribute('data-rating'));
+            ratingInput.value = rating;
+            
+            stars.forEach((s, index) => {
+                if (index < rating) {
+                    s.className = 'fa-solid fa-star text-yellow-400 cursor-pointer hover:text-yellow-400 transition-colors';
+                } else {
+                    s.className = 'fa-regular fa-star text-gray-400 cursor-pointer hover:text-yellow-400 transition-colors';
+                }
             });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                showToast('Status updated successfully!', 'success');
-                setTimeout(() => location.reload(), 1000);
-            } else {
-                showToast('Error: ' + result.message, 'error');
-            }
-        } catch (error) {
-            console.error('Error:', error);
-            showToast('Error updating status', 'error');
-        }
+        });
     });
 
     function openFeedbackModal() {
@@ -536,36 +605,55 @@
         modal.classList.add('hidden');
         modal.style.display = 'none';
         document.body.style.overflow = 'auto';
+        document.getElementById('feedbackForm').reset();
+        ratingInput.value = '0';
+        stars.forEach(star => {
+            star.className = 'fa-regular fa-star text-gray-400 cursor-pointer hover:text-yellow-400 transition-colors';
+        });
     }
 
-    function openEditModal(id) {
-        window.location.href = '/Event/Edit/' + id;
-    }
-
-    function deleteEvent(id, title) {
-        if (!confirm(`Are you sure you want to delete "${title}"? This action cannot be undone.`)) {
+    document.getElementById('feedbackForm')?.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const rating = document.getElementById('feedbackRating').value;
+        const comment = document.getElementById('feedbackComment').value;
+        
+        if (rating == 0) {
+            showToast('Please select a rating', 'error');
             return;
         }
         
-        fetch('/Event/DeleteEvent', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: id })
-        })
-        .then(response => response.json())
-        .then(result => {
+        const submitBtn = this.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting...';
+        
+        try {
+            const response = await fetch('/Feedback/Submit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    EventId: @Model.Id,
+                    Rating: parseInt(rating),
+                    Comment: comment
+                })
+            });
+            
+            const result = await response.json();
+            
             if (result.success) {
-                showToast('Event deleted successfully', 'success');
-                setTimeout(() => window.location.href = '/Event/Index', 1500);
+                showToast('Feedback submitted successfully!', 'success');
+                closeFeedbackModal();
             } else {
                 showToast('Error: ' + result.message, 'error');
             }
-        })
-        .catch(error => {
+        } catch (error) {
             console.error('Error:', error);
-            showToast('Error deleting event', 'error');
-        });
-    }
+            showToast('Error submitting feedback', 'error');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit Feedback';
+        }
+    });
 
     function showToast(message, type) {
         const existingToast = document.querySelector('.toast-message');

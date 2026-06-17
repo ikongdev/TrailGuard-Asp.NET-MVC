@@ -87,5 +87,43 @@ namespace TrailGuard.Controllers
 
             return View(groupedEvents);
         }
+
+        public async Task<IActionResult> Details(int id)
+        {
+            var eventItem = await _context.Events
+                .Include(e => e.Trail)
+                .FirstOrDefaultAsync(e => e.Id == id);
+            
+            if (eventItem == null)
+            {
+                TempData["Error"] = "Event not found";
+                return RedirectToAction("Events");
+            }
+
+            var registrations = await _context.EventRegistrations
+                .Include(r => r.User)
+                .Where(r => r.EventId == id && r.Status != "Rejected")
+                .ToListAsync();
+            
+            ViewBag.Registrations = registrations;
+            ViewBag.RegisteredCount = registrations.Count;
+            ViewBag.AvailableSlots = eventItem.Capacity - registrations.Count;
+
+            if (!string.IsNullOrEmpty(eventItem.OrganizedBy))
+            {
+                var organizer = await _context.Users
+                    .FirstOrDefaultAsync(u => 
+                        (u.FirstName + " " + u.LastName) == eventItem.OrganizedBy ||
+                        (u.FirstName + " " + u.MiddleName + " " + u.LastName) == eventItem.OrganizedBy ||
+                        u.Email == eventItem.OrganizedBy ||
+                        u.Id == eventItem.OrganizedBy
+                    );
+                
+                ViewBag.Organizer = organizer;
+            }
+            
+            ViewBag.Trail = eventItem.Trail;
+            return View(eventItem);
+        }
     }
 }
