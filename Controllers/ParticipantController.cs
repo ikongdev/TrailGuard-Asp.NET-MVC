@@ -28,7 +28,6 @@ namespace TrailGuard.Controllers
             return View(upcomingEvents);
         }
 
-        // GET: Participant/Events
         public async Task<IActionResult> Events(string searchString, string difficulty, string trailFilter, string sortOrder)
         {
             ViewData["CurrentFilter"] = searchString;
@@ -36,7 +35,6 @@ namespace TrailGuard.Controllers
             ViewData["CurrentTrailFilter"] = trailFilter;
             ViewData["CurrentSort"] = sortOrder;
 
-            // Get all trails for filter dropdown
             ViewBag.Trails = await _context.Trails.OrderBy(t => t.Name).ToListAsync();
 
             var events = _context.Events
@@ -72,7 +70,13 @@ namespace TrailGuard.Controllers
 
             var eventsList = await events.ToListAsync();
 
-            // Group by Trail
+            var eventIds = eventsList.Select(e => e.Id).ToList();
+            var acceptedCounts = await _context.EventRegistrations
+                .Where(r => eventIds.Contains(r.EventId) && r.Status == "Accepted")
+                .GroupBy(r => r.EventId)
+                .Select(g => new { EventId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.EventId, x => x.Count);
+
             var groupedEvents = eventsList
                 .Where(e => e.Trail != null)
                 .GroupBy(e => e.TrailId)
@@ -81,7 +85,10 @@ namespace TrailGuard.Controllers
                     TrailId = g.Key,
                     TrailName = g.First().Trail?.Name ?? "Unknown Trail",
                     TrailLocation = g.First().Location,
-                    Events = g.OrderBy(e => e.EventDate).ToList()
+                    Events = g.OrderBy(e => e.EventDate).Select(e => {
+                        e.RegisteredCount = acceptedCounts.ContainsKey(e.Id) ? acceptedCounts[e.Id] : 0;
+                        return e;
+                    }).ToList()
                 })
                 .ToList();
 
@@ -100,14 +107,19 @@ namespace TrailGuard.Controllers
                 return RedirectToAction("Events");
             }
 
-            var registrations = await _context.EventRegistrations
+            var acceptedRegistrations = await _context.EventRegistrations
                 .Include(r => r.User)
-                .Where(r => r.EventId == id && r.Status != "Rejected")
+                .Where(r => r.EventId == id && r.Status == "Accepted")
+                .ToListAsync();
+
+            var allRegistrations = await _context.EventRegistrations
+                .Include(r => r.User)
+                .Where(r => r.EventId == id && r.Status != "Rejected" && r.Status != "Cancelled")
                 .ToListAsync();
             
-            ViewBag.Registrations = registrations;
-            ViewBag.RegisteredCount = registrations.Count;
-            ViewBag.AvailableSlots = eventItem.Capacity - registrations.Count;
+            ViewBag.Registrations = allRegistrations;
+            ViewBag.RegisteredCount = acceptedRegistrations.Count; 
+            ViewBag.AvailableSlots = eventItem.Capacity - acceptedRegistrations.Count;
 
             if (!string.IsNullOrEmpty(eventItem.OrganizedBy))
             {
@@ -118,7 +130,6 @@ namespace TrailGuard.Controllers
                         u.Email == eventItem.OrganizedBy ||
                         u.Id == eventItem.OrganizedBy
                     );
-                
                 ViewBag.Organizer = organizer;
             }
             

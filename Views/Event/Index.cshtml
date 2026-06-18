@@ -188,8 +188,10 @@
                                             <i class="fa-solid fa-clock text-blue-400"></i>
                                             <span>@($"{eventItem.EventTime.Hours:D2}:{eventItem.EventTime.Minutes:D2} {(eventItem.EventTime.Hours >= 12 ? "PM" : "AM")}")</span>
                                             <span class="mx-1">•</span>
-                                            <i class="fa-solid fa-users text-green-400"></i>
-                                            <span>@eventItem.Capacity slots</span>
+                                            <span class="text-xs px-2 py-1 bg-orange-500/20 text-orange-300 rounded-full">
+                                                <i class="fa-solid fa-users"></i> 
+                                                @(eventItem.Capacity - eventItem.RegisteredCount) / @eventItem.Capacity slots
+                                            </span>
                                         </div>
                                         
                                         <div class="flex flex-wrap gap-2 mb-4">

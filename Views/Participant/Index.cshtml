@@ -1,143 +1,333 @@
-@model List<Event>
+@using Microsoft.AspNetCore.Identity
+@model ParticipantDashboardViewModel
+@inject UserManager<ApplicationUser> UserManager
 @{
     ViewData["Title"] = "Participant Dashboard";
-}
-
-@if (TempData["Success"] != null)
-{
-    <div id="successMessage" class="fixed top-24 right-4 z-50 bg-green-500/90 text-white px-6 py-3 rounded-xl shadow-lg backdrop-blur-sm flex items-center gap-3">
-        <i class="fa-solid fa-check-circle"></i>
-        <span>@TempData["Success"]</span>
-        <button type="button" onclick="this.parentElement.remove()" class="hover:text-gray-200 transition-colors">
-            <i class="fa-solid fa-xmark text-lg"></i>
-        </button>
-    </div>
-}
-
-@if (TempData["Error"] != null)
-{
-    <div id="errorMessage" class="fixed top-24 right-4 z-50 bg-red-500/90 text-white px-6 py-3 rounded-xl shadow-lg backdrop-blur-sm flex items-center gap-3">
-        <i class="fa-solid fa-exclamation-triangle"></i>
-        <span>@TempData["Error"]</span>
-        <button type="button" onclick="this.parentElement.remove()" class="hover:text-gray-200 transition-colors">
-            <i class="fa-solid fa-xmark text-lg"></i>
-        </button>
-    </div>
+    var user = await UserManager.GetUserAsync(User);
+    var firstName = user?.FirstName ?? "Participant";
 }
 
 <div class="pt-24 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
-    <!-- Header -->
-    <div class="mb-8">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-                <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-linear-to-r from-purple-400 to-pink-400">Participant Dashboard</h1>
-                <p class="text-gray-400 mt-1 text-sm">Discover upcoming hikes, check your registrations, and prepare for your next adventure.</p>
-            </div>
-            <div class="bg-white/5 border border-white/10 px-4 py-2 rounded-full flex items-center gap-2">
-                <i class="fa-regular fa-calendar text-purple-400"></i>
-                <span class="text-sm text-gray-300">@DateTime.Now.ToString("dddd, MMMM dd, yyyy")</span>
-            </div>
+    
+    <!-- ============================================================ -->
+    <!-- HEADER -->
+    <!-- ============================================================ -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">Participant Dashboard</h1>
+            <p class="text-gray-400 mt-1 text-sm">Track your hikes, registrations, assessment results, and recommended adventures.</p>
+        </div>
+        <div class="bg-white/5 border border-white/10 px-4 py-2 rounded-full flex items-center gap-2">
+            <i class="fa-regular fa-calendar text-purple-400"></i>
+            <span class="text-sm text-gray-300">@DateTime.Now.ToString("dddd, MMMM dd, yyyy")</span>
         </div>
     </div>
 
-    <!-- Quick Stats -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
-                    <i class="fa-solid fa-mountain text-purple-400 text-lg"></i>
-                </div>
-                <div>
-                    <p class="text-gray-400 text-xs">Upcoming Events</p>
-                    <p class="text-2xl font-bold text-white">@Model.Count</p>
-                </div>
+    <!-- ============================================================ -->
+    <!-- WELCOME SECTION -->
+    <!-- ============================================================ -->
+    <div class="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-white/10 rounded-3xl p-6 mb-8">
+        <div class="flex flex-col md:flex-row items-center gap-4">
+            <div class="w-16 h-16 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
+                @(firstName[0].ToString().ToUpper())
             </div>
-        </div>
-        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
-                    <i class="fa-solid fa-check-circle text-green-400 text-lg"></i>
-                </div>
-                <div>
-                    <p class="text-gray-400 text-xs">My Registrations</p>
-                    <p class="text-2xl font-bold text-white">0</p>
-                </div>
+            <div class="text-center md:text-left flex-1">
+                <h2 class="text-2xl font-bold text-white">Welcome back, @firstName!</h2>
+                <p class="text-gray-400">Every trail is a new story. Let's find your next great adventure.</p>
             </div>
-        </div>
-        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
-                    <i class="fa-solid fa-clock text-yellow-400 text-lg"></i>
-                </div>
-                <div>
-                    <p class="text-gray-400 text-xs">Pending</p>
-                    <p class="text-2xl font-bold text-white">0</p>
-                </div>
-            </div>
+            <a asp-controller="Participant" asp-action="Events" 
+               class="px-6 py-2.5 rounded-xl text-white font-medium bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 transition-all">
+                Browse Events
+            </a>
         </div>
     </div>
 
-    <!-- Upcoming Events -->
-    <h2 class="text-xl font-bold text-white mb-4"><i class="fa-solid fa-calendar-week text-purple-400 mr-2"></i>Upcoming Events</h2>
+    <!-- ============================================================ -->
+    <!-- SUMMARY CARDS -->
+    <!-- ============================================================ -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4 text-center">
+            <p class="text-2xl font-bold text-white">@Model.UpcomingEventsCount</p>
+            <p class="text-gray-400 text-xs">Upcoming Events</p>
+        </div>
+        <div class="bg-green-500/10 border border-green-500/30 rounded-2xl p-4 text-center">
+            <p class="text-2xl font-bold text-green-400">@Model.CompletedHikes</p>
+            <p class="text-gray-400 text-xs">Hikes Completed</p>
+        </div>
+        <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-4 text-center">
+            <p class="text-2xl font-bold text-yellow-400">@Model.PendingRegistrations</p>
+            <p class="text-gray-400 text-xs">Pending</p>
+        </div>
+        <div class="bg-blue-500/10 border border-blue-500/30 rounded-2xl p-4 text-center">
+            <p class="text-2xl font-bold text-blue-400">@Model.TotalRegistrations</p>
+            <p class="text-gray-400 text-xs">Total Registrations</p>
+        </div>
+    </div>
 
-    @if (Model.Any())
-    {
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            @foreach (var eventItem in Model)
-            {
-                <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden hover:bg-white/10 transition-all duration-300">
-                    <div class="relative h-40 overflow-hidden bg-gray-900">
-                        @if (!string.IsNullOrEmpty(eventItem.Trail?.ThumbnailUrl))
+    <!-- ============================================================ -->
+    <!-- MAIN CONTENT: 2-COLUMN LAYOUT                                -->
+    <!-- ============================================================ -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- ============================================================ -->
+        <!-- LEFT COLUMN (2/3)                                            -->
+        <!-- ============================================================ -->
+        <div class="lg:col-span-2 space-y-6">
+            
+            <!-- My Upcoming Events -->
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
+                <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    <i class="fa-regular fa-calendar text-purple-400"></i>
+                    My Upcoming Events
+                </h2>
+                @if (Model.UpcomingEvents != null && Model.UpcomingEvents.Any())
+                {
+                    <div class="space-y-3">
+                        @foreach (var ev in Model.UpcomingEvents.Take(3))
                         {
-                            <img src="@eventItem.Trail.ThumbnailUrl" alt="@eventItem.Trail.Name" class="w-full h-full object-cover">
-                        }
-                        else
-                        {
-                            <div class="w-full h-full flex items-center justify-center">
-                                <i class="fa-solid fa-mountain text-4xl text-gray-600"></i>
+                            var statusColor = ev.Status == "Pending" ? "text-yellow-400 bg-yellow-500/10" : 
+                                              ev.Status == "Accepted" ? "text-green-400 bg-green-500/10" : 
+                                              "text-gray-400 bg-gray-500/10";
+                            var matchColor = ev.AssessmentResult == "Good-Match" ? "text-green-400" : 
+                                             ev.AssessmentResult == "Borderline" ? "text-yellow-400" : "text-red-400";
+                            
+                            <div class="bg-white/5 rounded-xl p-4 hover:bg-white/10 transition-colors">
+                                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
+                                    <div>
+                                        <p class="text-white font-semibold">@ev.EventTitle</p>
+                                        <p class="text-gray-400 text-sm">@ev.Location</p>
+                                        <div class="flex flex-wrap gap-3 text-xs text-gray-400 mt-1">
+                                            <span><i class="fa-regular fa-calendar mr-1"></i>@ev.EventDate.ToString("MMM dd, yyyy")</span>
+                                            <span><i class="fa-regular fa-clock mr-1"></i>@ev.FormattedEventTime</span>
+                                            <span><i class="fa-solid fa-signal mr-1"></i>@ev.Difficulty</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex flex-col items-end gap-1">
+                                        <span class="px-3 py-1 rounded-full text-xs font-semibold @statusColor">
+                                            @ev.Status
+                                        </span>
+                                        @if (!string.IsNullOrEmpty(ev.AssessmentResult))
+                                        {
+                                            <span class="text-xs @matchColor font-medium">
+                                                @ev.AssessmentResult
+                                            </span>
+                                        }
+                                    </div>
+                                </div>
                             </div>
                         }
-                        <div class="absolute inset-0 bg-linear-to-t from-[#0B1325] to-transparent opacity-80"></div>
-                        <div class="absolute bottom-3 left-3">
-                            <span class="text-xs text-white/80 bg-black/50 px-2 py-1 rounded-full">
-                                <i class="fa-regular fa-calendar mr-1"></i> @eventItem.EventDate.ToString("MMM dd, yyyy")
-                            </span>
-                        </div>
                     </div>
-
-                    <div class="p-4">
-                        <h3 class="text-lg font-bold text-white mb-1">@eventItem.EventTitle</h3>
-                        <p class="text-gray-400 text-sm mb-3">
-                            <i class="fa-solid fa-location-dot text-red-400 mr-1"></i> @eventItem.Location
-                        </p>
-
-                        <div class="flex flex-wrap gap-2 mb-4">
-                            <span class="text-xs px-2 py-1 bg-purple-500/20 text-purple-300 rounded-full">
-                                <i class="fa-solid fa-signal"></i> @eventItem.Difficulty
-                            </span>
-                            <span class="text-xs px-2 py-1 bg-blue-500/20 text-blue-300 rounded-full">
-                                <i class="fa-regular fa-clock"></i> @eventItem.EstimatedDuration hrs
-                            </span>
-                            <span class="text-xs px-2 py-1 bg-orange-500/20 text-orange-300 rounded-full">
-                                <i class="fa-solid fa-users"></i> @eventItem.Capacity slots
-                            </span>
-                        </div>
-
-                        <a asp-controller="Event" asp-action="Details" asp-route-id="@eventItem.Id"
-                           class="w-full bg-linear-to-r from-purple-500 to-pink-500 hover:opacity-90 text-white py-2 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
-                            <i class="fa-regular fa-eye"></i> View Event
+                    @if (Model.UpcomingEvents.Count > 3)
+                    {
+                        <a asp-controller="Registration" asp-action="MyRegistrations" 
+                           class="mt-3 inline-block text-sm text-purple-400 hover:text-purple-300 transition-colors">
+                            View all @Model.UpcomingEvents.Count events →
+                        </a>
+                    }
+                }
+                else
+                {
+                    <div class="text-center py-6 text-gray-500">
+                        <i class="fa-regular fa-calendar-plus text-2xl block mb-2 opacity-50"></i>
+                        <p class="text-sm">No upcoming events yet.</p>
+                        <a asp-controller="Participant" asp-action="Events" 
+                           class="inline-block mt-2 text-sm text-purple-400 hover:text-purple-300 transition-colors">
+                            Browse Events →
                         </a>
                     </div>
+                }
+            </div>
+
+            <!-- Latest Assessment Result -->
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
+                <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-clipboard-check text-purple-400"></i>
+                    Latest Assessment Result
+                </h2>
+                @if (Model.LatestAssessment != null)
+                {
+                    var resultColor = Model.LatestAssessment.Result == "Good-Match" ? "text-green-400" : 
+                                      Model.LatestAssessment.Result == "Borderline" ? "text-yellow-400" : "text-red-400";
+                    var resultBg = Model.LatestAssessment.Result == "Good-Match" ? "bg-green-500/20 border-green-500/30" : 
+                                   Model.LatestAssessment.Result == "Borderline" ? "bg-yellow-500/20 border-yellow-500/30" : 
+                                   "bg-red-500/20 border-red-500/30";
+                    
+                    <div class="flex items-center gap-4">
+                        <div class="w-14 h-14 rounded-full @resultBg flex items-center justify-center flex-shrink-0">
+                            <span class="text-2xl font-bold @resultColor">@Model.LatestAssessment.TotalScore%</span>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-white font-semibold">@Model.LatestAssessment.Result</p>
+                            <p class="text-gray-400 text-sm">@Model.LatestAssessment.Description</p>
+                            <p class="text-gray-500 text-xs mt-1">
+                                <i class="fa-regular fa-clock mr-1"></i>Assessed on @Model.LatestAssessment.SubmittedAt.ToString("MMM dd, yyyy")
+                            </p>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-6 text-gray-500">
+                        <i class="fa-regular fa-file-lines text-2xl block mb-2 opacity-50"></i>
+                        <p class="text-sm">No assessment taken yet.</p>
+                        <a asp-controller="Participant" asp-action="Events" 
+                           class="inline-block mt-2 text-sm text-purple-400 hover:text-purple-300 transition-colors">
+                            Take Assessment →
+                        </a>
+                    </div>
+                }
+            </div>
+
+            <!-- Recommended Events -->
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
+                <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-arrows-rotate text-purple-400"></i>
+                    Recommended Events for You
+                </h2>
+                @if (Model.RecommendedEvents != null && Model.RecommendedEvents.Any())
+                {
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        @foreach (var ev in Model.RecommendedEvents)
+                        {
+                            <div class="bg-white/5 rounded-xl p-4 hover:bg-white/10 transition-colors">
+                                <p class="text-white font-medium text-sm">@ev.EventTitle</p>
+                                <p class="text-gray-400 text-xs">@ev.Location</p>
+                                <div class="flex flex-wrap gap-2 text-xs text-gray-400 mt-1">
+                                    <span><i class="fa-regular fa-calendar mr-1"></i>@ev.EventDate.ToString("MMM dd, yyyy")</span>
+                                    <span><i class="fa-regular fa-clock mr-1"></i>@ev.FormattedEventTime</span>
+                                    <span class="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300">@ev.Difficulty</span>
+                                </div>
+                                <a asp-controller="Participant" asp-action="Details" asp-route-id="@ev.Id"
+                                   class="mt-2 inline-block text-xs text-purple-400 hover:text-purple-300 transition-colors">
+                                    View Details →
+                                </a>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-6 text-gray-500">
+                        <i class="fa-regular fa-calendar-plus text-2xl block mb-2 opacity-50"></i>
+                        <p class="text-sm">No recommendations yet. Take an assessment to get personalized recommendations!</p>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- RIGHT COLUMN (1/3) - SIDEBAR                                 -->
+        <!-- ============================================================ -->
+        <div class="lg:col-span-1 space-y-6">
+            
+            <!-- Weather Forecast -->
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
+                <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-cloud-sun text-purple-400"></i>
+                    Weather Forecast
+                </h2>
+                @if (Model.WeatherForecast != null)
+                {
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-400">Date</span>
+                            <span class="text-white">@Model.WeatherForecast.Date.ToString("MMMM dd, yyyy")</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-400">Expected Weather</span>
+                            <span class="text-white">@Model.WeatherForecast.Condition</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-400">Temperature</span>
+                            <span class="text-white">@Model.WeatherForecast.Temperature</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-400">Chance of Rain</span>
+                            <span class="text-white">@Model.WeatherForecast.RainChance%</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-400">Wind Speed</span>
+                            <span class="text-white">@Model.WeatherForecast.WindSpeed</span>
+                        </div>
+                        <div class="flex justify-between text-sm border-t border-white/10 pt-2">
+                            <span class="text-gray-400">Weather Risk Level</span>
+                            <span class="text-yellow-400 font-medium">@Model.WeatherForecast.RiskLevel</span>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-6 text-gray-500">
+                        <i class="fa-solid fa-cloud text-2xl block mb-2 opacity-50"></i>
+                        <p class="text-sm">Weather forecast unavailable.</p>
+                    </div>
+                }
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
+                <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-bolt text-purple-400"></i>
+                    Quick Actions
+                </h2>
+                <div class="space-y-2">
+                    <a asp-controller="Trail" asp-action="Index" 
+                       class="flex items-center justify-between p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors group">
+                        <div>
+                            <p class="text-white font-medium text-sm">Browse Trails</p>
+                            <p class="text-gray-400 text-xs">Discover trails that fit you</p>
+                        </div>
+                        <i class="fa-solid fa-arrow-right text-purple-400 group-hover:translate-x-1 transition-transform"></i>
+                    </a>
+                    <a asp-controller="Participant" asp-action="Events" 
+                       class="flex items-center justify-between p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors group">
+                        <div>
+                            <p class="text-white font-medium text-sm">Browse Events</p>
+                            <p class="text-gray-400 text-xs">Find upcoming hiking events</p>
+                        </div>
+                        <i class="fa-solid fa-arrow-right text-purple-400 group-hover:translate-x-1 transition-transform"></i>
+                    </a>
+                    <a asp-controller="Registration" asp-action="MyRegistrations" 
+                       class="flex items-center justify-between p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors group">
+                        <div>
+                            <p class="text-white font-medium text-sm">My Registrations</p>
+                            <p class="text-gray-400 text-xs">View and manage your registrations</p>
+                        </div>
+                        <i class="fa-solid fa-arrow-right text-purple-400 group-hover:translate-x-1 transition-transform"></i>
+                    </a>
                 </div>
-            }
+            </div>
+
+            <!-- Progress & Achievements -->
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
+                <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-trophy text-purple-400"></i>
+                    Progress & Achievements
+                </h2>
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center p-3 bg-white/5 rounded-xl">
+                        <div>
+                            <p class="text-white font-medium text-sm">Hikes Completed</p>
+                            <p class="text-gray-400 text-xs">@Model.CompletedHikes</p>
+                        </div>
+                        <span class="text-green-400 text-xs">@(Model.CompletedHikes > 0 ? "+2 from last month" : "Start your journey!")</span>
+                    </div>
+                    <div class="flex justify-between items-center p-3 bg-white/5 rounded-xl">
+                        <div>
+                            <p class="text-white font-medium text-sm">Top Hiker Rank</p>
+                            <p class="text-gray-400 text-xs">@Model.HikerRank</p>
+                        </div>
+                        <span class="text-yellow-400 text-xs">Keep hiking!</span>
+                    </div>
+                    <div class="flex justify-between items-center p-3 bg-white/5 rounded-xl">
+                        <div>
+                            <p class="text-white font-medium text-sm">Badges Earned</p>
+                            <p class="text-gray-400 text-xs">@Model.BadgesEarned</p>
+                        </div>
+                        <span class="text-purple-400 text-xs">@(Model.BadgesEarned > 0 ? "🌟" : "Start earning badges!")</span>
+                    </div>
+                </div>
+            </div>
         </div>
-    }
-    else
-    {
-        <div class="text-center py-20 bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl">
-            <i class="fa-solid fa-calendar-plus text-5xl text-gray-500 mb-4"></i>
-            <h3 class="text-xl font-bold text-gray-300">No upcoming events</h3>
-            <p class="text-gray-500 mt-2">Check back later for new hiking events.</p>
-        </div>
-    }
+    </div>
 </div>

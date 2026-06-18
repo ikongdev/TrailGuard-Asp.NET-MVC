@@ -86,5 +86,8 @@ namespace TrailGuard.Models
                 }
             }
         }
+
+        [NotMapped]
+        public int RegisteredCount { get; set; }
     }
 }

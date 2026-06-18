@@ -24,7 +24,7 @@
     }
     
     var joinedParticipants = registrations
-        .Where(r => r.Status == "Accepted" || r.Status == "Pending")
+        .Where(r => r.Status == "Accepted")
         .OrderBy(r => r.RegisteredAt)
         .ToList();
     var totalJoined = joinedParticipants.Count;
@@ -105,6 +105,12 @@
                 {
                     <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-red-500/20 text-red-400">
                         <i class="fa-solid fa-xmark mr-1"></i> Registration Rejected
+                    </span>
+                }
+                @if (isRegistered && registrationStatus == "Cancelled")
+                {
+                    <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-gray-500/20 text-gray-400">
+                        <i class="fa-solid fa-ban mr-1"></i> Cancelled
                     </span>
                 }
             </div>
@@ -358,7 +364,7 @@
                     <i class="fa-solid fa-users-viewfinder text-orange-400 mr-2"></i>Joined Participants
                     <span class="text-sm font-normal text-gray-400 ml-2">(@totalJoined)</span>
                 </h2>
-                <div class="flex-1 min-h-[340px] max-h-[340px] overflow-y-auto custom-scrollbar">
+                <div class="flex-1 min-h-[350px] max-h-[500px] overflow-y-auto custom-scrollbar">
                     @if (joinedParticipants.Any())
                     {
                         <div class="space-y-3">
@@ -465,6 +471,13 @@
                     <i class="fa-solid fa-xmark"></i> Registration Rejected
                 </button>
             }
+            else if (isRegistered && registrationStatus == "Cancelled")
+            {
+                <a asp-controller="Assessment" asp-action="Form" asp-route-eventId="@Model.Id"
+                   class="primary-btn px-8 py-3 rounded-xl text-white font-bold bg-gradient-to-r from-orange-500 to-purple-600 hover:opacity-90 hover:scale-105 transition-all flex items-center gap-2">
+                    <i class="fa-regular fa-clipboard"></i> Retake Assessment & Register
+                </a>
+            }
             else if (isFull && isUpcoming)
             {
                 <button disabled class="px-8 py-3 rounded-xl text-white font-bold bg-red-500/30 border border-red-500/50 cursor-not-allowed flex items-center gap-2">
@@ -479,11 +492,10 @@
             }
             else if (isUpcoming)
             {
-                <form method="post" asp-controller="Registration" asp-action="Register" asp-route-eventId="@Model.Id" class="inline">
-                    <button type="submit" class="primary-btn px-8 py-3 rounded-xl text-white font-bold bg-gradient-to-r from-orange-500 to-purple-600 hover:opacity-90 hover:scale-105 transition-all flex items-center gap-2">
-                        <i class="fa-regular fa-clipboard"></i> Register Now
-                    </button>
-                </form>
+                <a asp-controller="Assessment" asp-action="Form" asp-route-eventId="@Model.Id"
+                   class="primary-btn px-8 py-3 rounded-xl text-white font-bold bg-gradient-to-r from-orange-500 to-purple-600 hover:opacity-90 hover:scale-105 transition-all flex items-center gap-2">
+                    <i class="fa-regular fa-clipboard"></i> Register Now
+                </a>
             }
         </div>
     </div>
@@ -558,11 +570,11 @@
         opacity: 0.9;
         transform: scale(1.02);
     }
-    .min-h-\[200px\] {
-        min-height: 200px;
+    .min-h-\[350px\] {
+        min-height: 350px;
     }
-    .max-h-\[300px\] {
-        max-height: 300px;
+    .max-h-\[500px\] {
+        max-height: 500px;
     }
     .truncate {
         overflow: hidden;

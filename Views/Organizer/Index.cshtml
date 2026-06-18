@@ -52,6 +52,7 @@
                     <p class="text-2xl font-bold text-white">@Model.TotalEvents</p>
                 </div>
             </div>
+            <p class="text-xs text-gray-500 mt-1">All events in the system</p>
             <a asp-controller="Organizer" asp-action="Events" 
                class="text-xs text-blue-400 hover:text-blue-300 transition-colors inline-flex items-center gap-1 mt-3">
                 View all <i class="fa-solid fa-arrow-right text-[10px]"></i>
@@ -69,9 +70,10 @@
                     <p class="text-2xl font-bold text-white">@Model.PendingRegistrations</p>
                 </div>
             </div>
+            <p class="text-xs text-gray-500 mt-1">Registrations awaiting approval</p>
             <a asp-controller="Organizer" asp-action="Registrations" asp-route-statusFilter="Pending" 
                class="text-xs text-blue-400 hover:text-blue-300 transition-colors inline-flex items-center gap-1 mt-3">
-                View all <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                Review now <i class="fa-solid fa-arrow-right text-[10px]"></i>
             </a>
         </div>
 
@@ -86,6 +88,7 @@
                     <p class="text-2xl font-bold text-white">@Model.EventAlerts</p>
                 </div>
             </div>
+            <p class="text-xs text-gray-500 mt-1">Events past their date but not completed</p>
             <a asp-controller="Organizer" asp-action="Events" 
                class="text-xs text-blue-400 hover:text-blue-300 transition-colors inline-flex items-center gap-1 mt-3">
                 View alerts <i class="fa-solid fa-arrow-right text-[10px]"></i>
@@ -103,13 +106,7 @@
                     <p class="text-2xl font-bold text-white">@Model.TotalParticipants.ToString("N0")</p>
                 </div>
             </div>
-            <p class="text-xs text-gray-500 mt-1">
-                @if (Model.ParticipantsLast30Days > 0)
-                {
-                    <span class="text-green-400"><i class="fa-solid fa-arrow-up mr-1"></i>@Model.ParticipantsLast30Days</span>
-                }
-                vs last 30 days
-            </p>
+            <p class="text-xs text-gray-500 mt-1">Registered participant accounts</p>
         </div>
     </div>
 
@@ -123,42 +120,52 @@
                 <div style="height: 180px;">
                     <canvas id="participantsChart"></canvas>
                 </div>
+                <p class="text-xs text-gray-500 text-center mt-2">Monthly accepted registrations</p>
             </div>
 
             <!-- Top Trails Chart -->
             <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4">
                 <h2 class="text-sm font-bold text-white mb-3"><i class="fa-solid fa-mountain text-blue-400 mr-2"></i>Top Trails</h2>
-                <div style="height: 180px;">
+                <div style="height: 180px; position: relative;">
                     <canvas id="topTrailsChart"></canvas>
                 </div>
+                <p class="text-xs text-gray-500 text-center mt-2">Trails with most events</p>
             </div>
 
             <!-- Suitability Chart -->
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4">
-                <h2 class="text-sm font-bold text-white mb-3"><i class="fa-solid fa-chart-pie text-blue-400 mr-2"></i>Participant Suitability</h2>
-                <div style="height: 180px; display: flex; align-items: center; justify-content: center;">
-                    <canvas id="suitabilityChart" style="max-width: 160px; max-height: 160px;"></canvas>
-                </div>
-                <div class="grid grid-cols-3 gap-2 mt-2 text-center text-xs">
-                    @if (Model.SuitabilityBreakdown != null && Model.SuitabilityBreakdown.Any())
-                    {
-                        @foreach (var item in Model.SuitabilityBreakdown)
+            <!-- Suitability Chart -->
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+                <h2 class="text-sm font-bold text-white mb-4"><i class="fa-solid fa-chart-pie text-blue-400 mr-2"></i>Participant Suitability</h2>
+                <div class="flex flex-col items-center">
+                    <div style="height: 220px; width: 100%; max-width: 280px; position: relative; margin: 0 auto;">
+                        <canvas id="suitabilityChart"></canvas>
+                    </div>
+                    <div class="grid grid-cols-3 gap-4 mt-4 w-full max-w-xs">
+                        @if (Model.SuitabilityBreakdown != null && Model.SuitabilityBreakdown.Any())
                         {
-                            var color = item.Result == "Good-Match" ? "text-green-400" : 
-                                        item.Result == "Borderline" ? "text-yellow-400" : "text-red-400";
-                            <div>
-                                <p class="@color font-bold">@item.Count</p>
-                                <p class="text-gray-500 text-[10px] truncate">@item.Result</p>
-                                <p class="text-gray-500 text-[10px]">@item.Percentage%</p>
+                            @foreach (var item in Model.SuitabilityBreakdown)
+                            {
+                                var color = item.Result == "Good-Match" ? "text-green-400" : 
+                                            item.Result == "Borderline" ? "text-yellow-400" : "text-red-400";
+                                var dotColor = item.Result == "Good-Match" ? "bg-green-400" : 
+                                            item.Result == "Borderline" ? "bg-yellow-400" : "bg-red-400";
+                                <div class="text-center">
+                                    <div class="flex items-center justify-center gap-1.5 mb-0.5">
+                                        <span class="w-2.5 h-2.5 rounded-full @dotColor inline-block"></span>
+                                        <span class="text-gray-400 text-[10px] truncate">@item.Result</span>
+                                    </div>
+                                    <p class="text-white font-bold text-lg">@item.Count</p>
+                                    <p class="text-gray-500 text-[10px]">@item.Percentage%</p>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="col-span-3 text-center text-gray-500 text-sm py-4">
+                                No data available
                             </div>
                         }
-                    }
-                    else
-                    {
-                        <div class="col-span-3 text-center text-gray-500 text-xs py-2">
-                            No data available
-                        </div>
-                    }
+                    </div>
                 </div>
             </div>
         </div>
@@ -167,6 +174,7 @@
         <div class="lg:col-span-1">
             <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4 h-full">
                 <h2 class="text-sm font-bold text-white mb-4"><i class="fa-solid fa-crown text-yellow-400 mr-2"></i>Top Hikers</h2>
+                <p class="text-xs text-gray-500 mb-3">Participants with most completed events</p>
                 <div class="space-y-3 max-h-80 overflow-y-auto custom-scrollbar pr-1">
                     @if (Model.TopHikers != null && Model.TopHikers.Any())
                     {
@@ -183,10 +191,10 @@
                                     </div>
                                     <div>
                                         <p class="text-white text-sm font-medium truncate max-w-30" title="@hiker.UserName">@hiker.UserName</p>
-                                        <p class="text-gray-500 text-[10px]">@hiker.TotalAssessments assessments</p>
+                                        <p class="text-gray-500 text-[10px]">@hiker.CompletedEvents completed events</p>
                                     </div>
                                 </div>
-                                <span class="text-yellow-400 text-sm font-bold shrink-0">@hiker.AverageScore%</span>
+                                <span class="text-yellow-400 text-sm font-bold shrink-0">@hiker.CompletedEvents</span>
                             </div>
                         }
                     }
@@ -231,22 +239,24 @@
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     // Participants Chart (Line Chart)
     const participantsCtx = document.getElementById('participantsChart')?.getContext('2d');
     if (participantsCtx) {
+        var trendData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.TrendData ?? new List<MonthlyTrendData>()));
         new Chart(participantsCtx, {
             type: 'line',
             data: {
-                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                labels: trendData.map(function(t) { return t.month; }),
                 datasets: [{
-                    label: 'Participants',
-                    data: [65, 78, 85, 92, 105, 98, 112, 120, 135, 140, 155, 160],
+                    label: 'Accepted Registrations',
+                    data: trendData.map(function(t) { return t.count; }),
                     borderColor: '#3b82f6',
                     backgroundColor: 'rgba(59, 130, 246, 0.1)',
                     tension: 0.3,
                     fill: true,
-                    pointRadius: 2,
+                    pointRadius: 3,
                     pointBackgroundColor: '#3b82f6',
                     pointBorderColor: '#fff',
                     borderWidth: 2
@@ -273,69 +283,211 @@
     }
 
     // Top Trails Chart (Horizontal Bar)
-    const trailsCtx = document.getElementById('topTrailsChart')?.getContext('2d');
-    if (trailsCtx) {
-        var trailData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.TopTrails ?? new List<TopTrailData>()));
-        new Chart(trailsCtx, {
-            type: 'bar',
-            data: {
-                labels: trailData.map(function(t) { 
-                    return t.trailName.length > 12 ? t.trailName.substring(0, 12) + '...' : t.trailName; 
-                }),
-                datasets: [{
-                    label: 'Participants',
-                    data: trailData.map(function(t) { return t.participantCount; }),
-                    backgroundColor: ['#3b82f6', '#60a5fa', '#93bbfc', '#bfdbfe', '#1d4ed8'],
-                    borderRadius: 4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                indexAxis: 'y',
-                plugins: {
-                    legend: { display: false }
-                },
-                scales: {
-                    y: { 
-                        grid: { display: false }, 
-                        ticks: { color: '#9ca3af', font: { size: 8 } } 
-                    },
-                    x: { 
-                        grid: { color: '#374151' }, 
-                        ticks: { color: '#9ca3af', font: { size: 8 }, stepSize: 1 } 
-                    }
+    document.addEventListener('DOMContentLoaded', function() {
+        const trailsCtx = document.getElementById('topTrailsChart')?.getContext('2d');
+        console.log('🔍 trailsCtx:', trailsCtx);
+        
+        if (!trailsCtx) {
+            console.error('❌ Canvas element with id "topTrailsChart" not found');
+            return;
+        }
+
+        try {
+            // Kunin ang data mula sa Model
+            var trailData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.TopTrails ?? new List<TopTrailData>()));
+            console.log('📊 Raw trailData:', trailData);
+            
+            // ✅ I-check kung may data
+            if (!trailData || trailData.length === 0) {
+                console.warn('⚠️ No trail data available');
+                var container = document.getElementById('topTrailsChart')?.parentElement;
+                if (container) {
+                    container.innerHTML = `
+                        <div class="h-full flex items-center justify-center">
+                            <p class="text-gray-500 text-sm">No trail data available</p>
+                        </div>
+                    `;
+                }
+                return;
+            }
+            
+            // ✅ I-process ang data - tamang property names!
+            var validData = [];
+            for (var i = 0; i < trailData.length; i++) {
+                var item = trailData[i];
+                console.log('📊 Processing item:', item);
+                
+                if (item) {
+                    // ✅ CORRECT: Gamitin ang TrailName at EventCount (capitalized!)
+                    var trailName = item.TrailName || 'Unknown Trail';
+                    var eventCount = item.EventCount || 0;
+                    console.log('📊 trailName:', trailName, 'eventCount:', eventCount);
+                    validData.push({
+                        trailName: trailName,
+                        eventCount: eventCount
+                    });
                 }
             }
-        });
-    }
+            
+            console.log('✅ validData:', validData);
+            
+            if (validData.length === 0) {
+                console.warn('⚠️ No valid trail data after processing');
+                var container = document.getElementById('topTrailsChart')?.parentElement;
+                if (container) {
+                    container.innerHTML = `
+                        <div class="h-full flex items-center justify-center">
+                            <p class="text-gray-500 text-sm">No trail data available</p>
+                        </div>
+                    `;
+                }
+                return;
+            }
+            
+            // ✅ I-extract ang labels at data
+            var labels = validData.map(function(t) { 
+                var name = t.trailName || 'Unknown Trail';
+                return name.length > 15 ? name.substring(0, 15) + '...' : name; 
+            });
+            var data = validData.map(function(t) { return t.eventCount || 0; });
+            console.log('📊 Final Labels:', labels);
+            console.log('📊 Final Data:', data);
+            
+            // ✅ I-create ang chart
+            new Chart(trailsCtx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Events',
+                        data: data,
+                        backgroundColor: ['#3b82f6', '#60a5fa', '#93bbfc', '#bfdbfe', '#1d4ed8'],
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { 
+                            grid: { display: false }, 
+                            ticks: { color: '#9ca3af', font: { size: 8 } } 
+                        },
+                        x: { 
+                            grid: { color: '#374151' }, 
+                            ticks: { color: '#9ca3af', font: { size: 8 }, stepSize: 1 } 
+                        }
+                    }
+                }
+            });
+            console.log('✅ Chart created successfully!');
+            
+        } catch (error) {
+            console.error('❌ Error creating chart:', error);
+            var container = document.getElementById('topTrailsChart')?.parentElement;
+            if (container) {
+                container.innerHTML = `
+                    <div class="h-full flex items-center justify-center">
+                        <p class="text-red-500 text-sm">Error: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+    });
 
-    // Suitability Chart (Doughnut)
+    // Suitability Chart (Doughnut with total in center)
+    // Suitability Chart (Doughnut with total in center)
     const suitCtx = document.getElementById('suitabilityChart')?.getContext('2d');
     if (suitCtx) {
         var suitData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.SuitabilityBreakdown ?? new List<SuitabilityData>()));
+        var totalAssessments = @Model.TotalAssessments;
+        
+        console.log('📊 Suitability Data:', suitData);
+        console.log('📊 Total Assessments:', totalAssessments);
+        
+        // Kung walang data, gumamit ng placeholder
+        var hasData = suitData && suitData.length > 0 && suitData.some(function(s) { return s.count > 0; });
+        var labels = hasData ? suitData.map(function(s) { return s.result; }) : ['No Data'];
+        var data = hasData ? suitData.map(function(s) { return s.count; }) : [1];
+        var colors = hasData ? suitData.map(function(s) { 
+            return s.result === 'Good-Match' ? '#10b981' : 
+                s.result === 'Borderline' ? '#f59e0b' : '#ef4444';
+        }) : ['#374151'];
+        
         new Chart(suitCtx, {
             type: 'doughnut',
             data: {
-                labels: suitData.map(function(s) { return s.result; }),
+                labels: labels,
                 datasets: [{
-                    data: suitData.map(function(s) { return s.count; }),
-                    backgroundColor: suitData.map(function(s) { 
-                        return s.result === 'Good-Match' ? '#10b981' : 
-                               s.result === 'Borderline' ? '#f59e0b' : '#ef4444';
-                    }),
-                    borderWidth: 2,
+                    data: data,
+                    backgroundColor: colors,
+                    borderWidth: 3,
                     borderColor: '#0B1325',
-                    cutout: '65%'
+                    cutout: '72%',
+                    hoverOffset: 8
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { display: false }
+                    legend: { 
+                        display: false // Nasa labas na ang legend
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        titleColor: '#fff',
+                        bodyColor: '#e5e7eb',
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        padding: 10,
+                        callbacks: {
+                            label: function(context) {
+                                if (!hasData) return 'No data';
+                                var label = context.label || '';
+                                var value = context.parsed || 0;
+                                var percentage = totalAssessments > 0 ? Math.round((value / totalAssessments) * 100) : 0;
+                                return label + ': ' + value + ' (' + percentage + '%)';
+                            }
+                        }
+                    }
                 }
-            }
+            },
+            plugins: [{
+                id: 'centerText',
+                beforeDraw: function(chart) {
+                    var width = chart.width;
+                    var height = chart.height;
+                    var ctx = chart.ctx;
+                    ctx.restore();
+                    
+                    // ✅ I-center ang text
+                    var centerX = width / 2;
+                    var centerY = height / 2;
+                    
+                    // ✅ Total number (malaki)
+                    var fontSize = Math.min(width, height) / 8;
+                    ctx.font = 'bold ' + fontSize + 'px sans-serif';
+                    ctx.textBaseline = 'middle';
+                    ctx.textAlign = 'center';
+                    var text = hasData ? totalAssessments : '0';
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillText(text, centerX, centerY - 6);
+                    
+                    // ✅ "Total" label (maliit)
+                    ctx.font = (fontSize * 0.4) + 'px sans-serif';
+                    ctx.fillStyle = '#9ca3af';
+                    var labelText = hasData ? 'Total' : 'No Data';
+                    ctx.fillText(labelText, centerX, centerY + fontSize * 0.6);
+                    
+                    ctx.save();
+                }
+            }]
         });
     }
 </script>

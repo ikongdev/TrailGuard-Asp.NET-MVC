@@ -1,0 +1,365 @@
+@model TrailGuard.Models.AssessmentResultViewModel
+@{
+    ViewData["Title"] = "Event Registration";
+    var eventItem = ViewBag.Event as TrailGuard.Models.Event;
+    var assessment = ViewBag.Assessment as TrailGuard.Models.Assessment;
+    var user = ViewBag.User as TrailGuard.Models.ApplicationUser;
+    var resultViewModel = ViewBag.ResultViewModel as TrailGuard.Models.AssessmentResultViewModel;
+    
+    var isGoodMatch = resultViewModel?.Result == "Good-Match";
+    var isBorderline = resultViewModel?.Result == "Borderline";
+    var resultColor = isGoodMatch ? "text-green-400" : "text-yellow-400";
+    var resultBg = isGoodMatch ? "bg-green-500/20 border-green-500/50" : "bg-yellow-500/20 border-yellow-500/50";
+    
+    var trail = eventItem?.Trail;
+}
+
+<div class="pt-24 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
+    
+    <div class="mb-6">
+        <a asp-controller="Participant" asp-action="Events" class="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors group">
+            <i class="fa-solid fa-arrow-left group-hover:-translate-x-1 transition-transform"></i>
+            Back to Events
+        </a>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- HEADER -->
+    <!-- ============================================================ -->
+    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 mb-8">
+        <div class="flex flex-col md:flex-row items-center gap-4">
+            <div class="w-16 h-16 rounded-full bg-gradient-to-r from-orange-500 to-purple-500 flex items-center justify-center flex-shrink-0">
+                <i class="fa-regular fa-clipboard text-white text-2xl"></i>
+            </div>
+            <div class="text-center md:text-left flex-1">
+                <h1 class="text-2xl font-bold text-white">Complete Your Registration</h1>
+                <p class="text-gray-400 text-sm">Please review your assessment result and provide the required information.</p>
+            </div>
+            <div class="flex items-center gap-3 bg-white/5 px-4 py-2 rounded-full">
+                <span class="text-xs text-gray-400">Step</span>
+                <span class="text-sm font-bold text-white">2</span>
+                <span class="text-xs text-gray-400">of 2</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- MAIN CONTENT: 2-COLUMN LAYOUT                                -->
+    <!-- ============================================================ -->
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+        
+        <!-- ============================================================ -->
+        <!-- LEFT COLUMN: REGISTRATION FORM (3/5)                         -->
+        <!-- ============================================================ -->
+        <div class="lg:col-span-3">
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 h-full">
+                <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-user text-orange-400"></i>
+                    Registration Form
+                </h2>
+
+                <form method="post" id="registrationForm" asp-action="Register" asp-route-eventId="@(eventItem?.Id)" asp-route-assessmentId="@(assessment?.Id)" enctype="multipart/form-data" class="h-full flex flex-col">
+                    @Html.AntiForgeryToken()
+
+                    <div class="flex-1 space-y-4">
+                        <!-- Personal Information -->
+                        <div class="space-y-3">
+                            <h3 class="text-sm font-semibold text-gray-300 border-b border-white/10 pb-2">
+                                <i class="fa-regular fa-user text-orange-400 mr-2"></i>Personal Information
+                            </h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-400 mb-1">First Name <span class="text-red-400">*</span></label>
+                                    <input type="text" name="firstName" value="@(user?.FirstName ?? "")" required
+                                           class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-xl px-4 py-2.5 focus:border-orange-500 focus:outline-none transition-colors text-sm" />
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-400 mb-1">Middle Name <span class="text-gray-500 text-[10px]">(Optional)</span></label>
+                                    <input type="text" name="middleName" value="@(user?.MiddleName ?? "")" 
+                                           class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-xl px-4 py-2.5 focus:border-orange-500 focus:outline-none transition-colors text-sm" />
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-400 mb-1">Last Name <span class="text-red-400">*</span></label>
+                                    <input type="text" name="lastName" value="@(user?.LastName ?? "")" required
+                                           class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-xl px-4 py-2.5 focus:border-orange-500 focus:outline-none transition-colors text-sm" />
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-400 mb-1">Email Address <span class="text-red-400">*</span></label>
+                                    <input type="email" name="email" value="@(user?.Email ?? "")" required
+                                           class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-xl px-4 py-2.5 focus:border-orange-500 focus:outline-none transition-colors text-sm" />
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-400 mb-1">Contact Number <span class="text-red-400">*</span></label>
+                                    <input type="text" name="contactNumber" value="@(user?.PhoneNumber ?? "")" required
+                                           class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-xl px-4 py-2.5 focus:border-orange-500 focus:outline-none transition-colors text-sm"
+                                           placeholder="+63 912 345 6789" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Emergency Contact -->
+                        <div class="space-y-3">
+                            <h3 class="text-sm font-semibold text-gray-300 border-b border-white/10 pb-2">
+                                <i class="fa-solid fa-phone text-orange-400 mr-2"></i>Emergency Contact
+                            </h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-400 mb-1">Contact Name <span class="text-red-400">*</span></label>
+                                    <input type="text" name="emergencyContactName" required 
+                                           class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-xl px-4 py-2.5 focus:border-orange-500 focus:outline-none transition-colors text-sm"
+                                           placeholder="Full name" />
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-400 mb-1">Contact Number <span class="text-red-400">*</span></label>
+                                    <input type="text" name="emergencyContactNumber" required 
+                                           class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-xl px-4 py-2.5 focus:border-orange-500 focus:outline-none transition-colors text-sm"
+                                           placeholder="+63 912 345 6789" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Pickup Point -->
+                        <div class="space-y-3">
+                            <h3 class="text-sm font-semibold text-gray-300 border-b border-white/10 pb-2">
+                                <i class="fa-solid fa-bus text-orange-400 mr-2"></i>Pickup Point
+                            </h3>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1">Select Pickup Point <span class="text-red-400">*</span></label>
+                                <select name="pickupPoint" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-xl px-4 py-2.5 focus:border-orange-500 focus:outline-none transition-colors text-sm">
+                                    <option value="">Select a pickup point...</option>
+                                    @if (!string.IsNullOrEmpty(eventItem?.PickupPoints))
+                                    {
+                                        var pickupList = eventItem.PickupPoints.Split('\n');
+                                        foreach (var point in pickupList)
+                                        {
+                                            if (!string.IsNullOrWhiteSpace(point))
+                                            {
+                                                <option value="@point.Trim()">@point.Trim()</option>
+                                            }
+                                        }
+                                    }
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Payment -->
+                        <div class="space-y-3 flex-1 flex flex-col">
+                            <h3 class="text-sm font-semibold text-gray-300 border-b border-white/10 pb-2 flex-shrink-0">
+                                <i class="fa-solid fa-credit-card text-orange-400 mr-2"></i>Payment
+                            </h3>
+                            <div class="flex-1 flex flex-col">
+                                @if (!string.IsNullOrEmpty(eventItem?.PaymentDetails))
+                                {
+                                    <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-3 flex-1">
+                                        <p class="text-yellow-300 text-xs font-medium"><i class="fa-solid fa-info-circle mr-1"></i>Payment Instructions</p>
+                                        <p class="text-yellow-300/70 text-xs whitespace-pre-wrap mt-1">@eventItem.PaymentDetails</p>
+                                    </div>
+                                }
+                                <div class="mt-auto pt-3">
+                                    <label class="block text-xs font-medium text-gray-400 mb-1">Upload Payment Receipt <span class="text-gray-500 text-[10px]">(Optional)</span></label>
+                                    <input type="file" name="paymentReceipt" accept="image/*,.pdf" 
+                                        class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-xl px-4 py-2.5 text-sm focus:border-orange-500 focus:outline-none transition-colors file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-orange-500/20 file:text-white file:text-xs file:cursor-pointer hover:file:bg-orange-500/30" />
+                                    <p class="text-gray-500 text-[10px] mt-1">JPG, PNG, or PDF accepted.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- RIGHT COLUMN: SUMMARY (2/5) - FLEX COLUMN PARA PUMUNO        -->
+        <!-- ============================================================ -->
+        <div class="lg:col-span-2 flex flex-col gap-4 justify-between">
+            
+            <!-- Assessment Result -->
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4">
+                <h3 class="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-clipboard-check text-orange-400"></i>
+                    Assessment Result
+                </h3>
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full @resultBg flex items-center justify-center flex-shrink-0">
+                        <i class="fa-solid @(isGoodMatch ? "fa-check-circle" : "fa-triangle-exclamation") text-lg @resultColor"></i>
+                    </div>
+                    <div>
+                        <p class="font-bold @resultColor text-sm">@resultViewModel?.Result</p>
+                        <p class="text-gray-400 text-[10px]">Score: @resultViewModel?.TotalScore / @resultViewModel?.MaxScore</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Category Scores -->
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4">
+                <h3 class="text-sm font-semibold text-white mb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-bar text-orange-400"></i>
+                    Category Scores
+                </h3>
+                <div class="space-y-1.5">
+                    <div>
+                        <div class="flex justify-between text-[10px]">
+                            <span class="text-gray-400">Fitness</span>
+                            <span class="text-white">@resultViewModel?.FitnessScore / @resultViewModel?.FitnessMax</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                            <div class="h-full rounded-full bg-blue-500" style="width: @((resultViewModel?.FitnessScore ?? 0) * 100 / (resultViewModel?.FitnessMax ?? 1))%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-[10px]">
+                            <span class="text-gray-400">Experience</span>
+                            <span class="text-white">@resultViewModel?.ExperienceScore / @resultViewModel?.ExperienceMax</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                            <div class="h-full rounded-full bg-green-500" style="width: @((resultViewModel?.ExperienceScore ?? 0) * 100 / (resultViewModel?.ExperienceMax ?? 1))%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-[10px]">
+                            <span class="text-gray-400">Health</span>
+                            <span class="text-white">@resultViewModel?.HealthScore / @resultViewModel?.HealthMax</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                            <div class="h-full rounded-full bg-purple-500" style="width: @((resultViewModel?.HealthScore ?? 0) * 100 / (resultViewModel?.HealthMax ?? 1))%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-[10px]">
+                            <span class="text-gray-400">Gear</span>
+                            <span class="text-white">@resultViewModel?.GearScore / @resultViewModel?.GearMax</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                            <div class="h-full rounded-full bg-orange-500" style="width: @((resultViewModel?.GearScore ?? 0) * 100 / (resultViewModel?.GearMax ?? 1))%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trail Demands -->
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4">
+                <h3 class="text-sm font-semibold text-white mb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-mountain text-orange-400"></i>
+                    Trail Demands
+                </h3>
+                <div class="space-y-1.5">
+                    <div>
+                        <div class="flex justify-between text-[10px]">
+                            <span class="text-gray-400">Distance</span>
+                            <span class="text-white">@(trail?.DistanceKm ?? 0) km</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                            <div class="h-full rounded-full @((trail?.DistanceKm ?? 0) >= 15 ? "bg-red-500" : (trail?.DistanceKm ?? 0) >= 10 ? "bg-yellow-500" : "bg-green-500")" 
+                                 style="width: @(Math.Min(((trail?.DistanceKm ?? 0) / 20) * 100, 100))%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-[10px]">
+                            <span class="text-gray-400">Elevation</span>
+                            <span class="text-white">@(trail?.ElevationGainMeters ?? 0) m</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                            <div class="h-full rounded-full @((trail?.ElevationGainMeters ?? 0) >= 1000 ? "bg-red-500" : (trail?.ElevationGainMeters ?? 0) >= 600 ? "bg-yellow-500" : "bg-green-500")" 
+                                 style="width: @(Math.Min(((trail?.ElevationGainMeters ?? 0) / 1500) * 100, 100))%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-[10px]">
+                            <span class="text-gray-400">Duration</span>
+                            <span class="text-white">@(eventItem?.EstimatedDuration ?? 0) hrs</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                            <div class="h-full rounded-full @((eventItem?.EstimatedDuration ?? 0) >= 8 ? "bg-red-500" : (eventItem?.EstimatedDuration ?? 0) >= 6 ? "bg-yellow-500" : "bg-green-500")" 
+                                 style="width: @(Math.Min(((eventItem?.EstimatedDuration ?? 0) / 10) * 100, 100))%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-[10px]">
+                            <span class="text-gray-400">Terrain</span>
+                            <span class="text-white">@(trail?.Terrain ?? "N/A")</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                            <div class="h-full rounded-full @(trail?.Terrain == "Technical" ? "bg-red-500" : trail?.Terrain == "Difficult" ? "bg-yellow-500" : "bg-green-500")" 
+                                 style="width: @(trail?.Terrain == "Technical" ? 100 : trail?.Terrain == "Difficult" ? 75 : trail?.Terrain == "Moderate" ? 50 : 25)%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Event & Trail Details -->
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4">
+                <h3 class="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                    <i class="fa-regular fa-calendar text-orange-400"></i>
+                    Event & Trail Details
+                </h3>
+                
+                <div class="bg-[#111A2E]/50 rounded-xl p-3">
+                    <p class="text-white font-semibold text-sm">@eventItem?.EventTitle</p>
+                    <p class="text-gray-400 text-xs flex items-center gap-1">
+                        <i class="fa-solid fa-mountain text-[10px] text-orange-400"></i>
+                        @trail?.Name
+                    </p>
+                    
+                    <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 mt-3 pt-3 border-t border-white/5">
+                        <div>
+                            <p class="text-gray-500 text-[10px] uppercase tracking-wider">Date</p>
+                            <p class="text-white text-sm font-medium">@eventItem?.EventDate.ToString("MMM dd, yyyy")</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500 text-[10px] uppercase tracking-wider">Time</p>
+                            <p class="text-white text-sm font-medium">@eventItem?.FormattedEventTime</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500 text-[10px] uppercase tracking-wider">Difficulty</p>
+                            <p class="text-white text-sm font-medium">@eventItem?.Difficulty</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500 text-[10px] uppercase tracking-wider">Duration</p>
+                            <p class="text-white text-sm font-medium">@eventItem?.EstimatedDuration hrs</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500 text-[10px] uppercase tracking-wider">Distance</p>
+                            <p class="text-white text-sm font-medium">@(trail?.DistanceKm ?? 0) km</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500 text-[10px] uppercase tracking-wider">Elevation</p>
+                            <p class="text-white text-sm font-medium">@(trail?.ElevationGainMeters ?? 0) m</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500 text-[10px] uppercase tracking-wider">Terrain</p>
+                            <p class="text-white text-sm font-medium">@(trail?.Terrain ?? "N/A")</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500 text-[10px] uppercase tracking-wider">Location</p>
+                            <p class="text-white text-sm font-medium truncate" title="@trail?.Location">@trail?.Location</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons - Submit & Cancel NANDITO NA -->
+            <div class="bg-gradient-to-r from-orange-500/10 to-purple-500/10 border border-white/10 rounded-2xl p-4 space-y-2">
+                <button type="submit" form="registrationForm" class="w-full px-6 py-3 rounded-xl text-white font-bold bg-gradient-to-r from-orange-500 to-purple-600 hover:opacity-90 hover:scale-105 transition-all text-center">
+                    <i class="fa-regular fa-paper-plane mr-2"></i> Submit Registration
+                </button>
+                <a asp-controller="Participant" asp-action="Events" 
+                   class="w-full px-6 py-2.5 rounded-xl text-gray-300 font-medium bg-gray-800 hover:bg-gray-700 transition-colors text-center block text-sm">
+                    Cancel
+                </a>
+                <a asp-controller="Assessment" asp-action="Form" asp-route-eventId="@Model?.EventId"
+                   class="w-full px-6 py-2.5 rounded-xl text-gray-400 font-medium hover:text-white transition-colors text-center block text-sm border border-white/5">
+                    <i class="fa-solid fa-rotate mr-2"></i> Retake Assessment
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+</style>

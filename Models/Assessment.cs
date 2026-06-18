@@ -9,52 +9,51 @@ namespace TrailGuard.Models
         public int Id { get; set; }
 
         [Required]
-        public string UserId { get; set; } = string.Empty;
-
-        [ForeignKey("UserId")]
-        public virtual ApplicationUser? User { get; set; }
-
-        [Required]
-        public int TrailId { get; set; }
-
-        [ForeignKey("TrailId")]
-        public virtual Trail? Trail { get; set; }
-
-        [Required]
         public int EventId { get; set; }
 
         [ForeignKey("EventId")]
         public virtual Event? Event { get; set; }
 
-        public DateTime DateTaken { get; set; } = DateTime.Now;
+        [Required]
+        public string UserId { get; set; } = string.Empty;
 
-        // Participant Factors
-        public int Age { get; set; }
-        public double Height { get; set; } // cm
-        public double Weight { get; set; } // kg
-        public double BMI { get; set; }
+        [ForeignKey("UserId")]
+        public virtual ApplicationUser? User { get; set; }
 
-        public string FitnessLevel { get; set; } = string.Empty;
-        public string ExerciseFrequency { get; set; } = string.Empty;
-        public string EnduranceLevel { get; set; } = string.Empty;
+        // SECTION 1: Personal and Physical Profile
+        public int? Age { get; set; }
+        public string? Gender { get; set; }
+        public double? HeightCm { get; set; }
+        public double? WeightKg { get; set; }
+        public string? MedicalConditions { get; set; }
 
-        public string HealthConditions { get; set; } = string.Empty;
-        public string MedicalNotes { get; set; } = string.Empty;
+        // SECTION 2: Fitness & Endurance
+        public string? ExerciseFrequency { get; set; }
+        public string? ExerciseType { get; set; }
+        public string? CardioEndurance { get; set; }
 
-        public string HikingExperience { get; set; } = string.Empty;
-        public int PreviousClimbs { get; set; }
-        public string FamiliarTerrain { get; set; } = string.Empty;
+        // SECTION 3: Hiking Experience
+        public string? MountainsClimbed { get; set; }
+        public string? RecencyOfHike { get; set; }
+        public string? TrailDifficultyCompleted { get; set; }
 
-        public string GearItems { get; set; } = string.Empty;
-        public double GearScore { get; set; }
+        // SECTION 4: Gear Preparedness
+        public string? GearItems { get; set; }
 
-        public string SafetyKnowledge { get; set; } = string.Empty;
-        public string EmergencyReadiness { get; set; } = string.Empty;
+        // Consent
+        public bool ConsentGiven { get; set; }
 
-        // Assessment Results
-        public int SuitabilityScore { get; set; }
-        public string SuitabilityResult { get; set; } = string.Empty; // Good-Match, Borderline, Not Recommended
-        public string? Recommendations { get; set; }
-        public string? DetailedFeedback { get; set; }
+        // Computed Fields
+        public string? Result { get; set; }
+        public int? TotalScore { get; set; }
+        public int? FitnessScore { get; set; }
+        public int? ExperienceScore { get; set; }
+        public int? HealthScore { get; set; }
+        public int? GearScore { get; set; }
+
+        // ✅ BAGONG PROPERTY: Soft Delete
+        public bool IsActive { get; set; } = true;
+
+        public DateTime SubmittedAt { get; set; } = DateTime.Now;
     }
 }
