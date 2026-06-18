@@ -54,6 +54,13 @@ namespace TrailGuard.Controllers
 
             var eventsList = await events.ToListAsync();
 
+            var eventIds = eventsList.Select(e => e.Id).ToList();
+            var acceptedCounts = await _context.EventRegistrations
+                .Where(r => eventIds.Contains(r.EventId) && r.Status == "Accepted")
+                .GroupBy(r => r.EventId)
+                .Select(g => new { EventId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.EventId, x => x.Count);
+
             var groupedEvents = eventsList
                 .Where(e => e.Trail != null)
                 .GroupBy(e => e.TrailId)
@@ -62,7 +69,10 @@ namespace TrailGuard.Controllers
                     TrailId = g.Key,
                     TrailName = g.First().Trail?.Name ?? "Unknown Trail",
                     TrailLocation = g.First().Location,
-                    Events = g.OrderBy(e => e.EventDate).ToList()
+                    Events = g.OrderBy(e => e.EventDate).Select(e => {
+                        e.RegisteredCount = acceptedCounts.ContainsKey(e.Id) ? acceptedCounts[e.Id] : 0;
+                        return e;
+                    }).ToList()
                 })
                 .ToList();
 
@@ -212,14 +222,19 @@ namespace TrailGuard.Controllers
                 return RedirectToAction("Index");
             }
 
-            var registrations = await _context.EventRegistrations
+            var acceptedRegistrations = await _context.EventRegistrations
                 .Include(r => r.User)
-                .Where(r => r.EventId == id && r.Status != "Rejected")
+                .Where(r => r.EventId == id && r.Status == "Accepted")
                 .ToListAsync();
 
-            ViewBag.Registrations = registrations;
-            ViewBag.RegisteredCount = registrations.Count;
-            ViewBag.AvailableSlots = eventItem.Capacity - registrations.Count;
+            var allRegistrations = await _context.EventRegistrations
+                .Include(r => r.User)
+                .Where(r => r.EventId == id && r.Status != "Rejected" && r.Status != "Cancelled")
+                .ToListAsync();
+
+            ViewBag.Registrations = allRegistrations;
+            ViewBag.RegisteredCount = acceptedRegistrations.Count;
+            ViewBag.AvailableSlots = eventItem.Capacity - acceptedRegistrations.Count;
 
             if (!string.IsNullOrEmpty(eventItem.OrganizedBy))
             {

@@ -31,19 +31,19 @@ namespace TrailGuard.Models
 
         public DateTime RegisteredAt { get; set; } = DateTime.Now;
 
-        // Registration Status
-        public string Status { get; set; } = "Pending"; // Pending, Accepted, Rejected, Recommended
+        public string Status { get; set; } = "Pending";
 
-        // Alternative Event Recommendation
         public int? AlternativeEventId { get; set; }
 
         [ForeignKey("AlternativeEventId")]
         public virtual Event? AlternativeEvent { get; set; }
 
-        // Assessment reference
         public int? AssessmentId { get; set; }
 
         [ForeignKey("AssessmentId")]
         public virtual Assessment? Assessment { get; set; }
+        public string? EmergencyContactName { get; set; }
+        public string? EmergencyContactNumber { get; set; }
+        public string? PaymentReceiptUrl { get; set; }
     }
 }

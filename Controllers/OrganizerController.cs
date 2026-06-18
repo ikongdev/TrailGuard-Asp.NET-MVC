@@ -21,310 +21,316 @@ namespace TrailGuard.Controllers
 
         public async Task<IActionResult> Index()
         {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null)
-            {
-                return RedirectToAction("Login", "Account");
-            }
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var user = await _userManager.FindByIdAsync(userId ?? "");
+            var organizerName = user != null ? $"{user.FirstName} {user.LastName}" : "";
 
-            var model = new OrganizerDashboardViewModel();
+            var totalEvents = await _context.Events
+                .Where(e => e.OrganizedBy == userId || e.OrganizedBy == organizerName)
+                .CountAsync();
 
-            // Get events organized by this organizer
-            var organizerEvents = await _context.Events
-                .Where(e => e.OrganizedBy == user.Id || e.OrganizedBy == user.Email)
+            var eventIds = await _context.Events
+                .Where(e => e.OrganizedBy == userId || e.OrganizedBy == organizerName)
+                .Select(e => e.Id)
                 .ToListAsync();
 
-            var eventIds = organizerEvents.Select(e => e.Id).ToList();
-
-            // Summary Cards
-            model.TotalEvents = organizerEvents.Count;
-            
-            // Pending Registrations
-            model.PendingRegistrations = await _context.EventRegistrations
+            var pendingRegistrations = await _context.EventRegistrations
                 .Where(r => eventIds.Contains(r.EventId) && r.Status == "Pending")
                 .CountAsync();
 
-            // Upcoming Events
-            model.UpcomingEvents = await _context.Events
-                .Where(e => eventIds.Contains(e.Id) && e.EventDate >= DateTime.Today)
-                .OrderBy(e => e.EventDate)
-                .Take(5)
-                .ToListAsync();
-
-            // Event Completion Alerts (events within 7 days)
-            var alertThreshold = DateTime.Today.AddDays(7);
-            model.EventAlerts = await _context.Events
-                .Where(e => eventIds.Contains(e.Id) && e.EventDate >= DateTime.Today && e.EventDate <= alertThreshold)
+            var eventAlerts = await _context.Events
+                .Where(e => (e.OrganizedBy == userId || e.OrganizedBy == organizerName) &&
+                            e.EventDate < DateTime.Now && e.Status != "Completed")
                 .CountAsync();
 
-            // Total Participants (all time)
-            model.TotalParticipants = await _context.EventRegistrations
-                .Where(r => eventIds.Contains(r.EventId))
-                .CountAsync();
+            var participantsInRole = await _userManager.GetUsersInRoleAsync("Participant");
+            var totalParticipants = participantsInRole.Count;
 
-            // Participants last 30 days
-            var last30Days = DateTime.Now.AddDays(-30);
-            model.ParticipantsLast30Days = await _context.EventRegistrations
-                .Where(r => eventIds.Contains(r.EventId) && r.RegisteredAt >= last30Days)
-                .CountAsync();
+            var trendData = new List<MonthlyTrendData>();
+            for (int i = 11; i >= 0; i--)
+            {
+                var monthStart = DateTime.Now.AddMonths(-i).AddDays(1 - DateTime.Now.Day);
+                var monthEnd = monthStart.AddMonths(1).AddDays(-1);
+                var monthName = monthStart.ToString("MMM");
 
-            // Top Trails (most popular among organizer's events)
-            var topTrailsData = await _context.Events
-                .Where(e => eventIds.Contains(e.Id))
+                var count = await _context.EventRegistrations
+                    .Where(r => eventIds.Contains(r.EventId) && r.Status == "Accepted" &&
+                                r.RegisteredAt >= monthStart && r.RegisteredAt <= monthEnd)
+                    .CountAsync();
+
+                trendData.Add(new MonthlyTrendData { Month = monthName, Count = count });
+            }
+
+            var topTrails = await _context.Events
+                .Where(e => e.Trail != null && (e.OrganizedBy == userId || e.OrganizedBy == organizerName))
                 .GroupBy(e => e.TrailId)
-                .Select(g => new
+                .Select(g => new TopTrailData
                 {
                     TrailId = g.Key,
-                    ParticipantCount = _context.EventRegistrations.Count(r => g.Select(e => e.Id).Contains(r.EventId))
+                    TrailName = g.First().Trail!.Name,
+                    EventCount = g.Count()
                 })
-                .OrderByDescending(t => t.ParticipantCount)
+                .OrderByDescending(t => t.EventCount)
                 .Take(5)
                 .ToListAsync();
 
-            model.TopTrails = new List<TopTrailData>();
-            foreach (var item in topTrailsData)
+            Console.WriteLine($"Top Trails Count: {topTrails.Count}");
+            foreach (var trail in topTrails)
             {
-                var trail = await _context.Trails.FirstOrDefaultAsync(t => t.Id == item.TrailId);
-                model.TopTrails.Add(new TopTrailData
-                {
-                    TrailId = item.TrailId,
-                    TrailName = trail?.Name ?? "Unknown Trail",
-                    ParticipantCount = item.ParticipantCount
-                });
+                Console.WriteLine($"Trail: {trail.TrailName}, Events: {trail.EventCount}");
             }
 
-            // Participant Suitability Breakdown
             var suitabilityData = await _context.Assessments
-                .Where(a => eventIds.Contains(a.EventId))
-                .GroupBy(a => a.SuitabilityResult)
+                .Where(a => eventIds.Contains(a.EventId) && a.IsActive == true)
+                .GroupBy(a => a.Result)
                 .Select(g => new SuitabilityData
                 {
-                    Result = g.Key ?? "Unknown",
-                    Count = g.Count(),
-                    Percentage = 0
+                    Result = g.Key ?? "Not Recommended",
+                    Count = g.Count()
                 })
                 .ToListAsync();
 
-            model.SuitabilityBreakdown = suitabilityData;
-
-            // Calculate percentages
             var totalAssessments = suitabilityData.Sum(s => s.Count);
-            if (totalAssessments > 0)
+            foreach (var item in suitabilityData)
             {
-                foreach (var item in model.SuitabilityBreakdown)
-                {
-                    item.Percentage = Math.Round((double)item.Count / totalAssessments * 100, 1);
-                }
+                item.Percentage = totalAssessments > 0 ? (int)Math.Round((double)item.Count / totalAssessments * 100) : 0;
             }
 
-            // Top Hikers (by assessment score)
-            var topHikersData = await _context.Assessments
-                .Where(a => eventIds.Contains(a.EventId))
-                .GroupBy(a => a.UserId)
-                .Select(g => new
+            var completedEventIds = await _context.Events
+                .Where(e => eventIds.Contains(e.Id) && e.Status == "Completed")
+                .Select(e => e.Id)
+                .ToListAsync();
+
+            var topHikers = await _context.EventRegistrations
+                .Where(r => completedEventIds.Contains(r.EventId) && r.Status == "Accepted")
+                .GroupBy(r => r.UserId)
+                .Select(g => new TopHikerData
                 {
                     UserId = g.Key,
-                    AverageScore = g.Average(a => a.SuitabilityScore),
-                    TotalAssessments = g.Count()
+                    UserName = g.First().User!.FirstName + " " + g.First().User!.LastName,
+                    CompletedEvents = g.Count()
                 })
-                .OrderByDescending(h => h.AverageScore)
-                .Take(6)
+                .OrderByDescending(h => h.CompletedEvents)
+                .Take(5)
                 .ToListAsync();
 
-            model.TopHikers = new List<TopHikerData>();
-            foreach (var item in topHikersData)
+            var viewModel = new OrganizerDashboardViewModel
             {
-                var userInfo = await _context.Users.FirstOrDefaultAsync(u => u.Id == item.UserId);
-                model.TopHikers.Add(new TopHikerData
-                {
-                    UserId = item.UserId,
-                    UserName = userInfo != null ? $"{userInfo.FirstName} {userInfo.LastName}" : "Unknown User",
-                    AverageScore = Math.Round(item.AverageScore, 1),
-                    TotalAssessments = item.TotalAssessments
-                });
-            }
+                TotalEvents = totalEvents,
+                PendingRegistrations = pendingRegistrations,
+                EventAlerts = eventAlerts,
+                TotalParticipants = totalParticipants,
+                TrendData = trendData,
+                TopTrails = topTrails,
+                SuitabilityBreakdown = suitabilityData,
+                TopHikers = topHikers,
+                TotalAssessments = totalAssessments
+            };
 
-            return View(model);
+            return View(viewModel);
         }
 
-        // GET: Organizer/Events
-        public async Task<IActionResult> Events(string searchString, string sortOrder)
+        public async Task<IActionResult> Events(string searchString, string status, string sortOrder)
         {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null)
-            {
-                return RedirectToAction("Login", "Account");
-            }
-
             ViewData["CurrentFilter"] = searchString;
+            ViewData["CurrentStatus"] = status;
             ViewData["CurrentSort"] = sortOrder;
+
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var user = await _userManager.FindByIdAsync(userId ?? "");
+            var organizerName = user != null ? $"{user.FirstName} {user.LastName}" : "";
 
             var events = _context.Events
                 .Include(e => e.Trail)
-                .Where(e => e.OrganizedBy == user.Id || e.OrganizedBy == user.Email);
+                .Where(e => e.OrganizedBy == userId || e.OrganizedBy == organizerName)
+                .AsQueryable();
 
             if (!string.IsNullOrEmpty(searchString))
             {
                 events = events.Where(e => e.EventTitle.Contains(searchString) || e.Location.Contains(searchString));
             }
 
+            if (!string.IsNullOrEmpty(status) && status != "All")
+            {
+                events = events.Where(e => e.Status == status);
+            }
+
             events = sortOrder switch
             {
-                "title_desc" => events.OrderByDescending(e => e.EventTitle),
-                "date_asc" => events.OrderBy(e => e.EventDate),
                 "date_desc" => events.OrderByDescending(e => e.EventDate),
+                "title_asc" => events.OrderBy(e => e.EventTitle),
+                "title_desc" => events.OrderByDescending(e => e.EventTitle),
+                "status_asc" => events.OrderBy(e => e.Status),
                 _ => events.OrderBy(e => e.EventDate),
             };
 
-            return View(await events.ToListAsync());
+            var eventsList = await events.ToListAsync();
+
+            return View(eventsList);
         }
 
-        // GET: Organizer/Events/Add
-        public async Task<IActionResult> AddEvent()
+        public async Task<IActionResult> Registrations(string searchString, string statusFilter, string sortOrder)
         {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null)
+            ViewData["CurrentFilter"] = searchString;
+            ViewData["CurrentStatus"] = statusFilter;
+            ViewData["CurrentSort"] = sortOrder;
+
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var user = await _userManager.FindByIdAsync(userId ?? "");
+            var organizerName = user != null ? $"{user.FirstName} {user.LastName}" : "";
+
+            var eventIds = await _context.Events
+                .Where(e => e.OrganizedBy == userId || e.OrganizedBy == organizerName)
+                .Select(e => e.Id)
+                .ToListAsync();
+
+            var registrations = _context.EventRegistrations
+                .Include(r => r.Event)
+                .Include(r => r.Assessment)
+                .Include(r => r.User)
+                .Where(r => eventIds.Contains(r.EventId))
+                .AsQueryable();
+
+            if (!string.IsNullOrEmpty(searchString))
             {
-                return RedirectToAction("Login", "Account");
+                registrations = registrations.Where(r =>
+                    r.ParticipantName.Contains(searchString) ||
+                    (r.Event != null && r.Event.EventTitle.Contains(searchString)));
             }
 
-            ViewBag.Trails = await _context.Trails.OrderBy(t => t.Name).ToListAsync();
-            ViewBag.OrganizerId = user.Id;
-            ViewBag.OrganizerName = $"{user.FirstName} {user.LastName}";
+            if (!string.IsNullOrEmpty(statusFilter) && statusFilter != "All")
+            {
+                registrations = registrations.Where(r => r.Status == statusFilter);
+            }
 
+            registrations = sortOrder switch
+            {
+                "date_desc" => registrations.OrderByDescending(r => r.RegisteredAt),
+                "participant_asc" => registrations.OrderBy(r => r.ParticipantName),
+                "participant_desc" => registrations.OrderByDescending(r => r.ParticipantName),
+                _ => registrations.OrderBy(r => r.RegisteredAt),
+            };
+
+            var registrationsList = await registrations.ToListAsync();
+
+            var viewModel = registrationsList.Select(r => new RegistrationWithAssessmentViewModel
+            {
+                RegistrationId = r.Id,
+                EventId = r.EventId,
+                EventTitle = r.Event?.EventTitle ?? "Unknown Event",
+                EventDate = r.Event?.EventDate.ToString("MMM dd, yyyy") ?? "",
+                EventTime = r.Event?.FormattedEventTime ?? "",
+                EventDifficulty = r.Event?.Difficulty ?? "",
+                ParticipantName = r.ParticipantName,
+                UserId = r.UserId,
+                Email = r.User != null ? r.User.Email ?? "" : "",
+                PickupPoint = r.PickupPoint ?? "",
+                Status = r.Status,
+                RegisteredAt = r.RegisteredAt,
+                IsPaid = r.IsPaid,
+                PaymentReceiptUrl = r.PaymentReceiptUrl,
+                EmergencyContactName = r.EmergencyContactName,
+                EmergencyContactNumber = r.EmergencyContactNumber,
+                AssessmentId = r.AssessmentId,
+                AssessmentResult = r.Assessment?.Result,
+                AssessmentTotalScore = r.Assessment?.TotalScore,
+                MedicalConditions = r.Assessment?.MedicalConditions,
+                FitnessLevel = r.Assessment?.ExerciseFrequency,
+                HikingExperience = r.Assessment?.MountainsClimbed,
+                GearItems = r.Assessment?.GearItems
+            }).ToList();
+
+            return View(viewModel);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> UpdateRegistrationStatus(int id, string status)
+        {
+            var registration = await _context.EventRegistrations
+                .FirstOrDefaultAsync(r => r.Id == id);
+
+            if (registration == null)
+            {
+                return Json(new { success = false, message = "Registration not found" });
+            }
+
+            registration.Status = status;
+            await _context.SaveChangesAsync();
+
+            return Json(new { success = true, message = $"Registration status updated to {status}" });
+        }
+
+        public IActionResult AddEvent()
+        {
             return View();
         }
 
-        // POST: Organizer/Events/Add
         [HttpPost]
-        [ValidateAntiForgeryToken]
         public async Task<IActionResult> AddEvent(Event model)
         {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null)
-            {
-                return RedirectToAction("Login", "Account");
-            }
-
             if (ModelState.IsValid)
             {
-                model.OrganizedBy = user.Id;
-                model.Status = "Upcoming";
-
                 _context.Events.Add(model);
                 await _context.SaveChangesAsync();
-
                 TempData["Success"] = "Event created successfully!";
                 return RedirectToAction("Events");
             }
-
-            ViewBag.Trails = await _context.Trails.OrderBy(t => t.Name).ToListAsync();
-            ViewBag.OrganizerId = user.Id;
-            ViewBag.OrganizerName = $"{user.FirstName} {user.LastName}";
-
             return View(model);
         }
 
-        // GET: Organizer/Events/Edit/{id}
         public async Task<IActionResult> EditEvent(int id)
         {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null)
-            {
-                return RedirectToAction("Login", "Account");
-            }
-
             var eventItem = await _context.Events
                 .Include(e => e.Trail)
                 .FirstOrDefaultAsync(e => e.Id == id);
 
             if (eventItem == null)
             {
-                TempData["Error"] = "Event not found.";
+                TempData["Error"] = "Event not found";
                 return RedirectToAction("Events");
             }
 
-            // Verify ownership
-            if (eventItem.OrganizedBy != user.Id && eventItem.OrganizedBy != user.Email)
-            {
-                TempData["Error"] = "You are not authorized to edit this event.";
-                return RedirectToAction("Events");
-            }
-
-            ViewBag.Trails = await _context.Trails.OrderBy(t => t.Name).ToListAsync();
             return View(eventItem);
         }
 
-        // POST: Organizer/Events/Edit/{id}
         [HttpPost]
-        [ValidateAntiForgeryToken]
         public async Task<IActionResult> EditEvent(int id, Event model)
         {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null)
+            if (id != model.Id)
             {
-                return RedirectToAction("Login", "Account");
-            }
-
-            var existingEvent = await _context.Events.FindAsync(id);
-            if (existingEvent == null)
-            {
-                TempData["Error"] = "Event not found.";
-                return RedirectToAction("Events");
-            }
-
-            // Verify ownership
-            if (existingEvent.OrganizedBy != user.Id && existingEvent.OrganizedBy != user.Email)
-            {
-                TempData["Error"] = "You are not authorized to edit this event.";
+                TempData["Error"] = "Event not found";
                 return RedirectToAction("Events");
             }
 
             if (ModelState.IsValid)
             {
-                existingEvent.EventTitle = model.EventTitle;
-                existingEvent.Description = model.Description;
-                existingEvent.EventDate = model.EventDate;
-                existingEvent.EventTime = model.EventTime;
-                existingEvent.TrailId = model.TrailId;
-                existingEvent.Capacity = model.Capacity;
-                existingEvent.EstimatedDuration = model.EstimatedDuration;
-                existingEvent.Status = model.Status;
-                existingEvent.PaymentDetails = model.PaymentDetails;
-                existingEvent.PickupPoints = model.PickupPoints;
-                existingEvent.Announcements = model.Announcements;
-                existingEvent.WeatherForecastAdvisory = model.WeatherForecastAdvisory;
-                existingEvent.DateUpdated = DateTime.Now;
-
-                await _context.SaveChangesAsync();
-                TempData["Success"] = "Event updated successfully!";
-                return RedirectToAction("Events");
+                try
+                {
+                    _context.Update(model);
+                    await _context.SaveChangesAsync();
+                    TempData["Success"] = "Event updated successfully!";
+                    return RedirectToAction("Events");
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    if (!_context.Events.Any(e => e.Id == id))
+                    {
+                        TempData["Error"] = "Event not found";
+                        return RedirectToAction("Events");
+                    }
+                    throw;
+                }
             }
-
-            ViewBag.Trails = await _context.Trails.OrderBy(t => t.Name).ToListAsync();
             return View(model);
         }
 
-        // POST: Organizer/Events/Delete/{id}
         [HttpPost]
-        public async Task<JsonResult> DeleteEvent(int id)
+        public async Task<IActionResult> DeleteEvent(int id)
         {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null)
-            {
-                return Json(new { success = false, message = "Unauthorized" });
-            }
-
             var eventItem = await _context.Events.FindAsync(id);
             if (eventItem == null)
             {
                 return Json(new { success = false, message = "Event not found" });
-            }
-
-            // Verify ownership
-            if (eventItem.OrganizedBy != user.Id && eventItem.OrganizedBy != user.Email)
-            {
-                return Json(new { success = false, message = "Unauthorized" });
             }
 
             _context.Events.Remove(eventItem);
@@ -333,192 +339,36 @@ namespace TrailGuard.Controllers
             return Json(new { success = true, message = "Event deleted successfully" });
         }
 
-        // GET: Organizer/Registrations
-        public async Task<IActionResult> Registrations(string searchString, string eventFilter, string resultFilter, string sortOrder)
+        public async Task<IActionResult> EventDetails(int id)
         {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null)
+            var eventItem = await _context.Events
+                .Include(e => e.Trail)
+                .FirstOrDefaultAsync(e => e.Id == id);
+
+            if (eventItem == null)
             {
-                return RedirectToAction("Login", "Account");
+                TempData["Error"] = "Event not found";
+                return RedirectToAction("Events");
             }
 
-            ViewData["CurrentFilter"] = searchString;
-            ViewData["CurrentEventFilter"] = eventFilter;
-            ViewData["CurrentResultFilter"] = resultFilter;
-            ViewData["CurrentSort"] = sortOrder;
-
-            // Get events organized by this organizer
-            var organizerEventIds = await _context.Events
-                .Where(e => e.OrganizedBy == user.Id || e.OrganizedBy == user.Email)
-                .Select(e => e.Id)
-                .ToListAsync();
-
-            // Get all events for dropdown filter
-            ViewBag.OrganizerEvents = await _context.Events
-                .Where(e => organizerEventIds.Contains(e.Id))
-                .OrderBy(e => e.EventDate)
-                .ToListAsync();
-
-            var registrations = _context.EventRegistrations
-                .Include(r => r.Event)
+            var acceptedRegistrations = await _context.EventRegistrations
                 .Include(r => r.User)
-                .Where(r => organizerEventIds.Contains(r.EventId))
-                .AsQueryable();
+                .Include(r => r.Assessment)
+                .Where(r => r.EventId == id && r.Status == "Accepted")
+                .ToListAsync();
 
-            // Apply filters
-            if (!string.IsNullOrEmpty(searchString))
-            {
-                registrations = registrations.Where(r => 
-                    r.ParticipantName.Contains(searchString) || 
-                    (r.Event != null && r.Event.EventTitle.Contains(searchString)));
-            }
+            var allRegistrations = await _context.EventRegistrations
+                .Include(r => r.User)
+                .Include(r => r.Assessment)
+                .Where(r => r.EventId == id && r.Status != "Rejected" && r.Status != "Cancelled")
+                .ToListAsync();
 
-            if (!string.IsNullOrEmpty(eventFilter) && eventFilter != "All")
-            {
-                var eventId = int.Parse(eventFilter);
-                registrations = registrations.Where(r => r.EventId == eventId);
-            }
+            ViewBag.Registrations = allRegistrations;
+            ViewBag.RegisteredCount = acceptedRegistrations.Count;
+            ViewBag.AvailableSlots = eventItem.Capacity - acceptedRegistrations.Count;
+            ViewBag.Trail = eventItem.Trail;
 
-            // Apply sorting
-            registrations = sortOrder switch
-            {
-                "oldest" => registrations.OrderBy(r => r.RegisteredAt),
-                _ => registrations.OrderByDescending(r => r.RegisteredAt), // newest first
-            };
-
-            var registrationList = await registrations.ToListAsync();
-
-            // Get assessment results for each registration
-            var result = new List<RegistrationWithAssessmentViewModel>();
-            int goodMatchCount = 0, borderlineCount = 0, notRecommendedCount = 0;
-
-            foreach (var reg in registrationList)
-            {
-                var assessment = await _context.Assessments
-                    .FirstOrDefaultAsync(a => a.EventId == reg.EventId && a.UserId == reg.UserId);
-
-                var assessmentResult = assessment?.SuitabilityResult ?? "Not Assessed";
-                
-                // Count for summary cards
-                if (assessmentResult == "Good-Match") goodMatchCount++;
-                else if (assessmentResult == "Borderline") borderlineCount++;
-                else if (assessmentResult == "Not Recommended") notRecommendedCount++;
-
-                result.Add(new RegistrationWithAssessmentViewModel
-                {
-                    Registration = reg,
-                    AssessmentResult = assessmentResult,
-                    AssessmentScore = assessment?.SuitabilityScore ?? 0,
-                    AssessmentId = assessment?.Id ?? 0
-                });
-            }
-
-            // Apply result filter after counting (client-side filtering)
-            if (!string.IsNullOrEmpty(resultFilter) && resultFilter != "All")
-            {
-                result = result.Where(r => r.AssessmentResult == resultFilter).ToList();
-            }
-
-            ViewBag.GoodMatchCount = goodMatchCount;
-            ViewBag.BorderlineCount = borderlineCount;
-            ViewBag.NotRecommendedCount = notRecommendedCount;
-            ViewBag.TotalRegistrations = registrationList.Count;
-
-            return View(result);
-        }
-
-        // POST: Organizer/Registrations/Accept
-        [HttpPost]
-        public async Task<JsonResult> AcceptRegistration(int registrationId)
-        {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null)
-            {
-                return Json(new { success = false, message = "Unauthorized" });
-            }
-
-            var registration = await _context.EventRegistrations
-                .Include(r => r.Event)
-                .FirstOrDefaultAsync(r => r.Id == registrationId);
-
-            if (registration == null)
-            {
-                return Json(new { success = false, message = "Registration not found" });
-            }
-
-            // Verify ownership
-            if (registration.Event == null || (registration.Event.OrganizedBy != user.Id && registration.Event.OrganizedBy != user.Email))
-            {
-                return Json(new { success = false, message = "Unauthorized" });
-            }
-
-            registration.Status = "Accepted";
-            await _context.SaveChangesAsync();
-
-            return Json(new { success = true, message = "Registration accepted" });
-        }
-
-        // POST: Organizer/Registrations/Reject
-        [HttpPost]
-        public async Task<JsonResult> RejectRegistration(int registrationId)
-        {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null)
-            {
-                return Json(new { success = false, message = "Unauthorized" });
-            }
-
-            var registration = await _context.EventRegistrations
-                .Include(r => r.Event)
-                .FirstOrDefaultAsync(r => r.Id == registrationId);
-
-            if (registration == null)
-            {
-                return Json(new { success = false, message = "Registration not found" });
-            }
-
-            // Verify ownership
-            if (registration.Event == null || (registration.Event.OrganizedBy != user.Id && registration.Event.OrganizedBy != user.Email))
-            {
-                return Json(new { success = false, message = "Unauthorized" });
-            }
-
-            registration.Status = "Rejected";
-            await _context.SaveChangesAsync();
-
-            return Json(new { success = true, message = "Registration rejected" });
-        }
-
-        // POST: Organizer/Registrations/RecommendAlternative
-        [HttpPost]
-        public async Task<JsonResult> RecommendAlternative(int registrationId, int alternativeEventId)
-        {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null)
-            {
-                return Json(new { success = false, message = "Unauthorized" });
-            }
-
-            var registration = await _context.EventRegistrations
-                .Include(r => r.Event)
-                .FirstOrDefaultAsync(r => r.Id == registrationId);
-
-            if (registration == null)
-            {
-                return Json(new { success = false, message = "Registration not found" });
-            }
-
-            // Verify ownership
-            if (registration.Event == null || (registration.Event.OrganizedBy != user.Id && registration.Event.OrganizedBy != user.Email))
-            {
-                return Json(new { success = false, message = "Unauthorized" });
-            }
-
-            registration.Status = "Recommended";
-            registration.AlternativeEventId = alternativeEventId;
-            await _context.SaveChangesAsync();
-
-            return Json(new { success = true, message = "Alternative event recommended" });
+            return View(eventItem);
         }
     }
 }

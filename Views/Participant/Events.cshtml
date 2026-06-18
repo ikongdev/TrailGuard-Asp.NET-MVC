@@ -168,7 +168,8 @@
                                         <i class="fa-regular fa-clock"></i> @eventItem.EstimatedDuration hrs
                                     </span>
                                     <span class="text-xs px-2 py-1 bg-orange-500/20 text-orange-300 rounded-full">
-                                        <i class="fa-solid fa-users"></i> @eventItem.Capacity slots
+                                        <i class="fa-solid fa-users"></i> 
+                                        @(eventItem.Capacity - (eventItem.RegisteredCount)) slots available
                                     </span>
                                 </div>
 
@@ -177,8 +178,8 @@
                                        class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
                                         <i class="fa-regular fa-eye"></i> View
                                     </a>
-                                    <a asp-controller="Registration" asp-action="Register" asp-route-eventId="@eventItem.Id"
-                                       class="flex-1 bg-linear-to-r from-purple-500 to-pink-500 hover:opacity-90 text-white py-2 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
+                                    <a asp-controller="Assessment" asp-action="Form" asp-route-eventId="@eventItem.Id"
+                                    class="flex-1 bg-linear-to-r from-purple-500 to-pink-500 hover:opacity-90 text-white py-2 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
                                         <i class="fa-regular fa-clipboard"></i> Register
                                     </a>
                                 </div>
