@@ -4,9 +4,11 @@ using TrailGuard.Data;
 using TrailGuard.Models;
 using System.IO;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
 
 namespace TrailGuard.Controllers
 {
+    [Authorize(Roles = "Admin,Organizer")]
     public class TrailController : Controller
     {
         private readonly ApplicationDbContext _context;

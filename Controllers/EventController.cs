@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using TrailGuard.Data;
 using TrailGuard.Models;
 using TrailGuard.Services;
+using Microsoft.AspNetCore.Authorization;
 
 namespace TrailGuard.Controllers
 {
@@ -12,6 +13,7 @@ namespace TrailGuard.Controllers
     {
         public int Id { get; set; }
     }
+    [Authorize(Roles = "Admin,Organizer")]
     public class EventController : Controller
     {
         private readonly ApplicationDbContext _context;
