@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace TrailGuard.Migrations
 {
     /// <inheritdoc />
-    public partial class AddFeedbackAndPostAssessment : Migration
+    public partial class FixTrailSchema : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -18,6 +18,13 @@ namespace TrailGuard.Migrations
                 type: "longtext",
                 nullable: true)
                 .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.AddColumn<bool>(
+                name: "IsActive",
+                table: "Assessments",
+                type: "tinyint(1)",
+                nullable: false,
+                defaultValue: false);
 
             migrationBuilder.CreateTable(
                 name: "PostEventAssessments",
@@ -72,6 +79,10 @@ namespace TrailGuard.Migrations
             migrationBuilder.DropColumn(
                 name: "DifficultyExperience",
                 table: "EventFeedbacks");
+
+            migrationBuilder.DropColumn(
+                name: "IsActive",
+                table: "Assessments");
         }
     }
 }
