@@ -12,8 +12,8 @@ using TrailGuard.Data;
 namespace TrailGuard.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260617215614_AddIsActiveToAssessment")]
-    partial class AddIsActiveToAssessment
+    [Migration("20260619143630_FixTrailSchema")]
+    partial class FixTrailSchema
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -429,6 +429,9 @@ namespace TrailGuard.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<string>("DifficultyExperience")
+                        .HasColumnType("longtext");
+
                     b.Property<int>("EventId")
                         .HasColumnType("int");
 
@@ -509,6 +512,39 @@ namespace TrailGuard.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("EventRegistrations");
+                });
+
+            modelBuilder.Entity("TrailGuard.Models.PostEventAssessment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DifficultyExperience")
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("EventId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("PostEventAssessments");
                 });
 
             modelBuilder.Entity("TrailGuard.Models.Trail", b =>
@@ -711,6 +747,25 @@ namespace TrailGuard.Migrations
                     b.Navigation("AlternativeEvent");
 
                     b.Navigation("Assessment");
+
+                    b.Navigation("Event");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("TrailGuard.Models.PostEventAssessment", b =>
+                {
+                    b.HasOne("TrailGuard.Models.Event", "Event")
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TrailGuard.Models.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Event");
 
