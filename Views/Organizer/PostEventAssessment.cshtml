@@ -1,0 +1,454 @@
+@model TrailGuard.Models.Event
+@{
+    ViewData["Title"] = "Post-Event Assessment";
+    var registrations = ViewBag.Registrations as List<TrailGuard.Models.EventRegistration>;
+    var existingAssessments = ViewBag.ExistingAssessments as Dictionary<string, TrailGuard.Models.PostEventAssessment>;
+}
+
+<div class="pt-24 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
+    
+    <div class="mb-6">
+        <a asp-controller="Event" asp-action="Details" asp-route-id="@Model?.Id" class="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors group">
+            <i class="fa-solid fa-arrow-left group-hover:-translate-x-1 transition-transform"></i>
+            Back to Event Details
+        </a>
+    </div>
+
+    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8">
+        <div class="flex items-center gap-4 mb-6">
+            <div class="w-14 h-14 rounded-full bg-linear-to-r from-blue-500 to-cyan-500 flex items-center justify-center">
+                <i class="fa-solid fa-clipboard-check text-white text-2xl"></i>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-white">Post-Event Assessment</h1>
+                <p class="text-gray-400 text-sm">Assess each participant's performance for @Model?.EventTitle</p>
+            </div>
+        </div>
+
+        <div class="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 mb-6">
+            <p class="text-blue-300 text-sm">
+                <i class="fa-solid fa-info-circle mr-2"></i>
+                <span class="font-semibold">Event:</span> @Model?.EventTitle
+            </p>
+            <div class="flex flex-wrap gap-4 text-blue-300/70 text-sm mt-1">
+                <span><i class="fa-regular fa-calendar mr-2"></i>@Model?.EventDate.ToString("MMMM dd, yyyy")</span>
+                <span><i class="fa-regular fa-clock mr-2"></i>@Model?.FormattedEventTime</span>
+                <span><i class="fa-solid fa-users mr-2"></i>@(registrations?.Count ?? 0) participants</span>
+            </div>
+        </div>
+
+        @if (registrations != null && registrations.Any())
+        {
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <div class="lg:col-span-2">
+                    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden h-150 flex flex-col">
+                        <div class="px-4 py-3 border-b border-white/10 shrink-0">
+                            <h2 class="text-sm font-semibold text-white">Participants</h2>
+                        </div>
+                        <div class="flex-1 overflow-y-auto custom-scrollbar">
+                            @foreach (var reg in registrations)
+                            {
+                                var assessment = existingAssessments != null && existingAssessments.ContainsKey(reg.UserId) 
+                                    ? existingAssessments[reg.UserId] 
+                                    : null;
+                                
+                                var user = reg.User;
+                                var fullName = user != null ? $"{user.FirstName} {user.LastName}" : reg.ParticipantName;
+                                
+                                var preHikeResult = reg.Assessment?.Result ?? "Not Assessed";
+                                var outcome = assessment?.DifficultyExperience ?? "Not Assessed";
+                                
+                                var resultColor = preHikeResult == "Good-Match" ? "text-green-400" : 
+                                                  preHikeResult == "Borderline" ? "text-yellow-400" : 
+                                                  preHikeResult == "Not Recommended" ? "text-red-400" : "text-gray-400";
+                                
+                                var outcomeColor = outcome == "Much easier than expected" || outcome == "Matched perfectly" ? "text-green-400" :
+                                                   outcome == "Matched but challenging" || outcome == "Harder than expected" ? "text-yellow-400" :
+                                                   outcome == "Much harder" || outcome == "Could not finish - turned back" || outcome == "Could not finish - injured" ? "text-red-400" :
+                                                   "text-gray-400";
+
+                                <div class="participant-item flex items-center justify-between p-4 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer" 
+                                     onclick="selectParticipant('@reg.UserId')" data-user-id="@reg.UserId" data-registration-id="@reg.Id">
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-8 h-8 rounded-full overflow-hidden shrink-0 bg-gray-700">
+                                                @if (!string.IsNullOrEmpty(user?.ProfilePictureUrl))
+                                                {
+                                                    <img src="@user.ProfilePictureUrl" alt="@fullName" class="w-full h-full object-cover" />
+                                                }
+                                                else
+                                                {
+                                                    <div class="w-full h-full flex items-center justify-center text-white text-xs font-bold bg-linear-to-r from-blue-500 to-cyan-500">
+                                                        @(string.IsNullOrEmpty(fullName) ? "?" : fullName.First().ToString().ToUpper())
+                                                    </div>
+                                                }
+                                            </div>
+                                            <div>
+                                                <p class="text-white font-medium text-sm truncate">@fullName</p>
+                                                <p class="text-gray-400 text-xs truncate">@user?.Email</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-3 ml-4 shrink-0">
+                                        <span class="px-2 py-1 rounded-full text-xs font-semibold @resultColor bg-white/5 whitespace-nowrap">
+                                            @preHikeResult
+                                        </span>
+                                        <span class="px-2 py-1 rounded-full text-xs font-semibold @outcomeColor bg-white/5 whitespace-nowrap">
+                                            @outcome
+                                        </span>
+                                        <i class="fa-solid fa-chevron-right text-gray-500 text-xs"></i>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-1">
+                    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 h-150 overflow-y-auto custom-scrollbar flex flex-col">
+                        <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2 shrink-0">
+                            <i class="fa-regular fa-pen-to-square text-blue-400"></i>
+                            Assessment Details
+                        </h2>
+                        
+                        <div id="assessmentDetails" class="flex-1">
+                            <div class="text-center text-gray-500 py-8">
+                                <i class="fa-regular fa-hand-pointer text-3xl block mb-3 opacity-50"></i>
+                                <p class="text-sm">Select a participant</p>
+                                <p class="text-xs text-gray-600">to assess their performance</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="text-center py-12 text-gray-500">
+                <i class="fa-regular fa-users-slash text-3xl block mb-3 opacity-50"></i>
+                <p class="text-sm">No participants found for this event.</p>
+            </div>
+        }
+    </div>
+</div>
+
+<script id="loadingTemplate" type="text/template">
+    <div class="text-center py-8">
+        <div class="inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <p class="text-gray-400 text-sm mt-3">Loading...</p>
+    </div>
+</script>
+
+<script id="assessmentTemplate" type="text/template">
+    <div class="space-y-4">
+        <div class="flex items-center gap-3 pb-3 border-b border-white/10">
+            <div class="w-10 h-10 rounded-full overflow-hidden shrink-0 bg-gray-700">
+                {profilePhoto}
+            </div>
+            <div>
+                <p class="text-white font-medium text-sm">{fullName}</p>
+                <p class="text-gray-400 text-xs">{email}</p>
+                <p class="text-gray-500 text-xs mt-1">
+                    Pre-Hike: <span class="text-white font-medium">{preHike}</span>
+                </p>
+            </div>
+        </div>
+
+        <div>
+            <label class="block text-xs font-medium text-gray-400 mb-2">Hike Outcome <span class="text-red-400">*</span></label>
+            <div class="space-y-1.5">
+                <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-blue-500 transition-all has-checked:border-blue-500 has-checked:bg-blue-500/10">
+                    <input type="radio" name="outcome" value="Much easier than expected" class="w-4 h-4 accent-blue-500" />
+                    <span class="text-gray-300 text-sm">Much easier than expected — Over-prepared</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-blue-500 transition-all has-checked:border-blue-500 has-checked:bg-blue-500/10">
+                    <input type="radio" name="outcome" value="Matched perfectly" class="w-4 h-4 accent-blue-500" />
+                    <span class="text-gray-300 text-sm">Matched perfectly — Finished comfortably</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-blue-500 transition-all has-checked:border-blue-500 has-checked:bg-blue-500/10">
+                    <input type="radio" name="outcome" value="Matched but challenging" class="w-4 h-4 accent-blue-500" />
+                    <span class="text-gray-300 text-sm">Matched — Finished but challenging</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-blue-500 transition-all has-checked:border-blue-500 has-checked:bg-blue-500/10">
+                    <input type="radio" name="outcome" value="Harder than expected" class="w-4 h-4 accent-blue-500" />
+                    <span class="text-gray-300 text-sm">Harder than expected — Finished but struggled</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-blue-500 transition-all has-checked:border-blue-500 has-checked:bg-blue-500/10">
+                    <input type="radio" name="outcome" value="Much harder" class="w-4 h-4 accent-blue-500" />
+                    <span class="text-gray-300 text-sm">Much harder — Needed assistance</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-blue-500 transition-all has-checked:border-blue-500 has-checked:bg-blue-500/10">
+                    <input type="radio" name="outcome" value="Could not finish - turned back" class="w-4 h-4 accent-blue-500" />
+                    <span class="text-gray-300 text-sm">Could not finish — Turned back early</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-blue-500 transition-all has-checked:border-blue-500 has-checked:bg-blue-500/10">
+                    <input type="radio" name="outcome" value="Could not finish - injured" class="w-4 h-4 accent-blue-500" />
+                    <span class="text-gray-300 text-sm">Could not finish — Injured or unsafe</span>
+                </label>
+            </div>
+        </div>
+
+        <div>
+            <label class="block text-xs font-medium text-gray-400 mb-1">Notes <span class="text-gray-500">(Optional)</span></label>
+            <textarea id="assessmentNotes" rows="2" class="w-full bg-[#0B1325] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none transition-colors resize-none" placeholder="Add notes..."></textarea>
+        </div>
+
+        <div class="flex gap-2 pt-2">
+            <button onclick="saveSelectedAssessment()" class="flex-1 px-4 py-2 rounded-xl text-white text-sm font-medium bg-blue-500 hover:bg-blue-600 transition-colors">
+                <i class="fa-regular fa-floppy-disk mr-1"></i> Save
+            </button>
+        </div>
+
+        <div id="saveStatus" class="text-xs text-gray-500 text-center hidden"></div>
+    </div>
+</script>
+
+<script>
+    // ============================================
+    // FINAL WORKING VERSION - POST EVENT ASSESSMENT
+    // ============================================
+    
+    var currentRegistrationId = null;
+    var currentUserId = null;
+
+    // I-save ang data mula sa server
+    var registrations = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(registrations));
+    var existingAssessments = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(existingAssessments));
+    
+    console.log('=== POST-EVENT ASSESSMENT LOADED ===');
+    console.log('Registrations count:', registrations ? registrations.length : 0);
+    if (registrations && registrations.length > 0) {
+        console.log('First registration:', registrations[0]);
+        console.log('Registration fields:', Object.keys(registrations[0]));
+    }
+
+    function selectParticipant(userId) {
+        console.log('=== selectParticipant called ===');
+        console.log('Looking for userId:', userId);
+        
+        // Hanapin ang registration gamit ang UserId (case-insensitive)
+        var reg = registrations.find(function(r) { 
+            var rUserId = (r.UserId || '').toLowerCase().trim();
+            var searchUserId = (userId || '').toLowerCase().trim();
+            return rUserId === searchUserId;
+        });
+        
+        console.log('Found registration:', reg);
+        
+        if (!reg) {
+            console.error('Registration not found for userId:', userId);
+            var detailsContainer = document.getElementById('assessmentDetails');
+            detailsContainer.innerHTML = '<div class="text-center py-8 text-red-400"><i class="fa-solid fa-circle-exclamation text-2xl block mb-2"></i><p class="text-sm">Participant not found</p><p class="text-xs text-gray-500 mt-2">UserId: ' + userId + '</p></div>';
+            return;
+        }
+
+        currentRegistrationId = reg.Id;
+        currentUserId = reg.UserId;
+        console.log('Current Registration ID:', currentRegistrationId);
+        console.log('Current User ID:', currentUserId);
+        
+        // I-highlight ang selected
+        document.querySelectorAll('.participant-item').forEach(function(el) {
+            el.classList.remove('bg-white/10', 'border-l-2', 'border-l-blue-500');
+        });
+        
+        var selectedItem = document.querySelector('.participant-item[data-user-id="' + userId + '"]');
+        if (selectedItem) {
+            selectedItem.classList.add('bg-white/10', 'border-l-2', 'border-l-blue-500');
+        }
+
+        var detailsContainer = document.getElementById('assessmentDetails');
+        detailsContainer.innerHTML = document.getElementById('loadingTemplate').innerHTML;
+
+        // I-build ang assessment details gamit ang registration
+        var fullName = reg.User ? reg.User.FirstName + ' ' + reg.User.LastName : reg.ParticipantName;
+        var initial = fullName ? fullName.charAt(0).toUpperCase() : '?';
+        var email = reg.User ? reg.User.Email : '';
+        var preHike = reg.Assessment ? reg.Assessment.Result : 'Not Assessed';
+        
+        var profilePhoto = reg.User && reg.User.ProfilePictureUrl ? reg.User.ProfilePictureUrl : null;
+        
+        var profilePhotoHtml = '';
+        if (profilePhoto) {
+            profilePhotoHtml = '<img src="' + profilePhoto + '" alt="' + fullName + '" class="w-full h-full object-cover" />';
+        } else {
+            profilePhotoHtml = '<div class="w-full h-full flex items-center justify-center text-white text-sm font-bold bg-gradient-to-r from-blue-500 to-cyan-500">' + initial + '</div>';
+        }
+        
+        // Hanapin ang assessment gamit ang UserId (case-insensitive)
+        var assessment = null;
+        if (existingAssessments) {
+            var keys = Object.keys(existingAssessments);
+            for (var i = 0; i < keys.length; i++) {
+                if (keys[i].toLowerCase().trim() === userId.toLowerCase().trim()) {
+                    assessment = existingAssessments[keys[i]];
+                    break;
+                }
+            }
+        }
+        
+        var selectedValue = assessment ? assessment.DifficultyExperience : '';
+        var notes = assessment && assessment.Notes ? assessment.Notes : '';
+
+        var template = document.getElementById('assessmentTemplate').innerHTML
+            .replace(/{profilePhoto}/g, profilePhotoHtml)
+            .replace(/{fullName}/g, fullName)
+            .replace(/{email}/g, email || 'N/A')
+            .replace(/{preHike}/g, preHike);
+
+        detailsContainer.innerHTML = template;
+
+        if (selectedValue) {
+            var radio = document.querySelector('input[name="outcome"][value="' + selectedValue + '"]');
+            if (radio) radio.checked = true;
+        }
+
+        if (notes) {
+            var notesField = document.getElementById('assessmentNotes');
+            if (notesField) notesField.value = notes;
+        }
+
+        var statusSpan = document.getElementById('saveStatus');
+        if (statusSpan) {
+            if (assessment) {
+                statusSpan.textContent = '✅ Last saved';
+                statusSpan.className = 'text-xs text-green-400 text-center block';
+            } else {
+                statusSpan.className = 'text-xs text-gray-500 text-center hidden';
+            }
+        }
+    }
+
+    function saveSelectedAssessment() {
+        console.log('=== saveSelectedAssessment called ===');
+        console.log('Current Registration ID:', currentRegistrationId);
+        
+        if (!currentRegistrationId) {
+            showToast('Please select a participant first.', 'error');
+            return;
+        }
+
+        var selected = document.querySelector('input[name="outcome"]:checked');
+        if (!selected) {
+            showToast('Please select a hike outcome.', 'error');
+            return;
+        }
+
+        var difficultyExperience = selected.value;
+        var notes = document.getElementById('assessmentNotes')?.value || '';
+        var eventId = @(Model?.Id ?? 0);
+        var statusSpan = document.getElementById('saveStatus');
+
+        console.log('Saving assessment:', {
+            eventId: eventId,
+            registrationId: currentRegistrationId,
+            difficultyExperience: difficultyExperience,
+            notes: notes
+        });
+
+        if (statusSpan) {
+            statusSpan.textContent = 'Saving...';
+            statusSpan.className = 'text-xs text-yellow-400 text-center block';
+        }
+
+        fetch('/Organizer/SubmitPostEventAssessment', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                eventId: eventId,
+                registrationId: currentRegistrationId,
+                difficultyExperience: difficultyExperience,
+                notes: notes
+            })
+        })
+        .then(function(response) {
+            console.log('Response status:', response.status);
+            return response.json();
+        })
+        .then(function(data) {
+            console.log('Response data:', data);
+            if (data.success) {
+                if (statusSpan) {
+                    statusSpan.textContent = '✅ Saved successfully!';
+                    statusSpan.className = 'text-xs text-green-400 text-center block';
+                }
+                showToast(data.message, 'success');
+                setTimeout(function() {
+                    location.reload();
+                }, 1000);
+            } else {
+                if (statusSpan) {
+                    statusSpan.textContent = '❌ ' + data.message;
+                    statusSpan.className = 'text-xs text-red-400 text-center block';
+                }
+                showToast(data.message, 'error');
+            }
+        })
+        .catch(function(error) {
+            console.error('Error:', error);
+            if (statusSpan) {
+                statusSpan.textContent = '❌ Error saving';
+                statusSpan.className = 'text-xs text-red-400 text-center block';
+            }
+            showToast('Error saving assessment: ' + error.message, 'error');
+        });
+    }
+
+    function showToast(message, type) {
+        var existingToast = document.querySelector('.toast-message');
+        if (existingToast) existingToast.remove();
+        
+        var toast = document.createElement('div');
+        toast.className = 'toast-message fixed top-24 right-4 z-50 ' + (type === 'success' ? 'bg-green-500/90' : 'bg-red-500/90') + ' text-white px-6 py-3 rounded-xl shadow-lg backdrop-blur-sm flex items-center gap-3';
+        toast.innerHTML = '<i class="fa-solid ' + (type === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle') + '"></i><span>' + message + '</span><button onclick="this.parentElement.remove()" class="hover:text-gray-200 transition-colors"><i class="fa-solid fa-xmark text-lg"></i></button>';
+        document.body.appendChild(toast);
+        
+        setTimeout(function() {
+            if (toast) toast.remove();
+        }, 3000);
+    }
+
+    // Auto-select first participant on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM loaded, selecting first participant...');
+        var firstItem = document.querySelector('.participant-item');
+        if (firstItem) {
+            var userId = firstItem.getAttribute('data-user-id');
+            var registrationId = firstItem.getAttribute('data-registration-id');
+            console.log('First participant - UserId:', userId, 'RegistrationId:', registrationId);
+            selectParticipant(userId);
+        } else {
+            console.log('No participant items found');
+        }
+    });
+</script>
+
+<style>
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 5px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 10px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(59, 130, 246, 0.4);
+        border-radius: 10px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(59, 130, 246, 0.6);
+    }
+    
+    .custom-scrollbar {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(59, 130, 246, 0.4) rgba(255, 255, 255, 0.05);
+    }
+    
+    .participant-item.active {
+        background: rgba(59, 130, 246, 0.1);
+        border-left: 3px solid #3b82f6;
+    }
+</style>

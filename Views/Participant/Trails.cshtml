@@ -1,0 +1,445 @@
+@model IEnumerable<TrailGuard.Models.Trail>
+@{
+    ViewData["Title"] = "Browse Trails";
+}
+
+@if (TempData["Success"] != null)
+{
+    <div id="successMessage" class="fixed top-24 right-4 z-50 bg-green-500/90 text-white px-6 py-3 rounded-xl shadow-lg backdrop-blur-sm flex items-center gap-3">
+        <i class="fa-solid fa-check-circle"></i>
+        <span>@TempData["Success"]</span>
+        <button type="button" onclick="this.parentElement.remove()" class="hover:text-gray-200 transition-colors">
+            <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+    </div>
+}
+
+@if (TempData["Error"] != null)
+{
+    <div id="errorMessage" class="fixed top-24 right-4 z-50 bg-red-500/90 text-white px-6 py-3 rounded-xl shadow-lg backdrop-blur-sm flex items-center gap-3">
+        <i class="fa-solid fa-exclamation-triangle"></i>
+        <span>@TempData["Error"]</span>
+        <button type="button" onclick="this.parentElement.remove()" class="hover:text-gray-200 transition-colors">
+            <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+    </div>
+}
+
+@section PageHero {
+    <div class="pt-24 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-linear-to-r from-purple-400 to-pink-400">Browse Trails</h1>
+                <p class="text-gray-400 mt-1 text-sm">Discover trails that match your adventure level and explore hiking destinations.</p>
+            </div>
+            
+            <div class="flex flex-wrap items-center gap-4">
+                <div class="bg-white/5 border border-white/10 px-4 py-2.5 rounded-full flex items-center gap-2 backdrop-blur-sm shadow-lg">
+                    <i class="fa-solid fa-mountain text-gray-400"></i>
+                    <span class="text-sm font-medium text-gray-300">Total Trails: <strong class="text-white">@Model.Count()</strong></span>
+                </div>
+            </div>
+        </div>
+
+        <form method="get" asp-action="Trails" id="filterForm">
+            <div class="flex flex-col lg:flex-row gap-4 mb-8 bg-white/5 backdrop-blur-xl p-5 rounded-3xl border border-white/10 shadow-2xl">
+                
+                <div class="relative grow">
+                    <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    <input type="text" name="searchString" id="searchInput" value="@ViewData["CurrentFilter"]" placeholder="Search trails by name or location..." 
+                        class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-11 pr-4 py-3 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none transition-colors placeholder-gray-500">
+                </div>
+
+                <div class="flex flex-wrap sm:flex-nowrap gap-3">
+                    <div class="relative inline-block">
+                        <select id="sortOrder" name="sortOrder" class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-purple-500 focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors w-full">
+                            <option value="newest" selected="@(ViewData["CurrentSort"]?.ToString() == "newest")" class="bg-[#0b1329] text-white py-2">Sort by: Newest</option>
+                            <option value="oldest" selected="@(ViewData["CurrentSort"]?.ToString() == "oldest")" class="bg-[#0b1329] text-white py-2">Sort by: Oldest</option>
+                            <option value="name_asc" selected="@(ViewData["CurrentSort"]?.ToString() == "name_asc")" class="bg-[#0b1329] text-white py-2">Name (A-Z)</option>
+                            <option value="name_desc" selected="@(ViewData["CurrentSort"]?.ToString() == "name_desc")" class="bg-[#0b1329] text-white py-2">Name (Z-A)</option>
+                            <option value="distance_asc" selected="@(ViewData["CurrentSort"]?.ToString() == "distance_asc")" class="bg-[#0b1329] text-white py-2">Distance (Low to High)</option>
+                            <option value="distance_desc" selected="@(ViewData["CurrentSort"]?.ToString() == "distance_desc")" class="bg-[#0b1329] text-white py-2">Distance (High to Low)</option>
+                            <option value="elevation_asc" selected="@(ViewData["CurrentSort"]?.ToString() == "elevation_asc")" class="bg-[#0b1329] text-white py-2">Elevation (Low to High)</option>
+                            <option value="elevation_desc" selected="@(ViewData["CurrentSort"]?.ToString() == "elevation_desc")" class="bg-[#0b1329] text-white py-2">Elevation (High to Low)</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
+                            <i class="fa-solid fa-chevron-down text-xs"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            @if (!Model.Any())
+            {
+                <div class="col-span-full text-center py-20 bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl">
+                    <i class="fa-solid fa-mountain text-5xl text-gray-500 mb-4"></i>
+                    <h3 class="text-xl font-bold text-gray-300">No trails found</h3>
+                    <p class="text-gray-500 mt-2">Try searching a different name or clearing the filters.</p>
+                </div>
+            }
+            else
+            {
+                @foreach (var trail in Model)
+                {
+                    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden shadow-2xl hover:bg-white/10 transition-all duration-300 group flex flex-col" data-date-added="@trail.DateAdded.ToString("yyyy-MM-dd")">
+                        <div class="relative h-48 overflow-hidden bg-gray-900">
+                            @if (!string.IsNullOrEmpty(trail.ThumbnailUrl))
+                            {
+                                <img src="@trail.ThumbnailUrl" alt="@trail.Name" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
+                            }
+                            else
+                            {
+                                <div class="w-full h-full flex items-center justify-center">
+                                    <i class="fa-solid fa-image text-4xl text-gray-600"></i>
+                                </div>
+                            }
+                            <div class="absolute inset-0 bg-linear-to-t from-[#0B1325] to-transparent opacity-90"></div>
+                        </div>
+                        
+                        <div class="p-6 flex flex-col grow relative z-10 -mt-10">
+                            <h3 class="text-xl font-bold text-white mb-1">@trail.Name</h3>
+                            <p class="text-gray-400 text-sm mb-5 flex items-center gap-1.5"><i class="fa-solid fa-location-dot text-red-400"></i> @trail.Location</p>
+                            
+                            <div class="grid grid-cols-3 gap-4 mb-6">
+                                <div>
+                                    <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Distance</p>
+                                    <p class="text-gray-200 text-sm font-medium flex items-center gap-2"><i class="fa-solid fa-route text-gray-400"></i> @trail.DistanceKm km</p>
+                                </div>
+                                <div>
+                                    <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Elev. Gain</p>
+                                    <p class="text-gray-200 text-sm font-medium flex items-center gap-2"><i class="fa-solid fa-arrow-trend-up text-gray-400"></i> @trail.ElevationGainMeters m</p>
+                                </div>
+                                <div>
+                                    <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Terrain</p>
+                                    <p class="text-gray-200 text-sm font-medium flex items-center gap-2 truncate" title="@trail.Terrain"><i class="fa-solid fa-tree text-emerald-400"></i> @trail.Terrain</p>
+                                </div>
+                            </div>
+
+                            <button type="button" onclick="openViewModal(this)"
+                                    data-id="@trail.Id"
+                                    data-name="@trail.Name"
+                                    data-location="@trail.Location"
+                                    data-distance="@trail.DistanceKm"
+                                    data-elevation="@trail.ElevationGainMeters"
+                                    data-terrain="@trail.Terrain"
+                                    data-description="@trail.Description"
+                                    data-image="@(string.IsNullOrEmpty(trail.ThumbnailUrl) ? "" : trail.ThumbnailUrl)"
+                                    data-date-added="@trail.DateAdded.ToString("MMM dd, yyyy")"
+                                    class="w-full bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
+                                <i class="fa-regular fa-eye"></i> View Trail Details
+                            </button>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+}
+
+@section Modals {
+    <div id="viewTrailModal" class="fixed inset-0 z-100 modal-hidden" style="padding-top: 30px;">
+        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="closeViewModal()"></div>
+        <div class="relative bg-[#0B1325] border border-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col mx-auto my-auto" style="z-index: 10;">
+            
+            <div class="flex justify-between items-center px-6 py-4 border-b border-gray-800 shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-linear-to-r from-purple-500 to-pink-500 flex items-center justify-center">
+                        <i class="fa-solid fa-mountain text-white text-sm"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-white">Trail Details</h2>
+                </div>
+                <button onclick="closeViewModal()" class="text-gray-400 hover:text-white transition-colors">
+                    <i class="fa-solid fa-xmark text-2xl"></i>
+                </button>
+            </div>
+
+            <div class="overflow-y-auto p-6 custom-scrollbar">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="relative">
+                        <img id="viewImage" src="" alt="Trail" class="w-full h-64 object-cover rounded-xl border border-gray-700">
+                    </div>
+                    
+                    <div>
+                        <h3 id="viewName" class="text-2xl font-bold text-white mb-1"></h3>
+                        <p class="text-gray-400 text-sm mb-4 flex items-center gap-2">
+                            <i class="fa-solid fa-location-dot text-red-400"></i>
+                            <span id="viewLocation"></span>
+                        </p>
+                        
+                        <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div class="bg-[#111A2E] rounded-lg p-3 border border-gray-700">
+                                <p class="text-gray-500 text-xs uppercase tracking-wider flex items-center gap-1"><i class="fa-solid fa-route"></i> Distance</p>
+                                <p class="text-white font-semibold text-lg"><span id="viewDistance"></span> <span class="text-xs text-gray-400">km</span></p>
+                            </div>
+                            <div class="bg-[#111A2E] rounded-lg p-3 border border-gray-700">
+                                <p class="text-gray-500 text-xs uppercase tracking-wider flex items-center gap-1"><i class="fa-solid fa-arrow-trend-up"></i> Elevation</p>
+                                <p class="text-white font-semibold text-lg"><span id="viewElevation"></span> <span class="text-xs text-gray-400">m</span></p>
+                            </div>
+                            <div class="bg-[#111A2E] rounded-lg p-3 border border-gray-700">
+                                <p class="text-gray-500 text-xs uppercase tracking-wider flex items-center gap-1"><i class="fa-solid fa-tree"></i> Terrain</p>
+                                <p class="text-white font-semibold text-lg"><span id="viewTerrainType"></span></p>
+                            </div>
+                            <div class="bg-[#111A2E] rounded-lg p-3 border border-gray-700">
+                                <p class="text-gray-500 text-xs uppercase tracking-wider flex items-center gap-1"><i class="fa-regular fa-calendar"></i> Date Added</p>
+                                <p class="text-white font-semibold text-sm"><span id="viewDateAdded"></span></p>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-[#111A2E] rounded-xl p-4 border border-gray-700">
+                            <p class="text-gray-500 text-xs uppercase tracking-wider mb-2 flex items-center gap-1"><i class="fa-solid fa-file-lines"></i> Description</p>
+                            <p id="viewDescriptionText" class="text-gray-300 text-sm leading-relaxed"></p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-6">
+                    <p class="text-gray-500 text-xs uppercase tracking-wider mb-3 flex items-center gap-2"><i class="fa-regular fa-calendar"></i> Events on this Trail</p>
+                    <div id="viewTrailEvents" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div class="col-span-full text-center text-gray-500 text-sm py-4">Loading events...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="px-6 py-4 border-t border-gray-800 shrink-0 flex justify-end gap-3">
+                <button onclick="closeViewModal()" class="px-5 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white bg-gray-800 hover:bg-gray-700 transition-colors">
+                    Close
+                </button>
+                <a asp-controller="Participant" asp-action="Events" 
+                   class="px-5 py-2 rounded-lg text-sm font-medium text-white bg-linear-to-r from-purple-500 to-pink-500 hover:opacity-90 transition-all flex items-center gap-2">
+                    <i class="fa-regular fa-calendar"></i> Browse All Events
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+        
+        .modal-hidden {
+            display: none !important;
+        }
+        
+        .modal-visible {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+
+        #viewTrailModal.modal-visible {
+            padding: 1rem;
+            padding-top: 80px;
+        }
+        
+        .modal-visible .relative {
+            margin: auto;
+            max-height: 85vh;
+        }
+        
+        @@keyframes fadeOut {
+            from { opacity: 1; transform: scale(1); }
+            to { opacity: 0; transform: scale(0.95); }
+        }
+    </style>
+
+    <script>
+        setTimeout(function() {
+            const successMsg = document.getElementById('successMessage');
+            const errorMsg = document.getElementById('errorMessage');
+            if (successMsg) successMsg.remove();
+            if (errorMsg) errorMsg.remove();
+        }, 3000);
+
+        let currentTrailId = null;
+
+        function openViewModal(button) {
+            currentTrailId = button.getAttribute('data-id');
+            
+            const name = button.getAttribute('data-name');
+            const location = button.getAttribute('data-location');
+            const distance = button.getAttribute('data-distance');
+            const elevation = button.getAttribute('data-elevation');
+            const terrain = button.getAttribute('data-terrain');
+            const description = button.getAttribute('data-description');
+            const image = button.getAttribute('data-image');
+            const dateAdded = button.getAttribute('data-date-added') || 'N/A';
+
+            document.getElementById('viewName').textContent = name;
+            document.getElementById('viewLocation').textContent = location;
+            document.getElementById('viewDistance').textContent = distance;
+            document.getElementById('viewElevation').textContent = elevation;
+            document.getElementById('viewTerrainType').textContent = terrain;
+            document.getElementById('viewDescriptionText').textContent = description || 'No description provided.';
+            document.getElementById('viewDateAdded').textContent = dateAdded;
+
+            const heroImg = document.getElementById('viewImage');
+            const fallbackImg = 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1000&q=80';
+            heroImg.src = image ? image : fallbackImg;
+
+            const modal = document.getElementById('viewTrailModal');
+            const eventsContainer = document.getElementById('viewTrailEvents');
+            eventsContainer.innerHTML = '<div class="col-span-full text-center text-gray-500 text-sm py-4">Loading events...</div>';
+            
+            modal.classList.remove('modal-hidden');
+            modal.classList.add('modal-visible');
+            document.body.style.overflow = 'hidden';
+
+            fetch(`/Participant/GetTrailEvents?trailId=${currentTrailId}`)
+                .then(response => response.json())
+                .then(data => {
+                    eventsContainer.innerHTML = '';
+                    
+                    if (data && data.length > 0) {
+                        data.forEach(ev => {
+                            const div = document.createElement('div');
+                            div.className = 'bg-[#111A2E] rounded-xl p-3 border border-gray-700 hover:border-purple-500/50 transition-colors';
+                            div.innerHTML = `
+                                <p class="text-white font-medium text-sm">${ev.eventTitle}</p>
+                                <div class="flex flex-wrap gap-2 text-xs text-gray-400 mt-1">
+                                    <span><i class="fa-regular fa-calendar mr-1"></i>${ev.eventDate}</span>
+                                    <span><i class="fa-regular fa-clock mr-1"></i>${ev.eventTime}</span>
+                                    <span class="px-2 py-0.5 rounded-full ${ev.difficulty === 'Easy' ? 'bg-green-500/20 text-green-300' : ev.difficulty === 'Moderate' ? 'bg-yellow-500/20 text-yellow-300' : 'bg-red-500/20 text-red-300'}">${ev.difficulty}</span>
+                                </div>
+                                <a href="/Participant/Details/${ev.id}" class="mt-2 inline-block text-xs text-purple-400 hover:text-purple-300 transition-colors">
+                                    View Event →
+                                </a>
+                            `;
+                            eventsContainer.appendChild(div);
+                        });
+                    } else {
+                        eventsContainer.innerHTML = `
+                            <div class="col-span-full text-center text-gray-500 text-sm py-6">
+                                <i class="fa-regular fa-calendar-plus text-2xl block mb-2 opacity-50"></i>
+                                No upcoming events on this trail yet.
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    eventsContainer.innerHTML = '<div class="col-span-full text-center text-red-500 text-sm py-4">Error loading events</div>';
+                });
+        }
+
+        function closeViewModal() {
+            const modal = document.getElementById('viewTrailModal');
+            modal.classList.remove('modal-visible');
+            modal.classList.add('modal-hidden');
+            document.body.style.overflow = 'auto';
+        }
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') { 
+                closeViewModal();
+            }
+        });
+
+        const searchInput = document.getElementById('searchInput');
+        const sortSelect = document.getElementById('sortOrder');
+        let trailCards = [];
+
+        function refreshTrailCards() {
+            trailCards = Array.from(document.querySelectorAll('.grid > div[class*="bg-white/5"]'));
+        }
+
+        function filterTrails() {
+            refreshTrailCards();
+            const searchTerm = searchInput.value.toLowerCase();
+            const sortValue = sortSelect.value;
+            
+            let filteredTrails = trailCards.filter((card, index) => {
+                const name = card.querySelector('h3')?.textContent.toLowerCase() || '';
+                const location = card.querySelector('.text-gray-400.text-sm')?.textContent.toLowerCase() || '';
+                const matches = name.includes(searchTerm) || location.includes(searchTerm);
+                if (!matches) {
+                    card.style.display = 'none';
+                }
+                return matches;
+            });
+
+            trailCards.forEach((card, idx) => {
+                card.style.display = 'none';
+            });
+
+            filteredTrails.sort((a, b) => {
+                if (sortValue === 'newest') {
+                    const dateA = a.getAttribute('data-date-added') || '';
+                    const dateB = b.getAttribute('data-date-added') || '';
+                    return new Date(dateB) - new Date(dateA);
+                } else if (sortValue === 'oldest') {
+                    const dateA = a.getAttribute('data-date-added') || '';
+                    const dateB = b.getAttribute('data-date-added') || '';
+                    return new Date(dateA) - new Date(dateB);
+                } else if (sortValue === 'name_asc') {
+                    const nameA = a.querySelector('h3')?.textContent || '';
+                    const nameB = b.querySelector('h3')?.textContent || '';
+                    return nameA.localeCompare(nameB);
+                } else if (sortValue === 'name_desc') {
+                    const nameA = a.querySelector('h3')?.textContent || '';
+                    const nameB = b.querySelector('h3')?.textContent || '';
+                    return nameB.localeCompare(nameA);
+                } else if (sortValue === 'distance_asc') {
+                    const distA = parseFloat(a.querySelector('.grid-cols-3 > div:first-child p:last-child')?.textContent) || 0;
+                    const distB = parseFloat(b.querySelector('.grid-cols-3 > div:first-child p:last-child')?.textContent) || 0;
+                    return distA - distB;
+                } else if (sortValue === 'distance_desc') {
+                    const distA = parseFloat(a.querySelector('.grid-cols-3 > div:first-child p:last-child')?.textContent) || 0;
+                    const distB = parseFloat(b.querySelector('.grid-cols-3 > div:first-child p:last-child')?.textContent) || 0;
+                    return distB - distA;
+                } else if (sortValue === 'elevation_asc') {
+                    const elevA = parseFloat(a.querySelector('.grid-cols-3 > div:nth-child(2) p:last-child')?.textContent) || 0;
+                    const elevB = parseFloat(b.querySelector('.grid-cols-3 > div:nth-child(2) p:last-child')?.textContent) || 0;
+                    return elevA - elevB;
+                } else if (sortValue === 'elevation_desc') {
+                    const elevA = parseFloat(a.querySelector('.grid-cols-3 > div:nth-child(2) p:last-child')?.textContent) || 0;
+                    const elevB = parseFloat(b.querySelector('.grid-cols-3 > div:nth-child(2) p:last-child')?.textContent) || 0;
+                    return elevB - elevA;
+                }
+                return 0;
+            });
+
+            filteredTrails.forEach(card => {
+                card.style.display = 'flex';
+            });
+
+            const totalCountSpan = document.querySelector('.bg-white\\/5.border.border-white\\/10 .text-white strong');
+            if (totalCountSpan) {
+                totalCountSpan.textContent = filteredTrails.length;
+            }
+
+            const grid = document.querySelector('.grid');
+            let noResultsDiv = document.getElementById('noResultsMessage');
+            
+            if (filteredTrails.length === 0) {
+                if (!noResultsDiv) {
+                    noResultsDiv = document.createElement('div');
+                    noResultsDiv.id = 'noResultsMessage';
+                    noResultsDiv.className = 'col-span-full text-center py-20 bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl';
+                    noResultsDiv.innerHTML = `
+                        <i class="fa-solid fa-mountain text-5xl text-gray-500 mb-4"></i>
+                        <h3 class="text-xl font-bold text-gray-300">No trails found</h3>
+                        <p class="text-gray-500 mt-2">Try searching a different name or clearing the filters.</p>
+                    `;
+                    grid.appendChild(noResultsDiv);
+                }
+            } else {
+                if (noResultsDiv) noResultsDiv.remove();
+            }
+        }
+
+        if (searchInput) {
+            searchInput.addEventListener('input', filterTrails);
+        }
+        if (sortSelect) {
+            sortSelect.addEventListener('change', filterTrails);
+        }
+
+        setTimeout(() => {
+            refreshTrailCards();
+        }, 500);
+    </script>
+}

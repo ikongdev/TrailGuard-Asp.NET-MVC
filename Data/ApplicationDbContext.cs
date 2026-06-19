@@ -17,7 +17,8 @@ namespace TrailGuard.Data
         public DbSet<Event> Events { get; set; }
         public DbSet<EventRegistration> EventRegistrations { get; set; }
         public DbSet<EventFeedback> EventFeedbacks { get; set; }
-        public DbSet<Assessment> Assessments { get; set; } // <-- Add this line if missing
+        public DbSet<Assessment> Assessments { get; set; }
+        public DbSet<PostEventAssessment> PostEventAssessments { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -30,6 +31,7 @@ namespace TrailGuard.Data
             builder.Entity<IdentityUserLogin<string>>().ToTable("UserLogins");
             builder.Entity<IdentityRoleClaim<string>>().ToTable("RoleClaims");
             builder.Entity<IdentityUserToken<string>>().ToTable("UserTokens");
+            
         }
     }
 }

@@ -53,7 +53,7 @@
                 </div>
             </div>
             <p class="text-xs text-gray-500 mt-1">All events in the system</p>
-            <a asp-controller="Organizer" asp-action="Events" 
+            <a asp-controller="Event" asp-action="Index" 
                class="text-xs text-blue-400 hover:text-blue-300 transition-colors inline-flex items-center gap-1 mt-3">
                 View all <i class="fa-solid fa-arrow-right text-[10px]"></i>
             </a>
@@ -71,7 +71,7 @@
                 </div>
             </div>
             <p class="text-xs text-gray-500 mt-1">Registrations awaiting approval</p>
-            <a asp-controller="Organizer" asp-action="Registrations" asp-route-statusFilter="Pending" 
+            <a asp-controller="Organizer" asp-action="Registrations" 
                class="text-xs text-blue-400 hover:text-blue-300 transition-colors inline-flex items-center gap-1 mt-3">
                 Review now <i class="fa-solid fa-arrow-right text-[10px]"></i>
             </a>
@@ -248,10 +248,10 @@
         new Chart(participantsCtx, {
             type: 'line',
             data: {
-                labels: trendData.map(function(t) { return t.month; }),
+                labels: trendData.map(function(t) { return t.Month; }),
                 datasets: [{
                     label: 'Accepted Registrations',
-                    data: trendData.map(function(t) { return t.count; }),
+                    data: trendData.map(function(t) { return t.Count; }),
                     borderColor: '#3b82f6',
                     backgroundColor: 'rgba(59, 130, 246, 0.1)',
                     tension: 0.3,
@@ -410,12 +410,12 @@
         console.log('📊 Total Assessments:', totalAssessments);
         
         // Kung walang data, gumamit ng placeholder
-        var hasData = suitData && suitData.length > 0 && suitData.some(function(s) { return s.count > 0; });
-        var labels = hasData ? suitData.map(function(s) { return s.result; }) : ['No Data'];
-        var data = hasData ? suitData.map(function(s) { return s.count; }) : [1];
+        var hasData = suitData && suitData.length > 0 && suitData.some(function(s) { return s.Count > 0; });
+        var labels = hasData ? suitData.map(function(s) { return s.Result; }) : ['No Data'];
+        var data = hasData ? suitData.map(function(s) { return s.Count; }) : [1];
         var colors = hasData ? suitData.map(function(s) { 
-            return s.result === 'Good-Match' ? '#10b981' : 
-                s.result === 'Borderline' ? '#f59e0b' : '#ef4444';
+            return s.Result === 'Good-Match' ? '#10b981' : 
+                s.Result === 'Borderline' ? '#f59e0b' : '#ef4444';
         }) : ['#374151'];
         
         new Chart(suitCtx, {
