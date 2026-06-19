@@ -1,0 +1,520 @@
+@model TrailGuard.Models.EventRegistration
+@{
+    ViewData["Title"] = "Registration Details";
+    
+    var statusColor = Model.Status switch
+    {
+        "Pending" => "text-yellow-400 bg-yellow-500/20",
+        "Accepted" => "text-green-400 bg-green-500/20",
+        "Rejected" => "text-red-400 bg-red-500/20",
+        "Cancelled" => "text-gray-400 bg-gray-500/20",
+        _ => "text-gray-400 bg-gray-500/20"
+    };
+    
+    var resultColor = Model.Assessment?.Result switch
+    {
+        "Good-Match" => "text-green-400",
+        "Borderline" => "text-yellow-400",
+        "Not Recommended" => "text-red-400",
+        _ => "text-gray-400"
+    };
+    
+    var firstInitial = string.IsNullOrEmpty(Model.ParticipantName) ? "?" : Model.ParticipantName.First().ToString().ToUpper();
+}
+
+<div class="pt-32 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
+    
+    <div class="mb-6">
+        <a asp-controller="Organizer" asp-action="Registrations" class="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors group">
+            <i class="fa-solid fa-arrow-left group-hover:-translate-x-1 transition-transform"></i>
+            Back to Registrations
+        </a>
+    </div>
+
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <h1 class="text-2xl font-bold text-white">Registration Details</h1>
+        <div class="flex flex-wrap items-center gap-3">
+            <div class="bg-white/5 border border-white/10 px-4 py-2 rounded-full flex items-center gap-2">
+                <i class="fa-regular fa-hashtag text-blue-400 text-xs"></i>
+                <span class="text-sm text-gray-300">#@Model.Id</span>
+            </div>
+            <div class="bg-white/5 border border-white/10 px-4 py-2 rounded-full flex items-center gap-2">
+                <i class="fa-regular fa-calendar text-blue-400 text-xs"></i>
+                <span class="text-sm text-gray-300">@Model.RegisteredAt.ToString("MMM dd, yyyy")</span>
+            </div>
+            <div class="bg-white/5 border border-white/10 px-4 py-2 rounded-full flex items-center gap-2">
+                <i class="fa-regular fa-circle-check text-blue-400 text-xs"></i>
+                <span class="px-2 py-0.5 rounded-full text-xs font-semibold @statusColor">@Model.Status</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+        
+        <!-- ROW 1, COL 1: Participant Information -->
+        <div class="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-5 h-full">
+            <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                <i class="fa-regular fa-user text-blue-400"></i>
+                Participant
+            </h2>
+            <div class="flex items-center gap-4 mb-4">
+                <div class="w-16 h-16 rounded-full bg-linear-to-r from-blue-500 to-cyan-500 flex items-center justify-center text-white text-2xl font-bold overflow-hidden shrink-0">
+                    @if (!string.IsNullOrEmpty(Model.User?.ProfilePictureUrl))
+                    {
+                        <img src="@Model.User.ProfilePictureUrl" alt="@Model.ParticipantName" class="w-full h-full object-cover" />
+                    }
+                    else
+                    {
+                        @firstInitial
+                    }
+                </div>
+                <div>
+                    <p class="text-white font-semibold text-base">@Model.ParticipantName</p>
+                    <p class="text-gray-400 text-sm">@Model.User?.Email</p>
+                </div>
+            </div>
+            <div class="space-y-3 text-sm">
+                <div>
+                    <p class="text-gray-500 text-[10px] uppercase tracking-wider">Contact Number</p>
+                    <p class="text-white font-medium">@Model.User?.PhoneNumber</p>
+                </div>
+                <div>
+                    <p class="text-gray-500 text-[10px] uppercase tracking-wider">Pickup Point</p>
+                    <p class="text-white font-medium">@Model.PickupPoint</p>
+                </div>
+                <div>
+                    <p class="text-gray-500 text-[10px] uppercase tracking-wider">Emergency Contact</p>
+                    <p class="text-white font-medium">@(string.IsNullOrEmpty(Model.EmergencyContactName) ? "N/A" : Model.EmergencyContactName)</p>
+                </div>
+                <div>
+                    <p class="text-gray-500 text-[10px] uppercase tracking-wider">Emergency Number</p>
+                    <p class="text-white font-medium">@(string.IsNullOrEmpty(Model.EmergencyContactNumber) ? "N/A" : Model.EmergencyContactNumber)</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ROW 1, COL 2: Event & Trail Details -->
+        <div class="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-5 h-full">
+            <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                <i class="fa-regular fa-calendar text-blue-400"></i>
+                Event & Trail
+            </h2>
+            <div>
+                <p class="text-gray-500 text-[10px] uppercase tracking-wider">Event</p>
+                <p class="text-white font-semibold text-base">@Model.Event?.EventTitle</p>
+                <div class="space-y-2 text-xs mt-2">
+                    <div>
+                        <p class="text-gray-500 text-[10px]">Date</p>
+                        <p class="text-white font-medium">@Model.Event?.EventDate.ToString("MMM dd, yyyy")</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500 text-[10px]">Time</p>
+                        <p class="text-white font-medium">@Model.Event?.FormattedEventTime</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500 text-[10px]">Difficulty</p>
+                        <p class="text-white font-medium">@Model.Event?.Difficulty</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500 text-[10px]">Location</p>
+                        <p class="text-white font-medium truncate" title="@Model.Event?.Location">@Model.Event?.Location</p>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-3 pt-3 border-t border-white/10">
+                <p class="text-gray-500 text-[10px] uppercase tracking-wider">Trail</p>
+                <p class="text-white font-semibold text-base">@Model.Event?.Trail?.Name</p>
+                <div class="space-y-2 text-xs mt-2">
+                    <div>
+                        <p class="text-gray-500 text-[10px]">Distance</p>
+                        <p class="text-white font-medium">@Model.Event?.Trail?.DistanceKm km</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500 text-[10px]">Elevation</p>
+                        <p class="text-white font-medium">@Model.Event?.Trail?.ElevationGainMeters m</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500 text-[10px]">Terrain</p>
+                        <p class="text-white font-medium">@Model.Event?.Trail?.Terrain</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ROW 1, COL 3: Payment -->
+        <div class="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-5 h-full overflow-visible relative">
+            <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                <i class="fa-regular fa-receipt text-blue-400"></i>
+                Payment
+            </h2>
+            <div>
+                <p class="text-gray-500 text-[10px] uppercase tracking-wider">Payment Receipt</p>
+                @if (!string.IsNullOrEmpty(Model.PaymentReceiptUrl))
+                {
+                    <div class="flex justify-center">
+                        <div class="relative cursor-pointer mt-2" id="receiptWrapper">
+                            <img src="@Model.PaymentReceiptUrl" alt="Payment Receipt" 
+                                 class="h-52 object-contain bg-[#111A2E] rounded-xl border border-gray-700"
+                                 id="receiptImage"
+                                 onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\'p-4 text-center text-gray-400\'><i class=\'fa-regular fa-file-image text-2xl block mb-2\'></i><p class=\'text-sm\'>Receipt image not available</p></div>';" />
+                            <div class="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black/50 rounded-xl" id="receiptOverlay">
+                                <span class="text-white text-xs font-medium"><i class="fa-regular fa-eye mr-2"></i> Preview</span>
+                            </div>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <p class="text-gray-500 text-sm">No receipt uploaded</p>
+                }
+            </div>
+            <div class="mt-3 pt-3 border-t border-white/10">
+                <p class="text-gray-500 text-[10px] uppercase tracking-wider">Payment Status</p>
+                <span class="@(Model.IsPaid ? "text-green-400" : "text-yellow-400") font-medium">@(Model.IsPaid ? "✅ Paid" : "⏳ Unpaid")</span>
+            </div>
+            <div class="mt-3 pt-3 border-t border-white/10">
+                <p class="text-gray-500 text-[10px] uppercase tracking-wider">Registered On</p>
+                <p class="text-white text-sm">@Model.RegisteredAt.ToString("MMM dd, yyyy hh:mm tt")</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ROW 2 -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+        
+        <!-- ROW 2, COL 1: Assessment Result with Charts -->
+        <div class="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-5 h-full">
+            <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-clipboard-check text-blue-400"></i>
+                Assessment Result
+            </h2>
+            @if (Model.Assessment != null)
+            {
+                <div class="flex items-center gap-3 mb-4">
+                    <span class="text-sm font-semibold @resultColor">@Model.Assessment.Result</span>
+                    <span class="text-gray-500 text-xs">Score: @Model.Assessment.TotalScore / 44</span>
+                </div>
+                <div class="space-y-3">
+                    <div>
+                        <div class="flex justify-between text-xs">
+                            <span class="text-gray-400">Fitness</span>
+                            <span class="text-white font-medium">@Model.Assessment.FitnessScore / 12</span>
+                        </div>
+                        <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+                            <div class="h-full rounded-full bg-blue-500" style="width: @((Model.Assessment.FitnessScore ?? 0) * 100 / 12)%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs">
+                            <span class="text-gray-400">Experience</span>
+                            <span class="text-white font-medium">@Model.Assessment.ExperienceScore / 12</span>
+                        </div>
+                        <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+                            <div class="h-full rounded-full bg-green-500" style="width: @((Model.Assessment.ExperienceScore ?? 0) * 100 / 12)%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs">
+                            <span class="text-gray-400">Health</span>
+                            <span class="text-white font-medium">@Model.Assessment.HealthScore / 12</span>
+                        </div>
+                        <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+                            <div class="h-full rounded-full bg-purple-500" style="width: @((Model.Assessment.HealthScore ?? 0) * 100 / 12)%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs">
+                            <span class="text-gray-400">Gear</span>
+                            <span class="text-white font-medium">@Model.Assessment.GearScore / 8</span>
+                        </div>
+                        <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+                            <div class="h-full rounded-full bg-orange-500" style="width: @((Model.Assessment.GearScore ?? 0) * 100 / 8)%"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-4 pt-4 border-t border-white/10">
+                    <p class="text-gray-500 text-[10px] uppercase tracking-wider mb-3">Trail Demands</p>
+                    <div class="space-y-3">
+                        <div>
+                            <div class="flex justify-between text-xs">
+                                <span class="text-gray-400">Distance</span>
+                                <span class="text-white font-medium">@Model.Event?.Trail?.DistanceKm km</span>
+                            </div>
+                            <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+                                <div class="h-full rounded-full @((Model.Event?.Trail?.DistanceKm ?? 0) >= 15 ? "bg-red-500" : (Model.Event?.Trail?.DistanceKm ?? 0) >= 10 ? "bg-yellow-500" : "bg-green-500")" style="width: @(Math.Min(((Model.Event?.Trail?.DistanceKm ?? 0) / 20) * 100, 100))%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs">
+                                <span class="text-gray-400">Elevation</span>
+                                <span class="text-white font-medium">@Model.Event?.Trail?.ElevationGainMeters m</span>
+                            </div>
+                            <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+                                <div class="h-full rounded-full @((Model.Event?.Trail?.ElevationGainMeters ?? 0) >= 1000 ? "bg-red-500" : (Model.Event?.Trail?.ElevationGainMeters ?? 0) >= 600 ? "bg-yellow-500" : "bg-green-500")" style="width: @(Math.Min(((Model.Event?.Trail?.ElevationGainMeters ?? 0) / 1500) * 100, 100))%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs">
+                                <span class="text-gray-400">Duration</span>
+                                <span class="text-white font-medium">@Model.Event?.EstimatedDuration hrs</span>
+                            </div>
+                            <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+                                <div class="h-full rounded-full @((Model.Event?.EstimatedDuration ?? 0) >= 8 ? "bg-red-500" : (Model.Event?.EstimatedDuration ?? 0) >= 6 ? "bg-yellow-500" : "bg-green-500")" style="width: @(Math.Min(((Model.Event?.EstimatedDuration ?? 0) / 10) * 100, 100))%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs">
+                                <span class="text-gray-400">Terrain</span>
+                                <span class="text-white font-medium">@Model.Event?.Trail?.Terrain</span>
+                            </div>
+                            <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+                                <div class="h-full rounded-full @(Model.Event?.Trail?.Terrain == "Technical" ? "bg-red-500" : Model.Event?.Trail?.Terrain == "Difficult" ? "bg-yellow-500" : "bg-green-500")" style="width: @(Model.Event?.Trail?.Terrain == "Technical" ? 100 : Model.Event?.Trail?.Terrain == "Difficult" ? 75 : Model.Event?.Trail?.Terrain == "Moderate" ? 50 : 25)%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <p class="text-gray-500 text-sm">No assessment taken</p>
+            }
+        </div>
+
+        <!-- ROW 2, COL 2: Available Alternative Events -->
+        <div class="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-5 h-full">
+            <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-arrows-rotate text-blue-400"></i>
+                Available Alternative Events
+            </h2>
+            @if (ViewBag.AlternativeEvents != null && ((List<TrailGuard.Models.Event>)ViewBag.AlternativeEvents).Any())
+            {
+                <div class="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
+                    @foreach (var altEvent in (List<TrailGuard.Models.Event>)ViewBag.AlternativeEvents)
+                    {
+                        <label class="flex items-start gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer">
+                            <input type="checkbox" name="selectedAlternatives" value="@altEvent.Id" class="w-4 h-4 mt-0.5 accent-blue-500" />
+                            <div>
+                                <p class="text-white text-sm font-medium">@altEvent.EventTitle</p>
+                                <p class="text-gray-500 text-xs">@altEvent.EventDate.ToString("MMM dd, yyyy") • @altEvent.Difficulty</p>
+                            </div>
+                        </label>
+                    }
+                </div>
+            }
+            else
+            {
+                <p class="text-gray-500 text-sm">No alternative events available</p>
+            }
+        </div>
+
+        <!-- ROW 2, COL 3: Decision + Reason -->
+        <div class="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-5 h-full flex flex-col">
+            <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-gavel text-blue-400"></i>
+                Decision
+            </h2>
+            
+            <div class="mb-3">
+                <label class="block text-sm font-medium text-gray-300 mb-2">Reason for Decision <span class="text-gray-500 text-xs">(Optional)</span></label>
+                <textarea id="decisionReason" rows="4" class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-3 text-sm focus:border-blue-500 focus:outline-none transition-colors resize-none min-h-25" placeholder="Add a note about your decision..."></textarea>
+            </div>
+            
+            @if (Model.Status == "Pending")
+            {
+                <div class="flex flex-col gap-3 flex-1 justify-center mt-2">
+                    <button onclick="makeDecision('Accepted')" class="w-full px-4 py-3 rounded-xl text-white text-sm font-medium bg-green-500 hover:bg-green-600 transition-colors">
+                        <i class="fa-solid fa-check mr-2"></i> Approve
+                    </button>
+                    <button onclick="makeDecision('Rejected')" class="w-full px-4 py-3 rounded-xl text-white text-sm font-medium bg-red-500 hover:bg-red-600 transition-colors">
+                        <i class="fa-solid fa-xmark mr-2"></i> Reject
+                    </button>
+                    <button onclick="recommendAlternative()" class="w-full px-4 py-3 rounded-xl text-white text-sm font-medium bg-blue-500 hover:bg-blue-600 transition-colors">
+                        <i class="fa-solid fa-arrows-rotate mr-2"></i> Recommend Alternative
+                    </button>
+                </div>
+            }
+            else
+            {
+                <div class="flex-1 flex items-center justify-center">
+                    <div class="text-center">
+                        <p class="text-gray-400 text-sm">This registration has been</p>
+                        <p class="text-lg font-semibold @statusColor mt-1">@Model.Status</p>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- TOOLTIP PREVIEW - Fixed Position                            -->
+<!-- ============================================================ -->
+@if (!string.IsNullOrEmpty(Model.PaymentReceiptUrl))
+{
+    <div id="receiptTooltip" class="fixed z-9999 hidden pointer-events-none">
+        <div class="bg-[#0B1325] border border-gray-700 rounded-xl shadow-2xl p-4 w-96">
+            <img src="@Model.PaymentReceiptUrl" alt="Receipt Preview" class="w-full h-auto max-h-96 object-contain rounded-lg" />
+            <p class="text-center text-xs text-gray-400 mt-2">Receipt Preview</p>
+        </div>
+    </div>
+}
+
+<script>
+    // ============================================================
+    // TOOLTIP PREVIEW - Mouse Events
+    // ============================================================
+    document.addEventListener('DOMContentLoaded', function() {
+        const receiptImage = document.getElementById('receiptImage');
+        const receiptWrapper = document.getElementById('receiptWrapper');
+        const tooltip = document.getElementById('receiptTooltip');
+        
+        if (receiptImage && tooltip) {
+            receiptWrapper.addEventListener('mouseenter', function(e) {
+                tooltip.classList.remove('hidden');
+                tooltip.style.display = 'block';
+                updateTooltipPosition(e);
+            });
+            
+            receiptWrapper.addEventListener('mousemove', function(e) {
+                updateTooltipPosition(e);
+            });
+            
+            receiptWrapper.addEventListener('mouseleave', function(e) {
+                tooltip.classList.add('hidden');
+                tooltip.style.display = 'none';
+            });
+            
+            function updateTooltipPosition(e) {
+                var x = e.clientX - 420;
+                var y = e.clientY - 100;
+                
+                if (x < 10) x = 10;
+                if (y < 10) y = 10;
+                if (y + 400 > window.innerHeight) y = window.innerHeight - 420;
+                
+                tooltip.style.left = x + 'px';
+                tooltip.style.top = y + 'px';
+            }
+        }
+    });
+
+    // ============================================================
+    // DECISION FUNCTIONS
+    // ============================================================
+    function makeDecision(status) {
+        const reason = document.getElementById('decisionReason')?.value || '';
+        const id = @Model.Id;
+        
+        console.log('📝 Registration ID:', id);
+        console.log('📝 Status:', status);
+        
+        if (!id) {
+            showToast('Registration ID is missing', 'error');
+            return;
+        }
+        
+        if (!confirm(`Are you sure you want to ${status.toLowerCase()} this registration?`)) return;
+
+        fetch('/Organizer/UpdateRegistrationStatus', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+                id: id, 
+                status: status,
+                reason: reason 
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('📝 Response:', data);
+            if (data.success) {
+                showToast(data.message, 'success');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast(data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('❌ Error:', error);
+            showToast('Error updating status', 'error');
+        });
+    }
+
+    function recommendAlternative() {
+        const selected = document.querySelectorAll('input[name="selectedAlternatives"]:checked');
+        const reason = document.getElementById('decisionReason')?.value || '';
+        const id = @Model.Id;
+        
+        if (selected.length === 0) {
+            showToast('Please select at least one alternative event', 'error');
+            return;
+        }
+
+        const alternativeIds = Array.from(selected).map(cb => parseInt(cb.value));
+
+        if (!confirm(`Recommend ${selected.length} alternative event(s) to this participant?`)) return;
+
+        fetch('/Organizer/RecommendAlternative', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+                registrationId: id, 
+                alternativeEventIds: alternativeIds,
+                reason: reason 
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast(data.message, 'success');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast(data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('Error recommending alternatives', 'error');
+        });
+    }
+
+    function showToast(message, type) {
+        const existingToast = document.querySelector('.toast-message');
+        if (existingToast) existingToast.remove();
+        
+        const toast = document.createElement('div');
+        toast.className = `toast-message fixed top-24 right-4 z-50 ${type === 'success' ? 'bg-green-500/90' : type === 'error' ? 'bg-red-500/90' : 'bg-blue-500/90'} text-white px-6 py-3 rounded-xl shadow-lg backdrop-blur-sm flex items-center gap-3`;
+        toast.innerHTML = `
+            <i class="fa-solid ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-triangle' : 'fa-info-circle'}"></i>
+            <span>${message}</span>
+            <button onclick="this.parentElement.remove()" class="hover:text-gray-200 transition-colors">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        `;
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            if (toast) toast.remove();
+        }, 3000);
+    }
+</script>
+
+<style>
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(59, 130, 246, 0.3);
+        border-radius: 10px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(59, 130, 246, 0.6);
+    }
+</style>

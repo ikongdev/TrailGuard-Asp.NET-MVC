@@ -45,14 +45,14 @@
                           @(currentController == "Participant" && currentAction == "Index" ? "bg-white/10 text-white" : "text-white/80 hover:text-white hover:bg-white/10")">
                     Dashboard
                 </a>
-                <a asp-controller="Trail" asp-action="Index"
+                <a asp-controller="Participant" asp-action="Trails"
                    class="nav-link px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-200
-                          @(currentController == "Trail" ? "bg-white/10 text-white" : "text-white/80 hover:text-white hover:bg-white/10")">
+                          @(currentController == "Participant" && currentAction == "Trails" ? "bg-white/10 text-white" : "text-white/80 hover:text-white hover:bg-white/10")">
                     Trails
                 </a>
                 <a asp-controller="Participant" asp-action="Events"
                    class="nav-link px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-200
-                          @(currentController == "Event" ? "bg-white/10 text-white" : "text-white/80 hover:text-white hover:bg-white/10")">
+                          @(currentController == "Participant" && currentAction == "Events" ? "bg-white/10 text-white" : "text-white/80 hover:text-white hover:bg-white/10")">
                     Events
                 </a>
                 <a asp-controller="Registration" asp-action="MyRegistrations"
@@ -117,14 +117,14 @@
                           @(currentController == "Participant" && currentAction == "Index" ? "bg-white/10 text-white" : "text-white/80 hover:text-white hover:bg-white/10")">
                     Dashboard
                 </a>
-                <a asp-controller="Trail" asp-action="Index"
+                <a asp-controller="Participant" asp-action="Trails"
                    class="px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-200
-                          @(currentController == "Trail" ? "bg-white/10 text-white" : "text-white/80 hover:text-white hover:bg-white/10")">
+                          @(currentController == "Participant" && currentAction == "Trails" ? "bg-white/10 text-white" : "text-white/80 hover:text-white hover:bg-white/10")">
                     Trails
                 </a>
                 <a asp-controller="Participant" asp-action="Events"
                    class="px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-200
-                          @(currentController == "Event" ? "bg-white/10 text-white" : "text-white/80 hover:text-white hover:bg-white/10")">
+                          @(currentController == "Participant" && currentAction == "Events" ? "bg-white/10 text-white" : "text-white/80 hover:text-white hover:bg-white/10")">
                     Events
                 </a>
                 <a asp-controller="Registration" asp-action="MyRegistrations"

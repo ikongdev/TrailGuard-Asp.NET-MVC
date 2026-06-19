@@ -166,7 +166,7 @@ namespace TrailGuard.Controllers
 
             var eventsList = await events.ToListAsync();
 
-            return View(eventsList);
+            return RedirectToAction("Index", "Event", new { searchString, status, sortOrder });
         }
 
         public async Task<IActionResult> Registrations(string searchString, string statusFilter, string sortOrder)
@@ -243,21 +243,71 @@ namespace TrailGuard.Controllers
             return View(viewModel);
         }
 
-        [HttpPost]
-        public async Task<IActionResult> UpdateRegistrationStatus(int id, string status)
+        public async Task<IActionResult> RegistrationDetails(int id)
         {
             var registration = await _context.EventRegistrations
+                .Include(r => r.Event)
+                .ThenInclude(e => e!.Trail)
+                .Include(r => r.Assessment)
+                .Include(r => r.User)
                 .FirstOrDefaultAsync(r => r.Id == id);
+
+            if (registration == null)
+            {
+                TempData["Error"] = "Registration not found";
+                return RedirectToAction("Registrations");
+            }
+
+            return View(registration);
+        }
+
+        public class RecommendAlternativeRequest
+        {
+            public int RegistrationId { get; set; }
+            public int[] AlternativeEventIds { get; set; } = Array.Empty<int>();
+            public string? Reason { get; set; }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> RecommendAlternative([FromBody] RecommendAlternativeRequest request)
+        {
+            var registration = await _context.EventRegistrations
+                .FirstOrDefaultAsync(r => r.Id == request.RegistrationId);
 
             if (registration == null)
             {
                 return Json(new { success = false, message = "Registration not found" });
             }
 
-            registration.Status = status;
+            registration.Status = "Alternative Recommended";
             await _context.SaveChangesAsync();
 
-            return Json(new { success = true, message = $"Registration status updated to {status}" });
+            return Json(new { success = true, message = $"Recommended {request.AlternativeEventIds.Length} alternative event(s)" });
+        }
+
+        public class UpdateRegistrationStatusRequest
+        {
+            public int Id { get; set; }
+            public string Status { get; set; } = string.Empty;
+            public string? Reason { get; set; }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> UpdateRegistrationStatus([FromBody] UpdateRegistrationStatusRequest request)
+        {
+            var registration = await _context.EventRegistrations
+                .FirstOrDefaultAsync(r => r.Id == request.Id);
+
+            if (registration == null)
+            {
+                return Json(new { success = false, message = "Registration not found" });
+            }
+
+            registration.Status = request.Status;
+
+            await _context.SaveChangesAsync();
+
+            return Json(new { success = true, message = $"Registration status updated to {request.Status}" });
         }
 
         public IActionResult AddEvent()
@@ -370,5 +420,233 @@ namespace TrailGuard.Controllers
 
             return View(eventItem);
         }
+
+        public async Task<IActionResult> PostEventAssessment(int eventId)
+        {
+            var eventItem = await _context.Events
+                .Include(e => e.Trail)
+                .FirstOrDefaultAsync(e => e.Id == eventId);
+
+            if (eventItem == null)
+            {
+                TempData["Error"] = "Event not found";
+                return RedirectToAction("Events");
+            }
+
+            if (eventItem.Status != "Completed")
+            {
+                TempData["Error"] = "This event is not yet completed.";
+                return RedirectToAction("EventDetails", new { id = eventId });
+            }
+
+            var registrations = await _context.EventRegistrations
+                .Include(r => r.User)
+                .Include(r => r.Assessment)
+                .Where(r => r.EventId == eventId && r.Status == "Accepted")
+                .ToListAsync();
+
+            // 🔥 I-normalize ang UserId sa C# side
+            foreach (var reg in registrations)
+            {
+                reg.UserId = reg.UserId?.Trim() ?? "";
+            }
+
+            var existingAssessments = await _context.PostEventAssessments
+                .Where(a => a.EventId == eventId)
+                .ToDictionaryAsync(a => a.UserId.Trim(), a => a);
+
+            ViewBag.Registrations = registrations;
+            ViewBag.ExistingAssessments = existingAssessments;
+
+            return View(eventItem);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> SubmitPostEventAssessment([FromBody] SubmitAssessmentRequest request)
+        {
+            Console.WriteLine($"Received: EventId={request.EventId}, RegistrationId={request.RegistrationId}, Difficulty={request.DifficultyExperience}");
+
+            // 🔥 Hanapin ang registration
+            var registration = await _context.EventRegistrations
+                .Include(r => r.User)
+                .FirstOrDefaultAsync(r => r.Id == request.RegistrationId);
+
+            if (registration == null)
+            {
+                Console.WriteLine($"Registration not found: {request.RegistrationId}");
+                return Json(new { success = false, message = "Registration not found" });
+            }
+
+            var userId = registration.UserId;
+            Console.WriteLine($"Found registration for user: {userId}");
+
+            var existingAssessment = await _context.PostEventAssessments
+                .FirstOrDefaultAsync(a => a.EventId == request.EventId && a.UserId == userId);
+
+            if (existingAssessment != null)
+            {
+                existingAssessment.DifficultyExperience = request.DifficultyExperience;
+                existingAssessment.Notes = request.Notes;
+                existingAssessment.CreatedAt = DateTime.Now;
+            }
+            else
+            {
+                var assessment = new PostEventAssessment
+                {
+                    EventId = request.EventId,
+                    UserId = userId,
+                    DifficultyExperience = request.DifficultyExperience,
+                    Notes = request.Notes,
+                    CreatedAt = DateTime.Now
+                };
+                _context.PostEventAssessments.Add(assessment);
+            }
+
+            await _context.SaveChangesAsync();
+            return Json(new { success = true, message = "Assessment saved successfully!" });
+        }
+
+        // 🔥 I-add itong class sa loob ng OrganizerController
+        public class SubmitAssessmentRequest
+        {
+            public int EventId { get; set; }
+            public int RegistrationId { get; set; }
+            public string DifficultyExperience { get; set; } = string.Empty;
+            public string? Notes { get; set; }
+        }
+
+        public async Task<IActionResult> EventComparison(int eventId)
+        {
+            var eventItem = await _context.Events
+                .Include(e => e.Trail)
+                .FirstOrDefaultAsync(e => e.Id == eventId);
+
+            if (eventItem == null)
+            {
+                TempData["Error"] = "Event not found";
+                return RedirectToAction("Events");
+            }
+
+            var registrations = await _context.EventRegistrations
+                .Include(r => r.User)
+                .Include(r => r.Assessment)
+                .Where(r => r.EventId == eventId && r.Status == "Accepted")
+                .ToListAsync();
+
+            var participantFeedbacks = await _context.EventFeedbacks
+                .Where(f => f.EventId == eventId)
+                .ToDictionaryAsync(f => f.UserId, f => f);
+
+            var organizerAssessments = await _context.PostEventAssessments
+                .Where(a => a.EventId == eventId)
+                .ToDictionaryAsync(a => a.UserId, a => a);
+
+            var results = new List<ComparisonResult>();
+
+            foreach (var reg in registrations)
+            {
+                var userId = reg.UserId;
+                var preHike = reg.Assessment?.Result ?? "N/A";
+                
+                var participantFeedback = participantFeedbacks.ContainsKey(userId) 
+                    ? participantFeedbacks[userId].DifficultyExperience ?? "No feedback"
+                    : "No feedback";
+                    
+                var organizerAssessment = organizerAssessments.ContainsKey(userId) 
+                    ? organizerAssessments[userId].DifficultyExperience ?? "No assessment"
+                    : "No assessment";
+
+                var finalResult = GetConservativeResult(participantFeedback, organizerAssessment);
+                var comparison = ComparePreHikeToPostHike(preHike, finalResult);
+
+                results.Add(new ComparisonResult
+                {
+                    ParticipantName = reg.User != null ? $"{reg.User.FirstName} {reg.User.LastName}" : reg.ParticipantName,
+                    PreHikeAssessment = preHike,
+                    ParticipantFeedback = participantFeedback,
+                    OrganizerAssessment = organizerAssessment,
+                    FinalResult = finalResult,
+                    Comparison = comparison.Item1,
+                    ComparisonColor = comparison.Item2,
+                    ComparisonIcon = comparison.Item3
+                });
+            }
+
+            ViewBag.Event = eventItem;
+            return View(results);
+        }
+
+        private string GetConservativeResult(string? participantFeedback, string? organizerAssessment)
+        {
+            if (string.IsNullOrEmpty(participantFeedback) || string.IsNullOrEmpty(organizerAssessment))
+            {
+                return !string.IsNullOrEmpty(participantFeedback) ? participantFeedback : 
+                    !string.IsNullOrEmpty(organizerAssessment) ? organizerAssessment : 
+                    "Insufficient data";
+            }
+
+            var order = new Dictionary<string, int>
+            {
+                { "Could not finish - injured", 1 },
+                { "Could not finish - turned back", 2 },
+                { "Much harder", 3 },
+                { "Harder than expected", 4 },
+                { "Matched but challenging", 5 },
+                { "Matched perfectly", 6 },
+                { "Much easier than expected", 7 }
+            };
+
+            var participantOrder = order.ContainsKey(participantFeedback) ? order[participantFeedback] : 99;
+            var organizerOrder = order.ContainsKey(organizerAssessment) ? order[organizerAssessment] : 99;
+
+            var conservativeOrder = Math.Min(participantOrder, organizerOrder);
+            return order.FirstOrDefault(x => x.Value == conservativeOrder).Key;
+        }
+
+        private Tuple<string, string, string> ComparePreHikeToPostHike(string preHike, string postHike)
+        {
+            var mapping = new Dictionary<string, string>
+            {
+                { "Much easier than expected", "Good-Match" },
+                { "Matched perfectly", "Good-Match" },
+                { "Matched but challenging", "Borderline" },
+                { "Harder than expected", "Borderline" },
+                { "Much harder", "Not Recommended" },
+                { "Could not finish - turned back", "Not Recommended" },
+                { "Could not finish - injured", "Not Recommended" }
+            };
+
+            var postCategory = mapping.ContainsKey(postHike) ? mapping[postHike] : "N/A";
+
+            if (preHike == "N/A" || postCategory == "N/A")
+            {
+                return Tuple.Create("Insufficient Data", "text-gray-400", "fa-minus-circle");
+            }
+
+            if (preHike == postCategory)
+            {
+                return Tuple.Create("✅ Accurate", "text-green-400", "fa-check-circle");
+            }
+
+            var order = new Dictionary<string, int>
+            {
+                { "Good-Match", 1 },
+                { "Borderline", 2 },
+                { "Not Recommended", 3 }
+            };
+
+            var preOrder = order[preHike];
+            var postOrder = order[postCategory];
+
+            if (preOrder < postOrder)
+            {
+                return Tuple.Create("⚠️ Overestimated", "text-yellow-400", "fa-triangle-exclamation");
+            }
+            else
+            {
+                return Tuple.Create("⚠️ Underestimated", "text-orange-400", "fa-arrow-trend-up");
+            }
+        }
+
     }
 }

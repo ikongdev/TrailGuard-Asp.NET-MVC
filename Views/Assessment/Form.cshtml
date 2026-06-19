@@ -16,7 +16,7 @@
 
     <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8">
         <div class="flex items-center gap-4 mb-6">
-            <div class="w-14 h-14 rounded-full bg-gradient-to-r from-orange-500 to-purple-500 flex items-center justify-center">
+            <div class="w-14 h-14 rounded-full bg-linear-to-r from-orange-500 to-purple-500 flex items-center justify-center">
                 <i class="fa-solid fa-clipboard-check text-white text-2xl"></i>
             </div>
             <div>
@@ -67,16 +67,13 @@
             </div>
         </div>
 
-        <!-- ============================================================ -->
-        <!-- PROGRESS BAR & STEP INDICATOR                                 -->
-        <!-- ============================================================ -->
         <div class="mb-8">
             <div class="flex items-center justify-between mb-2">
                 <span class="text-sm text-gray-400">Step <span id="currentStepDisplay">1</span> of 3</span>
                 <span class="text-sm text-gray-400" id="stepLabel">Personal & Physical Profile</span>
             </div>
             <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-                <div id="progressBar" class="h-full bg-gradient-to-r from-orange-500 to-purple-600 rounded-full transition-all duration-500" style="width: 33.33%"></div>
+                <div id="progressBar" class="h-full bg-linear-to-r from-orange-500 to-purple-600 rounded-full transition-all duration-500" style="width: 33.33%"></div>
             </div>
             <div class="flex justify-between mt-1 text-xs text-gray-500">
                 <span class="text-orange-400" id="step1Label">● Step 1</span>
@@ -85,15 +82,9 @@
             </div>
         </div>
 
-        <!-- ============================================================ -->
-        <!-- FORM STARTS HERE                                              -->
-        <!-- ============================================================ -->
         <form method="post" asp-action="Form" asp-route-eventId="@(eventItem?.Id)" id="assessmentForm">
             @Html.AntiForgeryToken()
 
-            <!-- ============================================================ -->
-            <!-- STEP 1: Personal and Physical Profile                        -->
-            <!-- ============================================================ -->
             <div id="step1" class="step-content">
                 <div class="bg-[#111A2E]/50 border border-white/5 rounded-2xl p-6">
                     <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
@@ -102,7 +93,6 @@
                     </h2>
 
                     <div class="space-y-4">
-                        <!-- Q1: Age -->
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">1. How old are you? <span class="text-red-400">*</span></label>
                             <input type="number" name="age" id="age" required min="10" max="100" 
@@ -110,26 +100,24 @@
                                    placeholder="Enter your age" />
                         </div>
 
-                        <!-- Q2: Gender -->
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">2. What is your Gender? <span class="text-red-400">*</span></label>
-                            <div class="flex flex-wrap gap-4">
-                                <label class="flex items-center gap-2 cursor-pointer">
+                            <div class="flex flex-wrap gap-2">
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                     <input type="radio" name="gender" value="Male" required class="w-4 h-4 accent-orange-500" />
                                     <span class="text-gray-300 text-sm">Male</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer">
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                     <input type="radio" name="gender" value="Female" class="w-4 h-4 accent-orange-500" />
                                     <span class="text-gray-300 text-sm">Female</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer">
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                     <input type="radio" name="gender" value="Prefer not to answer" class="w-4 h-4 accent-orange-500" />
                                     <span class="text-gray-300 text-sm">Prefer not to answer</span>
                                 </label>
                             </div>
                         </div>
 
-                        <!-- Q3: Height & Weight with BMI -->
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">3. What is your current height and weight? <span class="text-red-400">*</span></label>
                             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -153,27 +141,26 @@
                             </div>
                         </div>
 
-                        <!-- Q4: Medical Conditions -->
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">4. Do you have any of the following medical conditions? <span class="text-red-400">*</span></label>
-                            <div class="space-y-2 bg-[#0B1325] border border-gray-700 rounded-xl p-4">
-                                <label class="flex items-center gap-3 cursor-pointer">
+                            <div class="flex flex-wrap gap-2 bg-[#0B1325] border border-gray-700 rounded-xl p-4">
+                                <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                     <input type="checkbox" name="medicalConditions" value="Asthma / lung-related condition" class="w-4 h-4 accent-orange-500" />
-                                    <span class="text-gray-300 text-sm">Asthma / lung-related condition</span>
+                                    <span class="text-gray-300 text-sm">Asthma</span>
                                 </label>
-                                <label class="flex items-center gap-3 cursor-pointer">
+                                <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                     <input type="checkbox" name="medicalConditions" value="Hypertension / heart-related condition" class="w-4 h-4 accent-orange-500" />
-                                    <span class="text-gray-300 text-sm">Hypertension / heart-related condition</span>
+                                    <span class="text-gray-300 text-sm">Hypertension</span>
                                 </label>
-                                <label class="flex items-center gap-3 cursor-pointer">
+                                <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                     <input type="checkbox" name="medicalConditions" value="Joint or knee injury" class="w-4 h-4 accent-orange-500" />
-                                    <span class="text-gray-300 text-sm">Joint or knee injury</span>
+                                    <span class="text-gray-300 text-sm">Joint / Knee Injury</span>
                                 </label>
-                                <label class="flex items-center gap-3 cursor-pointer">
+                                <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                     <input type="checkbox" name="medicalConditions" value="Vertigo / frequent dizziness" class="w-4 h-4 accent-orange-500" />
-                                    <span class="text-gray-300 text-sm">Vertigo / frequent dizziness</span>
+                                    <span class="text-gray-300 text-sm">Vertigo / Dizziness</span>
                                 </label>
-                                <label class="flex items-center gap-3 cursor-pointer">
+                                <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                     <input type="checkbox" name="medicalConditions" value="None of the above" class="w-4 h-4 accent-orange-500" />
                                     <span class="text-gray-300 text-sm">None of the above</span>
                                 </label>
@@ -184,11 +171,7 @@
                 </div>
             </div>
 
-            <!-- ============================================================ -->
-            <!-- STEP 2: Fitness & Endurance + Hiking Experience              -->
-            <!-- ============================================================ -->
             <div id="step2" class="step-content hidden">
-                <!-- Fitness & Endurance -->
                 <div class="bg-[#111A2E]/50 border border-white/5 rounded-2xl p-6 mb-6">
                     <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
                         <span class="flex items-center justify-center w-7 h-7 rounded-full bg-orange-500 text-white text-xs font-bold">2</span>
@@ -196,78 +179,74 @@
                     </h2>
 
                     <div class="space-y-4">
-                        <!-- Q5: Exercise Frequency -->
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">5. In the past 3 months, how often did you exercise or do physical activities in a typical week? <span class="text-red-400">*</span></label>
-                            <div class="space-y-2">
-                                <label class="flex items-center gap-2 cursor-pointer">
+                            <div class="flex flex-wrap gap-2">
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                     <input type="radio" name="exerciseFrequency" value="I do not exercise / Sedentary" required class="w-4 h-4 accent-orange-500" />
-                                    <span class="text-gray-300 text-sm">I do not exercise / Sedentary</span>
+                                    <span class="text-gray-300 text-sm">Sedentary</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer">
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                     <input type="radio" name="exerciseFrequency" value="1 to 2 times per week" class="w-4 h-4 accent-orange-500" />
-                                    <span class="text-gray-300 text-sm">1 to 2 times per week</span>
+                                    <span class="text-gray-300 text-sm">1-2x / week</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer">
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                     <input type="radio" name="exerciseFrequency" value="3 to 4 times per week" class="w-4 h-4 accent-orange-500" />
-                                    <span class="text-gray-300 text-sm">3 to 4 times per week</span>
+                                    <span class="text-gray-300 text-sm">3-4x / week</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer">
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                     <input type="radio" name="exerciseFrequency" value="5 or more times per week" class="w-4 h-4 accent-orange-500" />
-                                    <span class="text-gray-300 text-sm">5 or more times per week</span>
+                                    <span class="text-gray-300 text-sm">5+ / week</span>
                                 </label>
                             </div>
                         </div>
 
-                        <!-- Q6: Exercise Type -->
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">6. What is the main type of exercise you usually do? <span class="text-red-400">*</span></label>
-                            <div class="space-y-2">
-                                <label class="flex items-center gap-2 cursor-pointer">
+                            <div class="flex flex-wrap gap-2">
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                     <input type="radio" name="exerciseType" value="None / No specific exercise" required class="w-4 h-4 accent-orange-500" />
-                                    <span class="text-gray-300 text-sm">None / No specific exercise</span>
+                                    <span class="text-gray-300 text-sm">None</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer">
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                     <input type="radio" name="exerciseType" value="Cardio or endurance only" class="w-4 h-4 accent-orange-500" />
-                                    <span class="text-gray-300 text-sm">Cardio or endurance only (running, cycling, swimming)</span>
+                                    <span class="text-gray-300 text-sm">Cardio Only</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer">
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                     <input type="radio" name="exerciseType" value="Strength or resistance only" class="w-4 h-4 accent-orange-500" />
-                                    <span class="text-gray-300 text-sm">Strength or resistance only (weight training, calisthenics)</span>
+                                    <span class="text-gray-300 text-sm">Strength Only</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer">
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                     <input type="radio" name="exerciseType" value="Combination of cardio and strength training" class="w-4 h-4 accent-orange-500" />
-                                    <span class="text-gray-300 text-sm">Combination of cardio and strength training</span>
+                                    <span class="text-gray-300 text-sm">Combination</span>
                                 </label>
                             </div>
                         </div>
 
-                        <!-- Q7: Cardio Endurance -->
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">7. If you were to run or walk briskly on a flat road, how long can you do it continuously without stopping to rest? <span class="text-red-400">*</span></label>
-                            <div class="space-y-2">
-                                <label class="flex items-center gap-2 cursor-pointer">
+                            <div class="flex flex-wrap gap-2">
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                     <input type="radio" name="cardioEndurance" value="Less than 15 minutes" required class="w-4 h-4 accent-orange-500" />
-                                    <span class="text-gray-300 text-sm">Less than 15 minutes</span>
+                                    <span class="text-gray-300 text-sm">&lt;15 min</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer">
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                     <input type="radio" name="cardioEndurance" value="15 to 30 minutes" class="w-4 h-4 accent-orange-500" />
-                                    <span class="text-gray-300 text-sm">15 to 30 minutes</span>
+                                    <span class="text-gray-300 text-sm">15-30 min</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer">
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                     <input type="radio" name="cardioEndurance" value="31 to 60 minutes" class="w-4 h-4 accent-orange-500" />
-                                    <span class="text-gray-300 text-sm">31 to 60 minutes</span>
+                                    <span class="text-gray-300 text-sm">31-60 min</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer">
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                     <input type="radio" name="cardioEndurance" value="More than 60 minutes" class="w-4 h-4 accent-orange-500" />
-                                    <span class="text-gray-300 text-sm">More than 60 minutes</span>
+                                    <span class="text-gray-300 text-sm">&gt;60 min</span>
                                 </label>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Hiking Experience -->
                 <div class="bg-[#111A2E]/50 border border-white/5 rounded-2xl p-6">
                     <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
                         <span class="flex items-center justify-center w-7 h-7 rounded-full bg-orange-500 text-white text-xs font-bold">3</span>
@@ -275,71 +254,68 @@
                     </h2>
 
                     <div class="space-y-4">
-                        <!-- Q8: Mountains Climbed -->
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">8. How many mountains have you climbed in your lifetime? <span class="text-red-400">*</span></label>
-                            <div class="space-y-2">
-                                <label class="flex items-center gap-2 cursor-pointer">
+                            <div class="flex flex-wrap gap-2">
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                     <input type="radio" name="mountainsClimbed" value="This will be my first time / First-timer" required class="w-4 h-4 accent-orange-500" />
-                                    <span class="text-gray-300 text-sm">This will be my first time / First-timer</span>
+                                    <span class="text-gray-300 text-sm">First-timer</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer">
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                     <input type="radio" name="mountainsClimbed" value="1 to 3 mountains / Beginner" class="w-4 h-4 accent-orange-500" />
-                                    <span class="text-gray-300 text-sm">1 to 3 mountains / Beginner</span>
+                                    <span class="text-gray-300 text-sm">Beginner (1-3)</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer">
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                     <input type="radio" name="mountainsClimbed" value="4 to 10 mountains / Intermediate" class="w-4 h-4 accent-orange-500" />
-                                    <span class="text-gray-300 text-sm">4 to 10 mountains / Intermediate</span>
+                                    <span class="text-gray-300 text-sm">Intermediate (4-10)</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer">
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                     <input type="radio" name="mountainsClimbed" value="More than 10 mountains / Experienced" class="w-4 h-4 accent-orange-500" />
-                                    <span class="text-gray-300 text-sm">More than 10 mountains / Experienced</span>
+                                    <span class="text-gray-300 text-sm">Experienced (10+)</span>
                                 </label>
                             </div>
                         </div>
 
-                        <!-- Q9: Recency of Hike -->
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">9. When was your most recent mountain hike? <span class="text-red-400">*</span></label>
-                            <div class="space-y-2">
-                                <label class="flex items-center gap-2 cursor-pointer">
+                            <div class="flex flex-wrap gap-2">
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                     <input type="radio" name="recencyOfHike" value="I have never climbed a mountain before" required class="w-4 h-4 accent-orange-500" />
-                                    <span class="text-gray-300 text-sm">I have never climbed a mountain before</span>
+                                    <span class="text-gray-300 text-sm">Never climbed</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer">
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                     <input type="radio" name="recencyOfHike" value="More than 1 year ago" class="w-4 h-4 accent-orange-500" />
-                                    <span class="text-gray-300 text-sm">More than 1 year ago</span>
+                                    <span class="text-gray-300 text-sm">&gt;1 year ago</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer">
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                     <input type="radio" name="recencyOfHike" value="Within the past 4 to 12 months" class="w-4 h-4 accent-orange-500" />
-                                    <span class="text-gray-300 text-sm">Within the past 4 to 12 months</span>
+                                    <span class="text-gray-300 text-sm">4-12 months</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer">
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                     <input type="radio" name="recencyOfHike" value="Within the past 1 to 3 months" class="w-4 h-4 accent-orange-500" />
-                                    <span class="text-gray-300 text-sm">Within the past 1 to 3 months</span>
+                                    <span class="text-gray-300 text-sm">1-3 months</span>
                                 </label>
                             </div>
                         </div>
 
-                        <!-- Q10: Trail Difficulty Completed -->
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">10. What is the highest or most difficult type of trail you have completed before? <span class="text-red-400">*</span></label>
-                            <div class="space-y-2">
-                                <label class="flex items-center gap-2 cursor-pointer">
+                            <div class="flex flex-wrap gap-2">
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                     <input type="radio" name="trailDifficultyCompleted" value="None / I have never climbed before" required class="w-4 h-4 accent-orange-500" />
-                                    <span class="text-gray-300 text-sm">None / I have never climbed before</span>
+                                    <span class="text-gray-300 text-sm">None</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer">
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                     <input type="radio" name="trailDifficultyCompleted" value="Minor day hikes only" class="w-4 h-4 accent-orange-500" />
-                                    <span class="text-gray-300 text-sm">Minor day hikes only</span>
+                                    <span class="text-gray-300 text-sm">Minor hikes</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer">
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                     <input type="radio" name="trailDifficultyCompleted" value="Major hikes with steep assault sections" class="w-4 h-4 accent-orange-500" />
-                                    <span class="text-gray-300 text-sm">Major hikes with steep assault sections</span>
+                                    <span class="text-gray-300 text-sm">Major hikes</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer">
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                     <input type="radio" name="trailDifficultyCompleted" value="Multi-day or overnight expeditions" class="w-4 h-4 accent-orange-500" />
-                                    <span class="text-gray-300 text-sm">Multi-day or overnight expeditions</span>
+                                    <span class="text-gray-300 text-sm">Multi-day</span>
                                 </label>
                             </div>
                         </div>
@@ -347,11 +323,7 @@
                 </div>
             </div>
 
-            <!-- ============================================================ -->
-            <!-- STEP 3: Gear Preparedness + Consent                          -->
-            <!-- ============================================================ -->
             <div id="step3" class="step-content hidden">
-                <!-- Gear Preparedness -->
                 <div class="bg-[#111A2E]/50 border border-white/5 rounded-2xl p-6 mb-6">
                     <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
                         <span class="flex items-center justify-center w-7 h-7 rounded-full bg-orange-500 text-white text-xs font-bold">4</span>
@@ -360,47 +332,45 @@
 
                     <div>
                         <label class="block text-sm font-medium text-gray-300 mb-2">11. Which of the following items will you definitely bring or have already packed for this hike? <span class="text-red-400">*</span></label>
-                        <div class="space-y-2 bg-[#0B1325] border border-gray-700 rounded-xl p-4">
-                            <label class="flex items-center gap-3 cursor-pointer">
+                        <div class="flex flex-wrap gap-2 bg-[#0B1325] border border-gray-700 rounded-xl p-4">
+                            <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                 <input type="checkbox" name="gearItems" value="Enough water" class="w-4 h-4 accent-orange-500" />
-                                <span class="text-gray-300 text-sm">Enough water, minimum of 2 liters or based on trail requirement</span>
+                                <span class="text-gray-300 text-sm">Water</span>
                             </label>
-                            <label class="flex items-center gap-3 cursor-pointer">
+                            <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                 <input type="checkbox" name="gearItems" value="Trail food" class="w-4 h-4 accent-orange-500" />
-                                <span class="text-gray-300 text-sm">Trail food, such as nuts, chocolates, jelly pouches, or energy snacks</span>
+                                <span class="text-gray-300 text-sm">Trail food</span>
                             </label>
-                            <label class="flex items-center gap-3 cursor-pointer">
+                            <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                 <input type="checkbox" name="gearItems" value="First aid kit" class="w-4 h-4 accent-orange-500" />
-                                <span class="text-gray-300 text-sm">Personal first aid kit and personal medicine, such as antihistamine, inhaler, or band-aid</span>
+                                <span class="text-gray-300 text-sm">First aid kit</span>
                             </label>
-                            <label class="flex items-center gap-3 cursor-pointer">
+                            <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                 <input type="checkbox" name="gearItems" value="Flashlight" class="w-4 h-4 accent-orange-500" />
-                                <span class="text-gray-300 text-sm">Flashlight or headlamp with extra battery</span>
+                                <span class="text-gray-300 text-sm">Flashlight</span>
                             </label>
-                            <label class="flex items-center gap-3 cursor-pointer">
+                            <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                 <input type="checkbox" name="gearItems" value="Whistle" class="w-4 h-4 accent-orange-500" />
-                                <span class="text-gray-300 text-sm">Whistle for emergency signaling</span>
+                                <span class="text-gray-300 text-sm">Whistle</span>
                             </label>
-                            <label class="flex items-center gap-3 cursor-pointer">
+                            <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                 <input type="checkbox" name="gearItems" value="Raincoat" class="w-4 h-4 accent-orange-500" />
-                                <span class="text-gray-300 text-sm">Raincoat or poncho</span>
+                                <span class="text-gray-300 text-sm">Raincoat</span>
                             </label>
-                            <label class="flex items-center gap-3 cursor-pointer">
+                            <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                 <input type="checkbox" name="gearItems" value="Navigation tool" class="w-4 h-4 accent-orange-500" />
-                                <span class="text-gray-300 text-sm">Navigation tool, such as offline map, powerbank, or compass</span>
+                                <span class="text-gray-300 text-sm">Navigation</span>
                             </label>
-                            <label class="flex items-center gap-3 cursor-pointer">
+                            <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
                                 <input type="checkbox" name="gearItems" value="Proper hiking shoes" class="w-4 h-4 accent-orange-500" />
-                                <span class="text-gray-300 text-sm">Proper hiking shoes or trail runners with good grip</span>
+                                <span class="text-gray-300 text-sm">Hiking shoes</span>
                             </label>
                         </div>
                         <p class="text-gray-500 text-xs mt-1">Select all items you will bring.</p>
                     </div>
                 </div>
 
-                <!-- Consent Section -->
                 <div class="space-y-4">
-                    <!-- Certification -->
                     <div class="bg-yellow-500/5 border border-yellow-500/30 rounded-xl p-4">
                         <label class="flex items-start gap-3 cursor-pointer">
                             <input type="checkbox" name="consentGiven" value="true" required class="w-5 h-5 mt-0.5 accent-orange-500" />
@@ -411,7 +381,6 @@
                         </label>
                     </div>
 
-                    <!-- Data Privacy Consent -->
                     <div class="bg-blue-500/5 border border-blue-500/30 rounded-xl p-4">
                         <label class="flex items-start gap-3 cursor-pointer">
                             <input type="checkbox" name="dataPrivacyConsent" value="true" required class="w-5 h-5 mt-0.5 accent-orange-500" />
@@ -428,7 +397,6 @@
                     </div>
                 </div>
 
-                <!-- Summary Preview -->
                 <div class="mt-6 bg-green-500/5 border border-green-500/30 rounded-xl p-4">
                     <p class="text-green-300 text-sm font-medium flex items-center gap-2">
                         <i class="fa-solid fa-check-circle"></i>
@@ -438,18 +406,15 @@
                 </div>
             </div>
 
-            <!-- ============================================================ -->
-            <!-- NAVIGATION BUTTONS                                           -->
-            <!-- ============================================================ -->
             <div class="flex justify-between mt-8 pt-4 border-t border-white/10">
                 <button type="button" id="prevBtn" onclick="prevStep()" class="px-6 py-3 rounded-xl text-gray-300 font-medium bg-gray-800 hover:bg-gray-700 transition-colors hidden">
                     <i class="fa-solid fa-arrow-left mr-2"></i> Previous
                 </button>
                 <div class="flex-1"></div>
-                <button type="button" id="nextBtn" onclick="nextStep()" class="px-6 py-3 rounded-xl text-white font-bold bg-gradient-to-r from-orange-500 to-purple-600 hover:opacity-90 transition-all">
+                <button type="button" id="nextBtn" onclick="nextStep()" class="px-6 py-3 rounded-xl text-white font-bold bg-linear-to-r from-orange-500 to-purple-600 hover:opacity-90 transition-all">
                     Next <i class="fa-solid fa-arrow-right ml-2"></i>
                 </button>
-                <button type="submit" id="submitBtn" class="px-6 py-3 rounded-xl text-white font-bold bg-gradient-to-r from-green-500 to-emerald-600 hover:opacity-90 transition-all hidden">
+                <button type="submit" id="submitBtn" class="px-6 py-3 rounded-xl text-white font-bold bg-linear-to-r from-green-500 to-emerald-600 hover:opacity-90 transition-all hidden">
                     <i class="fa-regular fa-paper-plane mr-2"></i> Submit Assessment
                 </button>
             </div>
@@ -457,93 +422,99 @@
     </div>
 </div>
 
-<!-- ============================================================ -->
-<!-- DATA PRIVACY MODAL                                           -->
-<!-- ============================================================ -->
-<div id="privacyModal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4" style="padding-top: 80px;">
-    <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="closePrivacyModal()"></div>
-    <div class="relative bg-[#0B1325] border border-gray-700 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden flex flex-col" style="margin: auto; z-index: 10;">
-        
-        <div class="flex justify-between items-center px-6 py-4 border-b border-gray-700 shrink-0 bg-[#0B1325]">
-            <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center">
-                    <i class="fa-solid fa-shield-halved text-orange-400"></i>
+@section Modals {
+    <div id="privacyModal" class="fixed inset-0 z-100 modal-hidden" style="padding-top: 30px;">
+        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="closePrivacyModal()"></div>
+        <div class="relative bg-[#0B1325] border border-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col mx-auto my-auto" style="z-index: 10;">
+            
+            <div class="flex justify-between items-center px-6 py-4 border-b border-gray-800 shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-linear-to-r from-orange-500 to-purple-500 flex items-center justify-center">
+                        <i class="fa-solid fa-shield-halved text-white text-sm"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-white">Data Privacy Consent Statement</h2>
                 </div>
-                <h2 class="text-xl font-bold text-white">Data Privacy Consent Statement</h2>
+                <button onclick="closePrivacyModal()" class="text-gray-400 hover:text-white transition-colors">
+                    <i class="fa-solid fa-xmark text-2xl"></i>
+                </button>
             </div>
-            <button onclick="closePrivacyModal()" class="text-gray-400 hover:text-white transition-colors">
-                <i class="fa-solid fa-xmark text-2xl"></i>
-            </button>
-        </div>
 
-        <div class="overflow-y-auto p-6 custom-scrollbar flex-1">
-            <div class="prose prose-invert max-w-none">
-                <p class="text-gray-300 leading-relaxed">
-                    In accordance with the <strong>Data Privacy Act of 2012 (Republic Act No. 10173)</strong>, I voluntarily agree to provide my personal information and participate in the assessment conducted through the TrailGuard system.
-                </p>
-
-                <p class="text-gray-300 leading-relaxed mt-4">
-                    I understand that the information collected, including but not limited to my name, email address, contact information, and responses to the assessment form, shall be used solely for the purposes of account registration, assessment, system operation, research, and the development and evaluation of the TrailGuard capstone project.
-                </p>
-
-                <p class="text-gray-300 leading-relaxed mt-4 font-semibold">I further understand that:</p>
-
-                <ol class="list-decimal list-inside space-y-2 text-gray-300 mt-2">
-                    <li>My participation in the assessment and use of the TrailGuard system is voluntary.</li>
-                    <li>All information that I provide shall be treated with strict confidentiality and shall only be accessed by the authorized proponents, advisers, and personnel directly involved in the implementation and evaluation of the system.</li>
-                    <li>Appropriate technical and organizational measures shall be employed to safeguard my personal information against unauthorized access, disclosure, alteration, misuse, or destruction.</li>
-                    <li>My personal information shall not be shared with any unauthorized third party without my consent, except when required by law.</li>
-                    <li>The data gathered may be used for academic research, statistical analysis, and system improvement purposes. Any reports, presentations, or publications resulting from this study shall present only aggregated or anonymized information to ensure that my identity remains protected.</li>
-                    <li>I may request access to, correction of, or deletion of my personal information, subject to the applicable provisions of the Data Privacy Act of 2012 and the policies governing the TrailGuard system.</li>
-                </ol>
-
-                <p class="text-gray-300 leading-relaxed mt-4">
-                    TrailGuard is a capstone project developed for academic and research purposes. The information collected through this system shall be used exclusively for the conduct of the study, evaluation of the system, and improvement of its features and services.
-                </p>
-
-                <div class="mt-6 p-4 bg-white/5 rounded-xl border border-white/10">
-                    <p class="text-gray-400 text-sm">
-                        <strong>Reference:</strong><br />
-                        National Privacy Commission. (2012). Republic Act 10173 – Data Privacy Act of 2012. National Privacy Commission.
-                        <a href="https://privacy.gov.ph/data-privacy-act/" target="_blank" class="text-orange-400 hover:text-orange-300 underline">
-                            https://privacy.gov.ph/data-privacy-act/
-                        </a>
+            <div class="overflow-y-auto p-6 custom-scrollbar">
+                <div class="prose prose-invert max-w-none">
+                    <p class="text-gray-300 leading-relaxed">
+                        In accordance with the <strong>Data Privacy Act of 2012 (Republic Act No. 10173)</strong>, I voluntarily agree to provide my personal information and participate in the assessment conducted through the TrailGuard system.
                     </p>
+                    <p class="text-gray-300 leading-relaxed mt-4">
+                        I understand that the information collected, including but not limited to my name, email address, contact information, and responses to the assessment form, shall be used solely for the purposes of account registration, assessment, system operation, research, and the development and evaluation of the TrailGuard capstone project.
+                    </p>
+                    <p class="text-gray-300 leading-relaxed mt-4 font-semibold">I further understand that:</p>
+                    <ol class="list-decimal list-inside space-y-2 text-gray-300 mt-2">
+                        <li>My participation in the assessment and use of the TrailGuard system is voluntary.</li>
+                        <li>All information that I provide shall be treated with strict confidentiality and shall only be accessed by the authorized proponents, advisers, and personnel directly involved in the implementation and evaluation of the system.</li>
+                        <li>Appropriate technical and organizational measures shall be employed to safeguard my personal information against unauthorized access, disclosure, alteration, misuse, or destruction.</li>
+                        <li>My personal information shall not be shared with any unauthorized third party without my consent, except when required by law.</li>
+                        <li>The data gathered may be used for academic research, statistical analysis, and system improvement purposes. Any reports, presentations, or publications resulting from this study shall present only aggregated or anonymized information to ensure that my identity remains protected.</li>
+                        <li>I may request access to, correction of, or deletion of my personal information, subject to the applicable provisions of the Data Privacy Act of 2012 and the policies governing the TrailGuard system.</li>
+                    </ol>
+                    <p class="text-gray-300 leading-relaxed mt-4">
+                        TrailGuard is a capstone project developed for academic and research purposes. The information collected through this system shall be used exclusively for the conduct of the study, evaluation of the system, and improvement of its features and services.
+                    </p>
+                    <div class="mt-6 p-4 bg-white/5 rounded-xl border border-white/10">
+                        <p class="text-gray-400 text-sm">
+                            <strong>Reference:</strong><br />
+                            National Privacy Commission. (2012). Republic Act 10173 – Data Privacy Act of 2012. National Privacy Commission.
+                            <a href="https://privacy.gov.ph/data-privacy-act/" target="_blank" class="text-orange-400 hover:text-orange-300 underline">
+                                https://privacy.gov.ph/data-privacy-act/
+                            </a>
+                        </p>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <div class="px-6 py-4 border-t border-gray-700 shrink-0 flex justify-end bg-[#0B1325]">
-            <button onclick="closePrivacyModal()" class="px-6 py-2.5 rounded-xl text-white font-medium bg-gradient-to-r from-orange-500 to-purple-600 hover:opacity-90 transition-all">
-                I Understand
-            </button>
+            <div class="px-6 py-4 border-t border-gray-800 shrink-0 flex justify-end gap-3">
+                <button onclick="closePrivacyModal()" class="px-5 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white bg-gray-800 hover:bg-gray-700 transition-colors">
+                    Close
+                </button>
+                <button onclick="closePrivacyModal()" class="px-5 py-2 rounded-lg text-sm font-medium text-white bg-linear-to-r from-orange-500 to-purple-600 hover:opacity-90 transition-all">
+                    I Understand
+                </button>
+            </div>
         </div>
     </div>
-</div>
+}
 
 <style>
     .custom-scrollbar::-webkit-scrollbar { width: 6px; }
     .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
     .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
-    .primary-btn {
-        background: linear-gradient(to right, #f97316, #9333ea);
+    
+    .modal-hidden {
+        display: none !important;
     }
-    .primary-btn:hover {
-        opacity: 0.9;
-        transform: scale(1.02);
+    
+    .modal-visible {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    #privacyModal.modal-visible {
+        padding: 1rem;
+        padding-top: 80px;
+    }
+    
+    .modal-visible .relative {
+        margin: auto;
+        max-height: 85vh;
     }
 </style>
 
 <script>
-    // ============================================================
-    // Step Navigation
-    // ============================================================
     var currentStep = 1;
     var totalSteps = 3;
 
     function updateStepUI() {
-        // Show/hide steps
         for (var i = 1; i <= totalSteps; i++) {
             var step = document.getElementById('step' + i);
             if (step) {
@@ -555,18 +526,13 @@
             }
         }
 
-        // Update progress bar
         var progress = (currentStep / totalSteps) * 100;
         document.getElementById('progressBar').style.width = progress + '%';
-
-        // Update step display
         document.getElementById('currentStepDisplay').textContent = currentStep;
 
-        // Update step labels
         var labels = ['Personal & Physical Profile', 'Fitness & Experience', 'Gear & Consent'];
         document.getElementById('stepLabel').textContent = labels[currentStep - 1];
 
-        // Update step indicators
         for (var i = 1; i <= totalSteps; i++) {
             var label = document.getElementById('step' + i + 'Label');
             if (label) {
@@ -583,7 +549,6 @@
             }
         }
 
-        // Show/hide navigation buttons
         var prevBtn = document.getElementById('prevBtn');
         var nextBtn = document.getElementById('nextBtn');
         var submitBtn = document.getElementById('submitBtn');
@@ -602,8 +567,13 @@
             submitBtn.classList.add('hidden');
         }
 
-        // Scroll to top of form
-        document.querySelector('.bg-white/5')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        var formContainer = document.querySelector('.bg-white\\/5.border-white\\/10.rounded-3xl');
+        if (formContainer) {
+            formContainer.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'start' 
+            });
+        }
     }
 
     function nextStep() {
@@ -622,9 +592,6 @@
         }
     }
 
-    // ============================================================
-    // Validation per Step
-    // ============================================================
     function validateStep(step) {
         var stepElement = document.getElementById('step' + step);
         var requiredInputs = stepElement.querySelectorAll('[required]');
@@ -632,10 +599,8 @@
         var firstInvalid = null;
 
         requiredInputs.forEach(function(input) {
-            // Skip hidden inputs
             if (input.type === 'hidden') return;
             
-            // Check if input is visible
             var isVisible = true;
             var parent = input.closest('.step-content');
             if (parent && parent.classList.contains('hidden')) {
@@ -644,7 +609,6 @@
             
             if (!isVisible) return;
 
-            // Check radio buttons (at least one selected)
             if (input.type === 'radio') {
                 var radioGroup = document.querySelectorAll('input[name="' + input.name + '"]');
                 var isChecked = false;
@@ -654,8 +618,7 @@
                 if (!isChecked) {
                     isValid = false;
                     if (!firstInvalid) firstInvalid = input;
-                    // Highlight the radio group
-                    var container = input.closest('.space-y-2') || input.closest('div');
+                    var container = input.closest('.flex-wrap') || input.closest('div');
                     if (container) {
                         container.classList.add('border-red-500/50');
                         container.classList.add('bg-red-500/5');
@@ -668,7 +631,6 @@
                 return;
             }
 
-            // Check checkboxes (at least one selected for medical conditions)
             if (input.type === 'checkbox' && input.name === 'medicalConditions') {
                 var checkboxGroup = document.querySelectorAll('input[name="medicalConditions"]');
                 var isChecked = false;
@@ -678,7 +640,7 @@
                 if (!isChecked) {
                     isValid = false;
                     if (!firstInvalid) firstInvalid = input;
-                    var container = input.closest('.space-y-2');
+                    var container = input.closest('.flex-wrap');
                     if (container) {
                         container.classList.add('border-red-500/50');
                         container.classList.add('bg-red-500/5');
@@ -691,9 +653,7 @@
                 return;
             }
 
-            // Regular inputs
             if (input.type === 'checkbox' && input.name !== 'medicalConditions') {
-                // Skip checkbox validation for consent (handled separately)
                 return;
             }
 
@@ -707,7 +667,6 @@
             }
         });
 
-        // Special validation for Step 3 - Consent checkboxes
         if (step === 3) {
             var consentGiven = document.querySelector('input[name="consentGiven"]');
             var dataPrivacyConsent = document.querySelector('input[name="dataPrivacyConsent"]');
@@ -743,9 +702,6 @@
         return isValid;
     }
 
-    // ============================================================
-    // BMI Calculator
-    // ============================================================
     function calculateBMI() {
         var heightCm = parseFloat(document.getElementById('heightCm').value);
         var weightKg = parseFloat(document.getElementById('weightKg').value);
@@ -776,9 +732,6 @@
         }
     }
 
-    // ============================================================
-    // Toast Messages
-    // ============================================================
     function showToast(message, type) {
         var existingToast = document.querySelector('.toast-message');
         if (existingToast) existingToast.remove();
@@ -799,20 +752,17 @@
         }, 4000);
     }
 
-    // ============================================================
-    // Data Privacy Modal
-    // ============================================================
     function openPrivacyModal() {
         var modal = document.getElementById('privacyModal');
-        modal.classList.remove('hidden');
-        modal.style.display = 'flex';
+        modal.classList.remove('modal-hidden');
+        modal.classList.add('modal-visible');
         document.body.style.overflow = 'hidden';
     }
 
     function closePrivacyModal() {
         var modal = document.getElementById('privacyModal');
-        modal.classList.add('hidden');
-        modal.style.display = 'none';
+        modal.classList.remove('modal-visible');
+        modal.classList.add('modal-hidden');
         document.body.style.overflow = 'auto';
     }
 
@@ -828,34 +778,8 @@
         }
     });
 
-    // ============================================================
-    // Keyboard Navigation
-    // ============================================================
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-            var activeElement = document.activeElement;
-            if (activeElement && activeElement.type !== 'submit' && activeElement.type !== 'button') {
-                // Check if we're in a step
-                var stepContent = activeElement.closest('.step-content');
-                if (stepContent) {
-                    if (currentStep === totalSteps) {
-                        // Submit if on last step
-                        document.getElementById('assessmentForm').submit();
-                    } else {
-                        nextStep();
-                    }
-                }
-            }
-        }
-    });
-
-    // ============================================================
-    // Initialize
-    // ============================================================
     document.addEventListener('DOMContentLoaded', function() {
         updateStepUI();
-        
-        // Auto-calculate BMI on load if values exist
         calculateBMI();
     });
 </script>

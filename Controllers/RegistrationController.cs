@@ -278,6 +278,7 @@ namespace TrailGuard.Controllers
         {
             var registration = await _context.EventRegistrations
                 .Include(r => r.Event)
+                .ThenInclude(e => e!.Trail)
                 .Include(r => r.Assessment)
                 .FirstOrDefaultAsync(r => r.Id == id);
 
@@ -294,17 +295,27 @@ namespace TrailGuard.Controllers
                     id = registration.Id,
                     eventId = registration.EventId,
                     eventTitle = registration.Event?.EventTitle,
-                    eventDate = registration.Event?.EventDate.ToString("MMMM dd, yyyy"),
+                    eventDate = registration.Event?.EventDate.ToString("MMM dd, yyyy"),
                     eventTime = registration.Event?.FormattedEventTime,
-                    difficulty = registration.Event?.Difficulty,
+                    eventLocation = registration.Event?.Location,
+                    eventDifficulty = registration.Event?.Difficulty,
+                    eventDuration = registration.Event?.EstimatedDuration,
+                    trailName = registration.Event?.Trail?.Name,
+                    trailDistance = registration.Event?.Trail?.DistanceKm,
+                    trailElevation = registration.Event?.Trail?.ElevationGainMeters,
+                    trailTerrain = registration.Event?.Trail?.Terrain,
                     participantName = registration.ParticipantName,
                     pickupPoint = registration.PickupPoint,
-                    emergencyContactName = registration.EmergencyContactName,
-                    emergencyContactNumber = registration.EmergencyContactNumber,
                     isPaid = registration.IsPaid,
                     paymentReceiptUrl = registration.PaymentReceiptUrl,
+                    emergencyContactName = registration.EmergencyContactName,
+                    emergencyContactNumber = registration.EmergencyContactNumber,
                     assessmentResult = registration.Assessment?.Result,
                     assessmentScore = registration.Assessment?.TotalScore,
+                    fitnessScore = registration.Assessment?.FitnessScore ?? 0,
+                    experienceScore = registration.Assessment?.ExperienceScore ?? 0,
+                    healthScore = registration.Assessment?.HealthScore ?? 0,
+                    gearScore = registration.Assessment?.GearScore ?? 0,
                     status = registration.Status,
                     registeredAt = registration.RegisteredAt.ToString("MMM dd, yyyy hh:mm tt")
                 }

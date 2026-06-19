@@ -1,0 +1,161 @@
+@model TrailGuard.Models.EventFeedback
+@{
+    ViewData["Title"] = "Event Feedback";
+    var eventItem = ViewBag.Event as TrailGuard.Models.Event;
+}
+
+<div class="pt-24 px-4 max-w-3xl mx-auto min-h-screen text-white pb-12">
+    
+    <div class="mb-6">
+        <a asp-controller="Participant" asp-action="Details" asp-route-id="@eventItem?.Id" class="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors group">
+            <i class="fa-solid fa-arrow-left group-hover:-translate-x-1 transition-transform"></i>
+            Back to Event
+        </a>
+    </div>
+
+    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8">
+        <div class="flex items-center gap-4 mb-6">
+            <div class="w-14 h-14 rounded-full bg-linear-to-r from-orange-500 to-purple-500 flex items-center justify-center">
+                <i class="fa-solid fa-comment text-white text-2xl"></i>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-white">Event Feedback</h1>
+                <p class="text-gray-400 text-sm">Share your experience for @eventItem?.EventTitle</p>
+            </div>
+        </div>
+
+        <div class="bg-orange-500/10 border border-orange-500/30 rounded-xl p-4 mb-6">
+            <p class="text-orange-300 text-sm">
+                <i class="fa-solid fa-info-circle mr-2"></i>
+                <span class="font-semibold">Event:</span> @eventItem?.EventTitle
+            </p>
+            <div class="flex flex-wrap gap-4 text-orange-300/70 text-sm mt-1">
+                <span><i class="fa-regular fa-calendar mr-2"></i>@eventItem?.EventDate.ToString("MMMM dd, yyyy")</span>
+                <span><i class="fa-regular fa-clock mr-2"></i>@eventItem?.FormattedEventTime</span>
+                <span><i class="fa-solid fa-signal mr-2"></i>@eventItem?.Difficulty</span>
+            </div>
+        </div>
+
+        <form method="post" asp-action="SubmitFeedback" asp-route-eventId="@eventItem?.Id">
+            @Html.AntiForgeryToken()
+
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-3">Overall Rating <span class="text-red-400">*</span></label>
+                    <div class="flex gap-3 text-3xl" id="starRating">
+                        <i class="fa-regular fa-star text-gray-400 cursor-pointer hover:text-yellow-400 transition-all" data-rating="1"></i>
+                        <i class="fa-regular fa-star text-gray-400 cursor-pointer hover:text-yellow-400 transition-all" data-rating="2"></i>
+                        <i class="fa-regular fa-star text-gray-400 cursor-pointer hover:text-yellow-400 transition-all" data-rating="3"></i>
+                        <i class="fa-regular fa-star text-gray-400 cursor-pointer hover:text-yellow-400 transition-all" data-rating="4"></i>
+                        <i class="fa-regular fa-star text-gray-400 cursor-pointer hover:text-yellow-400 transition-all" data-rating="5"></i>
+                    </div>
+                    <input type="hidden" id="selectedRating" name="Rating" value="0" />
+                    <p class="text-xs text-gray-500 mt-2" id="ratingLabel">Click a star to rate</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-3">How did the trail difficulty compare to your expectations? <span class="text-red-400">*</span></label>
+                    <div class="space-y-2">
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
+                            <input type="radio" name="DifficultyExperience" value="Much easier than expected" required class="w-4 h-4 accent-orange-500" />
+                            <span class="text-gray-300 text-sm">Much easier than expected — I was over-prepared</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
+                            <input type="radio" name="DifficultyExperience" value="Matched perfectly" class="w-4 h-4 accent-orange-500" />
+                            <span class="text-gray-300 text-sm">Matched perfectly — I finished comfortably at the expected pace</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
+                            <input type="radio" name="DifficultyExperience" value="Matched but challenging" class="w-4 h-4 accent-orange-500" />
+                            <span class="text-gray-300 text-sm">Matched — I finished but it was challenging</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
+                            <input type="radio" name="DifficultyExperience" value="Harder than expected" class="w-4 h-4 accent-orange-500" />
+                            <span class="text-gray-300 text-sm">Harder than expected — I finished but struggled significantly</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
+                            <input type="radio" name="DifficultyExperience" value="Much harder" class="w-4 h-4 accent-orange-500" />
+                            <span class="text-gray-300 text-sm">Much harder — I needed assistance to finish</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
+                            <input type="radio" name="DifficultyExperience" value="Could not finish - turned back" class="w-4 h-4 accent-orange-500" />
+                            <span class="text-gray-300 text-sm">Could not finish — I turned back early</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
+                            <input type="radio" name="DifficultyExperience" value="Could not finish - injured" class="w-4 h-4 accent-orange-500" />
+                            <span class="text-gray-300 text-sm">Could not finish — I was injured or felt unsafe</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Additional Comments</label>
+                    <textarea name="Comment" rows="4" class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-xl px-4 py-3 focus:border-orange-500 focus:outline-none transition-colors resize-none" placeholder="Share any thoughts about the trail, pacing, safety, organizers, or your experience..."></textarea>
+                </div>
+
+                <div class="flex gap-4 pt-4 border-t border-white/10">
+                    <a asp-controller="Participant" asp-action="Details" asp-route-id="@eventItem?.Id" class="flex-1 px-6 py-3 rounded-xl text-gray-300 font-medium bg-gray-800 hover:bg-gray-700 transition-colors text-center">
+                        Cancel
+                    </a>
+                    <button type="submit" class="flex-1 px-6 py-3 rounded-xl text-white font-bold bg-linear-to-r from-orange-500 to-purple-600 hover:opacity-90 transition-all">
+                        <i class="fa-regular fa-paper-plane mr-2"></i> Submit Feedback
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const stars = document.querySelectorAll('#starRating i');
+        const ratingInput = document.getElementById('selectedRating');
+        const ratingLabel = document.getElementById('ratingLabel');
+        
+        const labels = [
+            '',
+            'Poor - Needs improvement',
+            'Fair - Could be better',
+            'Good - Satisfactory',
+            'Very Good - Great experience',
+            'Excellent - Outstanding!'
+        ];
+
+        stars.forEach(star => {
+            star.addEventListener('click', function() {
+                const rating = parseInt(this.getAttribute('data-rating'));
+                ratingInput.value = rating;
+                ratingLabel.textContent = labels[rating] || 'Click a star to rate';
+                
+                stars.forEach((s, index) => {
+                    if (index < rating) {
+                        s.className = 'fa-solid fa-star text-yellow-400 cursor-pointer hover:text-yellow-400 transition-all';
+                    } else {
+                        s.className = 'fa-regular fa-star text-gray-400 cursor-pointer hover:text-yellow-400 transition-all';
+                    }
+                });
+            });
+
+            star.addEventListener('mouseenter', function() {
+                const rating = parseInt(this.getAttribute('data-rating'));
+                stars.forEach((s, index) => {
+                    if (index < rating) {
+                        s.className = 'fa-regular fa-star text-yellow-400 cursor-pointer hover:text-yellow-400 transition-all';
+                    } else {
+                        s.className = 'fa-regular fa-star text-gray-400 cursor-pointer hover:text-yellow-400 transition-all';
+                    }
+                });
+            });
+
+            star.addEventListener('mouseleave', function() {
+                const selected = parseInt(ratingInput.value);
+                stars.forEach((s, index) => {
+                    if (selected > 0 && index < selected) {
+                        s.className = 'fa-solid fa-star text-yellow-400 cursor-pointer hover:text-yellow-400 transition-all';
+                    } else {
+                        s.className = 'fa-regular fa-star text-gray-400 cursor-pointer hover:text-yellow-400 transition-all';
+                    }
+                });
+            });
+        });
+    });
+</script>

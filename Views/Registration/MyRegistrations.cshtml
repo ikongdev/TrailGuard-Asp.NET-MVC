@@ -5,21 +5,15 @@
     var totalRegistrations = Model.Count;
     var pendingCount = Model.Count(r => r.Status == "Pending");
     var acceptedCount = Model.Count(r => r.Status == "Accepted");
-    var completedCount = Model.Count(r => r.Status == "Completed" || (r.Event != null && r.Event.Status == "Completed"));
-    var cancelledCount = Model.Count(r => r.Status == "Cancelled");
+    var declinedCount = Model.Count(r => r.Status == "Rejected" || r.Status == "Declined");
 }
 
 <div class="pt-24 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
     
-    <!-- Header -->
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
-            <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">My Registrations</h1>
-            <p class="text-gray-400 mt-1 text-sm">View and manage your event registrations.</p>
-        </div>
-        <div class="bg-white/5 border border-white/10 px-4 py-2 rounded-full flex items-center gap-2">
-            <i class="fa-regular fa-calendar text-purple-400"></i>
-            <span class="text-sm text-gray-300">@totalRegistrations registration(s)</span>
+            <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-linear-to-r from-purple-400 to-pink-400">My Registrations</h1>
+            <p class="text-gray-400 mt-1 text-sm">Track your event registration requests and review each request status.</p>
         </div>
     </div>
 
@@ -45,416 +39,425 @@
         </div>
     }
 
-    <!-- ============================================================ -->
-    <!-- SUMMARY CARDS                                                -->
-    <!-- ============================================================ -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-        <!-- Total -->
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-8">
         <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4 text-center">
             <p class="text-2xl font-bold text-white">@totalRegistrations</p>
-            <p class="text-gray-400 text-xs">Total</p>
+            <p class="text-gray-400 text-xs">Total Requests</p>
+            <p class="text-[10px] text-gray-500">All active</p>
         </div>
-        <!-- Pending -->
         <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-4 text-center">
             <p class="text-2xl font-bold text-yellow-400">@pendingCount</p>
             <p class="text-gray-400 text-xs">Pending</p>
+            <p class="text-[10px] text-gray-500">Requested</p>
         </div>
-        <!-- Accepted -->
         <div class="bg-green-500/10 border border-green-500/30 rounded-2xl p-4 text-center">
             <p class="text-2xl font-bold text-green-400">@acceptedCount</p>
             <p class="text-gray-400 text-xs">Accepted</p>
+            <p class="text-[10px] text-gray-500">Confirmed</p>
         </div>
-        <!-- Completed -->
-        <div class="bg-blue-500/10 border border-blue-500/30 rounded-2xl p-4 text-center">
-            <p class="text-2xl font-bold text-blue-400">@completedCount</p>
-            <p class="text-gray-400 text-xs">Completed</p>
+        <div class="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 text-center">
+            <p class="text-2xl font-bold text-red-400">@declinedCount</p>
+            <p class="text-gray-400 text-xs">Declined</p>
+            <p class="text-[10px] text-gray-500">Not accepted</p>
         </div>
     </div>
 
-    <!-- ============================================================ -->
-    <!-- REGISTRATIONS TABLE                                          -->
-    <!-- ============================================================ -->
-    @if (Model.Any())
-    {
-        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full text-left">
-                    <thead class="border-b border-gray-700">
-                        <tr>
-                            <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase">Event</th>
-                            <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase">Date</th>
-                            <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase">Status</th>
-                            <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase">Registered On</th>
-                            <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var reg in Model)
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden h-150 flex flex-col">
+            <div class="px-4 py-3 border-b border-white/10 shrink-0">
+                <h2 class="text-sm font-semibold text-white">Your Registration Requests</h2>
+            </div>
+            <div class="flex-1 overflow-y-auto custom-scrollbar">
+                @if (Model.Any())
+                {
+                    @foreach (var reg in Model.OrderByDescending(r => r.RegisteredAt))
+                    {
+                        var statusColor = reg.Status switch
                         {
-                            var statusColor = reg.Status switch
-                            {
-                                "Pending" => "text-yellow-400 bg-yellow-500/20",
-                                "Accepted" => "text-green-400 bg-green-500/20",
-                                "Completed" => "text-blue-400 bg-blue-500/20",
-                                "Cancelled" => "text-red-400 bg-red-500/20",
-                                _ => "text-gray-400 bg-gray-500/20"
-                            };
-                            
-                            <tr class="border-b border-gray-800 hover:bg-white/5 transition-colors">
-                                <td class="px-6 py-4">
-                                    <div>
-                                        <p class="text-white font-medium">@reg.Event?.EventTitle</p>
-                                        <p class="text-gray-500 text-xs"><i class="fa-solid fa-mountain mr-1"></i>@reg.Event?.Difficulty</p>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4 text-gray-300">
-                                    @reg.Event?.EventDate.ToString("MMM dd, yyyy")
-                                    <br />
-                                    <span class="text-gray-500 text-xs">@reg.Event?.FormattedEventTime</span>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <span class="px-3 py-1 rounded-full text-xs font-semibold @statusColor">
-                                        @reg.Status
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 text-gray-400 text-sm">
-                                    @reg.RegisteredAt.ToString("MMM dd, yyyy")
-                                </td>
-                                <td class="px-6 py-4 text-right">
-                                    <button onclick="openRegistrationModal(@reg.Id)" 
-                                            class="text-purple-400 hover:text-purple-300 transition-colors text-sm font-medium">
-                                        View Details
-                                    </button>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
+                            "Pending" => "text-yellow-400 bg-yellow-500/20",
+                            "Accepted" => "text-green-400 bg-green-500/20",
+                            "Rejected" => "text-red-400 bg-red-500/20",
+                            "Declined" => "text-red-400 bg-red-500/20",
+                            "Alternative Recommended" => "text-blue-400 bg-blue-500/20",
+                            _ => "text-gray-400 bg-gray-500/20"
+                        };
+                        
+                        <div class="registration-item flex items-center justify-between p-4 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer" 
+                             onclick="loadRegistrationDetails(@reg.Id)" data-reg-id="@reg.Id">
+                            <div class="flex-1 min-w-0">
+                                <p class="text-white font-medium text-sm truncate">@reg.Event?.EventTitle</p>
+                                <p class="text-gray-400 text-xs truncate">@reg.Event?.Trail?.Name</p>
+                                <div class="flex flex-wrap gap-3 text-xs text-gray-500 mt-1">
+                                    <span><i class="fa-regular fa-calendar mr-1"></i>@reg.Event?.EventDate.ToString("MMM dd, yyyy")</span>
+                                    <span><i class="fa-regular fa-clock mr-1"></i>@reg.Event?.FormattedEventTime</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3 ml-4 shrink-0">
+                                <span class="px-3 py-1 rounded-full text-xs font-semibold @statusColor whitespace-nowrap">
+                                    @reg.Status
+                                </span>
+                                <i class="fa-solid fa-chevron-right text-gray-500 text-xs"></i>
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="text-center py-12 text-gray-500">
+                        <i class="fa-regular fa-calendar-plus text-3xl block mb-3 opacity-50"></i>
+                        <p class="text-sm">No registrations yet.</p>
+                        <a asp-controller="Participant" asp-action="Events" 
+                           class="inline-block mt-3 text-sm text-purple-400 hover:text-purple-300 transition-colors">
+                            Browse Events →
+                        </a>
+                    </div>
+                }
             </div>
         </div>
-    }
-    else
-    {
-        <div class="text-center py-20 bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl">
-            <i class="fa-regular fa-calendar-plus text-5xl text-gray-500 mb-4"></i>
-            <h3 class="text-xl font-bold text-gray-300">No registrations yet</h3>
-            <p class="text-gray-500 mt-2">Browse events and register for your next adventure!</p>
-            <a asp-controller="Participant" asp-action="Events" 
-               class="inline-block mt-4 px-6 py-3 rounded-xl text-white font-bold bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 transition-all">
-                Browse Events
+
+        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 h-150 overflow-y-auto custom-scrollbar flex flex-col">
+            <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2 shrink-0">
+                <i class="fa-regular fa-file-lines text-purple-400"></i>
+                Request Details
+            </h2>
+            
+            <div id="registrationDetails" class="flex-1">
+                <div class="text-center text-gray-500 py-8">
+                    <i class="fa-regular fa-hand-pointer text-3xl block mb-3 opacity-50"></i>
+                    <p class="text-sm">Select a registration</p>
+                    <p class="text-xs text-gray-600">to view details here</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script id="loadingTemplate" type="text/template">
+    <div class="text-center py-8">
+        <div class="inline-block w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+        <p class="text-gray-400 text-sm mt-3">Loading...</p>
+    </div>
+</script>
+
+<script id="detailsTemplate" type="text/template">
+    <div class="space-y-4">
+        <div>
+            <h3 class="text-white font-bold text-lg">{eventTitle}</h3>
+            <p class="text-gray-400 text-xs">{trailName}</p>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <span class="px-3 py-1 rounded-full text-xs font-semibold {statusClass}">{status}</span>
+        </div>
+
+        <div class="bg-[#111A2E] rounded-xl p-3">
+            <p class="text-gray-500 text-[10px] uppercase tracking-wider mb-2">Event Details</p>
+            <div class="grid grid-cols-2 gap-1 text-sm">
+                <div>
+                    <span class="text-gray-500 text-[10px]">Date</span>
+                    <p class="text-white text-xs">{eventDate}</p>
+                </div>
+                <div>
+                    <span class="text-gray-500 text-[10px]">Time</span>
+                    <p class="text-white text-xs">{eventTime}</p>
+                </div>
+                <div class="col-span-2">
+                    <span class="text-gray-500 text-[10px]">Location</span>
+                    <p class="text-white text-xs">{eventLocation}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-[#111A2E] rounded-xl p-3">
+            <p class="text-gray-500 text-[10px] uppercase tracking-wider mb-2">Trail Details</p>
+            <div class="grid grid-cols-2 gap-1 text-sm">
+                <div>
+                    <span class="text-gray-500 text-[10px]">Distance</span>
+                    <p class="text-white text-xs font-medium">{trailDistance} km</p>
+                </div>
+                <div>
+                    <span class="text-gray-500 text-[10px]">Elevation</span>
+                    <p class="text-white text-xs font-medium">{trailElevation} m</p>
+                </div>
+                <div>
+                    <span class="text-gray-500 text-[10px]">Terrain</span>
+                    <p class="text-white text-xs font-medium">{trailTerrain}</p>
+                </div>
+                <div>
+                    <span class="text-gray-500 text-[10px]">Difficulty</span>
+                    <p class="text-white text-xs font-medium">{eventDifficulty}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-[#111A2E] rounded-xl p-3">
+            <p class="text-gray-500 text-[10px] uppercase tracking-wider mb-2">Registration Details</p>
+            <div class="space-y-1 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-gray-500 text-[10px]">Name</span>
+                    <span class="text-white text-xs">{participantName}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-500 text-[10px]">Pickup Point</span>
+                    <span class="text-white text-xs">{pickupPoint}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-500 text-[10px]">Payment</span>
+                    <span class="text-white text-xs">{paymentStatus}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-500 text-[10px]">Registered</span>
+                    <span class="text-white text-xs">{registeredAt}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-[#111A2E] rounded-xl p-3">
+            <p class="text-gray-500 text-[10px] uppercase tracking-wider mb-2">Assessment Result</p>
+            <div class="flex items-center gap-3 mb-3">
+                <span class="text-sm font-bold {assessmentColor}">{assessmentResult}</span>
+                <span class="text-gray-500 text-xs">Score: {assessmentScore}/44</span>
+            </div>
+            <div class="space-y-2">
+                <div>
+                    <div class="flex justify-between text-xs">
+                        <span class="text-gray-400">Fitness</span>
+                        <span class="text-white font-medium">{fitnessScore}/12</span>
+                    </div>
+                    <div class="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                        <div class="h-full rounded-full bg-blue-500" style="width: {fitnessPercent}%"></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex justify-between text-xs">
+                        <span class="text-gray-400">Experience</span>
+                        <span class="text-white font-medium">{experienceScore}/12</span>
+                    </div>
+                    <div class="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                        <div class="h-full rounded-full bg-green-500" style="width: {experiencePercent}%"></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex justify-between text-xs">
+                        <span class="text-gray-400">Health</span>
+                        <span class="text-white font-medium">{healthScore}/12</span>
+                    </div>
+                    <div class="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                        <div class="h-full rounded-full bg-purple-500" style="width: {healthPercent}%"></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex justify-between text-xs">
+                        <span class="text-gray-400">Gear</span>
+                        <span class="text-white font-medium">{gearScore}/8</span>
+                    </div>
+                    <div class="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                        <div class="h-full rounded-full bg-orange-500" style="width: {gearPercent}%"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-3 pt-3 border-t border-white/10">
+                <p class="text-gray-500 text-[10px] uppercase tracking-wider mb-2">Trail Demands</p>
+                <div class="grid grid-cols-2 gap-1 text-xs">
+                    <div>
+                        <span class="text-gray-500 text-[10px]">Distance</span>
+                        <p class="text-white font-medium">{trailDistance} km</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500 text-[10px]">Elevation</span>
+                        <p class="text-white font-medium">{trailElevation} m</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500 text-[10px]">Duration</span>
+                        <p class="text-white font-medium">{eventDuration} hrs</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500 text-[10px]">Terrain</span>
+                        <p class="text-white font-medium">{trailTerrain}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex flex-col gap-2 mt-4">
+            <a href="/Participant/Details/{eventId}" class="w-full px-4 py-2.5 rounded-xl text-white text-sm font-medium bg-linear-to-r from-purple-500 to-pink-500 hover:opacity-90 transition-all text-center">
+                <i class="fa-regular fa-eye mr-2"></i> View Event Details
             </a>
-        </div>
-    }
-</div>
-
-<!-- ============================================================ -->
-<!-- REGISTRATION DETAILS MODAL                                   -->
-<!-- ============================================================ -->
-<div id="registrationModal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4" style="padding-top: 80px;">
-    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeRegistrationModal()"></div>
-    <div class="relative bg-[#0B1325] border border-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col" style="margin: auto; z-index: 10;">
-        
-        <div class="flex justify-between items-center px-6 py-4 border-b border-gray-800 shrink-0">
-            <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center">
-                    <i class="fa-regular fa-clipboard text-white text-sm"></i>
-                </div>
-                <h2 class="text-xl font-bold text-white">Registration Details</h2>
-            </div>
-            <button onclick="closeRegistrationModal()" class="text-gray-400 hover:text-white transition-colors">
-                <i class="fa-solid fa-xmark text-2xl"></i>
-            </button>
-        </div>
-
-        <div class="overflow-y-auto p-6 custom-scrollbar" id="modalContent">
-            <div class="text-center py-8">
-                <div class="inline-block w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-                <p class="text-gray-400 mt-2">Loading...</p>
-            </div>
+            {cancelButton}
+            {retakeButton}
         </div>
     </div>
-</div>
-
-<!-- ============================================================ -->
-<!-- UPDATE RECEIPT MODAL                                         -->
-<!-- ============================================================ -->
-<div id="receiptModal" class="fixed inset-0 z-[101] hidden items-center justify-center p-4" style="padding-top: 80px;">
-    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeReceiptModal()"></div>
-    <div class="relative bg-[#0B1325] border border-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col" style="margin: auto; z-index: 10;">
-        
-        <div class="flex justify-between items-center px-6 py-4 border-b border-gray-800 shrink-0">
-            <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center">
-                    <i class="fa-solid fa-upload text-white text-sm"></i>
-                </div>
-                <h2 class="text-xl font-bold text-white">Update Payment Receipt</h2>
-            </div>
-            <button onclick="closeReceiptModal()" class="text-gray-400 hover:text-white transition-colors">
-                <i class="fa-solid fa-xmark text-2xl"></i>
-            </button>
-        </div>
-
-        <form id="receiptForm" enctype="multipart/form-data" class="p-6">
-            <input type="hidden" id="receiptRegistrationId" name="id" />
-            <div>
-                <label class="block text-sm font-medium text-gray-300 mb-2">Upload New Receipt <span class="text-red-400">*</span></label>
-                <input type="file" name="paymentReceipt" id="paymentReceiptInput" required accept="image/*,.pdf" 
-                       class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-xl px-4 py-3 focus:border-purple-500 focus:outline-none transition-colors file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-purple-500/20 file:text-white file:cursor-pointer hover:file:bg-purple-500/30" />
-                <p class="text-gray-500 text-xs mt-1">JPG, PNG, or PDF accepted.</p>
-            </div>
-            <div class="flex gap-3 mt-6">
-                <button type="button" onclick="closeReceiptModal()" class="flex-1 px-4 py-2 rounded-lg text-gray-300 bg-gray-800 hover:bg-gray-700 transition-colors text-center">
-                    Cancel
-                </button>
-                <button type="submit" class="flex-1 px-4 py-2 rounded-lg text-white font-medium bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 transition-all">
-                    Upload
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
+</script>
 
 <style>
-    .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
-    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 5px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 10px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(168, 85, 247, 0.4);
+        border-radius: 10px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(168, 85, 247, 0.6);
+    }
+    
+    .custom-scrollbar {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(168, 85, 247, 0.4) rgba(255, 255, 255, 0.05);
+    }
+    
+    .registration-item.active {
+        background: rgba(168, 85, 247, 0.1);
+        border-left: 3px solid #a855f7;
+    }
 </style>
 
 <script>
-    let currentRegistrationId = 0;
+    let currentRegistrationId = null;
 
-    function openRegistrationModal(id) {
+    function loadRegistrationDetails(id) {
+        document.querySelectorAll('.registration-item').forEach(function(el) {
+            el.classList.remove('active');
+        });
+        var selectedItem = document.querySelector('.registration-item[data-reg-id="' + id + '"]');
+        if (selectedItem) {
+            selectedItem.classList.add('active');
+        }
+
         currentRegistrationId = id;
-        const modal = document.getElementById('registrationModal');
-        modal.classList.remove('hidden');
-        modal.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
-        loadRegistrationDetails(id);
-    }
-
-    function closeRegistrationModal() {
-        const modal = document.getElementById('registrationModal');
-        modal.classList.add('hidden');
-        modal.style.display = 'none';
-        document.body.style.overflow = 'auto';
-    }
-
-    async function loadRegistrationDetails(id) {
-        const content = document.getElementById('modalContent');
-        content.innerHTML = `
-            <div class="text-center py-8">
-                <div class="inline-block w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-                <p class="text-gray-400 mt-2">Loading...</p>
-            </div>
-        `;
-
-        try {
-            const response = await fetch(`/Registration/GetRegistrationDetails?id=${id}`);
-            const data = await response.json();
-
-            if (data.success) {
-                const reg = data.registration;
-                const statusColor = reg.status === 'Pending' ? 'text-yellow-400' : 
-                                   reg.status === 'Accepted' ? 'text-green-400' : 
-                                   reg.status === 'Completed' ? 'text-blue-400' : 'text-red-400';
-                
-                content.innerHTML = `
-                    <div class="space-y-6">
-                        <div class="bg-white/5 rounded-xl p-4">
-                            <h3 class="text-white font-semibold text-lg">${reg.eventTitle}</h3>
-                            <div class="flex flex-wrap gap-4 text-sm text-gray-400 mt-2">
-                                <span><i class="fa-regular fa-calendar mr-2"></i>${reg.eventDate}</span>
-                                <span><i class="fa-regular fa-clock mr-2"></i>${reg.eventTime}</span>
-                                <span><i class="fa-solid fa-signal mr-2"></i>${reg.difficulty}</span>
-                            </div>
-                        </div>
-
-                        <div>
-                            <h4 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Participant</h4>
-                            <div class="grid grid-cols-2 gap-2 text-sm">
-                                <div>
-                                    <span class="text-gray-500">Name:</span>
-                                    <span class="text-white">${reg.participantName}</span>
-                                </div>
-                                <div>
-                                    <span class="text-gray-500">Pickup Point:</span>
-                                    <span class="text-white">${reg.pickupPoint || 'N/A'}</span>
-                                </div>
-                                <div>
-                                    <span class="text-gray-500">Emergency Contact:</span>
-                                    <span class="text-white">${reg.emergencyContactName || 'N/A'}</span>
-                                </div>
-                                <div>
-                                    <span class="text-gray-500">Emergency Number:</span>
-                                    <span class="text-white">${reg.emergencyContactNumber || 'N/A'}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div>
-                            <h4 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Payment</h4>
-                            <div class="flex items-center gap-4 flex-wrap">
-                                <span class="text-gray-500 text-sm">Status:</span>
-                                <span class="${reg.isPaid ? 'text-green-400' : 'text-yellow-400'} text-sm font-medium">
-                                    ${reg.isPaid ? 'Paid' : 'Unpaid'}
-                                </span>
-                                ${reg.paymentReceiptUrl ? `
-                                    <a href="${reg.paymentReceiptUrl}" target="_blank" 
-                                       class="text-purple-400 hover:text-purple-300 text-sm">
-                                        <i class="fa-regular fa-file mr-1"></i> View Receipt
-                                    </a>
-                                ` : ''}
-                                <button onclick="openReceiptModal(${reg.id})" 
-                                        class="text-blue-400 hover:text-blue-300 text-sm">
-                                    <i class="fa-solid fa-upload mr-1"></i> Update Receipt
-                                </button>
-                            </div>
-                        </div>
-
-                        <div>
-                            <h4 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Assessment Result</h4>
-                            <div class="flex items-center gap-4">
-                                <span class="text-sm font-medium ${reg.assessmentResult === 'Good-Match' ? 'text-green-400' : reg.assessmentResult === 'Borderline' ? 'text-yellow-400' : 'text-red-400'}">
-                                    ${reg.assessmentResult || 'N/A'}
-                                </span>
-                                ${reg.assessmentScore ? `
-                                    <span class="text-gray-500 text-sm">Score: ${reg.assessmentScore}/44</span>
-                                ` : ''}
-                            </div>
-                        </div>
-
-                        <div class="border-t border-white/10 pt-4 flex justify-between items-center flex-wrap gap-2">
-                            <div>
-                                <span class="text-gray-500 text-sm">Status:</span>
-                                <span class="font-semibold ${statusColor} ml-2">${reg.status}</span>
-                            </div>
-                            <div class="flex gap-2 flex-wrap">
-                                <a href="/Participant/Details/${reg.eventId}" target="_blank" 
-                                   class="px-4 py-2 rounded-lg text-sm text-white bg-blue-500/20 hover:bg-blue-500/30 transition-colors">
-                                    <i class="fa-regular fa-eye mr-1"></i> View Event
-                                </a>
-                                ${reg.status === 'Pending' ? `
-                                    <button onclick="cancelRegistration(${reg.id})" 
-                                            class="px-4 py-2 rounded-lg text-sm text-white bg-red-500/20 hover:bg-red-500/30 transition-colors">
-                                        <i class="fa-solid fa-xmark mr-1"></i> Cancel
-                                    </button>
-                                ` : reg.status === 'Cancelled' ? `
-                                    <a href="/Assessment/Form/${reg.eventId}" 
-                                       class="px-4 py-2 rounded-lg text-sm text-white bg-purple-500/20 hover:bg-purple-500/30 transition-colors">
-                                        <i class="fa-regular fa-clipboard mr-1"></i> Register Again
-                                    </a>
-                                ` : ''}
-                            </div>
-                        </div>
-                    </div>
-                `;
-            } else {
-                content.innerHTML = `
-                    <div class="text-center py-8">
-                        <i class="fa-solid fa-circle-exclamation text-3xl text-red-400 mb-2"></i>
-                        <p class="text-red-400">${data.message || 'Error loading registration details'}</p>
-                    </div>
-                `;
-            }
-        } catch (error) {
-            content.innerHTML = `
-                <div class="text-center py-8">
-                    <i class="fa-solid fa-circle-exclamation text-3xl text-red-400 mb-2"></i>
-                    <p class="text-red-400">Error loading registration details</p>
-                </div>
-            `;
-        }
-    }
-
-    function openReceiptModal(registrationId) {
-        document.getElementById('receiptRegistrationId').value = registrationId;
-        const modal = document.getElementById('receiptModal');
-        modal.classList.remove('hidden');
-        modal.style.display = 'flex';
-    }
-
-    function closeReceiptModal() {
-        const modal = document.getElementById('receiptModal');
-        modal.classList.add('hidden');
-        modal.style.display = 'none';
-        document.getElementById('receiptForm').reset();
-    }
-
-    document.getElementById('receiptForm')?.addEventListener('submit', async function(e) {
-        e.preventDefault();
+        var detailsContainer = document.getElementById('registrationDetails');
         
-        const formData = new FormData(this);
-        const submitBtn = this.querySelector('button[type="submit"]');
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Uploading...';
+        detailsContainer.innerHTML = document.getElementById('loadingTemplate').innerHTML;
 
-        try {
-            const response = await fetch('/Registration/UpdatePaymentReceipt', {
-                method: 'POST',
-                body: formData
+        fetch('/Registration/GetRegistrationDetails?id=' + id)
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                if (data.success) {
+                    var reg = data.registration;
+                    var statusClass = reg.status === 'Pending' ? 'text-yellow-400 bg-yellow-500/20' : 
+                                       reg.status === 'Accepted' ? 'text-green-400 bg-green-500/20' : 
+                                       reg.status === 'Alternative Recommended' ? 'text-blue-400 bg-blue-500/20' : 
+                                       'text-red-400 bg-red-500/20';
+                    
+                    var assessmentColor = reg.assessmentResult === 'Good-Match' ? 'text-green-400' : 
+                                           reg.assessmentResult === 'Borderline' ? 'text-yellow-400' : 'text-red-400';
+                    
+                    var paymentStatus = reg.isPaid ? '✅ Paid' : '⏳ Unpaid';
+                    
+                    var fitnessPercent = Math.round((reg.fitnessScore / 12) * 100);
+                    var experiencePercent = Math.round((reg.experienceScore / 12) * 100);
+                    var healthPercent = Math.round((reg.healthScore / 12) * 100);
+                    var gearPercent = Math.round((reg.gearScore / 8) * 100);
+                    
+                    var cancelButton = '';
+                    var retakeButton = '';
+                    if (reg.status === 'Pending') {
+                        cancelButton = '<button onclick="cancelRegistration(' + reg.id + ')" class="w-full px-4 py-2 rounded-xl text-red-400 text-sm font-medium border border-red-500/30 hover:bg-red-500/10 transition-all text-center">Cancel Request</button>';
+                    }
+                    if (reg.status === 'Rejected' || reg.status === 'Declined' || reg.status === 'Alternative Recommended') {
+                        retakeButton = '<a href="/Assessment/Form/' + reg.eventId + '" class="w-full px-4 py-2 rounded-xl text-purple-400 text-sm font-medium border border-purple-500/30 hover:bg-purple-500/10 transition-all text-center">Retake Assessment</a>';
+                    }
+                    
+                    var template = document.getElementById('detailsTemplate').innerHTML
+                        .replace(/{eventTitle}/g, reg.eventTitle || 'N/A')
+                        .replace(/{trailName}/g, reg.trailName || 'N/A')
+                        .replace(/{status}/g, reg.status)
+                        .replace(/{statusClass}/g, statusClass)
+                        .replace(/{eventDate}/g, reg.eventDate || 'N/A')
+                        .replace(/{eventTime}/g, reg.eventTime || 'N/A')
+                        .replace(/{eventLocation}/g, reg.eventLocation || 'N/A')
+                        .replace(/{trailDistance}/g, reg.trailDistance || '0')
+                        .replace(/{trailElevation}/g, reg.trailElevation || '0')
+                        .replace(/{trailTerrain}/g, reg.trailTerrain || 'N/A')
+                        .replace(/{eventDifficulty}/g, reg.eventDifficulty || 'N/A')
+                        .replace(/{participantName}/g, reg.participantName || 'N/A')
+                        .replace(/{pickupPoint}/g, reg.pickupPoint || 'N/A')
+                        .replace(/{paymentStatus}/g, paymentStatus)
+                        .replace(/{registeredAt}/g, reg.registeredAt || 'N/A')
+                        .replace(/{assessmentResult}/g, reg.assessmentResult || 'N/A')
+                        .replace(/{assessmentScore}/g, reg.assessmentScore || '0')
+                        .replace(/{assessmentColor}/g, assessmentColor)
+                        .replace(/{fitnessScore}/g, reg.fitnessScore || 0)
+                        .replace(/{experienceScore}/g, reg.experienceScore || 0)
+                        .replace(/{healthScore}/g, reg.healthScore || 0)
+                        .replace(/{gearScore}/g, reg.gearScore || 0)
+                        .replace(/{fitnessPercent}/g, fitnessPercent)
+                        .replace(/{experiencePercent}/g, experiencePercent)
+                        .replace(/{healthPercent}/g, healthPercent)
+                        .replace(/{gearPercent}/g, gearPercent)
+                        .replace(/{eventDuration}/g, reg.eventDuration || '0')
+                        .replace(/{eventId}/g, reg.eventId)
+                        .replace(/{cancelButton}/g, cancelButton)
+                        .replace(/{retakeButton}/g, retakeButton);
+                    
+                    detailsContainer.innerHTML = template;
+                } else {
+                    detailsContainer.innerHTML = '<div class="text-center py-8 text-red-400"><i class="fa-solid fa-circle-exclamation text-2xl block mb-2"></i><p class="text-sm">' + (data.message || 'Error loading details') + '</p></div>';
+                }
+            })
+            .catch(function(error) {
+                console.error('Error:', error);
+                detailsContainer.innerHTML = '<div class="text-center py-8 text-red-400"><i class="fa-solid fa-circle-exclamation text-2xl block mb-2"></i><p class="text-sm">Error loading registration details</p></div>';
             });
+    }
 
-            const result = await response.json();
-
-            if (result.success) {
-                showToast(result.message, 'success');
-                closeReceiptModal();
-                setTimeout(() => {
-                    loadRegistrationDetails(currentRegistrationId);
-                }, 500);
-            } else {
-                showToast(result.message, 'error');
-            }
-        } catch (error) {
-            showToast('Error uploading receipt', 'error');
-        } finally {
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Upload';
-        }
-    });
-
-    async function cancelRegistration(id) {
+    function cancelRegistration(id) {
         if (!confirm('Are you sure you want to cancel this registration?')) return;
 
-        try {
-            const response = await fetch('/Registration/CancelRegistration', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: id })
-            });
-
-            const result = await response.json();
-
+        fetch('/Registration/CancelRegistration', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: id })
+        })
+        .then(function(response) {
+            return response.json();
+        })
+        .then(function(result) {
             if (result.success) {
                 showToast(result.message, 'success');
-                closeRegistrationModal();
-                setTimeout(() => location.reload(), 1000);
+                setTimeout(function() {
+                    location.reload();
+                }, 1000);
             } else {
                 showToast(result.message, 'error');
             }
-        } catch (error) {
+        })
+        .catch(function(error) {
+            console.error('Error:', error);
             showToast('Error cancelling registration', 'error');
-        }
+        });
     }
 
     function showToast(message, type) {
-        const existingToast = document.querySelector('.toast-message');
-        if (existingToast) existingToast.remove();
+        var existingToast = document.querySelector('.toast-message');
+        if (existingToast) {
+            existingToast.remove();
+        }
         
-        const toast = document.createElement('div');
-        toast.className = `toast-message fixed top-24 right-4 z-50 ${type === 'success' ? 'bg-green-500/90' : 'bg-red-500/90'} text-white px-6 py-3 rounded-xl shadow-lg backdrop-blur-sm flex items-center gap-3`;
-        toast.innerHTML = `
-            <i class="fa-solid ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle'}"></i>
-            <span>${message}</span>
-            <button onclick="this.parentElement.remove()" class="hover:text-gray-200 transition-colors">
-                <i class="fa-solid fa-xmark text-lg"></i>
-            </button>
-        `;
+        var toast = document.createElement('div');
+        toast.className = 'toast-message fixed top-24 right-4 z-50 ' + (type === 'success' ? 'bg-green-500/90' : 'bg-red-500/90') + ' text-white px-6 py-3 rounded-xl shadow-lg backdrop-blur-sm flex items-center gap-3';
+        toast.innerHTML = '<i class="fa-solid ' + (type === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle') + '"></i><span>' + message + '</span><button onclick="this.parentElement.remove()" class="hover:text-gray-200 transition-colors"><i class="fa-solid fa-xmark text-lg"></i></button>';
         document.body.appendChild(toast);
         
-        setTimeout(() => {
-            if (toast) toast.remove();
+        setTimeout(function() {
+            if (toast) {
+                toast.remove();
+            }
         }, 3000);
     }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        var firstItem = document.querySelector('.registration-item');
+        if (firstItem) {
+            var id = firstItem.getAttribute('data-reg-id');
+            loadRegistrationDetails(id);
+        }
+    });
 </script>
