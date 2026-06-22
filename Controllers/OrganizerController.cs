@@ -258,7 +258,43 @@ namespace TrailGuard.Controllers
                 return RedirectToAction("Registrations");
             }
 
+            if (registration.Event != null && registration.Assessment != null)
+            {
+                ViewBag.AlternativeEvents = await GetAlternativeEvents(
+                    registration.Event.Id,
+                    registration.Event.Difficulty ?? "",
+                    registration.Assessment.Result ?? ""
+                );
+            }
+
             return View(registration);
+        }
+
+        private async Task<List<Event>> GetAlternativeEvents(int eventId, string currentDifficulty, string result)
+        {
+            var difficultyLevels = new List<string> { "Easy", "Moderate", "Difficult", "Technical" };
+            var currentIndex = difficultyLevels.IndexOf(currentDifficulty);
+            if (currentIndex < 0) currentIndex = 1;
+
+            int targetIndex;
+            if (result == "Good-Match")
+                targetIndex = currentIndex;
+            else if (result == "Borderline")
+                targetIndex = Math.Max(0, currentIndex - 1);
+            else
+                targetIndex = Math.Max(0, currentIndex - 2);
+
+            var targetDifficulty = difficultyLevels[targetIndex];
+
+            return await _context.Events
+                .Include(e => e.Trail)
+                .Where(e =>
+                    e.Id != eventId &&
+                    e.Status == "Upcoming" &&
+                    e.Difficulty == targetDifficulty &&
+                    e.EventDate >= DateTime.Today)
+                .Take(5)
+                .ToListAsync();
         }
 
         public class RecommendAlternativeRequest
@@ -279,7 +315,13 @@ namespace TrailGuard.Controllers
                 return Json(new { success = false, message = "Registration not found" });
             }
 
+            if (request.AlternativeEventIds == null || request.AlternativeEventIds.Length == 0)
+            {
+                return Json(new { success = false, message = "Pumili muna ng kahit isang alternative event." });
+            }
+
             registration.Status = "Alternative Recommended";
+            registration.AlternativeEventId = request.AlternativeEventIds.First();
             await _context.SaveChangesAsync();
 
             return Json(new { success = true, message = $"Recommended {request.AlternativeEventIds.Length} alternative event(s)" });
