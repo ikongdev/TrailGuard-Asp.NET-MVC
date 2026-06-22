@@ -157,7 +157,7 @@ namespace TrailGuard.Controllers
                     Location = trail.Location,
                     Difficulty = DifficultyCalculator.ComputeDifficulty(trail, model.EstimatedDuration),
                     EstimatedDuration = model.EstimatedDuration,
-                    Capacity = model.Capacity, // ✅ IMPORTANTE ITO!
+                    Capacity = model.Capacity,
                     OrganizedBy = organizerName,
                     Status = "Upcoming",
                     MASL = trail.ElevationGainMeters,

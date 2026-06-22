@@ -151,6 +151,8 @@
             <span class="px-3 py-1 rounded-full text-xs font-semibold {statusClass}">{status}</span>
         </div>
 
+        {alternativeEventSection}
+
         <div class="bg-[#111A2E] rounded-xl p-3">
             <p class="text-gray-500 text-[10px] uppercase tracking-wider mb-2">Event Details</p>
             <div class="grid grid-cols-2 gap-1 text-sm">
@@ -358,11 +360,26 @@
                     
                     var cancelButton = '';
                     var retakeButton = '';
+                    var alternativeEventSection = '';
+
                     if (reg.status === 'Pending') {
                         cancelButton = '<button onclick="cancelRegistration(' + reg.id + ')" class="w-full px-4 py-2 rounded-xl text-red-400 text-sm font-medium border border-red-500/30 hover:bg-red-500/10 transition-all text-center">Cancel Request</button>';
                     }
                     if (reg.status === 'Rejected' || reg.status === 'Declined' || reg.status === 'Alternative Recommended') {
                         retakeButton = '<a href="/Assessment/Form/' + reg.eventId + '" class="w-full px-4 py-2 rounded-xl text-purple-400 text-sm font-medium border border-purple-500/30 hover:bg-purple-500/10 transition-all text-center">Retake Assessment</a>';
+                    }
+                    if (reg.status === 'Alternative Recommended' && reg.alternativeEventId) {
+                        alternativeEventSection =
+                            '<div class="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3">' +
+                                '<p class="text-blue-300 text-[10px] uppercase tracking-wider mb-2">' +
+                                    '<i class="fa-solid fa-arrows-rotate mr-1"></i> Recommended Alternative Event' +
+                                '</p>' +
+                                '<p class="text-white text-sm font-medium">' + (reg.alternativeEventTitle || 'N/A') + '</p>' +
+                                '<p class="text-gray-400 text-xs mb-3">' + (reg.alternativeEventDate || '') + ' &bull; ' + (reg.alternativeEventDifficulty || '') + '</p>' +
+                                '<a href="/Participant/Details/' + reg.alternativeEventId + '" class="w-full inline-block px-4 py-2 rounded-xl text-white text-sm font-medium bg-blue-500 hover:bg-blue-600 transition-all text-center">' +
+                                    '<i class="fa-regular fa-eye mr-2"></i> View & Register for this Event' +
+                                '</a>' +
+                            '</div>';
                     }
                     
                     var template = document.getElementById('detailsTemplate').innerHTML
@@ -395,6 +412,7 @@
                         .replace(/{eventDuration}/g, reg.eventDuration || '0')
                         .replace(/{eventId}/g, reg.eventId)
                         .replace(/{cancelButton}/g, cancelButton)
+                        .replace(/{alternativeEventSection}/g, alternativeEventSection)
                         .replace(/{retakeButton}/g, retakeButton);
                     
                     detailsContainer.innerHTML = template;

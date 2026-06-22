@@ -280,6 +280,8 @@ namespace TrailGuard.Controllers
                 .Include(r => r.Event)
                 .ThenInclude(e => e!.Trail)
                 .Include(r => r.Assessment)
+                .Include(r => r.AlternativeEvent)
+                .ThenInclude(e => e!.Trail)
                 .FirstOrDefaultAsync(r => r.Id == id);
 
             if (registration == null)
@@ -317,7 +319,11 @@ namespace TrailGuard.Controllers
                     healthScore = registration.Assessment?.HealthScore ?? 0,
                     gearScore = registration.Assessment?.GearScore ?? 0,
                     status = registration.Status,
-                    registeredAt = registration.RegisteredAt.ToString("MMM dd, yyyy hh:mm tt")
+                    registeredAt = registration.RegisteredAt.ToString("MMM dd, yyyy hh:mm tt"),
+                    alternativeEventId = registration.AlternativeEventId,
+                    alternativeEventTitle = registration.AlternativeEvent?.EventTitle,
+                    alternativeEventDate = registration.AlternativeEvent?.EventDate.ToString("MMM dd, yyyy"),
+                    alternativeEventDifficulty = registration.AlternativeEvent?.Difficulty
                 }
             });
         }
