@@ -26,5 +26,21 @@ namespace TrailGuard.Models
         public List<string> Recommendations { get; set; } = new List<string>();
         public List<Event> AlternativeEvents { get; set; } = new List<Event>();
         public Dictionary<string, string> Answers { get; set; } = new Dictionary<string, string>();
+
+        public bool HasMlPrediction { get; set; }
+        public double ConfidenceScore { get; set; }
+        public string ModelVersion { get; set; } = string.Empty;
+        public List<ShapDisplayItem> ShapFactors { get; set; } = new List<ShapDisplayItem>();
     }
+
+    public class ShapDisplayItem
+    {
+        public string FeatureName { get; set; } = string.Empty;
+        public string FriendlyName { get; set; } = string.Empty;
+        public string RawValue { get; set; } = string.Empty;
+        public double Impact { get; set; }
+        public bool IsPositive => Impact > 0;
+        public double BarWidth { get; set; }
+    }
+
 }

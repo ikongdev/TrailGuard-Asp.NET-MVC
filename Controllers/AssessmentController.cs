@@ -230,6 +230,7 @@ namespace TrailGuard.Controllers
         [HttpGet]
         public async Task<IActionResult> Report(int assessmentId)
         {
+            
             var assessment = await _context.Assessments
                 .Include(a => a.Event)
                 .ThenInclude(e => e!.Trail)
@@ -270,6 +271,30 @@ namespace TrailGuard.Controllers
                 eventItem?.Difficulty ?? "",
                 assessment.Result ?? ""
             );
+
+            var suitabilityResult = await _context.SuitabilityResults
+                .Include(s => s.ShapValues)
+                .FirstOrDefaultAsync(s => s.AssessmentId == assessmentId);
+
+            var shapFactors = new List<ShapDisplayItem>();
+            if (suitabilityResult != null && suitabilityResult.ShapValues.Any())
+            {
+                var maxAbsImpact = suitabilityResult.ShapValues.Max(s => Math.Abs(s.ImpactValue));
+                if (maxAbsImpact == 0) maxAbsImpact = 1;
+
+                shapFactors = suitabilityResult.ShapValues
+                    .OrderByDescending(s => Math.Abs(s.ImpactValue))
+                    .Take(6)
+                    .Select(s => new ShapDisplayItem
+                    {
+                        FeatureName = s.FeatureName,
+                        FriendlyName = GetFriendlyFeatureName(s.FeatureName),
+                        RawValue = s.RawValue ?? "",
+                        Impact = s.ImpactValue,
+                        BarWidth = Math.Round(Math.Abs(s.ImpactValue) / maxAbsImpact * 100, 1)
+                    })
+                    .ToList();
+            }
 
             var viewModel = new AssessmentResultViewModel
             {
@@ -316,7 +341,11 @@ namespace TrailGuard.Controllers
                     { "Recency of Hike", assessment.RecencyOfHike ?? "N/A" },
                     { "Trail Difficulty Completed", assessment.TrailDifficultyCompleted ?? "N/A" },
                     { "Gear Items", assessment.GearItems ?? "None" }
-                }
+                },
+                HasMlPrediction = suitabilityResult != null,
+                ConfidenceScore = suitabilityResult?.ConfidenceScore ?? 0,
+                ModelVersion = suitabilityResult?.ModelVersion ?? "",
+                ShapFactors = shapFactors
             };
 
             ViewBag.Assessment = assessment;
@@ -670,6 +699,39 @@ namespace TrailGuard.Controllers
 
             return flags;
         }
+
+
+        private string GetFriendlyFeatureName(string featureName) => featureName switch
+        {
+            "age" => "Age",
+            "height_cm" => "Height",
+            "weight_kg" => "Weight",
+            "bmi" => "Body Mass Index",
+            "has_asthma" => "Asthma condition",
+            "has_hypertension_heart_condition" => "Hypertension / heart condition",
+            "has_joint_knee_injury" => "Joint or knee injury",
+            "has_vertigo" => "Vertigo",
+            "exercise_frequency_score" => "Exercise frequency",
+            "exercise_type_category" => "Type of exercise",
+            "continuous_cardio_duration_score" => "Cardio endurance",
+            "hiking_experience_score" => "Hiking experience",
+            "last_hike_recency_score" => "Recency of last hike",
+            "hardest_trail_completed_score" => "Hardest trail completed",
+            "gear_water" => "Water supply",
+            "gear_trail_food" => "Trail food",
+            "gear_first_aid_medicine" => "First aid kit",
+            "gear_flashlight_headlamp" => "Flashlight / headlamp",
+            "gear_whistle" => "Whistle",
+            "gear_raincoat_poncho" => "Raincoat / poncho",
+            "gear_navigation" => "Navigation tool",
+            "gear_proper_shoes" => "Proper hiking shoes",
+            "gear_score" => "Overall gear preparedness",
+            "trail_distance_km" => "Trail distance",
+            "trail_elevation_gain_m" => "Trail elevation gain",
+            "trail_terrain_type" => "Terrain difficulty",
+            "trail_estimated_duration_hr" => "Estimated hike duration",
+            _ => featureName
+        };
 
         private List<string> ComputeRecommendations(
             string result,
