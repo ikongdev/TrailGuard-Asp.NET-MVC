@@ -45,5 +45,12 @@ namespace TrailGuard.Models
         public string? EmergencyContactName { get; set; }
         public string? EmergencyContactNumber { get; set; }
         public string? PaymentReceiptUrl { get; set; }
+
+        public string? MedicalClearanceUrl { get; set; }
+        public string? PreparationPlan { get; set; }
+        public DateTime? ApprovedAt { get; set; }
+        public DateTime? PaymentDeadline { get; set; }
+        public DateTime? PaymentReceiptUploadedAt { get; set; }
+        public string? DecisionReason { get; set; }
     }
 }
