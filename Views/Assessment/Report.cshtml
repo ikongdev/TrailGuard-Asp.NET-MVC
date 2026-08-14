@@ -412,9 +412,13 @@
                     }
                     else
                     {
-                        <button disabled class="w-full px-6 py-3 rounded-xl text-gray-500 font-bold bg-gray-700/50 border border-gray-700 cursor-not-allowed text-center block">
-                            <i class="fa-solid fa-lock mr-2"></i> Registration Not Recommended
-                        </button>
+                        <a asp-controller="Registration" asp-action="Register" asp-route-eventId="@Model?.EventId" asp-route-assessmentId="@Model?.AssessmentId"
+                           class="w-full px-6 py-3 rounded-xl text-white font-bold bg-linear-to-r from-red-600 to-amber-600 hover:opacity-90 hover:scale-105 transition-all text-center block" id="proceedButton">
+                            <i class="fa-solid fa-triangle-exclamation mr-2"></i> Proceed with Additional Requirements
+                        </a>
+                        <p class="text-xs text-red-400/80 text-center">
+                            <i class="fa-solid fa-circle-info mr-1"></i> You'll need to submit a medical clearance and a preparation plan.
+                        </p>
                     }
                     <a asp-controller="Assessment" asp-action="Form" asp-route-eventId="@Model?.EventId"
                        class="w-full px-6 py-2.5 rounded-xl text-gray-300 font-medium bg-gray-800 hover:bg-gray-700 transition-colors text-center block text-sm">

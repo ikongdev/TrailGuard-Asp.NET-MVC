@@ -37,7 +37,7 @@ namespace TrailGuard.Controllers
             TempData.Remove("Error");
 
             var activeRegistration = await _context.EventRegistrations
-                .FirstOrDefaultAsync(r => r.EventId == eventId && r.UserId == userId && (r.Status == "Pending" || r.Status == "Accepted"));
+                .FirstOrDefaultAsync(r => r.EventId == eventId && r.UserId == userId && RegistrationStatusHelper.ActiveStatuses.Contains(r.Status));
             
             if (activeRegistration != null)
             {

@@ -31,6 +31,8 @@ namespace TrailGuard.Controllers
 
         public async Task<IActionResult> Index(string searchString, string status, string sortOrder)
         {
+            await RegistrationStatusHelper.ExpireOverdueRegistrations(_context);
+
             ViewData["CurrentFilter"] = searchString;
             ViewData["CurrentStatus"] = status;
             ViewData["CurrentSort"] = sortOrder;
@@ -57,8 +59,8 @@ namespace TrailGuard.Controllers
             var eventsList = await events.ToListAsync();
 
             var eventIds = eventsList.Select(e => e.Id).ToList();
-            var acceptedCounts = await _context.EventRegistrations
-                .Where(r => eventIds.Contains(r.EventId) && r.Status == "Accepted")
+            var capacityCounts = await _context.EventRegistrations
+                .Where(r => eventIds.Contains(r.EventId) && RegistrationStatusHelper.ActiveStatuses.Contains(r.Status))
                 .GroupBy(r => r.EventId)
                 .Select(g => new { EventId = g.Key, Count = g.Count() })
                 .ToDictionaryAsync(x => x.EventId, x => x.Count);
@@ -72,7 +74,7 @@ namespace TrailGuard.Controllers
                     TrailName = g.First().Trail?.Name ?? "Unknown Trail",
                     TrailLocation = g.First().Location,
                     Events = g.OrderBy(e => e.EventDate).Select(e => {
-                        e.RegisteredCount = acceptedCounts.ContainsKey(e.Id) ? acceptedCounts[e.Id] : 0;
+                        e.RegisteredCount = capacityCounts.ContainsKey(e.Id) ? capacityCounts[e.Id] : 0;
                         return e;
                     }).ToList()
                 })
@@ -214,19 +216,20 @@ namespace TrailGuard.Controllers
         [HttpGet]
         public async Task<IActionResult> Details(int id)
         {
+            await RegistrationStatusHelper.ExpireOverdueRegistrations(_context);
+
             var eventItem = await _context.Events
                 .Include(e => e.Trail)
                 .FirstOrDefaultAsync(e => e.Id == id);
-            
+
             if (eventItem == null)
             {
                 TempData["Error"] = "Event not found";
                 return RedirectToAction("Index");
             }
 
-            var acceptedRegistrations = await _context.EventRegistrations
-                .Include(r => r.User)
-                .Where(r => r.EventId == id && r.Status == "Accepted")
+            var capacityRegistrations = await _context.EventRegistrations
+                .Where(r => r.EventId == id && RegistrationStatusHelper.ActiveStatuses.Contains(r.Status))
                 .ToListAsync();
 
             var allRegistrations = await _context.EventRegistrations
@@ -235,8 +238,8 @@ namespace TrailGuard.Controllers
                 .ToListAsync();
 
             ViewBag.Registrations = allRegistrations;
-            ViewBag.RegisteredCount = acceptedRegistrations.Count;
-            ViewBag.AvailableSlots = eventItem.Capacity - acceptedRegistrations.Count;
+            ViewBag.RegisteredCount = capacityRegistrations.Count;
+            ViewBag.AvailableSlots = eventItem.Capacity - capacityRegistrations.Count;
 
             if (!string.IsNullOrEmpty(eventItem.OrganizedBy))
             {

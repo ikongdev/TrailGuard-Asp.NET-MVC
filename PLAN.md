@@ -40,6 +40,12 @@ Terminal states: `Rejected`, `Cancelled`, `Voided` (deadline passed without paym
 
 Two separate waiting states are deliberate — with one shared status nobody can tell whose turn it is to act.
 
+## Decisions Made During Phase 2
+
+| Question | Decision |
+|---|---|
+| Do post-event flows (`PostEventAssessment`, `EventComparison`) count `For Payment Verification` registrations as having joined the hike? | **No** — only `Accepted` registrations are included. On-site payment disputes are handled by the organizer outside the system. |
+
 ---
 
 ## Phase 1 — Models & Migration

@@ -22,6 +22,8 @@ namespace TrailGuard.Controllers
 
         public async Task<IActionResult> Index()
         {
+            await RegistrationStatusHelper.ExpireOverdueRegistrations(_context);
+
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             var user = await _userManager.FindByIdAsync(userId ?? "");
             var organizerName = user != null ? $"{user.FirstName} {user.LastName}" : "";
@@ -172,6 +174,8 @@ namespace TrailGuard.Controllers
 
         public async Task<IActionResult> Registrations(string searchString, string statusFilter, string sortOrder)
         {
+            await RegistrationStatusHelper.ExpireOverdueRegistrations(_context);
+
             ViewData["CurrentFilter"] = searchString;
             ViewData["CurrentStatus"] = statusFilter;
             ViewData["CurrentSort"] = sortOrder;
@@ -246,6 +250,8 @@ namespace TrailGuard.Controllers
 
         public async Task<IActionResult> RegistrationDetails(int id)
         {
+            await RegistrationStatusHelper.ExpireOverdueRegistrations(_context);
+
             var registration = await _context.EventRegistrations
                 .Include(r => r.Event)
                 .ThenInclude(e => e!.Trail)
@@ -349,6 +355,7 @@ namespace TrailGuard.Controllers
         public async Task<IActionResult> UpdateRegistrationStatus([FromBody] UpdateRegistrationStatusRequest request)
         {
             var registration = await _context.EventRegistrations
+                .Include(r => r.Event)
                 .FirstOrDefaultAsync(r => r.Id == request.Id);
 
             if (registration == null)
@@ -356,11 +363,80 @@ namespace TrailGuard.Controllers
                 return Json(new { success = false, message = "Registration not found" });
             }
 
-            registration.Status = request.Status;
+            if (request.Status == "Accepted")
+            {
+                var approvedAt = DateTime.Now;
+                var deadline = approvedAt.Date.AddDays(3).AddHours(23).AddMinutes(59).AddSeconds(59);
+
+                if (registration.Event != null)
+                {
+                    var eveOfEventDeadline = registration.Event.EventDate.Date.AddDays(-1).AddHours(23).AddMinutes(59).AddSeconds(59);
+                    if (eveOfEventDeadline < deadline)
+                    {
+                        deadline = eveOfEventDeadline;
+                    }
+                }
+
+                registration.ApprovedAt = approvedAt;
+                registration.PaymentDeadline = deadline;
+                registration.Status = "Awaiting Payment";
+            }
+            else
+            {
+                registration.Status = request.Status;
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.Reason))
+            {
+                registration.DecisionReason = request.Reason;
+            }
 
             await _context.SaveChangesAsync();
 
-            return Json(new { success = true, message = $"Registration status updated to {request.Status}" });
+            return Json(new { success = true, message = $"Registration status updated to {registration.Status}" });
+        }
+
+        public class VerifyPaymentRequest
+        {
+            public int Id { get; set; }
+            public bool Approved { get; set; }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> VerifyPayment([FromBody] VerifyPaymentRequest request)
+        {
+            var registration = await _context.EventRegistrations
+                .FirstOrDefaultAsync(r => r.Id == request.Id);
+
+            if (registration == null)
+            {
+                return Json(new { success = false, message = "Registration not found" });
+            }
+
+            if (registration.Status != "For Payment Verification")
+            {
+                return Json(new { success = false, message = "This registration is not awaiting payment verification." });
+            }
+
+            if (request.Approved)
+            {
+                registration.IsPaid = true;
+                registration.Status = "Accepted";
+            }
+            else
+            {
+                registration.Status = "Awaiting Payment";
+            }
+
+            await _context.SaveChangesAsync();
+
+            return Json(new
+            {
+                success = true,
+                message = request.Approved
+                    ? "Payment verified. Registration accepted."
+                    : "Payment rejected. Participant can re-upload their receipt."
+            });
         }
 
         public IActionResult AddEvent()
@@ -444,6 +520,8 @@ namespace TrailGuard.Controllers
 
         public async Task<IActionResult> EventDetails(int id)
         {
+            await RegistrationStatusHelper.ExpireOverdueRegistrations(_context);
+
             var eventItem = await _context.Events
                 .Include(e => e.Trail)
                 .FirstOrDefaultAsync(e => e.Id == id);
@@ -454,10 +532,8 @@ namespace TrailGuard.Controllers
                 return RedirectToAction("Events");
             }
 
-            var acceptedRegistrations = await _context.EventRegistrations
-                .Include(r => r.User)
-                .Include(r => r.Assessment)
-                .Where(r => r.EventId == id && r.Status == "Accepted")
+            var capacityRegistrations = await _context.EventRegistrations
+                .Where(r => r.EventId == id && RegistrationStatusHelper.ActiveStatuses.Contains(r.Status))
                 .ToListAsync();
 
             var allRegistrations = await _context.EventRegistrations
@@ -467,8 +543,8 @@ namespace TrailGuard.Controllers
                 .ToListAsync();
 
             ViewBag.Registrations = allRegistrations;
-            ViewBag.RegisteredCount = acceptedRegistrations.Count;
-            ViewBag.AvailableSlots = eventItem.Capacity - acceptedRegistrations.Count;
+            ViewBag.RegisteredCount = capacityRegistrations.Count;
+            ViewBag.AvailableSlots = eventItem.Capacity - capacityRegistrations.Count;
             ViewBag.Trail = eventItem.Trail;
 
             return View(eventItem);

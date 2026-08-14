@@ -80,25 +80,79 @@
                             "Rejected" => "text-red-400 bg-red-500/20",
                             "Declined" => "text-red-400 bg-red-500/20",
                             "Alternative Recommended" => "text-blue-400 bg-blue-500/20",
+                            "Awaiting Payment" => "text-amber-400 bg-amber-500/20",
+                            "For Payment Verification" => "text-blue-400 bg-blue-500/20",
+                            "Voided" => "text-gray-400 bg-gray-500/20",
                             _ => "text-gray-400 bg-gray-500/20"
                         };
-                        
-                        <div class="registration-item flex items-center justify-between p-4 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer" 
-                             onclick="loadRegistrationDetails(@reg.Id)" data-reg-id="@reg.Id">
-                            <div class="flex-1 min-w-0">
-                                <p class="text-white font-medium text-sm truncate">@reg.Event?.EventTitle</p>
-                                <p class="text-gray-400 text-xs truncate">@reg.Event?.Trail?.Name</p>
-                                <div class="flex flex-wrap gap-3 text-xs text-gray-500 mt-1">
-                                    <span><i class="fa-regular fa-calendar mr-1"></i>@reg.Event?.EventDate.ToString("MMM dd, yyyy")</span>
-                                    <span><i class="fa-regular fa-clock mr-1"></i>@reg.Event?.FormattedEventTime</span>
+
+                        <div class="border-b border-white/5">
+                            <div class="registration-item flex items-center justify-between p-4 hover:bg-white/5 transition-colors cursor-pointer"
+                                 onclick="loadRegistrationDetails(@reg.Id)" data-reg-id="@reg.Id">
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-white font-medium text-sm truncate">@reg.Event?.EventTitle</p>
+                                    <p class="text-gray-400 text-xs truncate">@reg.Event?.Trail?.Name</p>
+                                    <div class="flex flex-wrap gap-3 text-xs text-gray-500 mt-1">
+                                        <span><i class="fa-regular fa-calendar mr-1"></i>@reg.Event?.EventDate.ToString("MMM dd, yyyy")</span>
+                                        <span><i class="fa-regular fa-clock mr-1"></i>@reg.Event?.FormattedEventTime</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-3 ml-4 shrink-0">
+                                    <span class="px-3 py-1 rounded-full text-xs font-semibold @statusColor whitespace-nowrap">
+                                        @reg.Status
+                                    </span>
+                                    <i class="fa-solid fa-chevron-right text-gray-500 text-xs"></i>
                                 </div>
                             </div>
-                            <div class="flex items-center gap-3 ml-4 shrink-0">
-                                <span class="px-3 py-1 rounded-full text-xs font-semibold @statusColor whitespace-nowrap">
-                                    @reg.Status
-                                </span>
-                                <i class="fa-solid fa-chevron-right text-gray-500 text-xs"></i>
-                            </div>
+
+                            @if (reg.Status == "Awaiting Payment")
+                            {
+                                var daysLeft = reg.PaymentDeadline.HasValue ? Math.Max(0, (reg.PaymentDeadline.Value.Date - DateTime.Now.Date).Days) : 0;
+                                var deadlineText = reg.PaymentDeadline?.ToString("MMM dd, h:mm tt") ?? "N/A";
+                                var relativeText = daysLeft switch
+                                {
+                                    0 => "Last day to upload",
+                                    1 => "1 day left",
+                                    _ => $"{daysLeft} days left"
+                                };
+
+                                <div class="px-4 pb-4" onclick="event.stopPropagation()">
+                                    <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3">
+                                        <p class="text-amber-300 text-xs font-medium">
+                                            <i class="fa-regular fa-clock mr-1"></i>@relativeText (until @deadlineText)
+                                        </p>
+                                        <form onsubmit="uploadReceipt(event, @reg.Id)" enctype="multipart/form-data" class="mt-2 flex flex-col gap-2">
+                                            <input type="file" name="paymentReceipt" accept="image/*,.pdf" required
+                                                   class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-3 py-2 text-xs focus:border-amber-500 focus:outline-none transition-colors file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:bg-amber-500/20 file:text-white file:text-[10px] file:cursor-pointer hover:file:bg-amber-500/30" />
+                                            <button type="submit" class="px-3 py-1.5 rounded-lg text-white text-xs font-medium bg-amber-500 hover:bg-amber-600 transition-colors self-start">
+                                                <i class="fa-regular fa-paper-plane mr-1"></i> Upload Receipt
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            }
+                            else if (reg.Status == "For Payment Verification")
+                            {
+                                <div class="px-4 pb-4">
+                                    <div class="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3">
+                                        <p class="text-blue-300 text-xs font-medium">
+                                            <i class="fa-regular fa-hourglass-half mr-1"></i>Waiting for organizer to verify your payment
+                                        </p>
+                                    </div>
+                                </div>
+                            }
+                            else if (reg.Status == "Voided")
+                            {
+                                var deadlineText = reg.PaymentDeadline?.ToString("MMM dd, yyyy, h:mm tt") ?? "the deadline";
+
+                                <div class="px-4 pb-4">
+                                    <div class="bg-gray-500/10 border border-gray-500/30 rounded-xl p-3">
+                                        <p class="text-gray-400 text-xs font-medium">
+                                            <i class="fa-solid fa-circle-exclamation mr-1"></i>Voided — the payment deadline (@deadlineText) passed without an uploaded receipt.
+                                        </p>
+                                    </div>
+                                </div>
+                            }
                         </div>
                     }
                 }
@@ -424,6 +478,36 @@
                 console.error('Error:', error);
                 detailsContainer.innerHTML = '<div class="text-center py-8 text-red-400"><i class="fa-solid fa-circle-exclamation text-2xl block mb-2"></i><p class="text-sm">Error loading registration details</p></div>';
             });
+    }
+
+    function uploadReceipt(event, id) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        var form = event.target;
+        var formData = new FormData(form);
+
+        fetch('/Registration/UpdatePaymentReceipt?id=' + id, {
+            method: 'POST',
+            body: formData
+        })
+        .then(function(response) {
+            return response.json();
+        })
+        .then(function(result) {
+            if (result.success) {
+                showToast(result.message, 'success');
+                setTimeout(function() {
+                    location.reload();
+                }, 1000);
+            } else {
+                showToast(result.message, 'error');
+            }
+        })
+        .catch(function(error) {
+            console.error('Error:', error);
+            showToast('Error uploading receipt', 'error');
+        });
     }
 
     function cancelRegistration(id) {

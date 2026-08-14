@@ -13,13 +13,10 @@ namespace TrailGuard.Data
             var context = serviceProvider.GetRequiredService<ApplicationDbContext>();
 
             Console.WriteLine("=========================================");
-            Console.WriteLine("🌱 STARTING DATABASE SEEDING");
-            Console.WriteLine($"📊 Database: {context.Database.GetDbConnection().Database}");
+            Console.WriteLine("STARTING DATABASE SEEDING");
+            Console.WriteLine($"Database: {context.Database.GetDbConnection().Database}");
             Console.WriteLine("=========================================");
 
-            // ============================================
-            // 1. SEED ROLES
-            // ============================================
             Console.WriteLine("📌 Seeding roles...");
             string[] roleNames = { "Admin", "Organizer", "Participant" };
             foreach (var roleName in roleNames)
@@ -27,18 +24,18 @@ namespace TrailGuard.Data
                 if (!await roleManager.RoleExistsAsync(roleName))
                 {
                     await roleManager.CreateAsync(new IdentityRole(roleName));
-                    Console.WriteLine($"   ✅ Role '{roleName}' created");
+                    Console.WriteLine($"    Role '{roleName}' created");
                 }
                 else
                 {
-                    Console.WriteLine($"   ⏭️ Role '{roleName}' already exists");
+                    Console.WriteLine($"   ⏭ Role '{roleName}' already exists");
                 }
             }
 
             // ============================================
             // 2. SEED ADMIN USER
             // ============================================
-            Console.WriteLine("👤 Seeding admin user...");
+            Console.WriteLine("Seeding admin user...");
             string adminEmail = "admin@trailguard.com";
             var adminUser = await userManager.FindByEmailAsync(adminEmail);
             if (adminUser == null)
@@ -57,22 +54,22 @@ namespace TrailGuard.Data
                 if (result.Succeeded)
                 {
                     await userManager.AddToRoleAsync(newAdmin, "Admin");
-                    Console.WriteLine("   ✅ Admin user created");
+                    Console.WriteLine("Admin user created");
                 }
                 else
                 {
-                    Console.WriteLine("   ❌ Failed to create admin user");
+                    Console.WriteLine("Failed to create admin user");
                 }
             }
             else
             {
-                Console.WriteLine("   ⏭️ Admin user already exists");
+                Console.WriteLine("Admin user already exists");
             }
 
             // ============================================
             // 3. SEED ORGANIZER USER
             // ============================================
-            Console.WriteLine("👤 Seeding organizer user...");
+            Console.WriteLine("Seeding organizer user...");
             string orgEmail = "organizer@trailguard.com";
             var orgUser = await userManager.FindByEmailAsync(orgEmail);
             if (orgUser == null)
@@ -92,22 +89,22 @@ namespace TrailGuard.Data
                 if (result.Succeeded)
                 {
                     await userManager.AddToRoleAsync(newOrg, "Organizer");
-                    Console.WriteLine("   ✅ Organizer user created");
+                    Console.WriteLine(" Organizer user created");
                 }
                 else
                 {
-                    Console.WriteLine("   ❌ Failed to create organizer user");
+                    Console.WriteLine("Failed to create organizer user");
                 }
             }
             else
             {
-                Console.WriteLine("   ⏭️ Organizer user already exists");
+                Console.WriteLine("Organizer user already exists");
             }
 
             // ============================================
             // 4. SEED PARTICIPANT USER
             // ============================================
-            Console.WriteLine("👤 Seeding participant user...");
+            Console.WriteLine("Seeding participant user...");
             string participantEmail = "participant@trailguard.com";
             var participantUser = await userManager.FindByEmailAsync(participantEmail);
             if (participantUser == null)
@@ -126,26 +123,26 @@ namespace TrailGuard.Data
                 if (result.Succeeded)
                 {
                     await userManager.AddToRoleAsync(newParticipant, "Participant");
-                    Console.WriteLine("   ✅ Participant user created");
+                    Console.WriteLine("Participant user created");
                 }
                 else
                 {
-                    Console.WriteLine("   ❌ Failed to create participant user");
+                    Console.WriteLine("Failed to create participant user");
                 }
             }
             else
             {
-                Console.WriteLine("   ⏭️ Participant user already exists");
+                Console.WriteLine("Participant user already exists");
             }
 
             // ============================================
             // 5. SEED TRAILS (WALANG DIFFICULTY)
             // ============================================
-            Console.WriteLine("🏔️ Seeding trails...");
+            Console.WriteLine("Seeding trails...");
             try
             {
                 var trailCount = await context.Trails.CountAsync();
-                Console.WriteLine($"   📊 Current trails count: {trailCount}");
+                Console.WriteLine($"Current trails count: {trailCount}");
 
                 if (trailCount == 0)
                 {
@@ -230,25 +227,25 @@ namespace TrailGuard.Data
                         }
                     };
 
-                    Console.WriteLine($"   📝 Adding {trails.Count} trails...");
+                    Console.WriteLine($"Adding {trails.Count} trails...");
                     await context.Trails.AddRangeAsync(trails);
                     await context.SaveChangesAsync();
-                    Console.WriteLine($"   ✅ {trails.Count} trails added successfully!");
+                    Console.WriteLine($"{trails.Count} trails added successfully!");
                 }
                 else
                 {
-                    Console.WriteLine("   ⏭️ Trails already exist, skipping...");
+                    Console.WriteLine("Trails already exist, skipping...");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"   ❌ Error seeding trails: {ex.Message}");
+                Console.WriteLine($"Error seeding trails: {ex.Message}");
             }
 
             // ============================================
             // 6. SEED EVENTS (NASA EVENTS ANG DIFFICULTY)
             // ============================================
-            Console.WriteLine("📅 Seeding events...");
+            Console.WriteLine("Seeding events...");
             try
             {
                 var eventCount = await context.Events.CountAsync();
@@ -350,80 +347,80 @@ namespace TrailGuard.Data
                             }
                         };
 
-                        Console.WriteLine($"   📝 Adding {events.Count} events...");
+                        Console.WriteLine($"Adding {events.Count} events...");
                         await context.Events.AddRangeAsync(events);
                         await context.SaveChangesAsync();
-                        Console.WriteLine($"   ✅ {events.Count} events added successfully!");
+                        Console.WriteLine($"{events.Count} events added successfully!");
                     }
                     else
                     {
-                        Console.WriteLine("   ⚠️ Cannot seed events: Missing organizer or trails");
+                        Console.WriteLine("Cannot seed events: Missing organizer or trails");
                     }
                 }
                 else
                 {
-                    Console.WriteLine("   ⏭️ Events already exist, skipping...");
+                    Console.WriteLine("Events already exist, skipping...");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"   ❌ Error seeding events: {ex.Message}");
+                Console.WriteLine($"Error seeding events: {ex.Message}");
             }
 
-            // ============================================
-            // 7. SEED REGISTRATIONS
-            // ============================================
-            Console.WriteLine("📝 Seeding registrations...");
-            try
-            {
-                var regCount = await context.EventRegistrations.CountAsync();
-                Console.WriteLine($"   📊 Current registrations count: {regCount}");
+            // // ============================================
+            // // 7. SEED REGISTRATIONS
+            // // ============================================
+            // Console.WriteLine("Seeding registrations...");
+            // try
+            // {
+            //     var regCount = await context.EventRegistrations.CountAsync();
+            //     Console.WriteLine($"Current registrations count: {regCount}");
 
-                if (regCount == 0)
-                {
-                    var events = await context.Events.ToListAsync();
-                    var participant = await userManager.FindByEmailAsync("participant@trailguard.com");
+            //     if (regCount == 0)
+            //     {
+            //         var events = await context.Events.ToListAsync();
+            //         var participant = await userManager.FindByEmailAsync("participant@trailguard.com");
 
-                    if (events.Any() && participant != null)
-                    {
-                        var registrations = new List<EventRegistration>();
-                        var random = new Random();
+            //         if (events.Any() && participant != null)
+            //         {
+            //             var registrations = new List<EventRegistration>();
+            //             var random = new Random();
 
-                        foreach (var ev in events.Take(2))
-                        {
-                            registrations.Add(new EventRegistration
-                            {
-                                EventId = ev.Id,
-                                UserId = participant.Id,
-                                ParticipantName = $"{participant.FirstName} {participant.LastName}",
-                                PickupPoint = ev.PickupPoints?.Split('\n').FirstOrDefault()?.Trim() ?? "Main Pickup",
-                                IsPaid = random.Next(0, 2) == 1,
-                                Status = "Accepted",
-                                RegisteredAt = DateTime.Now.AddDays(-random.Next(1, 5)),
-                                EmergencyContactName = "Emergency Contact",
-                                EmergencyContactNumber = "09171234567"
-                            });
-                        }
+            //             foreach (var ev in events.Take(2))
+            //             {
+            //                 registrations.Add(new EventRegistration
+            //                 {
+            //                     EventId = ev.Id,
+            //                     UserId = participant.Id,
+            //                     ParticipantName = $"{participant.FirstName} {participant.LastName}",
+            //                     PickupPoint = ev.PickupPoints?.Split('\n').FirstOrDefault()?.Trim() ?? "Main Pickup",
+            //                     IsPaid = random.Next(0, 2) == 1,
+            //                     Status = "Accepted",
+            //                     RegisteredAt = DateTime.Now.AddDays(-random.Next(1, 5)),
+            //                     EmergencyContactName = "Emergency Contact",
+            //                     EmergencyContactNumber = "09171234567"
+            //                 });
+            //             }
 
-                        Console.WriteLine($"   📝 Adding {registrations.Count} registrations...");
-                        await context.EventRegistrations.AddRangeAsync(registrations);
-                        await context.SaveChangesAsync();
-                        Console.WriteLine($"   ✅ {registrations.Count} registrations added successfully!");
-                    }
-                    else
-                    {
-                        Console.WriteLine("   ⚠️ Cannot seed registrations: Missing events or participant");
-                    }
-                }
-                else
-                {
-                    Console.WriteLine("   ⏭️ Registrations already exist, skipping...");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"   ❌ Error seeding registrations: {ex.Message}");
-            }
+            //             Console.WriteLine($"Adding {registrations.Count} registrations...");
+            //             await context.EventRegistrations.AddRangeAsync(registrations);
+            //             await context.SaveChangesAsync();
+            //             Console.WriteLine($"{registrations.Count} registrations added successfully!");
+            //         }
+            //         else
+            //         {
+            //             Console.WriteLine("Cannot seed registrations: Missing events or participant");
+            //         }
+            //     }
+            //     else
+            //     {
+            //         Console.WriteLine("Registrations already exist, skipping...");
+            //     }
+            // }
+            // catch (Exception ex)
+            // {
+            //     Console.WriteLine($"Error seeding registrations: {ex.Message}");
+            // }
 
             Console.WriteLine("=========================================");
             Console.WriteLine("✅ DATABASE SEEDING COMPLETED!");

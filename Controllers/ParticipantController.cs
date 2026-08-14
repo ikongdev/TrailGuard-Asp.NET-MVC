@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TrailGuard.Data;
 using TrailGuard.Models;
+using TrailGuard.Services;
 
 namespace TrailGuard.Controllers
 {
@@ -18,6 +19,8 @@ namespace TrailGuard.Controllers
 
         public async Task<IActionResult> Index()
         {
+            await RegistrationStatusHelper.ExpireOverdueRegistrations(_context);
+
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
             var registrations = await _context.EventRegistrations
@@ -28,7 +31,7 @@ namespace TrailGuard.Controllers
                 .ToListAsync();
 
             var upcomingEvents = registrations
-                .Where(r => r.Status == "Pending" || r.Status == "Accepted")
+                .Where(r => RegistrationStatusHelper.ActiveStatuses.Contains(r.Status))
                 .Select(r => r.Event)
                 .Where(e => e != null && e.EventDate >= DateTime.Today)
                 .ToList();
@@ -178,6 +181,8 @@ namespace TrailGuard.Controllers
 
         public async Task<IActionResult> Events(string searchString, string difficulty, string trailFilter, string sortOrder)
         {
+            await RegistrationStatusHelper.ExpireOverdueRegistrations(_context);
+
             ViewData["CurrentFilter"] = searchString;
             ViewData["CurrentDifficulty"] = difficulty;
             ViewData["CurrentTrailFilter"] = trailFilter;
@@ -219,8 +224,8 @@ namespace TrailGuard.Controllers
             var eventsList = await events.ToListAsync();
 
             var eventIds = eventsList.Select(e => e.Id).ToList();
-            var acceptedCounts = await _context.EventRegistrations
-                .Where(r => eventIds.Contains(r.EventId) && r.Status == "Accepted")
+            var capacityCounts = await _context.EventRegistrations
+                .Where(r => eventIds.Contains(r.EventId) && RegistrationStatusHelper.ActiveStatuses.Contains(r.Status))
                 .GroupBy(r => r.EventId)
                 .Select(g => new { EventId = g.Key, Count = g.Count() })
                 .ToDictionaryAsync(x => x.EventId, x => x.Count);
@@ -234,7 +239,7 @@ namespace TrailGuard.Controllers
                     TrailName = g.First().Trail?.Name ?? "Unknown Trail",
                     TrailLocation = g.First().Location,
                     Events = g.OrderBy(e => e.EventDate).Select(e => {
-                        e.RegisteredCount = acceptedCounts.ContainsKey(e.Id) ? acceptedCounts[e.Id] : 0;
+                        e.RegisteredCount = capacityCounts.ContainsKey(e.Id) ? capacityCounts[e.Id] : 0;
                         return e;
                     }).ToList()
                 })
@@ -265,29 +270,30 @@ namespace TrailGuard.Controllers
 
         public async Task<IActionResult> Details(int id)
         {
+            await RegistrationStatusHelper.ExpireOverdueRegistrations(_context);
+
             var eventItem = await _context.Events
                 .Include(e => e.Trail)
                 .FirstOrDefaultAsync(e => e.Id == id);
-            
+
             if (eventItem == null)
             {
                 TempData["Error"] = "Event not found";
                 return RedirectToAction("Events");
             }
 
-            var acceptedRegistrations = await _context.EventRegistrations
-                .Include(r => r.User)
-                .Where(r => r.EventId == id && r.Status == "Accepted")
+            var capacityRegistrations = await _context.EventRegistrations
+                .Where(r => r.EventId == id && RegistrationStatusHelper.ActiveStatuses.Contains(r.Status))
                 .ToListAsync();
 
             var allRegistrations = await _context.EventRegistrations
                 .Include(r => r.User)
                 .Where(r => r.EventId == id && r.Status != "Rejected" && r.Status != "Cancelled")
                 .ToListAsync();
-            
+
             ViewBag.Registrations = allRegistrations;
-            ViewBag.RegisteredCount = acceptedRegistrations.Count;
-            ViewBag.AvailableSlots = eventItem.Capacity - acceptedRegistrations.Count;
+            ViewBag.RegisteredCount = capacityRegistrations.Count;
+            ViewBag.AvailableSlots = eventItem.Capacity - capacityRegistrations.Count;
 
             if (!string.IsNullOrEmpty(eventItem.OrganizedBy))
             {
