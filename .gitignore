@@ -7,3 +7,7 @@
 .vs/
 *.log
 *.cache
+/wwwroot/uploads/
+/wwwroot/images/profiles/
+/node_modules/
+appsettings.Development.json

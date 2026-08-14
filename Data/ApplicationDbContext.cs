@@ -20,6 +20,9 @@ namespace TrailGuard.Data
         public DbSet<Assessment> Assessments { get; set; }
         public DbSet<PostEventAssessment> PostEventAssessments { get; set; }
 
+        public DbSet<SuitabilityResult> SuitabilityResults { get; set; }
+        public DbSet<ShapValue> ShapValues { get; set; }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);

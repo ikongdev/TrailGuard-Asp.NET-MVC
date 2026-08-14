@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TrailGuard.Data;
 using TrailGuard.Models;
+using TrailGuard.Services;
 
 namespace TrailGuard.Controllers
 {
@@ -10,10 +11,12 @@ namespace TrailGuard.Controllers
     public class AssessmentController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly SuitabilityApiClient _suitabilityApi;
 
-        public AssessmentController(ApplicationDbContext context)
+        public AssessmentController(ApplicationDbContext context, SuitabilityApiClient suitabilityApi)
         {
             _context = context;
+            _suitabilityApi = suitabilityApi;
         }
 
         [HttpGet]
@@ -30,11 +33,9 @@ namespace TrailGuard.Controllers
             }
 
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-            
-            // ✅ I-clear ang lumang error messages
+
             TempData.Remove("Error");
-            
-            // ✅ I-check kung may ACTIVE registration (Pending or Accepted)
+
             var activeRegistration = await _context.EventRegistrations
                 .FirstOrDefaultAsync(r => r.EventId == eventId && r.UserId == userId && (r.Status == "Pending" || r.Status == "Accepted"));
             
@@ -44,19 +45,17 @@ namespace TrailGuard.Controllers
                 return RedirectToAction("Details", "Participant", new { id = eventId });
             }
 
-            // ✅ I-check kung may ACTIVE assessment
             var existingAssessment = await _context.Assessments
                 .FirstOrDefaultAsync(a => a.EventId == eventId && a.UserId == userId && a.IsActive == true);
 
             if (existingAssessment != null)
             {
-                // ✅ I-soft delete ang lumang assessment para mag-retake
+
                 existingAssessment.IsActive = false;
                 await _context.SaveChangesAsync();
-                
-                // ✅ I-redirect sa Assessment Form para sa bagong assessment
+
                 ViewBag.Event = eventItem;
-                ViewBag.RetakeMode = true; // Para malaman ng view na retake ito
+                ViewBag.RetakeMode = true;
                 return View();
             }
 
@@ -82,7 +81,6 @@ namespace TrailGuard.Controllers
             string[]? gearItems,
             bool consentGiven)
         {
-            // ✅ I-declare ang eventItem dito
             var eventItem = await _context.Events
                 .Include(e => e.Trail)
                 .FirstOrDefaultAsync(e => e.Id == eventId);
@@ -102,35 +100,51 @@ namespace TrailGuard.Controllers
 
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
-            // ✅ I-process ang medicalConditions
             if (!string.IsNullOrEmpty(medicalConditions))
             {
                 var medicalList = medicalConditions.Split(',').Select(m => m.Trim()).Where(m => !string.IsNullOrEmpty(m)).ToList();
                 medicalConditions = string.Join(",", medicalList);
             }
 
-            // ✅ I-process ang gearItems (array → comma-separated string)
             var gearItemsString = "";
             if (gearItems != null && gearItems.Length > 0)
             {
                 gearItemsString = string.Join(",", gearItems.Select(g => g.Trim()).Where(g => !string.IsNullOrEmpty(g)));
             }
 
-            // ✅ Kunin ang trail difficulty
             var trailDifficulty = eventItem.Difficulty ?? "Moderate";
 
-            // Compute scores
             var fitnessScore = ComputeFitnessScore(exerciseFrequency, exerciseType, cardioEndurance);
             var experienceScore = ComputeExperienceScore(mountainsClimbed, recencyOfHike, trailDifficultyCompleted);
             var healthScore = ComputeHealthScore(medicalConditions, age, heightCm, weightKg);
             var gearScore = ComputeGearScore(gearItemsString);
             
             var totalScore = fitnessScore + experienceScore + healthScore + gearScore;
-            
-            // ✅ Pass ang difficulty sa GetResult
-            var result = GetResult(totalScore, trailDifficulty);
 
-            // Compute risk flags
+            string result;
+            SuitabilityPredictionResponse? mlResponse = null;
+
+            if (eventItem.Trail != null)
+            {
+                var mlRequest = BuildMlRequest(
+                    age, heightCm, weightKg, medicalConditions,
+                    exerciseFrequency, exerciseType, cardioEndurance,
+                    mountainsClimbed, recencyOfHike, trailDifficultyCompleted,
+                    gearItemsString, eventItem.Trail, eventItem.EstimatedDuration
+                );
+
+                mlResponse = await _suitabilityApi.PredictAsync(mlRequest);
+            }
+
+            if (mlResponse != null)
+            {
+                result = NormalizeLabel(mlResponse.SuitabilityLabel);
+            }
+            else
+            {
+                result = GetResult(totalScore, trailDifficulty);
+            }
+
             var riskFlags = ComputeRiskFlags(
                 cardioEndurance,
                 exerciseFrequency,
@@ -144,7 +158,6 @@ namespace TrailGuard.Controllers
                 eventItem.EstimatedDuration
             );
 
-            // ✅ I-soft delete ang lumang assessment
             var oldAssessment = await _context.Assessments
                 .FirstOrDefaultAsync(a => a.EventId == eventId && a.UserId == userId && a.IsActive == true);
 
@@ -153,7 +166,6 @@ namespace TrailGuard.Controllers
                 oldAssessment.IsActive = false;
             }
 
-            // ✅ Gumawa ng bagong assessment
             var assessment = new Assessment
             {
                 EventId = eventId,
@@ -183,6 +195,34 @@ namespace TrailGuard.Controllers
 
             _context.Assessments.Add(assessment);
             await _context.SaveChangesAsync();
+
+            if (mlResponse != null)
+            {
+                var suitabilityResult = new SuitabilityResult
+                {
+                    AssessmentId = assessment.Id,
+                    PredictedLabel = mlResponse.SuitabilityLabel,
+                    ConfidenceScore = mlResponse.ConfidenceScore,
+                    ModelVersion = mlResponse.ModelVersion,
+                    PredictedAt = DateTime.Now
+                };
+
+                _context.SuitabilityResults.Add(suitabilityResult);
+                await _context.SaveChangesAsync();
+
+                foreach (var shap in mlResponse.ShapBreakdown)
+                {
+                    _context.ShapValues.Add(new ShapValue
+                    {
+                        SuitabilityResultId = suitabilityResult.Id,
+                        FeatureName = shap.Feature,
+                        ImpactValue = shap.Impact,
+                        RawValue = shap.RawValue.ToString()
+                    });
+                }
+
+                await _context.SaveChangesAsync();
+            }
 
             return RedirectToAction("Report", new { assessmentId = assessment.Id });
         }
@@ -283,13 +323,144 @@ namespace TrailGuard.Controllers
             return View(viewModel);
         }
 
-        // ===== COMPUTATION METHODS =====
+        // for ML
+        private string NormalizeLabel(string mlLabel) => mlLabel switch
+        {
+            "Good Match" => "Good-Match",
+            "Borderline" => "Borderline",
+            "Not Recommended" => "Not Recommended",
+            _ => "Not Recommended"
+        };
+        private int MapExerciseFrequency(string? value) => value switch
+        {
+            "5 or more times per week" => 3,
+            "3 to 4 times per week" => 2,
+            "1 to 2 times per week" => 1,
+            _ => 0
+        };
+
+        private int MapExerciseType(string? value) => value switch
+        {
+            "Combination of cardio and strength training" => 3,
+            "Cardio or endurance only" => 2,
+            "Strength or resistance only" => 2,
+            _ => 1
+        };
+
+        private int MapCardioEndurance(string? value) => value switch
+        {
+            "More than 60 minutes" => 3,
+            "31 to 60 minutes" => 2,
+            "15 to 30 minutes" => 1,
+            _ => 0
+        };
+
+        private int MapMountainsClimbed(string? value) => value switch
+        {
+            "More than 10 mountains / Experienced" => 3,
+            "4 to 10 mountains / Intermediate" => 2,
+            "1 to 3 mountains / Beginner" => 1,
+            _ => 0
+        };
+
+        private int MapRecencyOfHike(string? value) => value switch
+        {
+            "Within the past 1 to 3 months" => 3,
+            "Within the past 4 to 12 months" => 2,
+            "More than 1 year ago" => 1,
+            _ => 0
+        };
+
+        private int MapTrailDifficultyCompleted(string? value) => value switch
+        {
+            "Multi-day or overnight expeditions" => 3,
+            "Major hikes with steep assault sections" => 2,
+            "Minor day hikes only" => 1,
+            _ => 0
+        };
+
+        private int MapTerrainType(string? terrain)
+        {
+            var t = terrain?.ToLower() ?? "";
+            if (t.Contains("rocky") || t.Contains("volcanic") || t.Contains("technical"))
+                return 3;
+            if (t.Contains("grassland") || t.Contains("pine forest"))
+                return 1;
+            return 2;
+        }
+
+        private bool HasCondition(string? medicalConditions, string keyword)
+        {
+            if (string.IsNullOrEmpty(medicalConditions)) return false;
+            return medicalConditions.Contains(keyword, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private bool HasGear(string? gearItems, string itemName)
+        {
+            if (string.IsNullOrEmpty(gearItems)) return false;
+            return gearItems.Split(',')
+                .Select(g => g.Trim())
+                .Any(g => g.Equals(itemName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private SuitabilityPredictionRequest BuildMlRequest(
+            int? age, double? heightCm, double? weightKg,
+            string? medicalConditions, string? exerciseFrequency, string? exerciseType,
+            string? cardioEndurance, string? mountainsClimbed, string? recencyOfHike,
+            string? trailDifficultyCompleted, string? gearItems,
+            Trail trail, double estimatedDuration)
+        {
+            var h = heightCm ?? 165;
+            var w = weightKg ?? 60;
+            var heightM = h / 100;
+            var bmi = heightM > 0 ? w / (heightM * heightM) : 22.0;
+
+            var gearWater = HasGear(gearItems, "Enough water") ? 1 : 0;
+            var gearFood = HasGear(gearItems, "Trail food") ? 1 : 0;
+            var gearFirstAid = HasGear(gearItems, "First aid kit") ? 1 : 0;
+            var gearFlashlight = HasGear(gearItems, "Flashlight") ? 1 : 0;
+            var gearWhistle = HasGear(gearItems, "Whistle") ? 1 : 0;
+            var gearRaincoat = HasGear(gearItems, "Raincoat") ? 1 : 0;
+            var gearNavigation = HasGear(gearItems, "Navigation tool") ? 1 : 0;
+            var gearShoes = HasGear(gearItems, "Proper hiking shoes") ? 1 : 0;
+
+            return new SuitabilityPredictionRequest
+            {
+                Age = age ?? 25,
+                HeightCm = h,
+                WeightKg = w,
+                Bmi = Math.Round(bmi, 2),
+                HasAsthma = HasCondition(medicalConditions, "Asthma") ? 1 : 0,
+                HasHypertensionHeartCondition = HasCondition(medicalConditions, "Hypertension") ? 1 : 0,
+                HasJointKneeInjury = HasCondition(medicalConditions, "Joint or knee") ? 1 : 0,
+                HasVertigo = HasCondition(medicalConditions, "Vertigo") ? 1 : 0,
+                ExerciseFrequencyScore = MapExerciseFrequency(exerciseFrequency),
+                ExerciseTypeCategory = MapExerciseType(exerciseType),
+                ContinuousCardioDurationScore = MapCardioEndurance(cardioEndurance),
+                HikingExperienceScore = MapMountainsClimbed(mountainsClimbed),
+                LastHikeRecencyScore = MapRecencyOfHike(recencyOfHike),
+                HardestTrailCompletedScore = MapTrailDifficultyCompleted(trailDifficultyCompleted),
+                GearWater = gearWater,
+                GearTrailFood = gearFood,
+                GearFirstAidMedicine = gearFirstAid,
+                GearFlashlightHeadlamp = gearFlashlight,
+                GearWhistle = gearWhistle,
+                GearRaincoatPoncho = gearRaincoat,
+                GearNavigation = gearNavigation,
+                GearProperShoes = gearShoes,
+                GearScore = gearWater + gearFood + gearFirstAid + gearFlashlight
+                        + gearWhistle + gearRaincoat + gearNavigation + gearShoes,
+                TrailDistanceKm = trail.DistanceKm,
+                TrailElevationGainM = trail.ElevationGainMeters,
+                TrailTerrainType = MapTerrainType(trail.Terrain),
+                TrailEstimatedDurationHr = estimatedDuration
+            };
+        }
 
         private int ComputeFitnessScore(string? exerciseFrequency, string? exerciseType, string? cardioEndurance)
         {
             int score = 0;
 
-            // Exercise Frequency (max 4)
             score += exerciseFrequency switch
             {
                 "5 or more times per week" => 4,
@@ -298,22 +469,20 @@ namespace TrailGuard.Controllers
                 _ => 1 // Sedentary
             };
 
-            // Exercise Type (max 4)
             score += exerciseType switch
             {
                 "Combination of cardio and strength training" => 4,
                 "Cardio or endurance only" => 2,
                 "Strength or resistance only" => 2,
-                _ => 1 // None
+                _ => 1
             };
 
-            // Cardio Endurance (max 4)
             score += cardioEndurance switch
             {
                 "More than 60 minutes" => 4,
                 "31 to 60 minutes" => 3,
                 "15 to 30 minutes" => 2,
-                _ => 1 // Less than 15 minutes
+                _ => 1
             };
 
             return score;
@@ -323,16 +492,14 @@ namespace TrailGuard.Controllers
         {
             int score = 0;
 
-            // Mountains Climbed (max 4)
             score += mountainsClimbed switch
             {
                 "More than 10 mountains / Experienced" => 4,
                 "4 to 10 mountains / Intermediate" => 3,
                 "1 to 3 mountains / Beginner" => 2,
-                _ => 1 // First-timer
+                _ => 1
             };
 
-            // Recency of Hike (max 4)
             score += recencyOfHike switch
             {
                 "Within the past 1 to 3 months" => 4,
@@ -341,13 +508,12 @@ namespace TrailGuard.Controllers
                 _ => 1 // Never climbed
             };
 
-            // Trail Difficulty Completed (max 4)
             score += trailDifficultyCompleted switch
             {
                 "Multi-day or overnight expeditions" => 4,
                 "Major hikes with steep assault sections" => 3,
                 "Minor day hikes only" => 2,
-                _ => 1 // None
+                _ => 1
             };
 
             return score;
@@ -357,19 +523,17 @@ namespace TrailGuard.Controllers
         {
             int score = 0;
 
-            // Medical Conditions (max 4)
             var conditions = medicalConditions?.Split(',').Where(c => !string.IsNullOrWhiteSpace(c)).ToList() ?? new List<string>();
             var conditionCount = conditions.Count(c => c != "None of the above");
 
             score += conditionCount switch
             {
-                0 => 4, // None
+                0 => 4,
                 1 => 3,
                 2 => 2,
-                _ => 1 // 3 or more
+                _ => 1 
             };
 
-            // Age Factor (max 4)
             if (age.HasValue)
             {
                 score += age.Value switch
@@ -377,11 +541,10 @@ namespace TrailGuard.Controllers
                     >= 18 and <= 35 => 4,
                     >= 36 and <= 50 => 3,
                     >= 51 and <= 65 => 2,
-                    _ => 1 // 65+
+                    _ => 1
                 };
             }
 
-            // BMI Factor (max 4)
             if (heightCm.HasValue && heightCm.Value > 0 && weightKg.HasValue && weightKg.Value > 0)
             {
                 var heightM = heightCm.Value / 100;
@@ -389,10 +552,10 @@ namespace TrailGuard.Controllers
 
                 score += bmi switch
                 {
-                    >= 18.5 and < 25 => 4, // Normal
-                    >= 25 and < 30 => 2,   // Overweight
-                    < 18.5 => 2,           // Underweight
-                    _ => 1                 // Obese
+                    >= 18.5 and < 25 => 4,
+                    >= 25 and < 30 => 2,
+                    < 18.5 => 2,
+                    _ => 1
                 };
             }
 
@@ -427,17 +590,15 @@ namespace TrailGuard.Controllers
 
         private string GetResult(int totalScore, string difficulty)
         {
-            // ✅ Threshold based sa difficulty ng trail
             var threshold = difficulty switch
             {
                 "Technical" => 40,
                 "Difficult" => 36,
                 "Moderate" => 32,
                 "Easy" => 28,
-                _ => 32 // Default
+                _ => 32
             };
 
-            // ✅ Borderline threshold (8 points below Good-Match)
             var borderlineThreshold = threshold - 8;
 
             Console.WriteLine($"Difficulty: {difficulty}, Threshold: {threshold}, Score: {totalScore}");
@@ -464,14 +625,12 @@ namespace TrailGuard.Controllers
         {
             var flags = new List<string>();
 
-            // Low Cardio
             if (cardioEndurance == "Less than 15 minutes" || cardioEndurance == "15 to 30 minutes" ||
                 exerciseFrequency == "I do not exercise / Sedentary" || exerciseFrequency == "1 to 2 times per week")
             {
                 flags.Add("Low Cardio");
             }
 
-            // Elevation Challenge
             var bmi = 0.0;
             if (heightCm.HasValue && heightCm.Value > 0 && weightKg.HasValue && weightKg.Value > 0)
             {
@@ -484,14 +643,12 @@ namespace TrailGuard.Controllers
                 flags.Add("Elevation Challenge");
             }
 
-            // Moderate Endurance Gap
             if (estimatedDuration > 6 && 
                 (cardioEndurance == "Less than 15 minutes" || cardioEndurance == "15 to 30 minutes"))
             {
                 flags.Add("Moderate Endurance Gap");
             }
 
-            // Terrain Difficulty
             if ((terrain == "Difficult" || terrain == "Technical") && 
                 (trailDifficultyCompleted == "None" || trailDifficultyCompleted == "First-timer" || 
                 trailDifficultyCompleted == "Minor day hikes only"))
@@ -499,14 +656,12 @@ namespace TrailGuard.Controllers
                 flags.Add("Terrain Difficulty");
             }
 
-            // Medical Risk
             if (!string.IsNullOrEmpty(medicalConditions) && medicalConditions != "None of the above" &&
                 (string.IsNullOrEmpty(gearItems) || !gearItems.Contains("First aid kit")))
             {
                 flags.Add("Medical Risk");
             }
 
-            // Gear Gap
             var gearCount = string.IsNullOrEmpty(gearItems) ? 0 : gearItems.Split(',').Length;
             if (gearCount < 4)
             {
@@ -553,7 +708,7 @@ namespace TrailGuard.Controllers
                     recommendations.Add("Familiarize yourself with steep terrain before the event.");
                 }
             }
-            else // Not Recommended
+            else
             {
                 var gap = threshold - totalScore;
                 recommendations.Add($"Your score of {totalScore} is {gap} points below the required {threshold}.");
@@ -579,22 +734,26 @@ namespace TrailGuard.Controllers
         {
             var alternativeEvents = new List<Event>();
 
-            // I-determine ang target difficulty based sa result
             var difficultyLevels = new List<string> { "Easy", "Moderate", "Difficult", "Technical" };
             var currentIndex = difficultyLevels.IndexOf(currentDifficulty);
+
+            if (currentIndex < 0)
+            {
+                currentIndex = 1;
+            }
 
             int targetIndex;
             if (result == "Good-Match")
             {
-                targetIndex = currentIndex; // Same difficulty
+                targetIndex = currentIndex;
             }
             else if (result == "Borderline")
             {
-                targetIndex = Math.Max(0, currentIndex - 1); // One level lower
+                targetIndex = Math.Max(0, currentIndex - 1);
             }
             else // Not Recommended
             {
-                targetIndex = Math.Max(0, currentIndex - 2); // Two levels lower
+                targetIndex = Math.Max(0, currentIndex - 2);
             }
 
             var targetDifficulty = difficultyLevels[targetIndex];
