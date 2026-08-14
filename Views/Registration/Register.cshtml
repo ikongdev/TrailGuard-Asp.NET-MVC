@@ -8,9 +8,17 @@
     
     var isGoodMatch = resultViewModel?.Result == "Good-Match";
     var isBorderline = resultViewModel?.Result == "Borderline";
-    var resultColor = isGoodMatch ? "text-green-400" : "text-yellow-400";
-    var resultBg = isGoodMatch ? "bg-green-500/20 border-green-500/50" : "bg-yellow-500/20 border-yellow-500/50";
-    
+    var isNotRecommended = resultViewModel?.Result == "Not Recommended";
+    var resultColor = isGoodMatch ? "text-green-400" : isBorderline ? "text-yellow-400" : "text-red-400";
+    var resultBg = isGoodMatch ? "bg-green-500/20 border-green-500/50" : isBorderline ? "bg-yellow-500/20 border-yellow-500/50" : "bg-red-500/20 border-red-500/50";
+
+    var requiresClearance = ViewBag.RequiresMedicalClearance == true;
+    var requiresPlan = ViewBag.RequiresPreparationPlan == true;
+    var hasMedicalCondition = ViewBag.HasMedicalCondition == true;
+    var clearanceReason = isNotRecommended
+        ? "Required because your assessment result is Not Recommended."
+        : "Required because you indicated a pre-existing medical condition.";
+
     var trail = eventItem?.Trail;
 }
 
@@ -132,25 +140,64 @@
                             </div>
                         </div>
 
-                        <!-- Payment -->
+                        <!-- Required Documents -->
                         <div class="space-y-3 flex-1 flex flex-col">
                             <h3 class="text-sm font-semibold text-gray-300 border-b border-white/10 pb-2 shrink-0">
-                                <i class="fa-solid fa-credit-card text-orange-400 mr-2"></i>Payment
+                                <i class="fa-solid fa-file-medical text-orange-400 mr-2"></i>Required Documents
                             </h3>
-                            <div class="flex-1 flex flex-col">
+                            <div class="flex-1 flex flex-col gap-4">
                                 @if (!string.IsNullOrEmpty(eventItem?.PaymentDetails))
                                 {
-                                    <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-3 flex-1">
-                                        <p class="text-yellow-300 text-xs font-medium"><i class="fa-solid fa-info-circle mr-1"></i>Payment Instructions</p>
-                                        <p class="text-yellow-300/70 text-xs whitespace-pre-wrap mt-1">@eventItem.PaymentDetails</p>
+                                    <div class="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3">
+                                        <p class="text-blue-300 text-xs font-medium"><i class="fa-solid fa-info-circle mr-1"></i>Payment happens after approval</p>
+                                        <p class="text-blue-300/70 text-xs mt-1">Once your registration is approved, you'll be able to upload your payment receipt from "My Registrations".</p>
                                     </div>
                                 }
-                                <div class="mt-auto pt-3">
-                                    <label class="block text-xs font-medium text-gray-400 mb-1">Upload Payment Receipt <span class="text-gray-500 text-[10px]">(Optional)</span></label>
-                                    <input type="file" name="paymentReceipt" accept="image/*,.pdf" 
-                                        class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-xl px-4 py-2.5 text-sm focus:border-orange-500 focus:outline-none transition-colors file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-orange-500/20 file:text-white file:text-xs file:cursor-pointer hover:file:bg-orange-500/30" />
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-400 mb-1">
+                                        Medical Clearance
+                                        @if (requiresClearance)
+                                        {
+                                            <span class="text-red-400">* Required</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-gray-500 text-[10px]">(Optional)</span>
+                                        }
+                                    </label>
+                                    @if (requiresClearance)
+                                    {
+                                        <input type="file" name="medicalClearance" accept="image/*,.pdf" required
+                                            class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-xl px-4 py-2.5 text-sm focus:border-orange-500 focus:outline-none transition-colors file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-orange-500/20 file:text-white file:text-xs file:cursor-pointer hover:file:bg-orange-500/30" />
+                                    }
+                                    else
+                                    {
+                                        <input type="file" name="medicalClearance" accept="image/*,.pdf"
+                                            class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-xl px-4 py-2.5 text-sm focus:border-orange-500 focus:outline-none transition-colors file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-orange-500/20 file:text-white file:text-xs file:cursor-pointer hover:file:bg-orange-500/30" />
+                                    }
                                     <p class="text-gray-500 text-[10px] mt-1">JPG, PNG, or PDF accepted.</p>
+                                    @if (requiresClearance)
+                                    {
+                                        <p class="text-amber-400/80 text-[10px] mt-1">
+                                            <i class="fa-solid fa-circle-info mr-1"></i>@clearanceReason
+                                        </p>
+                                    }
                                 </div>
+
+                                @if (requiresPlan)
+                                {
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-400 mb-1">
+                                            Preparation Plan <span class="text-red-400">* Required</span>
+                                        </label>
+                                        <textarea name="preparationPlan" required rows="4"
+                                            class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-xl px-4 py-2.5 text-sm focus:border-orange-500 focus:outline-none transition-colors resize-none"
+                                            placeholder="Describe how you plan to prepare before this event (e.g. training schedule, gear you'll acquire, precautions you'll take)..."></textarea>
+                                        <p class="text-amber-400/80 text-[10px] mt-1">
+                                            <i class="fa-solid fa-circle-info mr-1"></i>Required because your assessment result is Not Recommended.
+                                        </p>
+                                    </div>
+                                }
                             </div>
                         </div>
                     </div>

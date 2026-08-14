@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TrailGuard.Data;
 using TrailGuard.Models;
+using TrailGuard.Services;
 
 namespace TrailGuard.Controllers
 {
@@ -32,11 +33,11 @@ namespace TrailGuard.Controllers
             }
 
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-            
+
             // ✅ I-check kung may ACTIVE registration
             var activeRegistration = await _context.EventRegistrations
-                .FirstOrDefaultAsync(r => r.EventId == eventId && r.UserId == userId && (r.Status == "Pending" || r.Status == "Accepted"));
-            
+                .FirstOrDefaultAsync(r => r.EventId == eventId && r.UserId == userId && RegistrationStatusHelper.ActiveStatuses.Contains(r.Status));
+
             if (activeRegistration != null)
             {
                 TempData["Success"] = "You are already registered for this event.";
@@ -51,12 +52,6 @@ namespace TrailGuard.Controllers
             {
                 TempData["Error"] = "Assessment not found. Please complete the assessment first.";
                 return RedirectToAction("Form", "Assessment", new { eventId = eventId });
-            }
-
-            if (assessment.Result != "Good-Match" && assessment.Result != "Borderline")
-            {
-                TempData["Error"] = "You are not recommended for this event. Please check your assessment result.";
-                return RedirectToAction("Report", "Assessment", new { assessmentId = assessment.Id });
             }
 
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
@@ -87,13 +82,16 @@ namespace TrailGuard.Controllers
             ViewBag.Assessment = assessment;
             ViewBag.User = user;
             ViewBag.ResultViewModel = viewModel;
-            
+            ViewBag.RequiresMedicalClearance = RegistrationRulesHelper.RequiresMedicalClearance(assessment);
+            ViewBag.RequiresPreparationPlan = RegistrationRulesHelper.RequiresPreparationPlan(assessment);
+            ViewBag.HasMedicalCondition = RegistrationRulesHelper.HasAnyMedicalCondition(assessment.MedicalConditions);
+
             return View();
         }
 
         [HttpPost]
         public async Task<IActionResult> Register(
-            int eventId, 
+            int eventId,
             int assessmentId,
             string participantName,
             string email,
@@ -101,11 +99,12 @@ namespace TrailGuard.Controllers
             string emergencyContactName,
             string emergencyContactNumber,
             string pickupPoint,
-            IFormFile? paymentReceipt)
+            IFormFile? medicalClearance,
+            string? preparationPlan)
         {
             var eventItem = await _context.Events
                 .FirstOrDefaultAsync(e => e.Id == eventId);
-            
+
             if (eventItem == null)
             {
                 TempData["Error"] = "Event not found";
@@ -118,7 +117,7 @@ namespace TrailGuard.Controllers
             // ✅ I-validate na active ang assessment
             var assessment = await _context.Assessments
                 .FirstOrDefaultAsync(a => a.Id == assessmentId && a.EventId == eventId && a.UserId == userId && a.IsActive == true);
-            
+
             if (assessment == null)
             {
                 TempData["Error"] = "Assessment not found. Please complete the assessment first.";
@@ -127,12 +126,27 @@ namespace TrailGuard.Controllers
 
             // ✅ I-check kung may active registration
             var activeRegistration = await _context.EventRegistrations
-                .FirstOrDefaultAsync(r => r.EventId == eventId && r.UserId == userId && (r.Status == "Pending" || r.Status == "Accepted"));
-            
+                .FirstOrDefaultAsync(r => r.EventId == eventId && r.UserId == userId && RegistrationStatusHelper.ActiveStatuses.Contains(r.Status));
+
             if (activeRegistration != null)
             {
                 TempData["Success"] = "You are already registered for this event.";
                 return RedirectToAction("Details", "Participant", new { id = eventId });
+            }
+
+            var requiresClearance = RegistrationRulesHelper.RequiresMedicalClearance(assessment);
+            var requiresPlan = RegistrationRulesHelper.RequiresPreparationPlan(assessment);
+
+            if (requiresClearance && (medicalClearance == null || medicalClearance.Length == 0))
+            {
+                TempData["Error"] = "A medical clearance document is required based on your assessment.";
+                return RedirectToAction("Register", new { eventId, assessmentId });
+            }
+
+            if (requiresPlan && string.IsNullOrWhiteSpace(preparationPlan))
+            {
+                TempData["Error"] = "A preparation plan is required because your assessment result is Not Recommended.";
+                return RedirectToAction("Register", new { eventId, assessmentId });
             }
 
             // ✅ I-check kung may cancelled registration, i-soft delete ang assessment nito
@@ -144,7 +158,7 @@ namespace TrailGuard.Controllers
                 // I-soft delete ang assessment ng cancelled registration
                 var oldAssessment = await _context.Assessments
                     .FirstOrDefaultAsync(a => a.Id == cancelledRegistration.AssessmentId);
-                
+
                 if (oldAssessment != null)
                 {
                     oldAssessment.IsActive = false;
@@ -156,24 +170,24 @@ namespace TrailGuard.Controllers
                 participantName = user != null ? $"{user.FirstName} {user.LastName}" : "Participant";
             }
 
-            string? receiptUrl = null;
-            if (paymentReceipt != null && paymentReceipt.Length > 0)
+            string? medicalClearanceUrl = null;
+            if (medicalClearance != null && medicalClearance.Length > 0)
             {
-                var uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "uploads", "receipts");
+                var uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "uploads", "medical-clearances");
                 if (!Directory.Exists(uploadsFolder))
                 {
                     Directory.CreateDirectory(uploadsFolder);
                 }
 
-                var fileName = $"{Guid.NewGuid()}_{Path.GetFileName(paymentReceipt.FileName)}";
+                var fileName = $"{Guid.NewGuid()}_{Path.GetFileName(medicalClearance.FileName)}";
                 var filePath = Path.Combine(uploadsFolder, fileName);
-                
+
                 using (var stream = new FileStream(filePath, FileMode.Create))
                 {
-                    await paymentReceipt.CopyToAsync(stream);
+                    await medicalClearance.CopyToAsync(stream);
                 }
 
-                receiptUrl = $"/uploads/receipts/{fileName}";
+                medicalClearanceUrl = $"/uploads/medical-clearances/{fileName}";
             }
 
             var registration = new EventRegistration
@@ -182,12 +196,12 @@ namespace TrailGuard.Controllers
                 UserId = userId ?? "",
                 ParticipantName = participantName,
                 PickupPoint = pickupPoint,
-                IsPaid = !string.IsNullOrEmpty(receiptUrl),
                 Status = "Pending",
                 AssessmentId = assessmentId,
                 EmergencyContactName = emergencyContactName,
                 EmergencyContactNumber = emergencyContactNumber,
-                PaymentReceiptUrl = receiptUrl,
+                MedicalClearanceUrl = medicalClearanceUrl,
+                PreparationPlan = preparationPlan,
                 RegisteredAt = DateTime.Now
             };
 
@@ -201,6 +215,8 @@ namespace TrailGuard.Controllers
         [HttpGet]
         public async Task<IActionResult> MyRegistrations()
         {
+            await RegistrationStatusHelper.ExpireOverdueRegistrations(_context);
+
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
             var registrations = await _context.EventRegistrations
@@ -239,12 +255,19 @@ namespace TrailGuard.Controllers
         [HttpPost]
         public async Task<IActionResult> UpdatePaymentReceipt(int id, IFormFile? paymentReceipt)
         {
+            await RegistrationStatusHelper.ExpireOverdueRegistrations(_context);
+
             var registration = await _context.EventRegistrations
                 .FirstOrDefaultAsync(r => r.Id == id);
 
             if (registration == null)
             {
                 return Json(new { success = false, message = "Registration not found" });
+            }
+
+            if (registration.Status != "Awaiting Payment")
+            {
+                return Json(new { success = false, message = "Payment receipt can only be uploaded while your registration is awaiting payment." });
             }
 
             if (paymentReceipt != null && paymentReceipt.Length > 0)
@@ -257,17 +280,18 @@ namespace TrailGuard.Controllers
 
                 var fileName = $"{Guid.NewGuid()}_{Path.GetFileName(paymentReceipt.FileName)}";
                 var filePath = Path.Combine(uploadsFolder, fileName);
-                
+
                 using (var stream = new FileStream(filePath, FileMode.Create))
                 {
                     await paymentReceipt.CopyToAsync(stream);
                 }
 
                 registration.PaymentReceiptUrl = $"/uploads/receipts/{fileName}";
-                registration.IsPaid = true;
+                registration.PaymentReceiptUploadedAt = DateTime.Now;
+                registration.Status = "For Payment Verification";
                 await _context.SaveChangesAsync();
 
-                return Json(new { success = true, message = "Payment receipt updated successfully." });
+                return Json(new { success = true, message = "Payment receipt uploaded. Waiting for organizer verification." });
             }
 
             return Json(new { success = false, message = "No file uploaded." });

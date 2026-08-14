@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using TrailGuard.Data;
 using TrailGuard.Models;
+using TrailGuard.Services;
 
 namespace TrailGuard.Controllers
 {
@@ -18,6 +19,8 @@ namespace TrailGuard.Controllers
 
         public async Task<IActionResult> Index(string searchString, string dateFrom, string dateTo)
         {
+            await RegistrationStatusHelper.ExpireOverdueRegistrations(_context);
+
             ViewData["CurrentFilter"] = searchString;
             ViewData["DateFrom"] = dateFrom;
             ViewData["DateTo"] = dateTo;
