@@ -11,3 +11,11 @@
 /wwwroot/images/profiles/
 /node_modules/
 appsettings.Development.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+*.egg-info/
