@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TrailGuard.Data;
 using TrailGuard.Models;
+using TrailGuard.Services;
 
 namespace TrailGuard.Controllers
 {
@@ -252,19 +253,29 @@ namespace TrailGuard.Controllers
                 .Include(r => r.User)
                 .FirstOrDefaultAsync(r => r.Id == id);
 
-            if (registration == null)
-            {
-                TempData["Error"] = "Registration not found";
-                return RedirectToAction("Registrations");
-            }
-
-            if (registration.Event != null && registration.Assessment != null)
+            if (registration != null && registration.Event != null && registration.Assessment != null)
             {
                 ViewBag.AlternativeEvents = await GetAlternativeEvents(
-                    registration.Event.Id,
+                    registration.Event!.Id,
                     registration.Event.Difficulty ?? "",
-                    registration.Assessment.Result ?? ""
+                    registration.Assessment!.Result ?? ""
                 );
+
+                var suitabilityResult = await _context.SuitabilityResults
+                    .Include(s => s.ShapValues)
+                    .FirstOrDefaultAsync(s => s.AssessmentId == registration.Assessment.Id);
+
+                if (suitabilityResult != null)
+                {
+                    ViewBag.HasMlPrediction = true;
+                    ViewBag.MlConfidence = suitabilityResult.ConfidenceScore;
+                    ViewBag.MlModelVersion = suitabilityResult.ModelVersion;
+                    ViewBag.ShapFactors = ShapHelper.BuildDisplayItems(suitabilityResult.ShapValues);
+                }
+                else
+                {
+                    ViewBag.HasMlPrediction = false;
+                }
             }
 
             return View(registration);
