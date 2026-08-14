@@ -8,6 +8,9 @@
         "Accepted" => "text-green-400 bg-green-500/20",
         "Rejected" => "text-red-400 bg-red-500/20",
         "Cancelled" => "text-gray-400 bg-gray-500/20",
+        "Awaiting Payment" => "text-amber-400 bg-amber-500/20",
+        "For Payment Verification" => "text-blue-400 bg-blue-500/20",
+        "Voided" => "text-gray-400 bg-gray-500/20",
         _ => "text-gray-400 bg-gray-500/20"
     };
     
@@ -176,12 +179,89 @@
                 <p class="text-gray-500 text-[10px] uppercase tracking-wider">Registered On</p>
                 <p class="text-white text-sm">@Model.RegisteredAt.ToString("MMM dd, yyyy hh:mm tt")</p>
             </div>
+
+            @if (Model.Status == "Awaiting Payment" && Model.PaymentDeadline.HasValue)
+            {
+                var daysLeft = Math.Max(0, (Model.PaymentDeadline.Value.Date - DateTime.Now.Date).Days);
+                var relativeText = daysLeft switch
+                {
+                    0 => "Last day to upload",
+                    1 => "1 day left",
+                    _ => $"{daysLeft} days left"
+                };
+
+                <div class="mt-3 pt-3 border-t border-white/10">
+                    <p class="text-gray-500 text-[10px] uppercase tracking-wider">Payment Deadline</p>
+                    <p class="text-amber-400 text-sm font-medium">@relativeText</p>
+                    <p class="text-gray-400 text-xs">@Model.PaymentDeadline.Value.ToString("MMM dd, yyyy, h:mm tt")</p>
+                </div>
+            }
+
+            @if (Model.Status == "For Payment Verification")
+            {
+                <div class="mt-3 pt-3 border-t border-white/10 flex gap-2">
+                    <button onclick="verifyPayment(true)" class="flex-1 px-3 py-2 rounded-lg text-white text-xs font-medium bg-green-500 hover:bg-green-600 transition-colors">
+                        <i class="fa-solid fa-check mr-1"></i> Verify Payment
+                    </button>
+                    <button onclick="verifyPayment(false)" class="flex-1 px-3 py-2 rounded-lg text-white text-xs font-medium bg-red-500 hover:bg-red-600 transition-colors">
+                        <i class="fa-solid fa-xmark mr-1"></i> Reject Payment
+                    </button>
+                </div>
+            }
         </div>
     </div>
 
+    @{
+        var hasMedicalClearance = !string.IsNullOrEmpty(Model.MedicalClearanceUrl);
+        var hasPreparationPlan = !string.IsNullOrEmpty(Model.PreparationPlan);
+        var documentsGridClass = (hasMedicalClearance && hasPreparationPlan)
+            ? "grid grid-cols-1 md:grid-cols-2 gap-6 mt-6"
+            : "grid grid-cols-1 gap-6 mt-6";
+    }
+    @if (hasMedicalClearance || hasPreparationPlan)
+    {
+        <!-- ROW 1.5: Submitted Documents -->
+        <div class="@documentsGridClass">
+
+            @if (hasMedicalClearance)
+            {
+                <!-- Medical Clearance -->
+                <div class="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-5 h-full overflow-visible relative">
+                    <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-file-medical text-blue-400"></i>
+                        Medical Clearance
+                    </h2>
+                    <div class="flex justify-center">
+                        <div class="relative cursor-pointer mt-2" id="clearanceWrapper">
+                            <img src="@Model.MedicalClearanceUrl" alt="Medical Clearance"
+                                 class="h-52 object-contain bg-[#111A2E] rounded-xl border border-gray-700"
+                                 id="clearanceImage"
+                                 onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\'p-4 text-center text-gray-400\'><i class=\'fa-regular fa-file-image text-2xl block mb-2\'></i><p class=\'text-sm\'>Document not available</p></div>';" />
+                            <div class="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black/50 rounded-xl" id="clearanceOverlay">
+                                <span class="text-white text-xs font-medium"><i class="fa-regular fa-eye mr-2"></i> Preview</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @if (hasPreparationPlan)
+            {
+                <!-- Preparation Plan -->
+                <div class="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-5 h-full">
+                    <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-file-lines text-blue-400"></i>
+                        Preparation Plan
+                    </h2>
+                    <p class="text-gray-300 text-sm whitespace-pre-wrap">@Model.PreparationPlan</p>
+                </div>
+            }
+        </div>
+    }
+
     <!-- ROW 2 -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-        
+
         <!-- ROW 2, COL 1: Assessment Result with Charts -->
         <div class="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-5 h-full">
             <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
@@ -399,43 +479,58 @@
     </div>
 }
 
+@if (!string.IsNullOrEmpty(Model.MedicalClearanceUrl))
+{
+    <div id="clearanceTooltip" class="fixed z-9999 hidden pointer-events-none">
+        <div class="bg-[#0B1325] border border-gray-700 rounded-xl shadow-2xl p-4 w-96">
+            <img src="@Model.MedicalClearanceUrl" alt="Medical Clearance Preview" class="w-full h-auto max-h-96 object-contain rounded-lg" />
+            <p class="text-center text-xs text-gray-400 mt-2">Medical Clearance Preview</p>
+        </div>
+    </div>
+}
+
 <script>
     // ============================================================
     // TOOLTIP PREVIEW - Mouse Events
     // ============================================================
-    document.addEventListener('DOMContentLoaded', function() {
-        const receiptImage = document.getElementById('receiptImage');
-        const receiptWrapper = document.getElementById('receiptWrapper');
-        const tooltip = document.getElementById('receiptTooltip');
-        
-        if (receiptImage && tooltip) {
-            receiptWrapper.addEventListener('mouseenter', function(e) {
-                tooltip.classList.remove('hidden');
-                tooltip.style.display = 'block';
-                updateTooltipPosition(e);
-            });
-            
-            receiptWrapper.addEventListener('mousemove', function(e) {
-                updateTooltipPosition(e);
-            });
-            
-            receiptWrapper.addEventListener('mouseleave', function(e) {
-                tooltip.classList.add('hidden');
-                tooltip.style.display = 'none';
-            });
-            
-            function updateTooltipPosition(e) {
-                var x = e.clientX - 420;
-                var y = e.clientY - 100;
-                
-                if (x < 10) x = 10;
-                if (y < 10) y = 10;
-                if (y + 400 > window.innerHeight) y = window.innerHeight - 420;
-                
-                tooltip.style.left = x + 'px';
-                tooltip.style.top = y + 'px';
-            }
+    function setupImageTooltip(wrapperId, imageId, tooltipId) {
+        const image = document.getElementById(imageId);
+        const wrapper = document.getElementById(wrapperId);
+        const tooltip = document.getElementById(tooltipId);
+
+        if (!image || !wrapper || !tooltip) return;
+
+        function updateTooltipPosition(e) {
+            var x = e.clientX - 420;
+            var y = e.clientY - 100;
+
+            if (x < 10) x = 10;
+            if (y < 10) y = 10;
+            if (y + 400 > window.innerHeight) y = window.innerHeight - 420;
+
+            tooltip.style.left = x + 'px';
+            tooltip.style.top = y + 'px';
         }
+
+        wrapper.addEventListener('mouseenter', function(e) {
+            tooltip.classList.remove('hidden');
+            tooltip.style.display = 'block';
+            updateTooltipPosition(e);
+        });
+
+        wrapper.addEventListener('mousemove', function(e) {
+            updateTooltipPosition(e);
+        });
+
+        wrapper.addEventListener('mouseleave', function(e) {
+            tooltip.classList.add('hidden');
+            tooltip.style.display = 'none';
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        setupImageTooltip('receiptWrapper', 'receiptImage', 'receiptTooltip');
+        setupImageTooltip('clearanceWrapper', 'clearanceImage', 'clearanceTooltip');
     });
 
     // ============================================================
@@ -479,6 +574,37 @@
         .catch(error => {
             console.error('❌ Error:', error);
             showToast('Error updating status', 'error');
+        });
+    }
+
+    function verifyPayment(approved) {
+        const id = @Model.Id;
+        const action = approved ? 'verify' : 'reject';
+
+        if (!confirm(`Are you sure you want to ${action} this payment?`)) return;
+
+        fetch('/Organizer/VerifyPayment', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                id: id,
+                approved: approved
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast(data.message, 'success');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast(data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('❌ Error:', error);
+            showToast('Error verifying payment', 'error');
         });
     }
 

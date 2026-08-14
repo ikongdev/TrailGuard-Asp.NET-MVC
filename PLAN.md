@@ -46,6 +46,8 @@ Two separate waiting states are deliberate — with one shared status nobody can
 |---|---|
 | Do post-event flows (`PostEventAssessment`, `EventComparison`) count `For Payment Verification` registrations as having joined the hike? | **No** — only `Accepted` registrations are included. On-site payment disputes are handled by the organizer outside the system. |
 
+**Known limitation (accepted, not fixed):** if an organizer approves a registration on the event date itself or the day before, the computed payment deadline may already be in the past, causing the registration to be voided on the next page load. This is considered acceptable — approving that late is outside normal operating practice, and organizers can coordinate directly with the participant in that case.
+
 ---
 
 ## Phase 1 — Models & Migration
