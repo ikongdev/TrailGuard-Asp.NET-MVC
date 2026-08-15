@@ -632,6 +632,9 @@ namespace TrailGuard.Controllers
             }
 
             await _context.SaveChangesAsync();
+
+            await FinalLabelService.UpsertFinalLabel(_context, registration.Id);
+
             return Json(new { success = true, message = "Assessment saved successfully!" });
         }
 
@@ -709,27 +712,12 @@ namespace TrailGuard.Controllers
         {
             if (string.IsNullOrEmpty(participantFeedback) || string.IsNullOrEmpty(organizerAssessment))
             {
-                return !string.IsNullOrEmpty(participantFeedback) ? participantFeedback : 
-                    !string.IsNullOrEmpty(organizerAssessment) ? organizerAssessment : 
+                return !string.IsNullOrEmpty(participantFeedback) ? participantFeedback :
+                    !string.IsNullOrEmpty(organizerAssessment) ? organizerAssessment :
                     "Insufficient data";
             }
 
-            var order = new Dictionary<string, int>
-            {
-                { "Could not finish - injured", 1 },
-                { "Could not finish - turned back", 2 },
-                { "Much harder", 3 },
-                { "Harder than expected", 4 },
-                { "Matched but challenging", 5 },
-                { "Matched perfectly", 6 },
-                { "Much easier than expected", 7 }
-            };
-
-            var participantOrder = order.ContainsKey(participantFeedback) ? order[participantFeedback] : 99;
-            var organizerOrder = order.ContainsKey(organizerAssessment) ? order[organizerAssessment] : 99;
-
-            var conservativeOrder = Math.Min(participantOrder, organizerOrder);
-            return order.FirstOrDefault(x => x.Value == conservativeOrder).Key;
+            return FinalLabelService.GetMoreConservativeFeedback(participantFeedback, organizerAssessment) ?? "Insufficient data";
         }
 
         private Tuple<string, string, string> ComparePreHikeToPostHike(string preHike, string postHike)

@@ -62,6 +62,12 @@ Confirmed against the actual radio values in `Views/Participant/Feedback.cshtml`
 
 Conservative ordering (lower = worse) already exists in `OrganizerController.GetConservativeResult` — reuse that ordering, don't write a second one.
 
+## Decisions Made During Phase 2
+
+| Question | Decision |
+|---|---|
+| When can a participant self-cancel a registration (`RegistrationController.CancelRegistration`)? | Only from `Pending` or `Awaiting Payment`. Once the organizer has approved and payment is underway/complete, logistics are committed — cancellation from that point goes through the organizer directly, outside the system. |
+
 ---
 
 ## Phase 1 — Models & Migration

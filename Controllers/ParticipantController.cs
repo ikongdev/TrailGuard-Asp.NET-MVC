@@ -384,6 +384,13 @@ namespace TrailGuard.Controllers
             _context.EventFeedbacks.Add(feedback);
             await _context.SaveChangesAsync();
 
+            var registration = await _context.EventRegistrations
+                .FirstOrDefaultAsync(r => r.EventId == eventId && r.UserId == userId);
+            if (registration != null)
+            {
+                await FinalLabelService.UpsertFinalLabel(_context, registration.Id);
+            }
+
             TempData["Success"] = "Thank you for your feedback!";
             return RedirectToAction("Details", new { id = eventId });
         }
