@@ -416,7 +416,7 @@
                     var retakeButton = '';
                     var alternativeEventSection = '';
 
-                    if (reg.status === 'Pending') {
+                    if (reg.status === 'Pending' || reg.status === 'Awaiting Payment') {
                         cancelButton = '<button onclick="cancelRegistration(' + reg.id + ')" class="w-full px-4 py-2 rounded-xl text-red-400 text-sm font-medium border border-red-500/30 hover:bg-red-500/10 transition-all text-center">Cancel Request</button>';
                     }
                     if (reg.status === 'Rejected' || reg.status === 'Declined' || reg.status === 'Alternative Recommended') {

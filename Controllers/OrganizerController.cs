@@ -673,18 +673,22 @@ namespace TrailGuard.Controllers
                 .Where(a => a.EventId == eventId)
                 .ToDictionaryAsync(a => a.UserId, a => a);
 
+            var finalLabels = await _context.FinalSuitabilityLabels
+                .Where(l => l.EventId == eventId)
+                .ToDictionaryAsync(l => l.RegistrationId, l => l.FinalLabel);
+
             var results = new List<ComparisonResult>();
 
             foreach (var reg in registrations)
             {
                 var userId = reg.UserId;
                 var preHike = reg.Assessment?.Result ?? "N/A";
-                
-                var participantFeedback = participantFeedbacks.ContainsKey(userId) 
+
+                var participantFeedback = participantFeedbacks.ContainsKey(userId)
                     ? participantFeedbacks[userId].DifficultyExperience ?? "No feedback"
                     : "No feedback";
-                    
-                var organizerAssessment = organizerAssessments.ContainsKey(userId) 
+
+                var organizerAssessment = organizerAssessments.ContainsKey(userId)
                     ? organizerAssessments[userId].DifficultyExperience ?? "No assessment"
                     : "No assessment";
 
@@ -698,6 +702,7 @@ namespace TrailGuard.Controllers
                     ParticipantFeedback = participantFeedback,
                     OrganizerAssessment = organizerAssessment,
                     FinalResult = finalResult,
+                    FinalLabel = finalLabels.ContainsKey(reg.Id) ? finalLabels[reg.Id] : null,
                     Comparison = comparison.Item1,
                     ComparisonColor = comparison.Item2,
                     ComparisonIcon = comparison.Item3

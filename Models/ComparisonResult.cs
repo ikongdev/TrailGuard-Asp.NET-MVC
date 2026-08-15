@@ -7,6 +7,7 @@ namespace TrailGuard.Models
         public string ParticipantFeedback { get; set; } = string.Empty;
         public string OrganizerAssessment { get; set; } = string.Empty;
         public string FinalResult { get; set; } = string.Empty;
+        public string? FinalLabel { get; set; }
         public string Comparison { get; set; } = string.Empty;
         public string ComparisonColor { get; set; } = string.Empty;
         public string ComparisonIcon { get; set; } = string.Empty;
