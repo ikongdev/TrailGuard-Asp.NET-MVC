@@ -22,19 +22,23 @@ namespace TrailGuard.Data
 
         public DbSet<SuitabilityResult> SuitabilityResults { get; set; }
         public DbSet<ShapValue> ShapValues { get; set; }
+        public DbSet<FinalSuitabilityLabel> FinalSuitabilityLabels { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
 
-            builder.Entity<ApplicationUser>().ToTable("Users"); 
+            builder.Entity<ApplicationUser>().ToTable("Users");
             builder.Entity<IdentityRole>().ToTable("Roles");
             builder.Entity<IdentityUserRole<string>>().ToTable("UserRoles");
             builder.Entity<IdentityUserClaim<string>>().ToTable("UserClaims");
             builder.Entity<IdentityUserLogin<string>>().ToTable("UserLogins");
             builder.Entity<IdentityRoleClaim<string>>().ToTable("RoleClaims");
             builder.Entity<IdentityUserToken<string>>().ToTable("UserTokens");
-            
+
+            builder.Entity<FinalSuitabilityLabel>()
+                .HasIndex(f => f.RegistrationId)
+                .IsUnique();
         }
     }
 }

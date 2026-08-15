@@ -1,86 +1,101 @@
-# Active Plan — Result-Based Registration Workflow
+# Active Plan — Event Completion & Final Suitability Labels
 
-This is gap #1 from `CLAUDE.md`. It's both a missing-feature gap and a **behavioral bug**: the current code hard-blocks "Not Recommended" participants from registering, but the manuscript says they may still submit with additional requirements.
+This is gap #2 from `CLAUDE.md`. It closes the event lifecycle and produces the empirical training data the manuscript's retraining strategy depends on.
+
+Two related pieces of work:
+- **Part A** — replace the status dropdown with proper lifecycle actions, record completion metadata
+- **Part B** — persist final suitability labels for retraining
 
 Work through the phases in order. Build and commit after each phase.
 
 ---
 
+## Why This Matters
+
+The manuscript's Limitations section commits to this:
+
+> "As the platform transitions into live operation, this rule-based training framework will be dynamically replaced and continuously retrained using empirical, human-verified data collected via post-event evaluations."
+
+Right now the final label is computed on the fly in `EventComparison` and thrown away. Without persistence there is no empirical dataset, and the Phase 2 retraining described in the manuscript cannot happen.
+
+---
+
 ## Decisions Already Made
 
-These were settled in planning — don't re-litigate them, just implement.
+Settled during planning — implement these, don't re-open them.
+
+### Part A — Event Completion
 
 | Question | Decision |
 |---|---|
-| When is medical clearance required? | Automatically, based on the participant's assessment answers. No organizer toggle. |
-| Good Match / Borderline **without** medical conditions | Medical clearance **optional** |
-| Good Match / Borderline **with** medical conditions | Medical clearance **required** |
-| Not Recommended | Medical clearance **required** regardless of reason, plus a preparation plan |
-| Preparation plan format | Free text (single textarea), visible to the organizer during review |
-| When can a participant pay? | **Only after the organizer approves** — not at initial submission |
-| Payment window | 3 days from approval |
-| What if the event is sooner than 3 days out? | `deadline = min(ApprovedAt + 3 days, EventDate)` |
-| Expiry mechanism | **Lazy check** — no background service |
-| Does an unpaid-but-approved registration hold a slot? | **Yes** — it counts toward capacity |
-| Existing registration test data | Wiped clean before starting |
+| Automatic completion when the event date passes? | **No.** Hiking events have travel time, delays, and multi-day trips — only the organizer knows when it's actually done. |
+| Replace the status dropdown? | **Yes.** Explicit action buttons, shown only when applicable. |
+| Postponed vs Rescheduled | **One action only — "Reschedule"** (with a new date/time). |
+| What does completion record? | `CompletedAt` = `DateTime.Now` when the organizer confirms. This is **"Completion Confirmed At"**, not the hike's end time — the naming matters, don't call it an end time. |
+| Non-`Accepted` registrations when an event completes | **Void them** (`Pending`, `Awaiting Payment`, `For Payment Verification` → `Voided`). Reuses the existing status rather than inventing a new one. |
+| Reschedule effect on registrations | **Automatic carry-over** for now — registrations stay as they are. Participant re-confirmation comes later with notifications. |
 
-### Status flow
-
-```
-Pending                     ← participant submitted, organizer hasn't reviewed
-   ↓ organizer approves (sets ApprovedAt + PaymentDeadline)
-Awaiting Payment            ← waiting on the PARTICIPANT to upload a receipt
-   ↓ participant uploads receipt
-For Payment Verification    ← waiting on the ORGANIZER to verify
-   ↓ organizer verifies
-Accepted                    ← confirmed slot
-```
-
-Terminal states: `Rejected`, `Cancelled`, `Voided` (deadline passed without payment).
-
-Two separate waiting states are deliberate — with one shared status nobody can tell whose turn it is to act.
-
-## Decisions Made During Phase 2
+### Part B — Final Suitability Labels
 
 | Question | Decision |
 |---|---|
-| Do post-event flows (`PostEventAssessment`, `EventComparison`) count `For Payment Verification` registrations as having joined the hike? | **No** — only `Accepted` registrations are included. On-site payment disputes are handled by the organizer outside the system. |
+| When is a label finalized? | When feedback arrives — recompute on each participant feedback or organizer post-event assessment submission. |
+| Only one side submitted? | Use that one. |
+| Both submitted? | Take the **more conservative** (lower) of the two. |
+| Neither submitted? | **No record** — excluded from the retraining dataset entirely. |
+| Store raw feedback strings? | **Yes**, for audit and so labels can be recomputed if the mapping changes later. They are **not** exported as training features. |
+| What is `FinalLabel`? | The **3-class value** (`Good-Match` / `Borderline` / `Not Recommended`), matching the model's output space. |
 
-**Known limitation (accepted, not fixed):** if an organizer approves a registration on the event date itself or the day before, the computed payment deadline may already be in the past, causing the registration to be voided on the next page load. This is considered acceptable — approving that late is outside normal operating practice, and organizers can coordinate directly with the participant in that case.
+### Feedback → 3-class mapping
+
+Confirmed against the actual radio values in `Views/Participant/Feedback.cshtml`:
+
+| Feedback string | 3-class |
+|---|---|
+| `Much easier than expected` | Good-Match |
+| `Matched perfectly` | Good-Match |
+| `Matched but challenging` | Borderline |
+| `Harder than expected` | Borderline |
+| `Much harder` | Not Recommended |
+| `Could not finish - turned back` | Not Recommended |
+| `Could not finish - injured` | Not Recommended |
+
+Conservative ordering (lower = worse) already exists in `OrganizerController.GetConservativeResult` — reuse that ordering, don't write a second one.
 
 ---
 
 ## Phase 1 — Models & Migration
 
-Add to `Models/EventRegistration.cs`:
+### `Models/Event.cs`
 
 ```csharp
-public string? MedicalClearanceUrl { get; set; }
-public string? PreparationPlan { get; set; }
-public DateTime? ApprovedAt { get; set; }
-public DateTime? PaymentDeadline { get; set; }
-public DateTime? PaymentReceiptUploadedAt { get; set; }
-public string? DecisionReason { get; set; }
+public DateTime? CompletedAt { get; set; }
+public string? CompletedBy { get; set; }
+public DateTime? CancelledAt { get; set; }
+public string? CancellationReason { get; set; }
 ```
 
-`DecisionReason` closes a separate gap: `RegistrationDetails.cshtml` already has a `decisionReason` textarea whose value is sent to the server but never persisted.
+### New: `Models/FinalSuitabilityLabel.cs`
 
-Before migrating, wipe registration test data (children first, then parents):
-
-```sql
-DELETE FROM "EventFeedbacks";
-DELETE FROM "PostEventAssessments";
-DELETE FROM "ShapValues";
-DELETE FROM "SuitabilityResults";
-DELETE FROM "EventRegistrations";
-DELETE FROM "Assessments";
+```csharp
+public int Id { get; set; }
+public int RegistrationId { get; set; }      // FK, navigation to EventRegistration
+public int EventId { get; set; }
+public string UserId { get; set; }
+public int AssessmentId { get; set; }        // FK — critical, links back to the raw features
+public string PreHikeLabel { get; set; }     // the ML prediction at registration time
+public string? ParticipantFeedback { get; set; }  // raw string, audit only
+public string? OrganizerAssessment { get; set; }  // raw string, audit only
+public string FinalLabel { get; set; }       // 3-class
+public DateTime ResolvedAt { get; set; }
 ```
 
-Leave `Events`, `Trails`, and `Users` intact — that's seeded sample data plus real accounts.
+`AssessmentId` is the most important field here — without it there's a label with no features attached, which is useless for training. Add a unique index on `RegistrationId` so a registration can only ever have one final label.
 
-Then:
+Register the `DbSet` in `ApplicationDbContext`, then:
+
 ```bash
-dotnet ef migrations add AddRegistrationWorkflowFields
+dotnet ef migrations add AddEventCompletionAndFinalLabels
 dotnet ef database update
 ```
 
@@ -88,135 +103,97 @@ dotnet ef database update
 
 ## Phase 2 — Backend Logic
 
-### 2.1 Document requirement helper
+### 2.1 Label resolution service
 
-Put this where both the registration controller and views can reach it — a static helper alongside `ShapHelper.cs` is fine.
+New service, e.g. `Services/FinalLabelService.cs`:
 
 ```
-RequiresMedicalClearance(assessment):
-    if assessment.Result == "Not Recommended" → true
-    if assessment has any medical condition flagged → true
-    otherwise → false
+MapFeedbackToClass(feedbackString) → 3-class string
+    per the mapping table above; anything unrecognized → null
 
-RequiresPreparationPlan(assessment):
-    assessment.Result == "Not Recommended"
+ResolveFinalLabel(participantFeedback, organizerAssessment) → 3-class or null
+    map both (either may be null)
+    if both present  → return the more conservative of the two
+    if one present   → return that one
+    if neither       → return null
+
+UpsertFinalLabel(context, registrationId)
+    load the registration with its Assessment
+    skip unless status is "Accepted"
+    look up participant feedback (EventFeedbacks) and organizer assessment (PostEventAssessments)
+    resolve the label
+    if null → delete any existing row for this registration, then return
+    otherwise → insert or update the row, refreshing ResolvedAt
 ```
 
-"Has any medical condition" means `MedicalConditions` is non-empty and isn't just `"None of the above"`. `AssessmentController.HasCondition()` already does this kind of keyword matching — reuse the same approach rather than inventing a second one.
+Making this an upsert matters: feedback can arrive in either order, and either side can be edited afterwards (`SubmitPostEventAssessment` already updates in place). The label must always reflect the current inputs.
 
-### 2.2 Lazy expiry checker
+### 2.2 Call the upsert from both feedback paths
 
-A single method that finds `Awaiting Payment` registrations past their `PaymentDeadline` and flips them to `Voided`.
+- `ParticipantController.SubmitFeedback` — after saving the feedback
+- `OrganizerController.SubmitPostEventAssessment` — after saving the assessment
 
-Call it at the **top** of every action that reads registration data, so no stale status is ever displayed and no capacity count is ever wrong:
+### 2.3 Event lifecycle actions
 
-- `OrganizerController.Index` (dashboard stats)
-- `OrganizerController.Registrations`
-- `OrganizerController.RegistrationDetails`
-- `RegistrationController.MyRegistrations`
-- `ParticipantController.Index`
-- `ParticipantController.Events` (slot counts)
-- `ParticipantController.Details` (slot counts)
-- `RecordsController.Index`
+Replace the generic status update with three explicit actions on `EventController` (or `OrganizerController` — put them wherever the existing event status update lives):
 
-Missing any one of these reintroduces the stale-data problem this design is meant to avoid.
+**`CompleteEvent(int id)`**
+- Guard: only from `Upcoming`
+- Set `Status = "Completed"`, `CompletedAt = DateTime.Now`, `CompletedBy` = current organizer's name
+- Void every registration for the event whose status is `Pending`, `Awaiting Payment`, or `For Payment Verification`
 
-### 2.3 Registration submission
+**`CancelEvent(int id, string reason)`**
+- Guard: only from `Upcoming`
+- Set `Status = "Cancelled"`, `CancelledAt = DateTime.Now`, `CancellationReason = reason`
+- Reason is required
 
-In `RegistrationController.Register` (POST):
-- Accept `medicalClearance` (IFormFile) and `preparationPlan` (string)
-- Validate against the rules in 2.1; reject with a clear message if a required document is missing
-- Save the uploaded file the same way `PaymentReceiptUrl` is currently handled
-- **Remove** the current `IsPaid = !string.IsNullOrEmpty(receiptUrl)` line and stop accepting a payment receipt at this stage — payment now happens after approval
-- Status stays `Pending`
+**`RescheduleEvent(int id, DateTime newDate, TimeSpan newTime)`**
+- Guard: only from `Upcoming`
+- Update `EventDate` / `EventTime`, keep `Status = "Upcoming"`
+- Registrations carry over untouched
 
-### 2.4 Approval sets the payment window
-
-In `OrganizerController.UpdateRegistrationStatus`, when the status is `Accepted`/approve:
-- Set `ApprovedAt = DateTime.Now`
-- Set `PaymentDeadline = min(ApprovedAt + 3 days, Event.EventDate)`
-- Set status to **`Awaiting Payment`** (not `Accepted` — that now comes later)
-- Persist `DecisionReason` from the request
-
-### 2.5 Receipt upload
-
-In `RegistrationController.UpdatePaymentReceipt`:
-- Only allow when status is `Awaiting Payment` and the deadline hasn't passed
-- Set `PaymentReceiptUploadedAt = DateTime.Now`
-- Set status to `For Payment Verification`
-- Do **not** set `IsPaid` here — that's the organizer's call
-
-### 2.6 Payment verification (new action)
-
-New organizer action, e.g. `VerifyPayment(int id, bool approved)`:
-- Approved → `IsPaid = true`, status `Accepted`
-- Rejected → status back to `Awaiting Payment` so they can re-upload (deadline unchanged)
-
-### 2.7 Capacity counting
-
-Wherever `RegisteredCount` is computed, count these statuses: `Pending`, `Awaiting Payment`, `For Payment Verification`, `Accepted`. Exclude `Rejected`, `Cancelled`, `Voided`.
+Remove the old dropdown-driven status update endpoint once these are in place.
 
 ---
 
-## Phase 3 — Participant UI
+## Phase 3 — Organizer UI
 
-### 3.1 Unblock "Not Recommended" in `Views/Assessment/Report.cshtml`
+### 3.1 Event Details (`Views/Event/Details.cshtml`)
 
-Currently there's a disabled button reading "Registration Not Recommended". Replace it with an enabled link to registration, labelled something like "Proceed with Additional Requirements", styled to still signal caution (amber/red rather than the standard gradient).
+Replace the status `<select>` with contextual buttons:
 
-The existing acknowledgement checkbox gating already covers the "make sure they read it" concern — keep that wired up.
+- **Upcoming** → "Mark as Completed" (green, confirmation dialog warning that unpaid/unreviewed registrations will be voided), "Reschedule" (blue, modal for new date + time), "Cancel Event" (red, modal requiring a reason)
+- **Completed** → no actions; show "Completed on {CompletedAt}" and by whom
+- **Cancelled** → no actions; show the cancellation date and reason
 
-### 3.2 `Views/Registration/Register.cshtml`
+The point of this change is that an organizer should see what they can do without opening a menu, and that completing an event should feel like a decision rather than a field edit.
 
-Add conditional fields driven by the Phase 2.1 rules:
-- Medical clearance file upload — shown always, marked **Required** when the rules say so
-- Preparation plan textarea — shown only for Not Recommended, always required there
-- **Remove** the payment receipt upload from this page entirely — it moves to `MyRegistrations`
+### 3.2 Event Comparison (`Views/Organizer/EventComparison.cshtml`)
 
-Explain *why* a document is required inline (e.g. "Required because you indicated a pre-existing medical condition") rather than just marking it with an asterisk.
+This page already shows the pre-hike vs post-hike comparison computed live. Now that labels are persisted, show the stored `FinalLabel` and add a small indicator for rows where no label exists yet (neither side has submitted feedback) so the organizer can see what's still outstanding.
 
-### 3.3 `Views/Registration/MyRegistrations.cshtml`
-
-This page carries the new payment flow:
-- `Awaiting Payment` → show the receipt upload plus a visible countdown ("2 days left to upload payment")
-- `For Payment Verification` → show "Waiting for organizer to verify your payment", no upload control
-- `Voided` → explain why, with the missed deadline date
-- Other statuses render as they do now
+Run `npm run build` after adding any new Tailwind classes.
 
 ---
 
-## Phase 4 — Organizer UI
+## Phase 4 — Testing
 
-In `Views/Organizer/RegistrationDetails.cshtml`:
-- New card showing submitted documents: medical clearance (link/preview, reuse the receipt tooltip pattern) and preparation plan text
-- When status is `Awaiting Payment`, show the deadline and remaining time
-- When status is `For Payment Verification`, show the receipt with **Verify Payment** / **Reject Payment** buttons
-- Keep the existing approve/reject/recommend-alternative controls for `Pending`
-
-In `Views/Organizer/Registrations.cshtml`, make sure the new statuses render with sensible colors — `Awaiting Payment` amber, `For Payment Verification` blue, `Voided` gray.
-
----
-
-## Phase 5 — Testing
-
-Walk the full path with the Python ML service running:
-
-1. Submit an assessment that yields **Not Recommended** → confirm the report page now allows proceeding
-2. Try submitting without a preparation plan → confirm it's rejected with a clear message
-3. Submit with both documents → status `Pending`
-4. Approve as organizer → status `Awaiting Payment`, `PaymentDeadline` set correctly
-5. Check `MyRegistrations` → countdown shows
-6. Upload receipt → status `For Payment Verification`
-7. Verify as organizer → status `Accepted`, `IsPaid` true
-8. **Expiry test:** manually backdate a `PaymentDeadline` in pgAdmin, reload any registration page, confirm it flips to `Voided`
-9. Confirm capacity counts exclude voided registrations
+1. Create an event, register participants with a mix of statuses (`Pending`, `Awaiting Payment`, `For Payment Verification`, `Accepted`)
+2. Mark the event completed → confirm `CompletedAt`/`CompletedBy` are set and the three non-`Accepted` registrations became `Voided`
+3. Submit **participant feedback only** → confirm a `FinalSuitabilityLabel` row appears with the mapped class
+4. Submit the **organizer assessment** for the same participant with a *worse* rating → confirm the existing row updates to the more conservative label
+5. Edit the organizer assessment to a *better* rating → confirm the label recomputes correctly (this is where a non-upsert implementation breaks)
+6. Confirm a participant with **no feedback from either side** has no row at all
+7. Cancel a different event with a reason → confirm `CancelledAt`/`CancellationReason` are stored and the buttons disappear
+8. Reschedule a third event → confirm the date changes, status stays `Upcoming`, and registrations are untouched
+9. Query the table directly and confirm every row has a valid `AssessmentId` pointing at a real assessment
 
 ---
 
 ## Out of Scope Here
 
-These are separate gaps — don't fold them into this work:
-- Event completion confirmation
-- Persisting final suitability labels from feedback
-- `Notes` / `Reminders` fields on `Event`
-- Weather risk level and suggested reminder
+- Notifications on reschedule (participant re-confirmation flow)
+- The actual retraining pipeline — this work produces the dataset; consuming it is separate
+- `Notes` / `Reminders` fields on `Event` (gap #4)
+- Weather risk level and suggested reminder (gap #5)
+- The UI/UX consistency pass — deferred until all feature gaps are closed

@@ -71,6 +71,11 @@ namespace TrailGuard.Models
 
         public DateTime DateUpdated { get; set; } = DateTime.Now;
 
+        public DateTime? CompletedAt { get; set; }
+        public string? CompletedBy { get; set; }
+        public DateTime? CancelledAt { get; set; }
+        public string? CancellationReason { get; set; }
+
         [NotMapped]
         public string FormattedEventTime
         {
