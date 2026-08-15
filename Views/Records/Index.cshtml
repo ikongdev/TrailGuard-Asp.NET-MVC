@@ -267,20 +267,32 @@
             <div class="space-y-4">
                 @foreach (var feedback in Model.Feedbacks)
                 {
+                    var trailConditionColor = feedback.TrailCondition switch
+                    {
+                        "Well-maintained" => "bg-green-500/20 text-green-400 border-green-500/30",
+                        "Passable" => "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+                        "Poorly maintained" => "bg-orange-500/20 text-orange-400 border-orange-500/30",
+                        "Hazardous" => "bg-red-500/20 text-red-400 border-red-500/30",
+                        _ => "bg-gray-500/20 text-gray-400 border-gray-500/30"
+                    };
+
+                    var hasTrailSection = !string.IsNullOrEmpty(feedback.TrailCondition) || !string.IsNullOrEmpty(feedback.TrailSignage) ||
+                        !string.IsNullOrEmpty(feedback.WaterSourceAvailability) || !string.IsNullOrEmpty(feedback.HazardsEncountered);
+                    var hasOrganizerSection = !string.IsNullOrEmpty(feedback.PreEventCommunication) || !string.IsNullOrEmpty(feedback.SafetyManagement) ||
+                        !string.IsNullOrEmpty(feedback.GroupManagement) || !string.IsNullOrEmpty(feedback.Comment);
+
                     <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
                         <div class="flex justify-between items-start mb-3">
-                            <div>
-                                <div class="flex items-center gap-2">
-                                    <div class="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center">
-                                        <i class="fa-solid fa-user text-orange-400 text-sm"></i>
-                                    </div>
-                                    <div>
-                                        <p class="text-white font-semibold">@(feedback.User?.FirstName ?? "Anonymous")</p>
-                                        <p class="text-xs text-gray-500">@feedback.CreatedAt.ToString("MMM dd, yyyy")</p>
-                                    </div>
+                            <div class="flex items-center gap-2">
+                                <div class="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center shrink-0">
+                                    <i class="fa-solid fa-user text-orange-400 text-sm"></i>
+                                </div>
+                                <div>
+                                    <p class="text-white font-semibold">@(feedback.User?.FirstName ?? "Anonymous")</p>
+                                    <p class="text-xs text-gray-500">@feedback.CreatedAt.ToString("MMM dd, yyyy") &bull; @feedback.Event?.EventTitle</p>
                                 </div>
                             </div>
-                            <div class="text-yellow-400">
+                            <div class="text-yellow-400 shrink-0">
                                 @for (int i = 1; i <= 5; i++)
                                 {
                                     if (i <= feedback.Rating)
@@ -294,8 +306,78 @@
                                 }
                             </div>
                         </div>
-                        <p class="text-gray-300 text-sm ml-10">@feedback.Comment</p>
-                        <p class="text-xs text-gray-500 mt-2 ml-10">Event: @feedback.Event?.EventTitle</p>
+
+                        <div class="ml-10 space-y-3">
+                            @if (!string.IsNullOrEmpty(feedback.DifficultyExperience))
+                            {
+                                <div>
+                                    <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Hiking Experience</p>
+                                    <span class="inline-block px-2.5 py-1 rounded-full text-xs font-medium bg-orange-500/10 text-orange-300 border border-orange-500/20">@feedback.DifficultyExperience</span>
+                                </div>
+                            }
+
+                            @if (hasTrailSection)
+                            {
+                                <div>
+                                    <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Trail Conditions</p>
+                                    <div class="flex flex-wrap gap-1.5">
+                                        @if (!string.IsNullOrEmpty(feedback.TrailCondition))
+                                        {
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border @trailConditionColor">
+                                                <i class="fa-solid fa-road"></i> @feedback.TrailCondition
+                                            </span>
+                                        }
+                                        @if (!string.IsNullOrEmpty(feedback.TrailSignage))
+                                        {
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-500/10 text-gray-300 border border-gray-500/20">
+                                                <i class="fa-solid fa-signs-post"></i> Signage: @feedback.TrailSignage
+                                            </span>
+                                        }
+                                        @if (!string.IsNullOrEmpty(feedback.WaterSourceAvailability))
+                                        {
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-500/10 text-gray-300 border border-gray-500/20">
+                                                <i class="fa-solid fa-droplet"></i> Water: @feedback.WaterSourceAvailability
+                                            </span>
+                                        }
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(feedback.HazardsEncountered))
+                                    {
+                                        <p class="text-xs text-red-300/80 mt-1.5"><i class="fa-solid fa-triangle-exclamation mr-1"></i>@feedback.HazardsEncountered</p>
+                                    }
+                                </div>
+                            }
+
+                            @if (hasOrganizerSection)
+                            {
+                                <div>
+                                    <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Organizer & Event Management</p>
+                                    <div class="flex flex-wrap gap-1.5">
+                                        @if (!string.IsNullOrEmpty(feedback.PreEventCommunication))
+                                        {
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                                                <i class="fa-solid fa-comments"></i> Communication: @feedback.PreEventCommunication
+                                            </span>
+                                        }
+                                        @if (!string.IsNullOrEmpty(feedback.SafetyManagement))
+                                        {
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                                                <i class="fa-solid fa-shield-halved"></i> Safety: @feedback.SafetyManagement
+                                            </span>
+                                        }
+                                        @if (!string.IsNullOrEmpty(feedback.GroupManagement))
+                                        {
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                                                <i class="fa-solid fa-people-group"></i> Group: @feedback.GroupManagement
+                                            </span>
+                                        }
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(feedback.Comment))
+                                    {
+                                        <p class="text-gray-300 text-sm mt-2">@feedback.Comment</p>
+                                    }
+                                </div>
+                            }
+                        </div>
                     </div>
                 }
                 @if (!Model.Feedbacks.Any())
