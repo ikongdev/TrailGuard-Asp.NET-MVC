@@ -354,6 +354,16 @@
                         </div>
                         <p class="text-xs text-gray-500 mt-1">Weather forecast auto-fills based on trail location and event date. Field is read-only.</p>
                     </div>
+
+                    <div class="mb-4">
+                        <div class="flex items-center gap-2 mb-2">
+                            <label class="block text-sm font-medium text-gray-300">Weather Reminder</label>
+                            <span id="eventWeatherRiskBadge" class="hidden px-2.5 py-0.5 rounded-full text-xs font-semibold"></span>
+                        </div>
+                        <input type="hidden" id="eventWeatherRiskLevel" name="WeatherRiskLevel">
+                        <textarea id="eventWeatherReminder" name="WeatherReminder" rows="3" class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none" placeholder="Preparation advice will auto-fill based on the forecast..."></textarea>
+                        <p class="text-xs text-gray-500 mt-1">Generated from the forecast — review and adjust the wording before publishing.</p>
+                    </div>
                 </div>
 
                 <!-- Step 3 -->
@@ -392,8 +402,8 @@
                     </div>
 
                     <div class="mb-6">
-                        <label class="block text-sm font-medium text-gray-300 mb-2">Notes & Announcements</label>
-                        <textarea id="eventAnnouncements" name="Announcements" rows="3" class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none" placeholder="Important reminders and things participants should know..."></textarea>
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Notes & Reminders</label>
+                        <textarea id="eventAnnouncements" name="NotesAndReminders" rows="3" class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none" placeholder="Important reminders and things participants should know..."></textarea>
                     </div>
                 </div>
             </div>
@@ -545,6 +555,16 @@
                         </div>
                         <p class="text-xs text-gray-500 mt-1">Weather forecast auto-fills based on trail location and event date. Field is read-only.</p>
                     </div>
+
+                    <div class="mb-4">
+                        <div class="flex items-center gap-2 mb-2">
+                            <label class="block text-sm font-medium text-gray-300">Weather Reminder</label>
+                            <span id="editEventWeatherRiskBadge" class="hidden px-2.5 py-0.5 rounded-full text-xs font-semibold"></span>
+                        </div>
+                        <input type="hidden" id="editEventWeatherRiskLevel" name="WeatherRiskLevel">
+                        <textarea id="editEventWeatherReminder" name="WeatherReminder" rows="3" class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none" placeholder="Preparation advice will auto-fill based on the forecast..."></textarea>
+                        <p class="text-xs text-gray-500 mt-1">Generated from the forecast — review and adjust the wording before publishing. Your existing wording is kept unless the risk level changes.</p>
+                    </div>
                 </div>
 
                 <!-- Edit Step 3 -->
@@ -591,8 +611,8 @@
                     </div>
 
                     <div class="mb-6">
-                        <label class="block text-sm font-medium text-gray-300 mb-2">Notes & Announcements</label>
-                        <textarea id="editEventAnnouncements" name="Announcements" rows="3" class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none" placeholder="Important reminders and things participants should know..."></textarea>
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Notes & Reminders</label>
+                        <textarea id="editEventAnnouncements" name="NotesAndReminders" rows="3" class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none" placeholder="Important reminders and things participants should know..."></textarea>
                     </div>
                 </div>
             </div>
@@ -884,25 +904,57 @@
         }
     });
 
+    function getRiskBadgeClasses(riskLevel) {
+        switch (riskLevel) {
+            case 'Low': return 'bg-green-500/20 text-green-400';
+            case 'Moderate': return 'bg-amber-500/20 text-amber-400';
+            case 'Moderate to High': return 'bg-orange-500/20 text-orange-400';
+            case 'High (Thunderstorm)': return 'bg-red-500/20 text-red-400';
+            default: return 'bg-gray-500/20 text-gray-400';
+        }
+    }
+
+    function applyWeatherRiskFields(data, riskLevelInput, riskBadge, reminderTextarea) {
+        if (riskLevelInput) riskLevelInput.value = data.riskLevel || '';
+
+        if (riskBadge) {
+            if (data.riskLevel) {
+                riskBadge.textContent = data.riskLevel;
+                riskBadge.className = 'px-2.5 py-0.5 rounded-full text-xs font-semibold ' + getRiskBadgeClasses(data.riskLevel);
+            } else {
+                riskBadge.classList.add('hidden');
+            }
+        }
+
+        if (reminderTextarea) reminderTextarea.value = data.suggestedReminder || '';
+    }
+
     async function fetchWeatherForecast(trailId, eventDate) {
         if (!trailId || !eventDate) return;
-        
+
         const weatherTextarea = document.getElementById('eventWeather');
+        const reminderTextarea = document.getElementById('eventWeatherReminder');
+        const riskLevelInput = document.getElementById('eventWeatherRiskLevel');
+        const riskBadge = document.getElementById('eventWeatherRiskBadge');
         const loadingSpinner = document.getElementById('weatherLoadingSpinner');
-        
+
         if (!weatherTextarea) return;
-        
+
         weatherTextarea.classList.add('opacity-50');
         if (loadingSpinner) loadingSpinner.classList.remove('hidden');
-        
+
         try {
             const response = await fetch(`/Event/GetWeatherForecast?trailId=${trailId}&eventDate=${eventDate}`);
             const data = await response.json();
-            
+
             if (data.success && data.forecastDetails) {
                 weatherTextarea.value = data.forecastDetails;
+                applyWeatherRiskFields(data, riskLevelInput, riskBadge, reminderTextarea);
             } else {
                 weatherTextarea.value = 'Weather forecast temporarily unavailable. Please check manually.';
+                if (riskLevelInput) riskLevelInput.value = '';
+                if (riskBadge) riskBadge.classList.add('hidden');
+                if (reminderTextarea) reminderTextarea.value = '';
             }
         } catch (error) {
             console.error('Error fetching weather:', error);
@@ -986,6 +1038,8 @@
             Capacity: parseInt(document.getElementById('eventCapacity')?.value),
             OrganizedBy: document.getElementById('eventOrganizer')?.value,
             WeatherForecastAdvisory: document.getElementById('eventWeather')?.value,
+            WeatherRiskLevel: document.getElementById('eventWeatherRiskLevel')?.value,
+            WeatherReminder: document.getElementById('eventWeatherReminder')?.value,
             NotesAndReminders: document.getElementById('eventAnnouncements')?.value,
             PaymentDetails: document.getElementById('eventPaymentDetails')?.value,
             PickupPoints: document.getElementById('eventPickupPoints')?.value
@@ -1193,23 +1247,32 @@
 
     async function editFetchWeatherForecast(trailId, eventDate) {
         if (!trailId || !eventDate) return;
-        
+
         const weatherTextarea = document.getElementById('editEventWeather');
+        const reminderTextarea = document.getElementById('editEventWeatherReminder');
+        const riskLevelInput = document.getElementById('editEventWeatherRiskLevel');
+        const riskBadge = document.getElementById('editEventWeatherRiskBadge');
         const loadingSpinner = document.getElementById('editWeatherLoadingSpinner');
-        
+        const eventId = document.getElementById('editEventId')?.value;
+
         if (!weatherTextarea) return;
-        
+
         weatherTextarea.classList.add('opacity-50');
         if (loadingSpinner) loadingSpinner.classList.remove('hidden');
-        
+
         try {
-            const response = await fetch(`/Event/GetWeatherForecast?trailId=${trailId}&eventDate=${eventDate}`);
+            const eventIdParam = eventId ? `&eventId=${eventId}` : '';
+            const response = await fetch(`/Event/GetWeatherForecast?trailId=${trailId}&eventDate=${eventDate}${eventIdParam}`);
             const data = await response.json();
-            
+
             if (data.success && data.forecastDetails) {
                 weatherTextarea.value = data.forecastDetails;
+                applyWeatherRiskFields(data, riskLevelInput, riskBadge, reminderTextarea);
             } else {
                 weatherTextarea.value = 'Weather forecast temporarily unavailable. Please check manually.';
+                if (riskLevelInput) riskLevelInput.value = '';
+                if (riskBadge) riskBadge.classList.add('hidden');
+                if (reminderTextarea) reminderTextarea.value = '';
             }
         } catch (error) {
             console.error('Error fetching weather:', error);
@@ -1317,6 +1380,17 @@
                 }
             }
             document.getElementById('editEventWeather').value = event.weatherForecastAdvisory || '';
+            document.getElementById('editEventWeatherReminder').value = event.weatherReminder || '';
+            document.getElementById('editEventWeatherRiskLevel').value = event.weatherRiskLevel || '';
+            const editRiskBadge = document.getElementById('editEventWeatherRiskBadge');
+            if (editRiskBadge) {
+                if (event.weatherRiskLevel) {
+                    editRiskBadge.textContent = event.weatherRiskLevel;
+                    editRiskBadge.className = 'px-2.5 py-0.5 rounded-full text-xs font-semibold ' + getRiskBadgeClasses(event.weatherRiskLevel);
+                } else {
+                    editRiskBadge.classList.add('hidden');
+                }
+            }
             document.getElementById('editEventAnnouncements').value = event.announcements || '';
             document.getElementById('editEventPaymentDetails').value = event.paymentDetails || '';
             document.getElementById('editEventPickupPoints').value = event.pickupPoints || '';
@@ -1367,6 +1441,8 @@
             Capacity: parseInt(document.getElementById('editEventCapacity')?.value),
             OrganizedBy: document.getElementById('editEventOrganizer')?.value,
             WeatherForecastAdvisory: document.getElementById('editEventWeather')?.value,
+            WeatherRiskLevel: document.getElementById('editEventWeatherRiskLevel')?.value,
+            WeatherReminder: document.getElementById('editEventWeatherReminder')?.value,
             NotesAndReminders: document.getElementById('editEventAnnouncements')?.value,
             PaymentDetails: document.getElementById('editEventPaymentDetails')?.value,
             PickupPoints: document.getElementById('editEventPickupPoints')?.value,

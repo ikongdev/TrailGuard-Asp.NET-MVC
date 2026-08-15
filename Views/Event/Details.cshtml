@@ -35,6 +35,15 @@
         "Completed" => "bg-gray-400",
         _ => "bg-gray-400"
     };
+
+    string weatherRiskBadgeClasses = Model.WeatherRiskLevel switch
+    {
+        "Low" => "bg-green-500/20 text-green-400 border-green-500/30",
+        "Moderate" => "bg-amber-500/20 text-amber-400 border-amber-500/30",
+        "Moderate to High" => "bg-orange-500/20 text-orange-400 border-orange-500/30",
+        "High (Thunderstorm)" => "bg-red-500/20 text-red-400 border-red-500/30",
+        _ => "bg-gray-500/20 text-gray-400 border-gray-500/30"
+    };
 }
 
 <div class="pt-24 px-4 max-w-6xl mx-auto min-h-screen text-white pb-12">
@@ -146,6 +155,31 @@
             </div>
 
             <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold text-white"><i class="fa-solid fa-cloud-sun text-orange-400 mr-2"></i>Weather</h2>
+                    @if (!string.IsNullOrEmpty(Model.WeatherRiskLevel))
+                    {
+                        <span class="px-3 py-1 rounded-full text-xs font-semibold border @weatherRiskBadgeClasses">@Model.WeatherRiskLevel Risk</span>
+                    }
+                </div>
+                @if (!string.IsNullOrEmpty(Model.WeatherForecastAdvisory))
+                {
+                    <p class="text-gray-300 text-sm whitespace-pre-wrap">@Model.WeatherForecastAdvisory</p>
+                }
+                else
+                {
+                    <p class="text-gray-500 italic text-sm">No weather forecast available for this event.</p>
+                }
+                @if (!string.IsNullOrEmpty(Model.WeatherReminder))
+                {
+                    <div class="mt-4 pt-4 border-t border-white/10">
+                        <p class="text-gray-500 text-xs uppercase tracking-wider mb-1"><i class="fa-regular fa-lightbulb mr-1"></i>Weather Reminder</p>
+                        <p class="text-gray-300 text-sm whitespace-pre-wrap">@Model.WeatherReminder</p>
+                    </div>
+                }
+            </div>
+
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
                 <h2 class="text-xl font-bold text-white mb-4"><i class="fa-solid fa-file-lines text-orange-400 mr-2"></i>Event Description</h2>
                 <p class="text-gray-300 leading-relaxed whitespace-pre-wrap">@Model.Description</p>
             </div>
@@ -226,7 +260,7 @@
             </div>
 
             <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-                <h2 class="text-xl font-bold text-white mb-4"><i class="fa-solid fa-bullhorn text-orange-400 mr-2"></i>Reminders and Announcements</h2>
+                <h2 class="text-xl font-bold text-white mb-4"><i class="fa-solid fa-bullhorn text-orange-400 mr-2"></i>Notes & Reminders</h2>
                 @if (!string.IsNullOrEmpty(Model.NotesAndReminders))
                 {
                     <div class="prose prose-invert max-w-none">
