@@ -1,18 +1,18 @@
-# Active Plan — Event Notes & Weather Risk Fields
+# Active Plan — Three-Section Post-Event Feedback
 
-Closes gaps #4 and #5 from `CLAUDE.md` together, since they overlap: both touch event-level informational fields, and the reminder concepts need untangling in one pass rather than two.
+Closes gap #6, found by re-reading the manuscript's functional requirements after the other gaps were done.
 
 ---
 
-## The Actual Problem
+## What the Manuscript Requires
 
-Two separate issues that look bigger than they are:
+Functional requirement #16:
 
-**1. `Announcements` is already a combined field in practice.** The UI labels it "Notes & Announcements" (create/edit forms) and "Reminders and Announcements" (detail pages), but the model field is just `Announcements`. The name has drifted from the usage.
+> "The system shall allow Participants to submit a **structured post-event feedback form divided into three distinct sections**: (1) personal hiking experience, (2) assessment of the trekked trail conditions, and (3) evaluation of the organizer and overall event management."
 
-**2. Weather risk level already exists — it's just buried.** `WeatherService.GetRiskLevel()` computes `Low` / `Moderate` / `Moderate to High` / `High (Thunderstorm)` and is working. But it gets concatenated into one big string that's stored in `WeatherForecastAdvisory`. Because it isn't a field, it can't be queried, filtered, styled, or displayed separately — and the manuscript's data dictionary lists `weather risk level` and `suggested reminder` as distinct event attributes.
+The current form has three fields total — an overall star rating, `DifficultyExperience`, and a free-text comment. That covers section 1 only. Sections 2 and 3 don't exist.
 
-So this work is mostly **separating what's already there**, plus adding one genuinely new piece (the weather reminder).
+Requirement #17 (final label resolution) is already implemented correctly and needs no changes — both available takes the safer label, one available uses that one, neither excludes the record from retraining.
 
 ---
 
@@ -20,117 +20,118 @@ So this work is mostly **separating what's already there**, plus adding one genu
 
 | Question | Decision |
 |---|---|
-| Notes, announcements, and reminders — separate or combined? | **Combined into one field**, `NotesAndReminders`. Rename the existing `Announcements` column rather than dropping and recreating it, so existing content survives. |
-| Deviation from the manuscript? | **Yes, accepted.** The manuscript lists notes, announcements, and reminders separately. The manuscript will be realigned to the system after implementation, not the other way around. Document this. |
-| Weather reminder field name | **`WeatherReminder`** — unambiguous that it's both a reminder and weather-scoped, and clearly distinct from `WeatherForecastAdvisory`. |
-| Is `WeatherReminder` editable? | **Yes.** The manuscript specifies the organizer "may review or edit before publishing." Generate it as a starting point, let them change it. |
-| Weather risk levels | Keep the existing four from `GetRiskLevel()` — don't invent a new scale. |
+| Do sections 2 and 3 affect the final suitability label? | **No.** Only `DifficultyExperience` feeds the label. Trail condition and organizer quality are different questions from whether *this participant* suited *this trail* — mixing them would corrupt the training signal. Sections 2 and 3 are for records and organizer insight. |
+| Are the new sections required? | **Yes, all required.** Most are single-click choices, and complete data is worth more than a marginally shorter form. |
+| How many comment fields? | **One**, in the final section, as a general comment for the whole form. |
+| Layout | **Multi-step wizard** — one section visible at a time, with Back/Next navigation and a progress indicator. |
 
-### Field layout after this work
+### Wizard implementation constraint
 
-| Field | Contents | Source |
-|---|---|---|
-| `WeatherForecastAdvisory` | Forecast details only — temperature, rain chance, wind, last updated | Generated |
-| `WeatherRiskLevel` | `Low` / `Moderate` / `Moderate to High` / `High (Thunderstorm)` | Generated |
-| `WeatherReminder` | Preparation advice matched to the risk level | Generated, organizer-editable |
-| `NotesAndReminders` | Anything the organizer wants participants to know | Organizer only |
+The wizard must be **one HTML form with JavaScript show/hide** — not real page navigation. If each step were a separate request, answers from earlier steps would be lost on navigation, and going Back would clear them.
+
+Each step also needs its own validation gate: a participant shouldn't reach step 3 and then discover a missed field back on step 1, where they can no longer see it.
 
 ---
 
-## Phase 1 — Models & Migration
+## Section Contents
 
-### `Models/Event.cs`
+### Section 1 — Personal Hiking Experience
 
-Rename `Announcements` → `NotesAndReminders` (keep it `string?`), and add:
+Already exists, keep as is:
+- `DifficultyExperience` — the seven radio options (this is what feeds the final label; the exact strings must not change, `FinalLabelService` maps against them)
+
+### Section 2 — Trail Conditions
+
+All new:
+
+| Field | Type | Options |
+|---|---|---|
+| `TrailCondition` | radio | Well-maintained / Passable / Poorly maintained / Hazardous |
+| `TrailSignage` | radio | Clear / Adequate / Confusing / Absent |
+| `WaterSourceAvailability` | radio | Available / Limited / None |
+| `HazardsEncountered` | text | Optional — the one exception to "all required", since most hikes have none |
+
+### Section 3 — Organizer & Event Management
+
+| Field | Type | Options |
+|---|---|---|
+| `Rating` | 1–5 stars | Existing field, moved here — it belongs with event evaluation, not hiking experience |
+| `PreEventCommunication` | radio | Excellent / Good / Fair / Poor |
+| `SafetyManagement` | radio | Excellent / Good / Fair / Poor |
+| `GroupManagement` | radio | Excellent / Good / Fair / Poor |
+| `Comment` | textarea | Existing field, optional, general comment for the whole form |
+
+---
+
+## Phase 1 — Model & Migration
+
+Add to `Models/EventFeedback.cs`:
 
 ```csharp
-public string? WeatherRiskLevel { get; set; }
-public string? WeatherReminder { get; set; }
+public string? TrailCondition { get; set; }
+public string? TrailSignage { get; set; }
+public string? WaterSourceAvailability { get; set; }
+public string? HazardsEncountered { get; set; }
+public string? PreEventCommunication { get; set; }
+public string? SafetyManagement { get; set; }
+public string? GroupManagement { get; set; }
 ```
 
-Use `migrationBuilder.RenameColumn` for the rename so existing content is preserved — do not drop and re-add.
-
-Also update `EventCreateModel` and `EventEditModel`, which both carry `Announcements`.
+All nullable at the database level even though the form requires them — existing feedback rows predate these fields, and making them non-nullable would break the migration.
 
 ```bash
-dotnet ef migrations add RenameAnnouncementsAndAddWeatherFields
+dotnet ef migrations add AddFeedbackSections
 dotnet ef database update
 ```
 
-Verify the migration uses `RenameColumn` before applying it. If it generated a drop + add instead, fix it by hand — that would silently wipe every existing event's content.
-
 ---
 
-## Phase 2 — Backend Logic
+## Phase 2 — Backend
 
-### 2.1 Restructure `WeatherService`
+Update `ParticipantController.SubmitFeedback` to accept and persist the seven new parameters. Keep the existing duplicate-submission guard and the `FinalLabelService.UpsertFinalLabel` call at the end — the upsert still keys off `DifficultyExperience` only, so nothing changes there.
 
-Right now `GetWeatherForecastAsync` returns one concatenated string. Change it to return a small result object with three parts:
-
-```
-WeatherResult
-    ForecastDetails   — the existing text minus the risk level line
-    RiskLevel         — from the existing GetRiskLevel(), unchanged
-    SuggestedReminder — new, derived from RiskLevel
-```
-
-Keep `GetRiskLevel`, `GetWeatherDescription`, and `GetWindSpeedDescription` as they are. The failure paths currently return plain strings like "Weather forecast temporarily unavailable" — those should still work, with an empty risk level and reminder.
-
-### 2.2 New: reminder generation
-
-Map risk level to preparation advice. Suggested starting text (the organizer can edit it afterwards, so this only needs to be a reasonable default):
-
-| Risk level | Reminder |
-|---|---|
-| `Low` | Conditions look favorable. Bring enough water and sun protection, and follow the usual trail safety guidelines. |
-| `Moderate` | Rain is possible. Bring a raincoat and waterproof your electronics. Expect slippery sections and allow extra time. |
-| `Moderate to High` | Heavy rain expected. Trails may be slippery and river crossings may rise. Bring full rain gear and be ready to turn back if conditions worsen. |
-| `High (Thunderstorm)` | Thunderstorms expected. Consider rescheduling. If the event pushes through, avoid exposed ridges and summits, and monitor conditions closely. |
-
-### 2.3 Wire into event create/edit
-
-`EventController` already calls `_weatherService.GetWeatherForecastAsync(trail.Location, eventDate)` when creating an event. Update that call site to populate all three fields.
-
-On edit: regenerate the forecast and risk level, but **do not overwrite `WeatherReminder` if the organizer has already edited it** — that would silently discard their wording. Only fill it when it's empty, or when the risk level has changed (in which case the old reminder no longer matches the conditions).
+Server-side validation should reject a submission missing any required field rather than trusting the client-side gates.
 
 ---
 
 ## Phase 3 — UI
 
-### 3.1 Create/Edit forms (`Views/Event/Index.cshtml`)
+Rebuild `Views/Participant/Feedback.cshtml` as a three-step wizard:
 
-- Relabel the "Notes & Announcements" textarea to **"Notes & Reminders"**, bound to `NotesAndReminders`
-- Add an editable **Weather Reminder** textarea, pre-filled with the generated text, with a short hint that it was generated from the forecast and can be adjusted
+- A progress indicator showing which of the three steps is active and which are complete
+- One `<form>` containing all fields; JavaScript toggles section visibility
+- Back / Next buttons, with Submit replacing Next on the final step
+- Next is blocked until every required field in the current section is answered, with a clear message about what's missing
+- Moving backward preserves everything already entered
 
-### 3.2 Event detail pages
-
-Both `Views/Event/Details.cshtml` (organizer) and `Views/Participant/Details.cshtml` (participant) currently render a "Reminders and Announcements" section from `Announcements`. Update both to:
-
-- Show **Notes & Reminders** from `NotesAndReminders`
-- Show the **weather risk level** as a colored badge — green for `Low`, amber for `Moderate`, orange for `Moderate to High`, red for `High (Thunderstorm)` — near the existing weather advisory block
-- Show the **weather reminder** below the risk badge
-
-The risk badge is the main visible win here: right now the risk level is a line of text inside a paragraph, easy to skim past. As a badge it's the first thing someone notices about the weather section.
+Existing star-rating JS moves to section 3 unchanged.
 
 Run `npm run build` afterwards.
 
 ---
 
-## Phase 4 — Testing
+## Phase 4 — Organizer-Side Display
 
-1. Confirm existing events still show their previous `Announcements` content under the new "Notes & Reminders" heading — nothing lost in the rename
-2. Create an event on a trail with clear weather → risk badge shows `Low` in green, reminder matches
-3. Create an event where the forecast is worse → badge color and reminder change accordingly
-4. Edit a `WeatherReminder`, save, then edit the event again without changing the date → confirm the custom text survives
-5. Change the event date so the risk level changes → confirm the reminder regenerates
-6. Confirm the participant detail page shows the same risk badge and reminder
-7. Confirm an event whose weather lookup fails still saves, with an empty risk level and reminder rather than a crash
+The new data is useless if nobody reads it. Surface it where organizers already look at feedback — the records/reports view and any per-event feedback listing — grouped by the three sections rather than as a flat field dump.
+
+Trail condition answers in particular are worth making visible: several participants reporting "Poorly maintained" or "Hazardous" on the same trail is a signal the organizer should act on.
+
+---
+
+## Phase 5 — Testing
+
+1. Submit feedback through all three steps → confirm every field persists
+2. Try to advance past step 1 without answering → confirm it's blocked with a clear message
+3. Advance to step 3, go Back to step 1 → confirm earlier answers are still there
+4. Submit and confirm the `FinalSuitabilityLabel` still resolves from `DifficultyExperience` exactly as before
+5. Confirm an older feedback row (created before this change) still displays without errors, with the new fields blank
+6. Confirm the duplicate-submission guard still works
+7. Confirm the new answers appear in the organizer's view
 
 ---
 
 ## Out of Scope
 
-- Refreshing weather data on a schedule — it's generated at create/edit time only
-- Notifications when the risk level changes
-- The UI/UX consistency pass — still deferred until all gaps are closed
-- Realigning the manuscript to match the system — happens after implementation
+- Changing how final labels are computed — requirement #17 is already satisfied
+- Aggregating trail condition reports across events into trail-level warnings
+- The UI/UX consistency pass

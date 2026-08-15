@@ -26,6 +26,15 @@ namespace TrailGuard.Models
 
         public string? DifficultyExperience { get; set; }
 
+        public string? TrailCondition { get; set; }
+        public string? TrailSignage { get; set; }
+        public string? WaterSourceAvailability { get; set; }
+        public string? HazardsEncountered { get; set; }
+
+        public string? PreEventCommunication { get; set; }
+        public string? SafetyManagement { get; set; }
+        public string? GroupManagement { get; set; }
+
         public string? Comment { get; set; } // ✅ Pinalitan from Comments to Comment
 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
