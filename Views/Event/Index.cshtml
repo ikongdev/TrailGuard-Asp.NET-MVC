@@ -899,8 +899,8 @@
             const response = await fetch(`/Event/GetWeatherForecast?trailId=${trailId}&eventDate=${eventDate}`);
             const data = await response.json();
             
-            if (data.success && data.forecast) {
-                weatherTextarea.value = data.forecast;
+            if (data.success && data.forecastDetails) {
+                weatherTextarea.value = data.forecastDetails;
             } else {
                 weatherTextarea.value = 'Weather forecast temporarily unavailable. Please check manually.';
             }
@@ -1206,8 +1206,8 @@
             const response = await fetch(`/Event/GetWeatherForecast?trailId=${trailId}&eventDate=${eventDate}`);
             const data = await response.json();
             
-            if (data.success && data.forecast) {
-                weatherTextarea.value = data.forecast;
+            if (data.success && data.forecastDetails) {
+                weatherTextarea.value = data.forecastDetails;
             } else {
                 weatherTextarea.value = 'Weather forecast temporarily unavailable. Please check manually.';
             }
