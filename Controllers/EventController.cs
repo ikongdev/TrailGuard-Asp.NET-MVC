@@ -258,7 +258,7 @@ namespace TrailGuard.Controllers
         }
 
         [HttpPost]
-        public async Task<JsonResult> UpdateStatus([FromBody] UpdateStatusRequest request)
+        public async Task<JsonResult> CompleteEvent([FromBody] CompleteEventRequest request)
         {
             try
             {
@@ -268,11 +268,33 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "Event not found" });
                 }
 
-                eventItem.Status = request.Status;
+                if (eventItem.Status != "Upcoming")
+                {
+                    return Json(new { success = false, message = "Only upcoming events can be marked as completed" });
+                }
+
+                var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                var organizer = await _userManager.FindByIdAsync(userId ?? "");
+                var organizerName = organizer != null ? $"{organizer.FirstName} {organizer.LastName}" : "Organizer";
+
+                eventItem.Status = "Completed";
+                eventItem.CompletedAt = DateTime.Now;
+                eventItem.CompletedBy = organizerName;
                 eventItem.DateUpdated = DateTime.Now;
+
+                var registrationsToVoid = await _context.EventRegistrations
+                    .Where(r => r.EventId == request.Id &&
+                        (r.Status == "Pending" || r.Status == "Awaiting Payment" || r.Status == "For Payment Verification"))
+                    .ToListAsync();
+
+                foreach (var registration in registrationsToVoid)
+                {
+                    registration.Status = "Voided";
+                }
+
                 await _context.SaveChangesAsync();
 
-                return Json(new { success = true, message = "Status updated successfully" });
+                return Json(new { success = true, message = "Event marked as completed" });
             }
             catch (Exception ex)
             {
@@ -280,10 +302,88 @@ namespace TrailGuard.Controllers
             }
         }
 
-        public class UpdateStatusRequest
+        public class CompleteEventRequest
         {
             public int Id { get; set; }
-            public string Status { get; set; } = string.Empty;
+        }
+
+        [HttpPost]
+        public async Task<JsonResult> CancelEvent([FromBody] CancelEventRequest request)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(request.Reason))
+                {
+                    return Json(new { success = false, message = "A cancellation reason is required" });
+                }
+
+                var eventItem = await _context.Events.FindAsync(request.Id);
+                if (eventItem == null)
+                {
+                    return Json(new { success = false, message = "Event not found" });
+                }
+
+                if (eventItem.Status != "Upcoming")
+                {
+                    return Json(new { success = false, message = "Only upcoming events can be cancelled" });
+                }
+
+                eventItem.Status = "Cancelled";
+                eventItem.CancelledAt = DateTime.Now;
+                eventItem.CancellationReason = request.Reason;
+                eventItem.DateUpdated = DateTime.Now;
+
+                await _context.SaveChangesAsync();
+
+                return Json(new { success = true, message = "Event cancelled" });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = ex.Message });
+            }
+        }
+
+        public class CancelEventRequest
+        {
+            public int Id { get; set; }
+            public string Reason { get; set; } = string.Empty;
+        }
+
+        [HttpPost]
+        public async Task<JsonResult> RescheduleEvent([FromBody] RescheduleEventRequest request)
+        {
+            try
+            {
+                var eventItem = await _context.Events.FindAsync(request.Id);
+                if (eventItem == null)
+                {
+                    return Json(new { success = false, message = "Event not found" });
+                }
+
+                if (eventItem.Status != "Upcoming")
+                {
+                    return Json(new { success = false, message = "Only upcoming events can be rescheduled" });
+                }
+
+                eventItem.EventDate = request.NewDate;
+                eventItem.EventTime = request.NewTime;
+                eventItem.DateUpdated = DateTime.Now;
+
+                await _context.SaveChangesAsync();
+
+                return Json(new { success = true, message = "Event rescheduled" });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = ex.Message });
+            }
+        }
+
+        public class RescheduleEventRequest
+        {
+            public int Id { get; set; }
+            public DateTime NewDate { get; set; }
+            public TimeSpan NewTime { get; set; }
         }
 
         [HttpPost]

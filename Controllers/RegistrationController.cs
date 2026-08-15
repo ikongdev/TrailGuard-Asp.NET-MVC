@@ -241,6 +241,11 @@ namespace TrailGuard.Controllers
                 return Json(new { success = false, message = "Registration not found" });
             }
 
+            if (registration.Status != "Pending" && registration.Status != "Awaiting Payment")
+            {
+                return Json(new { success = false, message = "This registration can no longer be cancelled here. Please contact the organizer directly." });
+            }
+
             registration.Status = "Cancelled";
             await _context.SaveChangesAsync();
 
