@@ -349,7 +349,18 @@ namespace TrailGuard.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> SubmitFeedback(int eventId, int Rating, string DifficultyExperience, string Comment)
+        public async Task<IActionResult> SubmitFeedback(
+            int eventId,
+            int Rating,
+            string DifficultyExperience,
+            string TrailCondition,
+            string TrailSignage,
+            string WaterSourceAvailability,
+            string? HazardsEncountered,
+            string PreEventCommunication,
+            string SafetyManagement,
+            string GroupManagement,
+            string? Comment)
         {
             var eventItem = await _context.Events
                 .FirstOrDefaultAsync(e => e.Id == eventId);
@@ -358,6 +369,19 @@ namespace TrailGuard.Controllers
             {
                 TempData["Error"] = "Event not found";
                 return RedirectToAction("Events");
+            }
+
+            if (Rating < 1 || Rating > 5 ||
+                string.IsNullOrWhiteSpace(DifficultyExperience) ||
+                string.IsNullOrWhiteSpace(TrailCondition) ||
+                string.IsNullOrWhiteSpace(TrailSignage) ||
+                string.IsNullOrWhiteSpace(WaterSourceAvailability) ||
+                string.IsNullOrWhiteSpace(PreEventCommunication) ||
+                string.IsNullOrWhiteSpace(SafetyManagement) ||
+                string.IsNullOrWhiteSpace(GroupManagement))
+            {
+                TempData["Error"] = "Please complete all required fields before submitting.";
+                return RedirectToAction("Details", new { id = eventId });
             }
 
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
@@ -377,6 +401,13 @@ namespace TrailGuard.Controllers
                 UserId = userId ?? "",
                 Rating = Rating,
                 DifficultyExperience = DifficultyExperience,
+                TrailCondition = TrailCondition,
+                TrailSignage = TrailSignage,
+                WaterSourceAvailability = WaterSourceAvailability,
+                HazardsEncountered = HazardsEncountered,
+                PreEventCommunication = PreEventCommunication,
+                SafetyManagement = SafetyManagement,
+                GroupManagement = GroupManagement,
                 Comment = Comment,
                 CreatedAt = DateTime.Now
             };
