@@ -92,6 +92,9 @@
                             <th class="px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">
                                 <i class="fa-solid fa-flag-checkered mr-1"></i> Final Result
                             </th>
+                            <th class="px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                                <i class="fa-solid fa-database mr-1"></i> Persisted Label
+                            </th>
                             <th class="px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider text-center">
                                 <i class="fa-solid fa-arrows-left-right mr-1"></i> Comparison
                             </th>
@@ -105,9 +108,17 @@
                                                item.PreHikeAssessment == "Not Recommended" ? "bg-red-500/20 text-red-400" : 
                                                "bg-gray-500/20 text-gray-400";
                             
-                            var finalResultColor = item.FinalResult == "Much easier than expected" || item.FinalResult == "Matched perfectly" ? "bg-green-500/20 text-green-400" : 
-                                                   item.FinalResult == "Matched but challenging" || item.FinalResult == "Harder than expected" ? "bg-yellow-500/20 text-yellow-400" : 
+                            var finalResultColor = item.FinalResult == "Much easier than expected" || item.FinalResult == "Matched perfectly" ? "bg-green-500/20 text-green-400" :
+                                                   item.FinalResult == "Matched but challenging" || item.FinalResult == "Harder than expected" ? "bg-yellow-500/20 text-yellow-400" :
                                                    "bg-red-500/20 text-red-400";
+
+                            var finalLabelColor = item.FinalLabel switch
+                            {
+                                "Good-Match" => "bg-green-500/20 text-green-400",
+                                "Borderline" => "bg-yellow-500/20 text-yellow-400",
+                                "Not Recommended" => "bg-red-500/20 text-red-400",
+                                _ => "bg-gray-500/20 text-gray-400"
+                            };
 
                             <tr class="border-b border-gray-800 hover:bg-white/5 transition-colors group">
                                 <td class="px-4 py-3">
@@ -128,6 +139,20 @@
                                     <span class="px-3 py-1 rounded-full text-xs font-semibold @finalResultColor inline-block min-w-30 text-center">
                                         @item.FinalResult
                                     </span>
+                                </td>
+                                <td class="px-4 py-3">
+                                    @if (!string.IsNullOrEmpty(item.FinalLabel))
+                                    {
+                                        <span class="px-3 py-1 rounded-full text-xs font-semibold @finalLabelColor inline-block min-w-25 text-center">
+                                            @item.FinalLabel
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="px-3 py-1 rounded-full text-xs font-medium bg-gray-500/10 text-gray-500 border border-gray-500/20 inline-block min-w-25 text-center">
+                                            <i class="fa-regular fa-clock mr-1"></i> Outstanding
+                                        </span>
+                                    }
                                 </td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center justify-center gap-2">
@@ -166,6 +191,11 @@
                         <i class="fa-solid fa-minus-circle text-gray-400"></i>
                         <span class="text-gray-300">Insufficient Data</span>
                         <span class="text-gray-500">- Missing feedback or assessment</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <i class="fa-regular fa-clock text-gray-500"></i>
+                        <span class="text-gray-300">Outstanding</span>
+                        <span class="text-gray-500">- No persisted label yet; neither side has submitted feedback</span>
                     </div>
                 </div>
             </div>
