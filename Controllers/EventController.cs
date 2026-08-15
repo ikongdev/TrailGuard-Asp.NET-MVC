@@ -116,7 +116,7 @@ namespace TrailGuard.Controllers
         }
 
         [HttpGet]
-        public async Task<JsonResult> GetWeatherForecast(int trailId, DateTime eventDate)
+        public async Task<JsonResult> GetWeatherForecast(int trailId, DateTime eventDate, int? eventId = null)
         {
             try
             {
@@ -127,7 +127,27 @@ namespace TrailGuard.Controllers
                 }
 
                 var forecast = await _weatherService.GetWeatherForecastAsync(trail.Location, eventDate);
-                return Json(new { success = true, forecast = forecast });
+                var reminder = forecast.SuggestedReminder;
+
+                if (eventId.HasValue)
+                {
+                    var existingEvent = await _context.Events.FindAsync(eventId.Value);
+                    if (existingEvent != null &&
+                        !string.IsNullOrEmpty(existingEvent.WeatherReminder) &&
+                        existingEvent.WeatherRiskLevel == forecast.RiskLevel)
+                    {
+                        // Organizer already edited the reminder and the risk level hasn't changed since — keep their wording.
+                        reminder = existingEvent.WeatherReminder;
+                    }
+                }
+
+                return Json(new
+                {
+                    success = true,
+                    forecastDetails = forecast.ForecastDetails,
+                    riskLevel = forecast.RiskLevel,
+                    suggestedReminder = reminder
+                });
             }
             catch (Exception ex)
             {
@@ -164,6 +184,8 @@ namespace TrailGuard.Controllers
                     Status = "Upcoming",
                     MASL = trail.ElevationGainMeters,
                     WeatherForecastAdvisory = model.WeatherForecastAdvisory,
+                    WeatherRiskLevel = model.WeatherRiskLevel,
+                    WeatherReminder = model.WeatherReminder,
                     NotesAndReminders = model.NotesAndReminders,
                     PaymentDetails = model.PaymentDetails,
                     PickupPoints = model.PickupPoints
@@ -206,6 +228,8 @@ namespace TrailGuard.Controllers
                 capacity = eventItem.Capacity,
                 organizedBy = eventItem.OrganizedBy,
                 weatherForecastAdvisory = eventItem.WeatherForecastAdvisory,
+                weatherRiskLevel = eventItem.WeatherRiskLevel,
+                weatherReminder = eventItem.WeatherReminder,
                 announcements = eventItem.NotesAndReminders,
                 paymentDetails = eventItem.PaymentDetails,
                 pickupPoints = eventItem.PickupPoints,
@@ -417,6 +441,8 @@ namespace TrailGuard.Controllers
                 existingEvent.Status = model.Status ?? existingEvent.Status;
                 existingEvent.MASL = trail.ElevationGainMeters;
                 existingEvent.WeatherForecastAdvisory = model.WeatherForecastAdvisory;
+                existingEvent.WeatherRiskLevel = model.WeatherRiskLevel ?? existingEvent.WeatherRiskLevel;
+                existingEvent.WeatherReminder = model.WeatherReminder ?? existingEvent.WeatherReminder;
                 existingEvent.NotesAndReminders = model.NotesAndReminders;
                 existingEvent.PaymentDetails = model.PaymentDetails;
                 existingEvent.PickupPoints = model.PickupPoints;
