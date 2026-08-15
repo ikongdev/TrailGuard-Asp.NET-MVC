@@ -12,7 +12,7 @@ namespace TrailGuard.Models
         public int Capacity { get; set; }
         public string? OrganizedBy { get; set; }
         public string? WeatherForecastAdvisory { get; set; }
-        public string? Announcements { get; set; }
+        public string? NotesAndReminders { get; set; }
         public string? PaymentDetails { get; set; }
         public string? PickupPoints { get; set; }
         public string? Status { get; set; }

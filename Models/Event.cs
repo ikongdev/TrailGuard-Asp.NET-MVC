@@ -58,8 +58,14 @@ namespace TrailGuard.Models
         [Display(Name = "Weather Forecast Advisory")]
         public string? WeatherForecastAdvisory { get; set; }
 
-        [Display(Name = "Announcements")]
-        public string? Announcements { get; set; }
+        [Display(Name = "Weather Risk Level")]
+        public string? WeatherRiskLevel { get; set; }
+
+        [Display(Name = "Weather Reminder")]
+        public string? WeatherReminder { get; set; }
+
+        [Display(Name = "Notes & Reminders")]
+        public string? NotesAndReminders { get; set; }
 
         [Display(Name = "Payment Details")]
         public string? PaymentDetails { get; set; }

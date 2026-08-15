@@ -1,72 +1,39 @@
-# Active Plan — Event Completion & Final Suitability Labels
+# Active Plan — Event Notes & Weather Risk Fields
 
-This is gap #2 from `CLAUDE.md`. It closes the event lifecycle and produces the empirical training data the manuscript's retraining strategy depends on.
-
-Two related pieces of work:
-- **Part A** — replace the status dropdown with proper lifecycle actions, record completion metadata
-- **Part B** — persist final suitability labels for retraining
-
-Work through the phases in order. Build and commit after each phase.
+Closes gaps #4 and #5 from `CLAUDE.md` together, since they overlap: both touch event-level informational fields, and the reminder concepts need untangling in one pass rather than two.
 
 ---
 
-## Why This Matters
+## The Actual Problem
 
-The manuscript's Limitations section commits to this:
+Two separate issues that look bigger than they are:
 
-> "As the platform transitions into live operation, this rule-based training framework will be dynamically replaced and continuously retrained using empirical, human-verified data collected via post-event evaluations."
+**1. `Announcements` is already a combined field in practice.** The UI labels it "Notes & Announcements" (create/edit forms) and "Reminders and Announcements" (detail pages), but the model field is just `Announcements`. The name has drifted from the usage.
 
-Right now the final label is computed on the fly in `EventComparison` and thrown away. Without persistence there is no empirical dataset, and the Phase 2 retraining described in the manuscript cannot happen.
+**2. Weather risk level already exists — it's just buried.** `WeatherService.GetRiskLevel()` computes `Low` / `Moderate` / `Moderate to High` / `High (Thunderstorm)` and is working. But it gets concatenated into one big string that's stored in `WeatherForecastAdvisory`. Because it isn't a field, it can't be queried, filtered, styled, or displayed separately — and the manuscript's data dictionary lists `weather risk level` and `suggested reminder` as distinct event attributes.
+
+So this work is mostly **separating what's already there**, plus adding one genuinely new piece (the weather reminder).
 
 ---
 
 ## Decisions Already Made
 
-Settled during planning — implement these, don't re-open them.
-
-### Part A — Event Completion
-
 | Question | Decision |
 |---|---|
-| Automatic completion when the event date passes? | **No.** Hiking events have travel time, delays, and multi-day trips — only the organizer knows when it's actually done. |
-| Replace the status dropdown? | **Yes.** Explicit action buttons, shown only when applicable. |
-| Postponed vs Rescheduled | **One action only — "Reschedule"** (with a new date/time). |
-| What does completion record? | `CompletedAt` = `DateTime.Now` when the organizer confirms. This is **"Completion Confirmed At"**, not the hike's end time — the naming matters, don't call it an end time. |
-| Non-`Accepted` registrations when an event completes | **Void them** (`Pending`, `Awaiting Payment`, `For Payment Verification` → `Voided`). Reuses the existing status rather than inventing a new one. |
-| Reschedule effect on registrations | **Automatic carry-over** for now — registrations stay as they are. Participant re-confirmation comes later with notifications. |
+| Notes, announcements, and reminders — separate or combined? | **Combined into one field**, `NotesAndReminders`. Rename the existing `Announcements` column rather than dropping and recreating it, so existing content survives. |
+| Deviation from the manuscript? | **Yes, accepted.** The manuscript lists notes, announcements, and reminders separately. The manuscript will be realigned to the system after implementation, not the other way around. Document this. |
+| Weather reminder field name | **`WeatherReminder`** — unambiguous that it's both a reminder and weather-scoped, and clearly distinct from `WeatherForecastAdvisory`. |
+| Is `WeatherReminder` editable? | **Yes.** The manuscript specifies the organizer "may review or edit before publishing." Generate it as a starting point, let them change it. |
+| Weather risk levels | Keep the existing four from `GetRiskLevel()` — don't invent a new scale. |
 
-### Part B — Final Suitability Labels
+### Field layout after this work
 
-| Question | Decision |
-|---|---|
-| When is a label finalized? | When feedback arrives — recompute on each participant feedback or organizer post-event assessment submission. |
-| Only one side submitted? | Use that one. |
-| Both submitted? | Take the **more conservative** (lower) of the two. |
-| Neither submitted? | **No record** — excluded from the retraining dataset entirely. |
-| Store raw feedback strings? | **Yes**, for audit and so labels can be recomputed if the mapping changes later. They are **not** exported as training features. |
-| What is `FinalLabel`? | The **3-class value** (`Good-Match` / `Borderline` / `Not Recommended`), matching the model's output space. |
-
-### Feedback → 3-class mapping
-
-Confirmed against the actual radio values in `Views/Participant/Feedback.cshtml`:
-
-| Feedback string | 3-class |
-|---|---|
-| `Much easier than expected` | Good-Match |
-| `Matched perfectly` | Good-Match |
-| `Matched but challenging` | Borderline |
-| `Harder than expected` | Borderline |
-| `Much harder` | Not Recommended |
-| `Could not finish - turned back` | Not Recommended |
-| `Could not finish - injured` | Not Recommended |
-
-Conservative ordering (lower = worse) already exists in `OrganizerController.GetConservativeResult` — reuse that ordering, don't write a second one.
-
-## Decisions Made During Phase 2
-
-| Question | Decision |
-|---|---|
-| When can a participant self-cancel a registration (`RegistrationController.CancelRegistration`)? | Only from `Pending` or `Awaiting Payment`. Once the organizer has approved and payment is underway/complete, logistics are committed — cancellation from that point goes through the organizer directly, outside the system. |
+| Field | Contents | Source |
+|---|---|---|
+| `WeatherForecastAdvisory` | Forecast details only — temperature, rain chance, wind, last updated | Generated |
+| `WeatherRiskLevel` | `Low` / `Moderate` / `Moderate to High` / `High (Thunderstorm)` | Generated |
+| `WeatherReminder` | Preparation advice matched to the risk level | Generated, organizer-editable |
+| `NotesAndReminders` | Anything the organizer wants participants to know | Organizer only |
 
 ---
 
@@ -74,132 +41,96 @@ Conservative ordering (lower = worse) already exists in `OrganizerController.Get
 
 ### `Models/Event.cs`
 
-```csharp
-public DateTime? CompletedAt { get; set; }
-public string? CompletedBy { get; set; }
-public DateTime? CancelledAt { get; set; }
-public string? CancellationReason { get; set; }
-```
-
-### New: `Models/FinalSuitabilityLabel.cs`
+Rename `Announcements` → `NotesAndReminders` (keep it `string?`), and add:
 
 ```csharp
-public int Id { get; set; }
-public int RegistrationId { get; set; }      // FK, navigation to EventRegistration
-public int EventId { get; set; }
-public string UserId { get; set; }
-public int AssessmentId { get; set; }        // FK — critical, links back to the raw features
-public string PreHikeLabel { get; set; }     // the ML prediction at registration time
-public string? ParticipantFeedback { get; set; }  // raw string, audit only
-public string? OrganizerAssessment { get; set; }  // raw string, audit only
-public string FinalLabel { get; set; }       // 3-class
-public DateTime ResolvedAt { get; set; }
+public string? WeatherRiskLevel { get; set; }
+public string? WeatherReminder { get; set; }
 ```
 
-`AssessmentId` is the most important field here — without it there's a label with no features attached, which is useless for training. Add a unique index on `RegistrationId` so a registration can only ever have one final label.
+Use `migrationBuilder.RenameColumn` for the rename so existing content is preserved — do not drop and re-add.
 
-Register the `DbSet` in `ApplicationDbContext`, then:
+Also update `EventCreateModel` and `EventEditModel`, which both carry `Announcements`.
 
 ```bash
-dotnet ef migrations add AddEventCompletionAndFinalLabels
+dotnet ef migrations add RenameAnnouncementsAndAddWeatherFields
 dotnet ef database update
 ```
+
+Verify the migration uses `RenameColumn` before applying it. If it generated a drop + add instead, fix it by hand — that would silently wipe every existing event's content.
 
 ---
 
 ## Phase 2 — Backend Logic
 
-### 2.1 Label resolution service
+### 2.1 Restructure `WeatherService`
 
-New service, e.g. `Services/FinalLabelService.cs`:
+Right now `GetWeatherForecastAsync` returns one concatenated string. Change it to return a small result object with three parts:
 
 ```
-MapFeedbackToClass(feedbackString) → 3-class string
-    per the mapping table above; anything unrecognized → null
-
-ResolveFinalLabel(participantFeedback, organizerAssessment) → 3-class or null
-    map both (either may be null)
-    if both present  → return the more conservative of the two
-    if one present   → return that one
-    if neither       → return null
-
-UpsertFinalLabel(context, registrationId)
-    load the registration with its Assessment
-    skip unless status is "Accepted"
-    look up participant feedback (EventFeedbacks) and organizer assessment (PostEventAssessments)
-    resolve the label
-    if null → delete any existing row for this registration, then return
-    otherwise → insert or update the row, refreshing ResolvedAt
+WeatherResult
+    ForecastDetails   — the existing text minus the risk level line
+    RiskLevel         — from the existing GetRiskLevel(), unchanged
+    SuggestedReminder — new, derived from RiskLevel
 ```
 
-Making this an upsert matters: feedback can arrive in either order, and either side can be edited afterwards (`SubmitPostEventAssessment` already updates in place). The label must always reflect the current inputs.
+Keep `GetRiskLevel`, `GetWeatherDescription`, and `GetWindSpeedDescription` as they are. The failure paths currently return plain strings like "Weather forecast temporarily unavailable" — those should still work, with an empty risk level and reminder.
 
-### 2.2 Call the upsert from both feedback paths
+### 2.2 New: reminder generation
 
-- `ParticipantController.SubmitFeedback` — after saving the feedback
-- `OrganizerController.SubmitPostEventAssessment` — after saving the assessment
+Map risk level to preparation advice. Suggested starting text (the organizer can edit it afterwards, so this only needs to be a reasonable default):
 
-### 2.3 Event lifecycle actions
+| Risk level | Reminder |
+|---|---|
+| `Low` | Conditions look favorable. Bring enough water and sun protection, and follow the usual trail safety guidelines. |
+| `Moderate` | Rain is possible. Bring a raincoat and waterproof your electronics. Expect slippery sections and allow extra time. |
+| `Moderate to High` | Heavy rain expected. Trails may be slippery and river crossings may rise. Bring full rain gear and be ready to turn back if conditions worsen. |
+| `High (Thunderstorm)` | Thunderstorms expected. Consider rescheduling. If the event pushes through, avoid exposed ridges and summits, and monitor conditions closely. |
 
-Replace the generic status update with three explicit actions on `EventController` (or `OrganizerController` — put them wherever the existing event status update lives):
+### 2.3 Wire into event create/edit
 
-**`CompleteEvent(int id)`**
-- Guard: only from `Upcoming`
-- Set `Status = "Completed"`, `CompletedAt = DateTime.Now`, `CompletedBy` = current organizer's name
-- Void every registration for the event whose status is `Pending`, `Awaiting Payment`, or `For Payment Verification`
+`EventController` already calls `_weatherService.GetWeatherForecastAsync(trail.Location, eventDate)` when creating an event. Update that call site to populate all three fields.
 
-**`CancelEvent(int id, string reason)`**
-- Guard: only from `Upcoming`
-- Set `Status = "Cancelled"`, `CancelledAt = DateTime.Now`, `CancellationReason = reason`
-- Reason is required
-
-**`RescheduleEvent(int id, DateTime newDate, TimeSpan newTime)`**
-- Guard: only from `Upcoming`
-- Update `EventDate` / `EventTime`, keep `Status = "Upcoming"`
-- Registrations carry over untouched
-
-Remove the old dropdown-driven status update endpoint once these are in place.
+On edit: regenerate the forecast and risk level, but **do not overwrite `WeatherReminder` if the organizer has already edited it** — that would silently discard their wording. Only fill it when it's empty, or when the risk level has changed (in which case the old reminder no longer matches the conditions).
 
 ---
 
-## Phase 3 — Organizer UI
+## Phase 3 — UI
 
-### 3.1 Event Details (`Views/Event/Details.cshtml`)
+### 3.1 Create/Edit forms (`Views/Event/Index.cshtml`)
 
-Replace the status `<select>` with contextual buttons:
+- Relabel the "Notes & Announcements" textarea to **"Notes & Reminders"**, bound to `NotesAndReminders`
+- Add an editable **Weather Reminder** textarea, pre-filled with the generated text, with a short hint that it was generated from the forecast and can be adjusted
 
-- **Upcoming** → "Mark as Completed" (green, confirmation dialog warning that unpaid/unreviewed registrations will be voided), "Reschedule" (blue, modal for new date + time), "Cancel Event" (red, modal requiring a reason)
-- **Completed** → no actions; show "Completed on {CompletedAt}" and by whom
-- **Cancelled** → no actions; show the cancellation date and reason
+### 3.2 Event detail pages
 
-The point of this change is that an organizer should see what they can do without opening a menu, and that completing an event should feel like a decision rather than a field edit.
+Both `Views/Event/Details.cshtml` (organizer) and `Views/Participant/Details.cshtml` (participant) currently render a "Reminders and Announcements" section from `Announcements`. Update both to:
 
-### 3.2 Event Comparison (`Views/Organizer/EventComparison.cshtml`)
+- Show **Notes & Reminders** from `NotesAndReminders`
+- Show the **weather risk level** as a colored badge — green for `Low`, amber for `Moderate`, orange for `Moderate to High`, red for `High (Thunderstorm)` — near the existing weather advisory block
+- Show the **weather reminder** below the risk badge
 
-This page already shows the pre-hike vs post-hike comparison computed live. Now that labels are persisted, show the stored `FinalLabel` and add a small indicator for rows where no label exists yet (neither side has submitted feedback) so the organizer can see what's still outstanding.
+The risk badge is the main visible win here: right now the risk level is a line of text inside a paragraph, easy to skim past. As a badge it's the first thing someone notices about the weather section.
 
-Run `npm run build` after adding any new Tailwind classes.
+Run `npm run build` afterwards.
 
 ---
 
 ## Phase 4 — Testing
 
-1. Create an event, register participants with a mix of statuses (`Pending`, `Awaiting Payment`, `For Payment Verification`, `Accepted`)
-2. Mark the event completed → confirm `CompletedAt`/`CompletedBy` are set and the three non-`Accepted` registrations became `Voided`
-3. Submit **participant feedback only** → confirm a `FinalSuitabilityLabel` row appears with the mapped class
-4. Submit the **organizer assessment** for the same participant with a *worse* rating → confirm the existing row updates to the more conservative label
-5. Edit the organizer assessment to a *better* rating → confirm the label recomputes correctly (this is where a non-upsert implementation breaks)
-6. Confirm a participant with **no feedback from either side** has no row at all
-7. Cancel a different event with a reason → confirm `CancelledAt`/`CancellationReason` are stored and the buttons disappear
-8. Reschedule a third event → confirm the date changes, status stays `Upcoming`, and registrations are untouched
-9. Query the table directly and confirm every row has a valid `AssessmentId` pointing at a real assessment
+1. Confirm existing events still show their previous `Announcements` content under the new "Notes & Reminders" heading — nothing lost in the rename
+2. Create an event on a trail with clear weather → risk badge shows `Low` in green, reminder matches
+3. Create an event where the forecast is worse → badge color and reminder change accordingly
+4. Edit a `WeatherReminder`, save, then edit the event again without changing the date → confirm the custom text survives
+5. Change the event date so the risk level changes → confirm the reminder regenerates
+6. Confirm the participant detail page shows the same risk badge and reminder
+7. Confirm an event whose weather lookup fails still saves, with an empty risk level and reminder rather than a crash
 
 ---
 
-## Out of Scope Here
+## Out of Scope
 
-- Notifications on reschedule (participant re-confirmation flow)
-- The actual retraining pipeline — this work produces the dataset; consuming it is separate
-- `Notes` / `Reminders` fields on `Event` (gap #4)
-- Weather risk level and suggested reminder (gap #5)
-- The UI/UX consistency pass — deferred until all feature gaps are closed
+- Refreshing weather data on a schedule — it's generated at create/edit time only
+- Notifications when the risk level changes
+- The UI/UX consistency pass — still deferred until all gaps are closed
+- Realigning the manuscript to match the system — happens after implementation

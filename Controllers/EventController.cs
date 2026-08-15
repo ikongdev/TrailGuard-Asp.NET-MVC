@@ -164,7 +164,7 @@ namespace TrailGuard.Controllers
                     Status = "Upcoming",
                     MASL = trail.ElevationGainMeters,
                     WeatherForecastAdvisory = model.WeatherForecastAdvisory,
-                    Announcements = model.Announcements,
+                    NotesAndReminders = model.NotesAndReminders,
                     PaymentDetails = model.PaymentDetails,
                     PickupPoints = model.PickupPoints
                 };
@@ -206,7 +206,7 @@ namespace TrailGuard.Controllers
                 capacity = eventItem.Capacity,
                 organizedBy = eventItem.OrganizedBy,
                 weatherForecastAdvisory = eventItem.WeatherForecastAdvisory,
-                announcements = eventItem.Announcements,
+                announcements = eventItem.NotesAndReminders,
                 paymentDetails = eventItem.PaymentDetails,
                 pickupPoints = eventItem.PickupPoints,
                 status = eventItem.Status
@@ -417,7 +417,7 @@ namespace TrailGuard.Controllers
                 existingEvent.Status = model.Status ?? existingEvent.Status;
                 existingEvent.MASL = trail.ElevationGainMeters;
                 existingEvent.WeatherForecastAdvisory = model.WeatherForecastAdvisory;
-                existingEvent.Announcements = model.Announcements;
+                existingEvent.NotesAndReminders = model.NotesAndReminders;
                 existingEvent.PaymentDetails = model.PaymentDetails;
                 existingEvent.PickupPoints = model.PickupPoints;
                 existingEvent.DateUpdated = DateTime.Now;
