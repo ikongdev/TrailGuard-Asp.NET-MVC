@@ -5,7 +5,7 @@
 }
 
 <div class="pt-24 px-4 max-w-3xl mx-auto min-h-screen text-white pb-12">
-    
+
     <div class="mb-6">
         <a asp-controller="Participant" asp-action="Details" asp-route-id="@eventItem?.Id" class="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors group">
             <i class="fa-solid fa-arrow-left group-hover:-translate-x-1 transition-transform"></i>
@@ -36,28 +36,41 @@
             </div>
         </div>
 
-        <form method="post" asp-action="SubmitFeedback" asp-route-eventId="@eventItem?.Id">
+        <!-- Progress Indicator -->
+        <div class="mb-6">
+            <div class="flex items-center justify-between max-w-lg mx-auto">
+                <div class="step-indicator flex-1 text-center">
+                    <div class="step-circle w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center mx-auto mb-1 text-sm font-semibold">1</div>
+                    <span class="text-xs text-gray-400">Hiking Experience</span>
+                </div>
+                <div class="step-line flex-1 h-0.5 bg-gray-700 mx-2"></div>
+                <div class="step-indicator flex-1 text-center">
+                    <div class="step-circle w-8 h-8 rounded-full bg-gray-700 text-white flex items-center justify-center mx-auto mb-1 text-sm font-semibold">2</div>
+                    <span class="text-xs text-gray-400">Trail Conditions</span>
+                </div>
+                <div class="step-line flex-1 h-0.5 bg-gray-700 mx-2"></div>
+                <div class="step-indicator flex-1 text-center">
+                    <div class="step-circle w-8 h-8 rounded-full bg-gray-700 text-white flex items-center justify-center mx-auto mb-1 text-sm font-semibold">3</div>
+                    <span class="text-xs text-gray-400">Organizer & Event</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="stepError" class="hidden mb-4 bg-red-500/20 border border-red-500/50 text-red-300 px-4 py-3 rounded-xl text-sm items-center gap-2">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span id="stepErrorText"></span>
+        </div>
+
+        <form method="post" asp-action="SubmitFeedback" asp-route-eventId="@eventItem?.Id" id="feedbackForm">
             @Html.AntiForgeryToken()
 
-            <div class="space-y-6">
-                <div>
-                    <label class="block text-sm font-medium text-gray-300 mb-3">Overall Rating <span class="text-red-400">*</span></label>
-                    <div class="flex gap-3 text-3xl" id="starRating">
-                        <i class="fa-regular fa-star text-gray-400 cursor-pointer hover:text-yellow-400 transition-all" data-rating="1"></i>
-                        <i class="fa-regular fa-star text-gray-400 cursor-pointer hover:text-yellow-400 transition-all" data-rating="2"></i>
-                        <i class="fa-regular fa-star text-gray-400 cursor-pointer hover:text-yellow-400 transition-all" data-rating="3"></i>
-                        <i class="fa-regular fa-star text-gray-400 cursor-pointer hover:text-yellow-400 transition-all" data-rating="4"></i>
-                        <i class="fa-regular fa-star text-gray-400 cursor-pointer hover:text-yellow-400 transition-all" data-rating="5"></i>
-                    </div>
-                    <input type="hidden" id="selectedRating" name="Rating" value="0" />
-                    <p class="text-xs text-gray-500 mt-2" id="ratingLabel">Click a star to rate</p>
-                </div>
-
+            <!-- Step 1: Personal Hiking Experience -->
+            <div id="step1" class="step-content space-y-6">
                 <div>
                     <label class="block text-sm font-medium text-gray-300 mb-3">How did the trail difficulty compare to your expectations? <span class="text-red-400">*</span></label>
                     <div class="space-y-2">
                         <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                            <input type="radio" name="DifficultyExperience" value="Much easier than expected" required class="w-4 h-4 accent-orange-500" />
+                            <input type="radio" name="DifficultyExperience" value="Much easier than expected" class="w-4 h-4 accent-orange-500" />
                             <span class="text-gray-300 text-sm">Much easier than expected — I was over-prepared</span>
                         </label>
                         <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
@@ -86,20 +99,178 @@
                         </label>
                     </div>
                 </div>
+            </div>
+
+            <!-- Step 2: Trail Conditions -->
+            <div id="step2" class="step-content space-y-6 hidden">
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-3">How would you rate the overall trail condition? <span class="text-red-400">*</span></label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
+                            <input type="radio" name="TrailCondition" value="Well-maintained" class="w-4 h-4 accent-orange-500" />
+                            <span class="text-gray-300 text-sm">Well-maintained</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
+                            <input type="radio" name="TrailCondition" value="Passable" class="w-4 h-4 accent-orange-500" />
+                            <span class="text-gray-300 text-sm">Passable</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
+                            <input type="radio" name="TrailCondition" value="Poorly maintained" class="w-4 h-4 accent-orange-500" />
+                            <span class="text-gray-300 text-sm">Poorly maintained</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
+                            <input type="radio" name="TrailCondition" value="Hazardous" class="w-4 h-4 accent-orange-500" />
+                            <span class="text-gray-300 text-sm">Hazardous</span>
+                        </label>
+                    </div>
+                </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-300 mb-2">Additional Comments</label>
-                    <textarea name="Comment" rows="4" class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-xl px-4 py-3 focus:border-orange-500 focus:outline-none transition-colors resize-none" placeholder="Share any thoughts about the trail, pacing, safety, organizers, or your experience..."></textarea>
+                    <label class="block text-sm font-medium text-gray-300 mb-3">How clear was the trail signage? <span class="text-red-400">*</span></label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
+                            <input type="radio" name="TrailSignage" value="Clear" class="w-4 h-4 accent-orange-500" />
+                            <span class="text-gray-300 text-sm">Clear</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
+                            <input type="radio" name="TrailSignage" value="Adequate" class="w-4 h-4 accent-orange-500" />
+                            <span class="text-gray-300 text-sm">Adequate</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
+                            <input type="radio" name="TrailSignage" value="Confusing" class="w-4 h-4 accent-orange-500" />
+                            <span class="text-gray-300 text-sm">Confusing</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
+                            <input type="radio" name="TrailSignage" value="Absent" class="w-4 h-4 accent-orange-500" />
+                            <span class="text-gray-300 text-sm">Absent</span>
+                        </label>
+                    </div>
                 </div>
 
-                <div class="flex gap-4 pt-4 border-t border-white/10">
-                    <a asp-controller="Participant" asp-action="Details" asp-route-id="@eventItem?.Id" class="flex-1 px-6 py-3 rounded-xl text-gray-300 font-medium bg-gray-800 hover:bg-gray-700 transition-colors text-center">
-                        Cancel
-                    </a>
-                    <button type="submit" class="flex-1 px-6 py-3 rounded-xl text-white font-bold bg-linear-to-r from-orange-500 to-purple-600 hover:opacity-90 transition-all">
-                        <i class="fa-regular fa-paper-plane mr-2"></i> Submit Feedback
-                    </button>
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-3">Was water source available along the trail? <span class="text-red-400">*</span></label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
+                            <input type="radio" name="WaterSourceAvailability" value="Available" class="w-4 h-4 accent-orange-500" />
+                            <span class="text-gray-300 text-sm">Available</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
+                            <input type="radio" name="WaterSourceAvailability" value="Limited" class="w-4 h-4 accent-orange-500" />
+                            <span class="text-gray-300 text-sm">Limited</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
+                            <input type="radio" name="WaterSourceAvailability" value="None" class="w-4 h-4 accent-orange-500" />
+                            <span class="text-gray-300 text-sm">None</span>
+                        </label>
+                    </div>
                 </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Any hazards encountered? <span class="text-gray-500 text-xs">(Optional)</span></label>
+                    <input type="text" name="HazardsEncountered" class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-xl px-4 py-2.5 focus:border-orange-500 focus:outline-none transition-colors" placeholder="e.g., loose rocks near the summit, slippery river crossing..." />
+                </div>
+            </div>
+
+            <!-- Step 3: Organizer & Event Management -->
+            <div id="step3" class="step-content space-y-6 hidden">
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-3">Overall Rating <span class="text-red-400">*</span></label>
+                    <div class="flex gap-3 text-3xl" id="starRating">
+                        <i class="fa-regular fa-star text-gray-400 cursor-pointer hover:text-yellow-400 transition-all" data-rating="1"></i>
+                        <i class="fa-regular fa-star text-gray-400 cursor-pointer hover:text-yellow-400 transition-all" data-rating="2"></i>
+                        <i class="fa-regular fa-star text-gray-400 cursor-pointer hover:text-yellow-400 transition-all" data-rating="3"></i>
+                        <i class="fa-regular fa-star text-gray-400 cursor-pointer hover:text-yellow-400 transition-all" data-rating="4"></i>
+                        <i class="fa-regular fa-star text-gray-400 cursor-pointer hover:text-yellow-400 transition-all" data-rating="5"></i>
+                    </div>
+                    <input type="hidden" id="selectedRating" name="Rating" value="0" />
+                    <p class="text-xs text-gray-500 mt-2" id="ratingLabel">Click a star to rate</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-3">How was pre-event communication? <span class="text-red-400">*</span></label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
+                            <input type="radio" name="PreEventCommunication" value="Excellent" class="w-4 h-4 accent-orange-500" />
+                            <span class="text-gray-300 text-sm">Excellent</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
+                            <input type="radio" name="PreEventCommunication" value="Good" class="w-4 h-4 accent-orange-500" />
+                            <span class="text-gray-300 text-sm">Good</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
+                            <input type="radio" name="PreEventCommunication" value="Fair" class="w-4 h-4 accent-orange-500" />
+                            <span class="text-gray-300 text-sm">Fair</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
+                            <input type="radio" name="PreEventCommunication" value="Poor" class="w-4 h-4 accent-orange-500" />
+                            <span class="text-gray-300 text-sm">Poor</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-3">How was safety management during the event? <span class="text-red-400">*</span></label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
+                            <input type="radio" name="SafetyManagement" value="Excellent" class="w-4 h-4 accent-orange-500" />
+                            <span class="text-gray-300 text-sm">Excellent</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
+                            <input type="radio" name="SafetyManagement" value="Good" class="w-4 h-4 accent-orange-500" />
+                            <span class="text-gray-300 text-sm">Good</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
+                            <input type="radio" name="SafetyManagement" value="Fair" class="w-4 h-4 accent-orange-500" />
+                            <span class="text-gray-300 text-sm">Fair</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
+                            <input type="radio" name="SafetyManagement" value="Poor" class="w-4 h-4 accent-orange-500" />
+                            <span class="text-gray-300 text-sm">Poor</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-3">How was group management during the hike? <span class="text-red-400">*</span></label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
+                            <input type="radio" name="GroupManagement" value="Excellent" class="w-4 h-4 accent-orange-500" />
+                            <span class="text-gray-300 text-sm">Excellent</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
+                            <input type="radio" name="GroupManagement" value="Good" class="w-4 h-4 accent-orange-500" />
+                            <span class="text-gray-300 text-sm">Good</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
+                            <input type="radio" name="GroupManagement" value="Fair" class="w-4 h-4 accent-orange-500" />
+                            <span class="text-gray-300 text-sm">Fair</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
+                            <input type="radio" name="GroupManagement" value="Poor" class="w-4 h-4 accent-orange-500" />
+                            <span class="text-gray-300 text-sm">Poor</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Additional Comments <span class="text-gray-500 text-xs">(Optional)</span></label>
+                    <textarea name="Comment" rows="4" class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-xl px-4 py-3 focus:border-orange-500 focus:outline-none transition-colors resize-none" placeholder="Share any thoughts about the trail, pacing, safety, organizers, or your experience..."></textarea>
+                </div>
+            </div>
+
+            <div class="flex gap-4 pt-6 mt-6 border-t border-white/10">
+                <button type="button" id="prevBtn" class="hidden px-6 py-3 rounded-xl text-gray-300 font-medium bg-gray-800 hover:bg-gray-700 transition-colors">
+                    ← Back
+                </button>
+                <a asp-controller="Participant" asp-action="Details" asp-route-id="@eventItem?.Id" id="cancelBtn" class="flex-1 px-6 py-3 rounded-xl text-gray-300 font-medium bg-gray-800 hover:bg-gray-700 transition-colors text-center">
+                    Cancel
+                </a>
+                <button type="button" id="nextBtn" class="flex-1 px-6 py-3 rounded-xl text-white font-bold bg-linear-to-r from-orange-500 to-purple-600 hover:opacity-90 transition-all">
+                    Next →
+                </button>
+                <button type="submit" id="submitBtn" class="hidden flex-1 px-6 py-3 rounded-xl text-white font-bold bg-linear-to-r from-orange-500 to-purple-600 hover:opacity-90 transition-all">
+                    <i class="fa-regular fa-paper-plane mr-2"></i> Submit Feedback
+                </button>
             </div>
         </form>
     </div>
@@ -110,7 +281,7 @@
         const stars = document.querySelectorAll('#starRating i');
         const ratingInput = document.getElementById('selectedRating');
         const ratingLabel = document.getElementById('ratingLabel');
-        
+
         const labels = [
             '',
             'Poor - Needs improvement',
@@ -125,7 +296,7 @@
                 const rating = parseInt(this.getAttribute('data-rating'));
                 ratingInput.value = rating;
                 ratingLabel.textContent = labels[rating] || 'Click a star to rate';
-                
+
                 stars.forEach((s, index) => {
                     if (index < rating) {
                         s.className = 'fa-solid fa-star text-yellow-400 cursor-pointer hover:text-yellow-400 transition-all';
@@ -157,5 +328,160 @@
                 });
             });
         });
+    });
+
+    let currentStep = 1;
+    const totalSteps = 3;
+
+    function showStepError(message) {
+        const errorBox = document.getElementById('stepError');
+        const errorText = document.getElementById('stepErrorText');
+        if (errorBox && errorText) {
+            errorText.textContent = message;
+            errorBox.classList.remove('hidden');
+            errorBox.style.display = 'flex';
+        }
+    }
+
+    function hideStepError() {
+        const errorBox = document.getElementById('stepError');
+        if (errorBox) {
+            errorBox.classList.add('hidden');
+            errorBox.style.display = 'none';
+        }
+    }
+
+    function validateStep(step) {
+        hideStepError();
+
+        if (step === 1) {
+            const difficulty = document.querySelector('input[name="DifficultyExperience"]:checked');
+            if (!difficulty) {
+                showStepError('Please select how the trail difficulty compared to your expectations.');
+                return false;
+            }
+            return true;
+        }
+
+        if (step === 2) {
+            if (!document.querySelector('input[name="TrailCondition"]:checked')) {
+                showStepError('Please rate the overall trail condition.');
+                return false;
+            }
+            if (!document.querySelector('input[name="TrailSignage"]:checked')) {
+                showStepError('Please rate the trail signage.');
+                return false;
+            }
+            if (!document.querySelector('input[name="WaterSourceAvailability"]:checked')) {
+                showStepError('Please indicate water source availability.');
+                return false;
+            }
+            return true;
+        }
+
+        if (step === 3) {
+            const rating = parseInt(document.getElementById('selectedRating')?.value || '0');
+            if (!rating) {
+                showStepError('Please give an overall star rating.');
+                return false;
+            }
+            if (!document.querySelector('input[name="PreEventCommunication"]:checked')) {
+                showStepError('Please rate pre-event communication.');
+                return false;
+            }
+            if (!document.querySelector('input[name="SafetyManagement"]:checked')) {
+                showStepError('Please rate safety management.');
+                return false;
+            }
+            if (!document.querySelector('input[name="GroupManagement"]:checked')) {
+                showStepError('Please rate group management.');
+                return false;
+            }
+            return true;
+        }
+
+        return true;
+    }
+
+    function updateStepUI() {
+        for (let i = 1; i <= totalSteps; i++) {
+            const content = document.getElementById(`step${i}`);
+            const circles = document.querySelectorAll('.step-circle');
+            const lines = document.querySelectorAll('.step-line');
+
+            if (content) {
+                if (i === currentStep) {
+                    content.classList.remove('hidden');
+                    if (circles[i - 1]) {
+                        circles[i - 1].classList.remove('bg-gray-700');
+                        circles[i - 1].classList.add('bg-orange-500');
+                    }
+                    if (lines[i - 1] && i < totalSteps) {
+                        lines[i - 1].classList.remove('bg-gray-700');
+                        lines[i - 1].classList.add('bg-orange-500');
+                    }
+                } else {
+                    content.classList.add('hidden');
+                    if (circles[i - 1] && i < currentStep) {
+                        circles[i - 1].classList.remove('bg-gray-700', 'bg-orange-500');
+                        circles[i - 1].classList.add('bg-green-500');
+                    } else if (circles[i - 1] && i > currentStep) {
+                        circles[i - 1].classList.remove('bg-orange-500', 'bg-green-500');
+                        circles[i - 1].classList.add('bg-gray-700');
+                    }
+                    if (lines[i - 1] && i < currentStep && i < totalSteps) {
+                        lines[i - 1].classList.remove('bg-gray-700');
+                        lines[i - 1].classList.add('bg-green-500');
+                    } else if (lines[i - 1] && i >= currentStep && i < totalSteps) {
+                        lines[i - 1].classList.remove('bg-orange-500', 'bg-green-500');
+                        lines[i - 1].classList.add('bg-gray-700');
+                    }
+                }
+            }
+        }
+
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const submitBtn = document.getElementById('submitBtn');
+        const cancelBtn = document.getElementById('cancelBtn');
+
+        if (currentStep === 1) {
+            prevBtn.classList.add('hidden');
+            cancelBtn.classList.remove('hidden');
+        } else {
+            prevBtn.classList.remove('hidden');
+            cancelBtn.classList.add('hidden');
+        }
+
+        if (currentStep === totalSteps) {
+            nextBtn.classList.add('hidden');
+            submitBtn.classList.remove('hidden');
+        } else {
+            nextBtn.classList.remove('hidden');
+            submitBtn.classList.add('hidden');
+        }
+    }
+
+    document.getElementById('nextBtn')?.addEventListener('click', () => {
+        if (validateStep(currentStep)) {
+            if (currentStep < totalSteps) {
+                currentStep++;
+                updateStepUI();
+            }
+        }
+    });
+
+    document.getElementById('prevBtn')?.addEventListener('click', () => {
+        hideStepError();
+        if (currentStep > 1) {
+            currentStep--;
+            updateStepUI();
+        }
+    });
+
+    document.getElementById('feedbackForm')?.addEventListener('submit', function(e) {
+        if (!validateStep(3)) {
+            e.preventDefault();
+        }
     });
 </script>
