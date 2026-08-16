@@ -10,35 +10,37 @@
     <div class="relative w-full min-h-screen flex flex-col justify-center items-center text-center px-4 pt-12 pb-12">
         <div class="max-w-3xl mx-auto px-6">
 
-            <div class="inline-flex items-center px-4 py-1.5 rounded-full bg-white/10 border border-white/10 backdrop-blur-sm mb-6">
-                <span class="text-sm bg-linear-to-r from-orange-400 via-pink-500 to-violet-500 bg-clip-text text-transparent tracking-wide">
-                    • Smarter Trails. Safer Adventure
+            <div class="hero-fade inline-flex items-center px-4 py-1.5 rounded-full bg-white/10 border border-white/10 backdrop-blur-sm mb-6" style="--delay: 0ms">
+                <span class="text-sm text-accent tracking-wide">
+                    • Smarter Trails. Safer Adventure •
                 </span>
             </div>
 
-            <h1 class="text-4xl md:text-6xl lg:text-5xl font-extrabold leading-tight text-white mb-6">
+            <h1 class="hero-fade text-4xl md:text-6xl lg:text-5xl font-extrabold leading-tight text-white mb-6" style="--delay: 120ms">
                 Find Your
-                <span class="bg-linear-to-r from-orange-400 via-pink-500 to-violet-500 bg-clip-text text-transparent">
+                <span class="bg-linear-to-r from-orange-500 via-pink-500 to-violet-500 bg-clip-text text-transparent">
                     Perfect Trail
                 </span>
             </h1>
 
-            <p class="max-w-2xl mx-auto text-base md:text-lg text-slate-200 leading-relaxed mb-8">
+            <p class="hero-fade max-w-2xl mx-auto text-base md:text-lg text-slate-200 leading-relaxed mb-8" style="--delay: 240ms">
                 Hike smarter, not harder. TrailGuard assesses your fitness,
                 matches you with the right mountain, and guides you safely from base camp
                 to summit — across the most breathtaking peaks of the Philippines.
             </p>
 
-            <partial name="Components/UI/_PrimaryButton"
-                view-data='new ViewDataDictionary(ViewData)
-                {
-                    { "Text", "Get Started " },
-                    { "Href", "/Account/Register" },
-                    { "Icon", "fa-solid fa-arrow-right" }
-                }' />
+            <div class="hero-fade" style="--delay: 360ms">
+                <partial name="Components/UI/_PrimaryButton"
+                    view-data='new ViewDataDictionary(ViewData)
+                    {
+                        { "Text", "Get Started " },
+                        { "Href", "/Account/Register" },
+                        { "Icon", "fa-solid fa-arrow-right" }
+                    }' />
+            </div>
         </div>
         
-        <div class="absolute bottom-5 left-1/2 -translate-x-1/2">
+        <div class="hero-fade absolute bottom-5 left-1/2 -translate-x-1/2" style="--delay: 520ms">
             <a href="#about" id="scroll-to-about" class="text-white/60 hover:text-white transition-colors duration-300 flex justify-center">
                 <i class="fa-solid fa-arrow-down text-xl md:text-2xl animate-bounce"></i>
             </a>
@@ -48,19 +50,19 @@
 }
 
 @* About Section *@
-<section id="about" class="scroll-reveal opacity-0 translate-y-12 transition-all duration-1000 ease-out py-24 bg-[#000714]">
-    
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 w-full">
+<section id="about" class="scroll-reveal opacity-0 translate-y-12 transition-all duration-1000 ease-out py-24 bg-surface-base">
 
-        <div class="rounded-3xl border border-white/10 bg-[#030816]/70 px-5 py-10 sm:px-8 md:px-14 md:py-14">
+    <div class="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 w-full">
+
+        <div class="rounded-xl border border-white/10 bg-surface-raised/70 px-5 py-10 sm:px-8 md:px-14 md:py-14">
 
             <div class="text-center mb-8 md:mb-10">
                 <p class="inline-flex items-center gap-3 text-xl md:text-2xl font-semibold tracking-wide">
-                    <span class="text-orange-400">•</span>
-                    <span class="bg-linear-to-r from-orange-400 via-pink-400 to-violet-500 bg-clip-text text-transparent">
+                    <span class="text-accent">•</span>
+                    <span class="text-accent">
                         WHAT IS TRAILGUARD
                     </span>
-                    <span class="text-violet-400">•</span>
+                    <span class="text-accent">•</span>
                 </p>
             </div>
 
@@ -77,16 +79,54 @@
                     </lottie-player>
                 </div>
 
-                <div class="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-7 md:p-8 shadow-lg shadow-black/20 order-2">
-                    <p class="text-slate-200 leading-relaxed text-sm md:text-base">
-                        <span class="text-white font-bold text-xl md:text-2xl">TrailGuard</span>
-                        is a web-based hiking event management and participant suitability assessment
-                        system designed to help hiking organizers manage trails, events, registrations,
-                        and participant screening in a structured and data-driven way.
-                        The system uses machine learning to assess whether a participant is a
-                        Good Match, Borderline, or Not Recommended for a specific hiking event
-                        based on their assessment responses and the trail or event’s difficulty factors.
+                <div class="order-2">
+                    <p class="text-white text-lg md:text-xl font-semibold leading-snug mb-8">
+                        A web-based hiking event management and participant
+                        suitability assessment system.
                     </p>
+
+                    <div class="space-y-6">
+
+                        <div class="flex gap-4">
+                            <div class="w-9 h-9 shrink-0 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center">
+                                <i class="fa-solid fa-clipboard-list text-accent text-sm"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-white font-semibold text-sm mb-1">For organizers</h3>
+                                <p class="text-slate-400 text-sm leading-relaxed">
+                                    Manage trails, events, registrations, and participant
+                                    screening in one place.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-4">
+                            <div class="w-9 h-9 shrink-0 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center">
+                                <i class="fa-solid fa-person-hiking text-accent text-sm"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-white font-semibold text-sm mb-1">For hikers</h3>
+                                <p class="text-slate-400 text-sm leading-relaxed">
+                                    Know before you register whether a trail actually
+                                    matches your fitness and experience.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-4">
+                            <div class="w-9 h-9 shrink-0 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center">
+                                <i class="fa-solid fa-brain text-accent text-sm"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-white font-semibold text-sm mb-1">Powered by machine learning</h3>
+                                <p class="text-slate-400 text-sm leading-relaxed">
+                                    Every assessment returns Good Match, Borderline, or
+                                    Not Recommended — along with the reasons behind it.
+                                </p>
+                            </div>
+                        </div>
+
+                    </div>
                 </div>
             </div>
         </div>
@@ -95,179 +135,143 @@
 </section>
 
 @* Popular Trails *@
-<section id="trails" class="scroll-reveal opacity-0 translate-y-12 transition-all duration-1000 ease-out py-24 bg-[#000714]">
+<section id="trails" class="scroll-reveal opacity-0 translate-y-12 transition-all duration-1000 ease-out py-24 bg-surface-base">
     <div class="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
-        <div class="text-center mb-20">
+        <div class="text-center mb-16">
             <div class="flex items-center justify-center space-x-3 mb-5">
-                <span class="text-orange-500 text-3xl font-extralight">•</span>
-                <h2 class="text-transparent bg-clip-text bg-linear-to-r from-orange-400 via-purple-500 to-pink-500 font-extrabold text-2xl tracking-[0.2em] uppercase">
+                <span class="text-accent text-3xl font-extralight">•</span>
+                <h2 class="text-accent font-extrabold text-2xl tracking-[0.2em] uppercase">
                     Popular Trails
                 </h2>
-                <span class="text-pink-500 text-3xl font-extralight">•</span>
+                <span class="text-accent text-3xl font-extralight">•</span>
             </div>
             <p class="text-white text-3xl md:text-4xl font-black leading-tight tracking-tighter max-w-3xl mx-auto">
                 Discover the peaks <span class="block">Philippine hikers keep coming back to</span>
             </p>
         </div>
 
-        <div class="border border-gray-800/60 bg-[#0A1122]/40 rounded-[2.5rem] p-8 md:p-12 shadow-2xl shadow-indigo-950/10">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-10">
-                
-                <div class="bg-[#0B1325] rounded-4xl overflow-hidden border border-red-500/40 hover:border-red-500/80 hover:shadow-red-500/20 hover:shadow-2xl transition-all duration-300 flex flex-col group h-full">
-                    <div class="relative h-40 sm:h-44 w-full overflow-hidden shrink-0">
-                        <img src="/images/trails/Mt.Pulag.jpg" alt="Mt. Apo" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
-                        <div class="absolute inset-0 bg-linear-to-t from-[#0B1325] to-transparent opacity-90"></div>
-                        <span class="absolute top-5 right-5 bg-[#0B1325]/80 text-red-400 text-sm font-bold px-4 py-1.5 rounded-full border border-red-500/40 backdrop-blur-md">
-                            Hard 7/9
-                        </span>
-                    </div>
-                    <div class="p-8 sm:p-10 flex flex-col grow">
-                        <h3 class="text-white font-bold text-3xl tracking-tight mb-4">Mt. Apo</h3>
-                        <p class="text-gray-400 text-base flex items-center mb-8">
-                            <i class="fa-solid fa-location-dot text-red-500 mr-3 text-sm"></i>Davao Del Sur / Cotabato
-                        </p>
-                        <div class="flex items-center justify-between text-white text-base font-semibold border-t border-gray-800/80 pt-6 mt-auto">
-                            <div class="flex items-center space-x-3">
-                                <i class="fa-solid fa-mountain text-emerald-400"></i>
-                                <span>2,926m</span>
-                            </div>
-                            <div class="flex items-center space-x-3">
-                                <i class="fa-solid fa-route text-purple-400"></i>
-                                <span>16km</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+        <div id="trailCarousel" class="trail-carousel rounded-xl p-4 md:p-6" tabindex="0">
+            <div class="carousel-track">
 
-                <div class="bg-[#0B1325] rounded-4xl overflow-hidden border border-emerald-500/40 hover:border-emerald-500/80 hover:shadow-emerald-500/20 hover:shadow-2xl transition-all duration-300 flex flex-col group h-full">
-                    <div class="relative h-40 sm:h-44 w-full overflow-hidden shrink-0">
-                        <img src="/images/trails/Mt.Pulag.jpg" alt="Mt. Apo" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
-                        <div class="absolute inset-0 bg-linear-to-t from-[#0B1325] to-transparent opacity-90"></div>
-                        <span class="absolute top-5 right-5 bg-[#0B1325]/80 text-emerald-400 text-sm font-bold px-4 py-1.5 rounded-full border border-emerald-500/40 backdrop-blur-md">
-                            Easy 4/9
-                        </span>
-                    </div>
-                    <div class="p-8 sm:p-10 flex flex-col grow">
-                        <h3 class="text-white font-bold text-3xl tracking-tight mb-4">Mt. Batulao</h3>
-                        <p class="text-gray-400 text-base flex items-center mb-8">
-                            <i class="fa-solid fa-location-dot text-red-500 mr-3 text-sm"></i>Nasugbu, Batangas
+                <article class="trail-card is-active" data-tone="22,78,99" data-difficulty="hard">
+                    <img src="/images/trails/Mt.Apo.jpg" alt="Mt. Apo" class="card-img">
+                    <div class="card-scrim"></div>
+                    <span class="card-badge badge-hard">Hard 7/9</span>
+                    <div class="card-body">
+                        <h3 class="card-title">Mt. Apo</h3>
+                        <p class="card-location">
+                            <i class="fa-solid fa-location-dot"></i> Davao Del Sur / Cotabato
                         </p>
-                        <div class="flex items-center justify-between text-white text-base font-semibold border-t border-gray-800/80 pt-6 mt-auto">
-                            <div class="flex items-center space-x-3">
-                                <i class="fa-solid fa-mountain text-emerald-400"></i>
-                                <span>811m</span>
+                        <div class="card-detail">
+                            <p class="card-difficulty-note">Multi-day or technical climbs needing ropes and expertise</p>
+                            <div class="card-stats">
+                                <span><i class="fa-solid fa-mountain"></i> 2,954 m</span>
+                                <span><i class="fa-solid fa-route"></i> 16 km</span>
                             </div>
-                            <div class="flex items-center space-x-3">
-                                <i class="fa-solid fa-route text-purple-400"></i>
-                                <span>12km</span>
-                            </div>
+                            <a href="/Trail" class="card-link">View trail <i class="fa-solid fa-arrow-right"></i></a>
                         </div>
                     </div>
-                </div>
+                </article>
 
-                <div class="bg-[#0B1325] rounded-4xl overflow-hidden border border-yellow-500/40 hover:border-yellow-500/80 hover:shadow-yellow-500/20 hover:shadow-2xl transition-all duration-300 flex flex-col group h-full">
-                    <div class="relative h-40 sm:h-44 w-full overflow-hidden shrink-0">
-                        <img src="/images/trails/Mt.Pulag.jpg" alt="Mt. Daraitan" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
-                        <div class="absolute inset-0 bg-linear-to-t from-[#0B1325] to-transparent opacity-90"></div>
-                        <span class="absolute top-5 right-5 bg-[#0B1325]/80 text-yellow-400 text-sm font-bold px-4 py-1.5 rounded-full border border-yellow-500/40 backdrop-blur-md">
-                            Moderate 4/9
-                        </span>
-                    </div>
-                    <div class="p-8 sm:p-10 flex flex-col grow">
-                        <h3 class="text-white font-bold text-3xl tracking-tight mb-4">Mt. Daraitan</h3>
-                        <p class="text-gray-400 text-base flex items-center mb-8">
-                            <i class="fa-solid fa-location-dot text-red-500 mr-3 text-sm"></i>Tanay, Rizal
+                <article class="trail-card" data-tone="72,52,20" data-difficulty="moderate">
+                    <img src="/images/trails/Mt.Batulao.jpg" alt="Mt. Batulao" class="card-img">
+                    <div class="card-scrim"></div>
+                    <span class="card-badge badge-moderate">Moderate 4/9</span>
+                    <div class="card-body">
+                        <h3 class="card-title">Mt. Batulao</h3>
+                        <p class="card-location">
+                            <i class="fa-solid fa-location-dot"></i> Nasugbu, Batangas
                         </p>
-                        <div class="flex items-center justify-between text-white text-base font-semibold border-t border-gray-800/80 pt-6 mt-auto">
-                            <div class="flex items-center space-x-3">
-                                <i class="fa-solid fa-mountain text-emerald-400"></i>
-                                <span>739m</span>
+                        <div class="card-detail">
+                            <p class="card-difficulty-note">Day hikes with steep parts or longer hours</p>
+                            <div class="card-stats">
+                                <span><i class="fa-solid fa-mountain"></i> 811 m</span>
+                                <span><i class="fa-solid fa-route"></i> 12 km</span>
                             </div>
-                            <div class="flex items-center space-x-3">
-                                <i class="fa-solid fa-route text-purple-400"></i>
-                                <span>14km</span>
-                            </div>
+                            <a href="/Trail" class="card-link">View trail <i class="fa-solid fa-arrow-right"></i></a>
                         </div>
                     </div>
-                </div>
+                </article>
 
-                <div class="bg-[#0B1325] rounded-4xl overflow-hidden border border-yellow-500/40 hover:border-yellow-500/80 hover:shadow-yellow-500/20 hover:shadow-2xl transition-all duration-300 flex flex-col group h-full">
-                    <div class="relative h-40 sm:h-44 w-full overflow-hidden shrink-0">
-                        <img src="/images/trails/Mt.Pulag.jpg" alt="Mt. Makiling" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
-                        <div class="absolute inset-0 bg-linear-to-t from-[#0B1325] to-transparent opacity-90"></div>
-                        <span class="absolute top-5 right-5 bg-[#0B1325]/80 text-yellow-400 text-sm font-bold px-4 py-1.5 rounded-full border border-yellow-500/40 backdrop-blur-md">
-                            Moderate 5/9
-                        </span>
-                    </div>
-                    <div class="p-8 sm:p-10 flex flex-col grow">
-                        <h3 class="text-white font-bold text-3xl tracking-tight mb-4">Mt. Makiling</h3>
-                        <p class="text-gray-400 text-base flex items-center mb-8">
-                            <i class="fa-solid fa-location-dot text-red-500 mr-3 text-sm"></i>Los Baños, Laguna
+                <article class="trail-card" data-tone="72,52,20" data-difficulty="moderate">
+                    <img src="/images/trails/Mt.Daraitan.jpg" alt="Mt. Daraitan" class="card-img">
+                    <div class="card-scrim"></div>
+                    <span class="card-badge badge-moderate">Moderate 4/9</span>
+                    <div class="card-body">
+                        <h3 class="card-title">Mt. Daraitan</h3>
+                        <p class="card-location">
+                            <i class="fa-solid fa-location-dot"></i> Tanay, Rizal
                         </p>
-                        <div class="flex items-center justify-between text-white text-base font-semibold border-t border-gray-800/80 pt-6 mt-auto">
-                            <div class="flex items-center space-x-3">
-                                <i class="fa-solid fa-mountain text-emerald-400"></i>
-                                <span>1,090m</span>
+                        <div class="card-detail">
+                            <p class="card-difficulty-note">Day hikes with steep parts or longer hours</p>
+                            <div class="card-stats">
+                                <span><i class="fa-solid fa-mountain"></i> 739 m</span>
+                                <span><i class="fa-solid fa-route"></i> 14 km</span>
                             </div>
-                            <div class="flex items-center space-x-3">
-                                <i class="fa-solid fa-route text-purple-400"></i>
-                                <span>18km</span>
-                            </div>
+                            <a href="/Trail" class="card-link">View trail <i class="fa-solid fa-arrow-right"></i></a>
                         </div>
                     </div>
-                </div>
+                </article>
 
-                <div class="bg-[#0B1325] rounded-4xl overflow-hidden border border-red-500/40 hover:border-red-500/80 hover:shadow-red-500/20 hover:shadow-2xl transition-all duration-300 flex flex-col group h-full">
-                    <div class="relative h-40 sm:h-44 w-full overflow-hidden shrink-0">
-                        <img src="/images/trails/Mt.Pulag.jpg" alt="Mt. Halcon" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
-                        <div class="absolute inset-0 bg-linear-to-t from-[#0B1325] to-transparent opacity-90"></div>
-                        <span class="absolute top-5 right-5 bg-[#0B1325]/80 text-red-400 text-sm font-bold px-4 py-1.5 rounded-full border border-red-500/40 backdrop-blur-md">
-                            Hard 9/9
-                        </span>
-                    </div>
-                    <div class="p-8 sm:p-10 flex flex-col grow">
-                        <h3 class="text-white font-bold text-3xl tracking-tight mb-4">Mt. Halcon</h3>
-                        <p class="text-gray-400 text-base flex items-center mb-8">
-                            <i class="fa-solid fa-location-dot text-red-500 mr-3 text-sm"></i>Baco, Oriental Mindoro
+                <article class="trail-card" data-tone="60,44,72" data-difficulty="moderate">
+                    <img src="/images/trails/Mt.Makiling.jpg" alt="Mt. Makiling" class="card-img">
+                    <div class="card-scrim"></div>
+                    <span class="card-badge badge-moderate">Moderate 5/9</span>
+                    <div class="card-body">
+                        <h3 class="card-title">Mt. Makiling</h3>
+                        <p class="card-location">
+                            <i class="fa-solid fa-location-dot"></i> Los Baños, Laguna
                         </p>
-                        <div class="flex items-center justify-between text-white text-base font-semibold border-t border-gray-800/80 pt-6 mt-auto">
-                            <div class="flex items-center space-x-3">
-                                <i class="fa-solid fa-mountain text-emerald-400"></i>
-                                <span>2,586m</span>
+                        <div class="card-detail">
+                            <p class="card-difficulty-note">Day hikes with steep parts or longer hours</p>
+                            <div class="card-stats">
+                                <span><i class="fa-solid fa-mountain"></i> 1,090 m</span>
+                                <span><i class="fa-solid fa-route"></i> 18 km</span>
                             </div>
-                            <div class="flex items-center space-x-3">
-                                <i class="fa-solid fa-route text-purple-400"></i>
-                                <span>35km</span>
-                            </div>
+                            <a href="/Trail" class="card-link">View trail <i class="fa-solid fa-arrow-right"></i></a>
                         </div>
                     </div>
-                </div>
+                </article>
 
-                <div class="bg-[#0B1325] rounded-4xl overflow-hidden border border-emerald-500/40 hover:border-emerald-500/80 hover:shadow-emerald-500/20 hover:shadow-2xl transition-all duration-300 flex flex-col group h-full">
-                    <div class="relative h-40 sm:h-44 w-full overflow-hidden shrink-0">
-                        <img src="/images/trails/Mt.Pulag.jpg" alt="Mt. Ulap" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
-                        <div class="absolute inset-0 bg-linear-to-t from-[#0B1325] to-transparent opacity-90"></div>
-                        <span class="absolute top-5 right-5 bg-[#0B1325]/80 text-emerald-400 text-sm font-bold px-4 py-1.5 rounded-full border border-emerald-500/40 backdrop-blur-md">
-                            Easy 3/9
-                        </span>
-                    </div>
-                    <div class="p-8 sm:p-10 flex flex-col grow">
-                        <h3 class="text-white font-bold text-3xl tracking-tight mb-4">Mt. Ulap</h3>
-                        <p class="text-gray-400 text-base flex items-center mb-8">
-                            <i class="fa-solid fa-location-dot text-red-500 mr-3 text-sm"></i>Itogon, Benguet
+                <article class="trail-card" data-tone="80,32,40" data-difficulty="hard">
+                    <img src="/images/trails/Mt.Halcon.jpg" alt="Mt. Halcon" class="card-img">
+                    <div class="card-scrim"></div>
+                    <span class="card-badge badge-hard">Hard 9/9</span>
+                    <div class="card-body">
+                        <h3 class="card-title">Mt. Halcon</h3>
+                        <p class="card-location">
+                            <i class="fa-solid fa-location-dot"></i> Baco, Oriental Mindoro
                         </p>
-                        <div class="flex items-center justify-between text-white text-base font-semibold border-t border-gray-800/80 pt-6 mt-auto">
-                            <div class="flex items-center space-x-3">
-                                <i class="fa-solid fa-mountain text-emerald-400"></i>
-                                <span>1,846m</span>
+                        <div class="card-detail">
+                            <p class="card-difficulty-note">Multi-day or technical climbs needing ropes and expertise</p>
+                            <div class="card-stats">
+                                <span><i class="fa-solid fa-mountain"></i> 2,582 m</span>
+                                <span><i class="fa-solid fa-route"></i> 35 km</span>
                             </div>
-                            <div class="flex items-center space-x-3">
-                                <i class="fa-solid fa-route text-purple-400"></i>
-                                <span>16km</span>
-                            </div>
+                            <a href="/Trail" class="card-link">View trail <i class="fa-solid fa-arrow-right"></i></a>
                         </div>
                     </div>
-                </div>
+                </article>
+
+                <article class="trail-card" data-tone="20,60,72" data-difficulty="easy">
+                    <img src="/images/trails/Mt.Ulap.jpg" alt="Mt. Ulap" class="card-img">
+                    <div class="card-scrim"></div>
+                    <span class="card-badge badge-easy">Easy 3/9</span>
+                    <div class="card-body">
+                        <h3 class="card-title">Mt. Ulap</h3>
+                        <p class="card-location">
+                            <i class="fa-solid fa-location-dot"></i> Itogon, Benguet
+                        </p>
+                        <div class="card-detail">
+                            <p class="card-difficulty-note">Minor walks and short nature trails</p>
+                            <div class="card-stats">
+                                <span><i class="fa-solid fa-mountain"></i> 1,846 m</span>
+                                <span><i class="fa-solid fa-route"></i> 16 km</span>
+                            </div>
+                            <a href="/Trail" class="card-link">View trail <i class="fa-solid fa-arrow-right"></i></a>
+                        </div>
+                    </div>
+                </article>
 
             </div>
         </div>
@@ -275,27 +279,27 @@
 </section>
 
 @* How it Works *@
-<section id="how-it-works" class="scroll-reveal opacity-0 translate-y-12 transition-all duration-1000 ease-out py-24 bg-[#000714]">
+<section id="how-it-works" class="scroll-reveal opacity-0 translate-y-12 transition-all duration-1000 ease-out py-24 bg-surface-base">
     <div class="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
         <div class="text-center mb-20">
             <div class="flex items-center justify-center space-x-3 mb-5">
-                <span class="text-orange-500 text-3xl font-extralight">•</span>
-                <h2 class="text-transparent bg-clip-text bg-linear-to-r from-orange-400 via-purple-500 to-pink-500 font-extrabold text-2xl tracking-[0.2em] uppercase">
+                <span class="text-accent text-3xl font-extralight">•</span>
+                <h2 class="text-accent font-extrabold text-2xl tracking-[0.2em] uppercase">
                     How it Works
                 </h2>
-                <span class="text-purple-500 text-3xl font-extralight">•</span>
+                <span class="text-accent text-3xl font-extralight">•</span>
             </div>
             <p class="text-white text-3xl md:text-4xl font-black leading-tight tracking-tighter max-w-3xl mx-auto">
                 Three steps from couch to summit
             </p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12 relative">
-            <div class="hidden md:block absolute top-[40%] left-0 w-full h-0.5 bg-linear-to-r from-orange-500/20 via-purple-500/20 to-pink-500/20 -z-10"></div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12">
 
-            <div class="bg-[#0A1122]/80 border border-gray-800/60 rounded-[2.5rem] p-10 text-center hover:border-orange-500/50 hover:shadow-orange-500/10 hover:shadow-2xl transition-all duration-500 flex flex-col items-center group relative z-10 backdrop-blur-sm">
-                <div class="w-24 h-24 bg-[#0B1325] rounded-full border border-gray-700 flex items-center justify-center mb-8 group-hover:-translate-y-2 group-hover:border-orange-500/50 transition-all duration-300 shadow-xl shadow-black/50">
-                    <i class="fa-solid fa-clipboard-list text-3xl text-orange-400"></i>
+            <div class="step-card bg-surface-card/80 border border-gray-800/60 rounded-xl p-10 text-center hover:border-accent/50 transition-colors duration-300 flex flex-col items-center group relative backdrop-blur-sm">
+                <span class="absolute top-6 left-6 text-xs font-bold tracking-widest text-slate-600">01</span>
+                <div class="w-24 h-24 bg-surface-card rounded-full border border-gray-700 flex items-center justify-center mb-8 group-hover:border-accent/50 transition-colors duration-300">
+                    <i class="fa-solid fa-clipboard-list text-3xl text-accent"></i>
                 </div>
                 <h3 class="text-white font-bold text-2xl mb-4">Assess</h3>
                 <p class="text-gray-400 text-base leading-relaxed">
@@ -303,9 +307,10 @@
                 </p>
             </div>
 
-            <div class="bg-[#0A1122]/80 border border-gray-800/60 rounded-[2.5rem] p-10 text-center hover:border-purple-500/50 hover:shadow-purple-500/10 hover:shadow-2xl transition-all duration-500 flex flex-col items-center group relative z-10 backdrop-blur-sm">
-                <div class="w-24 h-24 bg-[#0B1325] rounded-full border border-gray-700 flex items-center justify-center mb-8 group-hover:-translate-y-2 group-hover:border-purple-500/50 transition-all duration-300 shadow-xl shadow-black/50">
-                    <i class="fa-solid fa-mountain text-3xl text-purple-400"></i>
+            <div class="step-card bg-surface-card/80 border border-gray-800/60 rounded-xl p-10 text-center hover:border-accent/50 transition-colors duration-300 flex flex-col items-center group relative backdrop-blur-sm">
+                <span class="absolute top-6 left-6 text-xs font-bold tracking-widest text-slate-600">02</span>
+                <div class="w-24 h-24 bg-surface-card rounded-full border border-gray-700 flex items-center justify-center mb-8 group-hover:border-accent/50 transition-colors duration-300">
+                    <i class="fa-solid fa-mountain text-3xl text-accent"></i>
                 </div>
                 <h3 class="text-white font-bold text-2xl mb-4">Match</h3>
                 <p class="text-gray-400 text-base leading-relaxed">
@@ -313,15 +318,17 @@
                 </p>
             </div>
 
-            <div class="bg-[#0A1122]/80 border border-gray-800/60 rounded-[2.5rem] p-10 text-center hover:border-pink-500/50 hover:shadow-pink-500/10 hover:shadow-2xl transition-all duration-500 flex flex-col items-center group relative z-10 backdrop-blur-sm">
-                <div class="w-24 h-24 bg-[#0B1325] rounded-full border border-gray-700 flex items-center justify-center mb-8 group-hover:-translate-y-2 group-hover:border-pink-500/50 transition-all duration-300 shadow-xl shadow-black/50">
-                    <i class="fa-solid fa-person-hiking text-3xl text-pink-400"></i>
+            <div class="step-card bg-surface-card/80 border border-gray-800/60 rounded-xl p-10 text-center hover:border-accent/50 transition-colors duration-300 flex flex-col items-center group relative backdrop-blur-sm">
+                <span class="absolute top-6 left-6 text-xs font-bold tracking-widest text-slate-600">03</span>
+                <div class="w-24 h-24 bg-surface-card rounded-full border border-gray-700 flex items-center justify-center mb-8 group-hover:border-accent/50 transition-colors duration-300">
+                    <i class="fa-solid fa-person-hiking text-3xl text-accent"></i>
                 </div>
                 <h3 class="text-white font-bold text-2xl mb-4">Hike</h3>
                 <p class="text-gray-400 text-base leading-relaxed">
                     Organizers guide approved participants with trail details, reminders, and event instructions.
                 </p>
             </div>
+
         </div>
     </div>
 </section>
@@ -353,6 +360,23 @@
                     });
                 });
             }
+
+            const stepCards = document.querySelectorAll('.step-card');
+                if (stepCards.length) {
+                    const stepObserver = new IntersectionObserver((entries) => {
+                        entries.forEach((entry) => {
+                            if (entry.isIntersecting) {
+                                const cards = Array.from(stepCards);
+                                cards.forEach((card, i) => {
+                                    setTimeout(() => card.classList.add('is-revealed'), i * 150);
+                                });
+                                stepObserver.disconnect();
+                            }
+                        });
+                    }, { threshold: 0.25 });
+
+                    stepObserver.observe(stepCards[0]);
+                }
         });
     </script>
 }
