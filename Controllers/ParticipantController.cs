@@ -214,34 +214,13 @@ namespace TrailGuard.Controllers
 
             return new List<Event>();
         }
-        public async Task<IActionResult> Trails(string searchString, string sortOrder)
+        public async Task<IActionResult> Trails()
         {
-            ViewData["CurrentFilter"] = searchString;
-            ViewData["CurrentSort"] = sortOrder;
+            var trails = await _context.Trails
+                .OrderByDescending(t => t.DateAdded)
+                .ToListAsync();
 
-            var trails = _context.Trails.AsQueryable();
-
-            if (!string.IsNullOrEmpty(searchString))
-            {
-                trails = trails.Where(t => 
-                    t.Name.Contains(searchString) || 
-                    t.Location.Contains(searchString));
-            }
-
-            trails = sortOrder switch
-            {
-                "oldest" => trails.OrderBy(t => t.DateAdded),
-                "name_asc" => trails.OrderBy(t => t.Name),
-                "name_desc" => trails.OrderByDescending(t => t.Name),
-                "distance_asc" => trails.OrderBy(t => t.DistanceKm),
-                "distance_desc" => trails.OrderByDescending(t => t.DistanceKm),
-                "elevation_asc" => trails.OrderBy(t => t.ElevationGainMeters),
-                "elevation_desc" => trails.OrderByDescending(t => t.ElevationGainMeters),
-                _ => trails.OrderByDescending(t => t.DateAdded),
-            };
-
-            var trailsList = await trails.ToListAsync();
-            return View(trailsList);
+            return View(trails);
         }
 
         public async Task<IActionResult> Events(string searchString, string difficulty, string trailFilter, string sortOrder)

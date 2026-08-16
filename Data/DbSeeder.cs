@@ -311,7 +311,7 @@ namespace TrailGuard.Data
                                 EventTime = new TimeSpan(5, 30, 0),
                                 TrailId = trails.First(t => t.Name == "Mt. Batulao").Id,
                                 Location = "Nasugbu, Batangas",
-                                Difficulty = "Easy to Moderate",
+                                Difficulty = "Moderate",
                                 EstimatedDuration = 4,
                                 Capacity = 25,
                                 OrganizedBy = organizerId,
