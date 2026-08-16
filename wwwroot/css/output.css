@@ -1296,6 +1296,9 @@
     margin-inline-start: calc(calc(var(--spacing) * 3) * var(--tw-space-x-reverse));
     margin-inline-end: calc(calc(var(--spacing) * 3) * calc(1 - var(--tw-space-x-reverse)));
   }
+  .gap-y-1 {
+    row-gap: var(--spacing);
+  }
   .gap-y-1\.5 {
     row-gap: calc(var(--spacing) * 1.5);
   }
@@ -3216,9 +3219,6 @@
       .hover\:border-white\/20:hover {
         border-color: color-mix(in oklab, var(--color-white) 20%, transparent);
       }
-    }
-    .hover\:bg-\[\#1A2A4A\]:hover {
-      background-color: #1A2A4A;
     }
     .hover\:bg-accent\/10:hover {
       background-color: color-mix(in srgb, #8b5cf6 10%, transparent);
