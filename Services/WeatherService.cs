@@ -14,39 +14,61 @@ namespace TrailGuard.Services
 
         public async Task<WeatherResult> GetWeatherForecastAsync(string location, DateTime eventDate)
         {
+            if (string.IsNullOrWhiteSpace(location))
+                return UnavailableResult("No location set for this trail.", "NoLocation");
+
             try
             {
+                // "City, Province" — Open-Meteo's geocoder only understands the city part.
+                // The province becomes a hint for disambiguating same-named places (e.g. "San Jose").
+                var parts = location.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                var searchTerm = parts[0];
+                var provinceHint = parts.Length > 1 ? parts[^1] : null;
+
                 // Geocoding - convert location name to coordinates
-                var geoUrl = $"https://geocoding-api.open-meteo.com/v1/search?name={Uri.EscapeDataString(location)}&count=1&language=en&format=json";
+                var geoUrl = $"https://geocoding-api.open-meteo.com/v1/search?name={Uri.EscapeDataString(searchTerm)}&count=10&language=en&format=json&countryCode=PH";
                 var geoResponse = await _httpClient.GetAsync(geoUrl);
 
                 if (!geoResponse.IsSuccessStatusCode)
-                    return UnavailableResult("Weather forecast unavailable at this time.");
+                    return UnavailableResult("Weather forecast unavailable at this time.", "ServiceDown");
 
                 var geoJson = await geoResponse.Content.ReadAsStringAsync();
                 using var geoDoc = JsonDocument.Parse(geoJson);
 
                 var root = geoDoc.RootElement;
                 if (!root.TryGetProperty("results", out var results) || results.GetArrayLength() == 0)
-                    return UnavailableResult($"Weather forecast not available for '{location}'.");
+                    return UnavailableResult($"Weather forecast not available for '{location}'.", "LocationNotFound");
 
-                var firstResult = results[0];
-                var latitude = firstResult.GetProperty("latitude").GetDouble();
-                var longitude = firstResult.GetProperty("longitude").GetDouble();
+                var chosenResult = SelectBestMatch(results, provinceHint);
+                var latitude = chosenResult.GetProperty("latitude").GetDouble();
+                var longitude = chosenResult.GetProperty("longitude").GetDouble();
 
                 // Get forecast for the specific date with wind speed included
                 var targetDate = eventDate.ToString("yyyy-MM-dd");
                 var forecastUrl = $"https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,weathercode,windspeed_10m_max&timezone=auto&start_date={targetDate}&end_date={targetDate}";
 
                 var forecastResponse = await _httpClient.GetAsync(forecastUrl);
+
+                // Open-Meteo answers a date past its ~16-day horizon with 400 Bad Request
+                // (verified: in-range dates return 200, out-of-range return 400 with an
+                // "out of allowed range" error body) — not a 200 with null values, so this
+                // has to be caught here rather than after parsing "daily".
+                if (forecastResponse.StatusCode == System.Net.HttpStatusCode.BadRequest)
+                    return UnavailableResult("This date is beyond the available forecast window.", "TooFarAhead");
+
                 if (!forecastResponse.IsSuccessStatusCode)
-                    return UnavailableResult("Weather forecast temporarily unavailable.");
+                    return UnavailableResult("Weather forecast temporarily unavailable.", "ServiceDown");
 
                 var forecastJson = await forecastResponse.Content.ReadAsStringAsync();
                 using var forecastDoc = JsonDocument.Parse(forecastJson);
 
                 var daily = forecastDoc.RootElement.GetProperty("daily");
-                var tempMax = daily.GetProperty("temperature_2m_max")[0].GetDouble();
+
+                var tempMaxArray = daily.GetProperty("temperature_2m_max");
+                if (tempMaxArray.GetArrayLength() == 0 || tempMaxArray[0].ValueKind == JsonValueKind.Null)
+                    return UnavailableResult("This date is beyond the available forecast window.", "TooFarAhead");
+
+                var tempMax = tempMaxArray[0].GetDouble();
                 var tempMin = daily.GetProperty("temperature_2m_min")[0].GetDouble();
                 var precipitation = daily.GetProperty("precipitation_sum")[0].GetDouble();
                 var weatherCode = daily.GetProperty("weathercode")[0].GetInt32();
@@ -79,13 +101,48 @@ namespace TrailGuard.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Weather API error: {ex.Message}");
-                return UnavailableResult("Weather forecast temporarily unavailable. Please check manually.");
+                return UnavailableResult("Weather forecast temporarily unavailable. Please check manually.", "Error");
             }
         }
 
-        private static WeatherResult UnavailableResult(string message)
+        private static WeatherResult UnavailableResult(string message, string reason)
         {
-            return new WeatherResult { ForecastDetails = message };
+            return new WeatherResult { ForecastDetails = message, UnavailableReason = reason };
+        }
+
+        // Prefers a geocoding result whose region (admin1) or province (admin2) matches the
+        // hint from Trail.Location, since several Philippine places share the same city name
+        // across provinces (e.g. "San Jose" exists in at least ten). Open-Meteo's admin1 is the
+        // region (e.g. "Calabarzon"), not the province — the province itself is admin2 (e.g.
+        // "Province of Batangas") — so a hint like "Batangas" only ever matches admin2.
+        // Checking both keeps this correct regardless of whether the hint happens to name a
+        // region or a province.
+        private static JsonElement SelectBestMatch(JsonElement results, string? provinceHint)
+        {
+            if (!string.IsNullOrWhiteSpace(provinceHint))
+            {
+                foreach (var result in results.EnumerateArray())
+                {
+                    if (AdminFieldMatches(result, "admin1", provinceHint) ||
+                        AdminFieldMatches(result, "admin2", provinceHint))
+                    {
+                        return result;
+                    }
+                }
+            }
+
+            return results[0];
+        }
+
+        private static bool AdminFieldMatches(JsonElement result, string propertyName, string hint)
+        {
+            if (!result.TryGetProperty(propertyName, out var element)) return false;
+
+            var value = element.GetString();
+            if (string.IsNullOrEmpty(value)) return false;
+
+            return value.Contains(hint, StringComparison.OrdinalIgnoreCase) ||
+                   hint.Contains(value, StringComparison.OrdinalIgnoreCase);
         }
 
         private string GetSuggestedReminder(string riskLevel)
