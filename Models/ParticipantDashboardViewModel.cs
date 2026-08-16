@@ -17,30 +17,30 @@ namespace TrailGuard.Models
         // Recommended Events
         public List<Event> RecommendedEvents { get; set; } = new();
 
-        // Weather Forecast
-        public WeatherForecast? WeatherForecast { get; set; }
+        // Progress & Achievements — personal bests from completed hikes
+        public string? PersonalBestDifficulty { get; set; }
+        public double? PersonalBestDistanceKm { get; set; }
+        public int? PersonalBestElevationMeters { get; set; }
 
-        // Progress & Achievements
-        public string HikerRank { get; set; } = "Not Ranked";
-        public int BadgesEarned { get; set; }
-        public string NextMilestone { get; set; } = "Keep hiking to climb higher!";
+        // Progress & Achievements — rank
+        public int Rank { get; set; }
+        public int TotalHikers { get; set; }
+        public bool IsRanked { get; set; }
     }
 
     public class LatestAssessmentResult
     {
         public string Result { get; set; } = string.Empty; // Good-Match, Borderline, Not Recommended
-        public int TotalScore { get; set; }
         public string Description { get; set; } = string.Empty;
         public DateTime SubmittedAt { get; set; }
-    }
 
-    public class WeatherForecast
-    {
-        public DateTime Date { get; set; }
-        public string Condition { get; set; } = string.Empty;
-        public string Temperature { get; set; } = string.Empty;
-        public int RainChance { get; set; }
-        public string WindSpeed { get; set; } = string.Empty;
-        public string RiskLevel { get; set; } = string.Empty;
+        public double ConfidenceScore { get; set; }
+        public bool HasMlPrediction { get; set; }
+
+        public int AssessmentId { get; set; }
+        public int EventId { get; set; }
+        public string EventTitle { get; set; } = string.Empty;
+        public string TrailName { get; set; } = string.Empty;
+        public string EventDifficulty { get; set; } = string.Empty;
     }
 }

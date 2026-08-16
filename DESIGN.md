@@ -82,6 +82,31 @@ Dark, near-solid backgrounds so they stay readable over any photograph — an
 
 ## Components
 
+### Form inputs
+block w-full px-4 py-3 rounded-xl
+bg-surface-card border border-gray-700
+text-white placeholder-gray-500
+focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent
+transition-colors
+Labels sit above with `mb-2`, styled `text-sm font-medium text-gray-300`.
+
+Inputs with a leading icon use `pl-11` and an absolutely-positioned icon at
+`pl-4`. Password fields add a visibility toggle at `pr-4` on the right.
+
+`focus:outline-none` matters — without it the browser draws its own outline on
+top of the ring, and you get a doubled border.
+
+### Form buttons
+
+Submit buttons can't use `_PrimaryButton` (it renders an `<a>`, not a
+`<button>`), so they're hand-rolled — but they match it exactly:
+w-full flex justify-center py-3.5 px-4 rounded-full
+text-sm font-semibold text-white
+bg-linear-to-r from-orange-500 via-pink-500 to-violet-500
+hover:brightness-110 hover:scale-[1.02]
+focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-base
+transition duration-200 ease-out
+
 ### Primary button
 
 - **Shape:** capsule (`rounded-full`)
@@ -149,3 +174,5 @@ Two values. `rounded-3xl`, `rounded-4xl`, and arbitrary `rounded-[...]` are out.
 ## Pages Done
 
 - **Landing page** — hero, about, popular trails carousel, how it works
+- **Login** — split layout, form card on the right
+- **Register** — mirrored split, form card on the left
