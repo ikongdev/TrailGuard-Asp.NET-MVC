@@ -27,6 +27,12 @@
 
 @theme {
     --font-sans: 'Poppins', sans-serif;
+
+    --color-accent: #8b5cf6;
+
+    --color-surface-base: #000714;
+    --color-surface-raised: #030816;
+    --color-surface-card: #0B1325;
 }
 
 @layer base {
@@ -36,5 +42,229 @@
 
     body {
         @apply font-sans;
+    }
+
+    @keyframes heroFadeUp {
+        from {
+            opacity: 0;
+            transform: translateY(16px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .hero-fade {
+        opacity: 0;
+        animation: heroFadeUp 0.7s ease-out forwards;
+        animation-delay: var(--delay, 0ms);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .hero-fade {
+            opacity: 1;
+            animation: none;
+        }
+    }
+}
+
+.trail-carousel {
+    background-color: rgb(var(--tone, 11 19 37) / 0.35);
+    border: 1px solid rgb(255 255 255 / 0.08);
+    transition: background-color 700ms ease-out;
+    outline: none;
+}
+
+.carousel-track {
+    display: flex;
+    gap: 0.75rem;
+    height: 26rem;
+}
+
+.trail-card {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    border-radius: 0.75rem;
+    cursor: pointer;
+    transition: flex-grow 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.trail-card.is-active {
+    flex-grow: 3.2;
+    cursor: default;
+}
+
+.card-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.card-scrim {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top,
+        rgb(3 8 22 / 0.95) 0%,
+        rgb(3 8 22 / 0.6) 40%,
+        rgb(3 8 22 / 0.15) 100%);
+}
+
+.card-badge {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    z-index: 2;
+    padding: 0.3rem 0.7rem;
+    border-radius: 9999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    white-space: nowrap;
+    backdrop-filter: blur(8px);
+}
+
+.badge-easy {
+    background: rgb(6 78 59 / 0.85);
+    color: rgb(110 231 183);
+    border: 1px solid rgb(52 211 153 / 0.35);
+}
+
+.badge-moderate {
+    background: rgb(69 39 8 / 0.85);
+    color: rgb(252 211 77);
+    border: 1px solid rgb(251 191 36 / 0.35);
+}
+
+.badge-hard {
+    background: rgb(69 10 10 / 0.85);
+    color: rgb(252 165 165);
+    border: 1px solid rgb(248 113 113 / 0.35);
+}
+
+.card-body {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 2;
+    padding: 1.25rem;
+}
+
+.card-title {
+    color: #fff;
+    font-weight: 700;
+    font-size: 1.125rem;
+    line-height: 1.3;
+    transition: font-size 600ms ease-out;
+}
+
+.trail-card.is-active .card-title {
+    font-size: 1.75rem;
+}
+
+.card-location {
+    display: none;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.35rem;
+    color: rgb(203 213 225);
+    font-size: 0.8rem;
+}
+
+.trail-card.is-active .card-location { display: flex; }
+
+.card-detail {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: max-height 600ms ease-out, opacity 400ms ease-out 150ms;
+}
+
+.trail-card.is-active .card-detail {
+    max-height: 12rem;
+    opacity: 1;
+}
+
+.card-difficulty-note {
+    margin-top: 0.75rem;
+    color: rgb(148 163 184);
+    font-size: 0.75rem;
+    line-height: 1.4;
+}
+
+.card-stats {
+    display: flex;
+    gap: 1.5rem;
+    margin-top: 0.75rem;
+    color: #fff;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.card-stats i { color: rgb(148 163 184); margin-right: 0.4rem; }
+
+.card-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    color: rgb(167 139 250);
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition: color 200ms;
+}
+
+.card-link:hover { color: rgb(196 181 253); }
+.card-link i { transition: transform 200ms; }
+.card-link:hover i { transform: translateX(3px); }
+
+@media (max-width: 767px) {
+    .carousel-track {
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        height: 22rem;
+    }
+    .trail-card,
+    .trail-card.is-active {
+        flex: 0 0 78%;
+        scroll-snap-align: center;
+    }
+    .card-location,
+    .trail-card .card-detail {
+        display: block;
+        max-height: 12rem;
+        opacity: 1;
+    }
+    .card-title { font-size: 1.5rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .trail-card,
+    .card-title,
+    .card-detail,
+    .trail-carousel {
+        transition: none;
+    }
+}
+
+.step-card {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 600ms ease-out, transform 600ms ease-out, border-color 300ms ease-out;
+}
+
+.step-card.is-revealed {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .step-card {
+        opacity: 1;
+        transform: none;
+        transition: border-color 300ms ease-out;
     }
 }

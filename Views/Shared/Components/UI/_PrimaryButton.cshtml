@@ -5,18 +5,18 @@
     var size = ViewData["Size"]?.ToString()?.ToLower() ?? "md";
 
     var sizeClass = size == "xs"
-        ? "px-3 py-1.5 text-[10px]"
+        ? "px-4 py-1.5 text-[10px]"
         : size == "sm"
-            ? "px-4 py-2 text-xs"
-            : "px-7 py-3 text-sm";
+            ? "px-5 py-2 text-xs"
+            : "px-8 py-3 text-sm";
 }
 
 <a href="@href"
-    class="group inline-flex items-center justify-center gap-2 @sizeClass rounded-full bg-linear-to-r from-orange-400 via-pink-500 to-violet-500 text-white font-bold shadow-lg shadow-violet-500/30 hover:scale-105 hover:opacity-90 transform transition duration-300 ease-out">
+    class="group inline-flex items-center justify-center gap-2 @sizeClass rounded-full bg-linear-to-r from-orange-500 via-pink-500 to-violet-500 text-white font-semibold hover:brightness-110 hover:scale-[1.02] transition duration-200 ease-out">
     <span>@text</span>
 
     @if (!string.IsNullOrWhiteSpace(icon))
     {
-        <i class="@icon transition-transform duration-300 group-hover:translate-x-1"></i>
+        <i class="@icon transition-transform duration-200 group-hover:translate-x-1"></i>
     }
 </a>

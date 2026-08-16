@@ -1,0 +1,151 @@
+# TrailGuard — Design System
+
+A record of the visual decisions we've made. Not a style guide written up front — it grows as we decide things.
+
+**How to use this:** before styling anything, check if it's covered here. If it isn't, decide it, build it, then write it down. That last step is the one that matters — the inconsistency we're fixing came from decisions that were made but never recorded.
+
+---
+
+## Approach
+
+We're working **component-first**, not page-first.
+
+The earlier attempt went page by page, which meant re-deciding button styling while looking at each page — and getting a slightly different answer every time. Fixing the shared components first means most pages correct themselves.
+
+Order:
+1. Buttons (primary, secondary, destructive, ghost)
+2. Cards
+3. Badges and pills
+4. Form inputs
+5. Section headers
+6. Modals
+7. Empty states
+8. Then page-specific work
+
+---
+
+## Color
+
+### Brand gradient
+
+```
+orange → pink → violet
+from-orange-500 via-pink-500 to-violet-500
+```
+
+Used on primary buttons and the hero heading. This is the identity — it stays.
+
+### Accent
+
+```
+violet-500  #8b5cf6
+```
+
+The solid counterpart to the gradient, for anything too small for a gradient to read on: links, active nav items, focus rings, icons, section eyebrow labels, progress bars.
+
+Gradient for large surfaces, accent for small ones. Both come from the same family, so they read as one brand.
+
+### Surfaces
+
+```
+#000714   page background
+#030816   raised section
+#0B1325   card
+white/10  borders
+```
+
+### Text
+
+```
+white        primary
+slate-300    secondary
+slate-400    muted
+slate-500    disabled
+```
+
+### Difficulty
+
+Dark, near-solid backgrounds so they stay readable over any photograph — an
+18%-opacity badge disappears against a bright sky.
+
+| Level | Background | Text | Border |
+|---|---|---|---|
+| Easy | `rgb(6 78 59 / 0.85)` | `rgb(110 231 183)` | `rgb(52 211 153 / 0.35)` |
+| Moderate | `rgb(69 39 8 / 0.85)` | `rgb(252 211 77)` | `rgb(251 191 36 / 0.35)` |
+| Hard | `rgb(69 10 10 / 0.85)` | `rgb(252 165 165)` | `rgb(248 113 113 / 0.35)` |
+
+### Suitability and status
+
+*To be decided when we get to badges.*
+
+---
+
+## Components
+
+### Primary button
+
+- **Shape:** capsule (`rounded-full`)
+- **Fill:** brand gradient (`bg-linear-to-r from-orange-500 via-pink-500 to-violet-500`)
+- **Text:** white, `font-semibold`
+- **Hover:** `hover:brightness-110 hover:scale-[1.02]`
+- No shadow or glow — the gradient is enough weight on its own
+
+### Secondary button
+
+- **Shape:** capsule (`rounded-full`)
+- **Fill:** transparent
+- **Border:** `border-white/20`
+- **Text:** `text-slate-400`
+- **Hover:** border and text brighten
+
+Deliberately quiet next to the primary — the two shouldn't compete, and the hierarchy should be obvious at a glance.
+
+### Destructive button
+
+*To be decided.*
+
+### Everything else
+
+*To be decided as we build it.*
+
+---
+
+## Motion
+
+Hover feedback should be felt, not watched.
+
+**Buttons:** `hover:scale-[1.02]` with `hover:brightness-110` — enough to feel
+responsive, small enough not to shift the layout. `scale-105` was too much.
+
+**Cards:** border color change only (`hover:border-accent/50`). No scale, no glow.
+
+**Section reveals:** fade up on scroll, one-time. Grouped items stagger at 150ms
+intervals so sequence reads as sequence.
+
+**Hero:** staggered fade-up on load — badge, heading, paragraph, button, arrow —
+at 120ms intervals.
+
+`duration-200` for hover, `duration-600` for reveals, `ease-out` throughout.
+
+Every animation respects `prefers-reduced-motion`.
+
+---
+
+## Radius
+
+Two values. `rounded-3xl`, `rounded-4xl`, and arbitrary `rounded-[...]` are out.
+
+
+---
+
+## Known Cleanup
+
+- **`_SecondaryButton.cshtml` is empty.** Every secondary button in the app is hand-rolled, which is a large part of the inconsistency. Filling this in is the single highest-leverage fix available.
+- **A fourth difficulty level that doesn't exist.** `"Technical"` appears in `AssessmentController.GetResult`, `GetAlternativeEvents`, and several view conditionals, but `DifficultyCalculator` only ever returns Easy, Moderate, or Difficult. Dead code from an earlier design — harmless today, misleading to read.
+- **`bg-[#0A1122]`** on the landing page doesn't match any of the three documented surface tokens. Either it should be one of them, or it's intentional and needs a name.
+
+---
+
+## Pages Done
+
+- **Landing page** — hero, about, popular trails carousel, how it works
