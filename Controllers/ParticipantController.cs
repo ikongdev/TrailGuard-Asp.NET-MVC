@@ -141,12 +141,21 @@ namespace TrailGuard.Controllers
                 .Include(e => e.Trail)
                 .FirstOrDefaultAsync(e => e.Id == eventId);
 
-            if (eventItem == null || eventItem.Trail == null || string.IsNullOrEmpty(eventItem.Trail.Location))
+            if (eventItem == null || eventItem.Trail == null)
             {
-                return Json(new { success = false });
+                return Json(new { success = false, unavailableReason = "NoLocation" });
             }
 
             var forecast = await _weatherService.GetWeatherForecastAsync(eventItem.Trail.Location, eventItem.EventDate);
+
+            if (!string.IsNullOrEmpty(forecast.UnavailableReason))
+            {
+                return Json(new
+                {
+                    success = false,
+                    unavailableReason = forecast.UnavailableReason
+                });
+            }
 
             return Json(new
             {

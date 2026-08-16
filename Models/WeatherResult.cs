@@ -5,5 +5,6 @@ namespace TrailGuard.Models
         public string ForecastDetails { get; set; } = string.Empty;
         public string RiskLevel { get; set; } = string.Empty;
         public string SuggestedReminder { get; set; } = string.Empty;
+        public string? UnavailableReason { get; set; }
     }
 }
