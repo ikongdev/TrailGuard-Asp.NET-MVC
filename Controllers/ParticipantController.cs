@@ -157,12 +157,26 @@ namespace TrailGuard.Controllers
                 });
             }
 
+            var previousRiskLevel = eventItem.WeatherRiskLevel;
+
+            eventItem.WeatherForecastAdvisory = forecast.ForecastDetails;
+            eventItem.WeatherRiskLevel = forecast.RiskLevel;
+
+            if (string.IsNullOrEmpty(eventItem.WeatherReminder) || previousRiskLevel != forecast.RiskLevel)
+            {
+                // Reminder is either unset or no longer matches the current conditions — refresh it.
+                // Otherwise the organizer already edited it and a background refresh shouldn't discard that.
+                eventItem.WeatherReminder = forecast.SuggestedReminder;
+            }
+
+            await _context.SaveChangesAsync();
+
             return Json(new
             {
                 success = true,
-                riskLevel = forecast.RiskLevel,
-                details = forecast.ForecastDetails,
-                reminder = forecast.SuggestedReminder
+                riskLevel = eventItem.WeatherRiskLevel,
+                details = eventItem.WeatherForecastAdvisory,
+                reminder = eventItem.WeatherReminder
             });
         }
 
