@@ -11,10 +11,13 @@ namespace TrailGuard.Controllers
     public class ParticipantController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly WeatherService _weatherService;
 
-        public ParticipantController(ApplicationDbContext context)
+
+        public ParticipantController(ApplicationDbContext context, WeatherService weatherService)
         {
             _context = context;
+            _weatherService = weatherService;
         }
 
         public async Task<IActionResult> Index()
@@ -31,86 +34,127 @@ namespace TrailGuard.Controllers
                 .ToListAsync();
 
             var upcomingEvents = registrations
-                .Where(r => RegistrationStatusHelper.ActiveStatuses.Contains(r.Status))
+                .Where(r => r.Status == "Accepted")
                 .Select(r => r.Event)
-                .Where(e => e != null && e.EventDate >= DateTime.Today)
+                .Where(e => e != null && e.EventDate >= DateTime.Today && e.Status == "Upcoming")
                 .ToList();
 
-            var completedHikes = registrations
+            var completedRegistrations = registrations
                 .Where(r => r.Status == "Accepted" && r.Event != null && r.Event.Status == "Completed")
-                .Count();
+                .ToList();
+            var completedHikes = completedRegistrations.Count;
 
-            var pendingRegistrations = registrations
-                .Where(r => r.Status == "Pending")
-                .Count();
+            var needsAction = registrations
+                .Count(r => r.Status == "Pending" || r.Status == "Awaiting Payment");
 
-            var totalRegistrations = registrations.Count;
+            var activeRegistrations = registrations
+                .Count(r => RegistrationStatusHelper.ActiveStatuses.Contains(r.Status));
 
             var latestAssessment = registrations
-                .Where(r => r.Assessment != null)
-                .OrderByDescending(r => r.RegisteredAt)
+                .Where(r => r.Assessment != null && r.Assessment.IsActive == true)
                 .Select(r => r.Assessment)
+                .OrderByDescending(a => a!.SubmittedAt)
                 .FirstOrDefault();
 
             LatestAssessmentResult? latestResult = null;
             if (latestAssessment != null)
             {
+                var latestRegistration = registrations.First(r => r.Assessment == latestAssessment);
+                var latestEvent = latestRegistration.Event;
+
+                var suitabilityResult = await _context.SuitabilityResults
+                    .FirstOrDefaultAsync(sr => sr.AssessmentId == latestAssessment.Id);
+
                 latestResult = new LatestAssessmentResult
                 {
                     Result = latestAssessment.Result ?? "Not Recommended",
-                    TotalScore = latestAssessment.TotalScore ?? 0,
                     Description = GetAssessmentDescription(latestAssessment.Result ?? ""),
-                    SubmittedAt = latestAssessment.SubmittedAt
+                    SubmittedAt = latestAssessment.SubmittedAt,
+                    ConfidenceScore = suitabilityResult?.ConfidenceScore ?? 0,
+                    HasMlPrediction = suitabilityResult != null,
+                    AssessmentId = latestAssessment.Id,
+                    EventId = latestEvent?.Id ?? 0,
+                    EventTitle = latestEvent?.EventTitle ?? "",
+                    TrailName = latestEvent?.Trail?.Name ?? "",
+                    EventDifficulty = latestEvent?.Difficulty ?? ""
                 };
             }
 
             var recommendedEvents = new List<Event>();
-            if (latestAssessment != null && !string.IsNullOrEmpty(userId))
+            if (latestResult != null && !string.IsNullOrEmpty(userId))
             {
-                recommendedEvents = await GetRecommendedEvents(latestAssessment.Result ?? "", userId);
+                recommendedEvents = await GetRecommendedEvents(latestResult.Result, latestResult.EventDifficulty, userId);
             }
 
-            var weatherForecast = new WeatherForecast
+            var difficultyLevels = new List<string> { "Easy", "Moderate", "Difficult" };
+
+            string? personalBestDifficulty = null;
+            double? personalBestDistanceKm = null;
+            int? personalBestElevationMeters = null;
+
+            var hikesWithTrail = completedRegistrations.Where(r => r.Event!.Trail != null).ToList();
+            if (hikesWithTrail.Any())
             {
-                Date = DateTime.Now.AddDays(3),
-                Condition = "Cloudy with possible light rain",
-                Temperature = "25°C–30°C",
-                RainChance = 55,
-                WindSpeed = "12 km/h",
-                RiskLevel = "Moderate"
-            };
+                personalBestDifficulty = hikesWithTrail
+                    .Select(r => r.Event!.Difficulty)
+                    .OrderByDescending(d => difficultyLevels.IndexOf(d))
+                    .FirstOrDefault();
 
-            var badgesEarned = completedHikes >= 10 ? 5 :
-                            completedHikes >= 7 ? 4 :
-                            completedHikes >= 5 ? 3 :
-                            completedHikes >= 3 ? 2 :
-                            completedHikes >= 1 ? 1 : 0;
+                personalBestDistanceKm = hikesWithTrail.Max(r => r.Event!.Trail!.DistanceKm);
+                personalBestElevationMeters = hikesWithTrail.Max(r => r.Event!.Trail!.ElevationGainMeters);
+            }
 
-            var hikerRank = completedHikes >= 10 ? "Top 15%" :
-                            completedHikes >= 7 ? "Top 25%" :
-                            completedHikes >= 5 ? "Top 40%" :
-                            completedHikes >= 3 ? "Top 60%" :
-                            completedHikes >= 1 ? "Top 80%" : "Not Ranked";
+            var hikeCounts = await _context.EventRegistrations
+                .Where(r => r.Status == "Accepted" && r.Event!.Status == "Completed")
+                .GroupBy(r => r.UserId)
+                .Select(g => new { UserId = g.Key, Count = g.Count() })
+                .ToListAsync();
+
+            var rank = hikeCounts.Count(x => x.Count > completedHikes) + 1;
+            var totalHikers = hikeCounts.Count;
+            var isRanked = completedHikes > 0 && rank <= 10;
 
             var viewModel = new ParticipantDashboardViewModel
             {
                 UpcomingEventsCount = upcomingEvents.Count,
                 CompletedHikes = completedHikes,
-                PendingRegistrations = pendingRegistrations,
-                TotalRegistrations = totalRegistrations,
+                PendingRegistrations = needsAction,
+                TotalRegistrations = activeRegistrations,
                 UpcomingEvents = upcomingEvents!,
                 LatestAssessment = latestResult,
                 RecommendedEvents = recommendedEvents,
-                WeatherForecast = weatherForecast,
-                HikerRank = hikerRank,
-                BadgesEarned = badgesEarned,
-                NextMilestone = completedHikes >= 10 ? "You're a hiking legend! 🏆" :
-                                completedHikes >= 5 ? "Keep going! You're almost there!" :
-                                completedHikes >= 1 ? "Great start! Keep hiking!" :
-                                "Keep hiking to climb higher!"
+                PersonalBestDifficulty = personalBestDifficulty,
+                PersonalBestDistanceKm = personalBestDistanceKm,
+                PersonalBestElevationMeters = personalBestElevationMeters,
+                Rank = rank,
+                TotalHikers = totalHikers,
+                IsRanked = isRanked
             };
 
             return View(viewModel);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetEventWeather(int eventId)
+        {
+            var eventItem = await _context.Events
+                .Include(e => e.Trail)
+                .FirstOrDefaultAsync(e => e.Id == eventId);
+
+            if (eventItem == null || eventItem.Trail == null || string.IsNullOrEmpty(eventItem.Trail.Location))
+            {
+                return Json(new { success = false });
+            }
+
+            var forecast = await _weatherService.GetWeatherForecastAsync(eventItem.Trail.Location, eventItem.EventDate);
+
+            return Json(new
+            {
+                success = true,
+                riskLevel = forecast.RiskLevel,
+                details = forecast.ForecastDetails,
+                reminder = forecast.SuggestedReminder
+            });
         }
 
         private string GetAssessmentDescription(string result)
@@ -124,30 +168,42 @@ namespace TrailGuard.Controllers
             };
         }
 
-        private async Task<List<Event>> GetRecommendedEvents(string assessmentResult, string userId)
+        private async Task<List<Event>> GetRecommendedEvents(
+            string assessmentResult, string assessedDifficulty, string userId)
         {
-            var difficultyLevels = new List<string> { "Easy", "Moderate", "Difficult", "Technical" };
+            var levels = new List<string> { "Easy", "Moderate", "Difficult" };
 
-            int targetIndex = assessmentResult switch
+            var currentIndex = levels.IndexOf(assessedDifficulty);
+            if (currentIndex < 0) currentIndex = 1;
+
+            var targetIndex = assessmentResult switch
             {
-                "Good-Match" => 2,
-                "Borderline" => 1,
-                "Not Recommended" => 0,
-                _ => 1
+                "Good-Match" => currentIndex,
+                "Borderline" => Math.Max(0, currentIndex - 1),
+                _ => 0
             };
 
-            var targetDifficulty = difficultyLevels[targetIndex];
-
-            var recommendedEvents = await _context.Events
-                .Include(e => e.Trail)
-                .Where(e => e.Status == "Upcoming" &&
-                           e.EventDate >= DateTime.Today &&
-                           e.Difficulty == targetDifficulty)
-                .OrderBy(e => e.EventDate)
-                .Take(4)
+            var registeredEventIds = await _context.EventRegistrations
+                .Where(r => r.UserId == userId && r.Status != "Cancelled" && r.Status != "Rejected")
+                .Select(r => r.EventId)
                 .ToListAsync();
 
-            return recommendedEvents;
+            for (var i = targetIndex; i >= 0; i--)
+            {
+                var events = await _context.Events
+                    .Include(e => e.Trail)
+                    .Where(e => e.Status == "Upcoming"
+                             && e.EventDate >= DateTime.Today
+                             && e.Difficulty == levels[i]
+                             && !registeredEventIds.Contains(e.Id))
+                    .OrderBy(e => e.EventDate)
+                    .Take(4)
+                    .ToListAsync();
+
+                if (events.Any()) return events;
+            }
+
+            return new List<Event>();
         }
         public async Task<IActionResult> Trails(string searchString, string sortOrder)
         {
