@@ -100,7 +100,7 @@
                                     <i class="fa-solid fa-image text-4xl text-gray-600"></i>
                                 </div>
                             }
-                            <div class="absolute inset-0 bg-linear-to-t from-[#0B1325] to-transparent opacity-90"></div>
+                            <div class="absolute inset-0 bg-linear-to-t from-surface-card to-transparent opacity-90"></div>
                         </div>
                         
                         <div class="p-6 flex flex-col grow relative z-10 -mt-10">
@@ -164,7 +164,7 @@
 @section Modals {
     <div id="viewTrailModal" class="fixed inset-0 z-100 modal-hidden" style="padding-top: 30px;">
         <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="closeViewModal()"></div>
-        <div class="relative bg-[#0B1325] border border-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col mx-auto my-auto" style="z-index: 10;">
+        <div class="relative bg-surface-card border border-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col mx-auto my-auto" style="z-index: 10;">
             
             <div class="flex justify-between items-center px-6 py-4 border-b border-gray-800 shrink-0">
                 <div class="flex items-center gap-3">
@@ -239,7 +239,7 @@
 
     <div id="addTrailModal" class="fixed inset-0 z-100 modal-hidden" style="padding-top: 30px;">
         <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="closeAddTrailModal()"></div>
-        <div class="relative bg-[#0B1325] border border-gray-800 rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col mx-auto my-auto" style="z-index: 10;">
+        <div class="relative bg-surface-card border border-gray-800 rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col mx-auto my-auto" style="z-index: 10;">
             
             <div class="flex justify-between items-center px-8 py-5 border-b border-gray-800 shrink-0">
                 <div class="flex items-center gap-3">
@@ -282,15 +282,15 @@
                                     <select name="Terrain" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-purple-500 focus:outline-none appearance-none text-sm cursor-pointer"
                                             style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;">
                                         <option value="" disabled selected class="text-gray-500">Select Terrain</option>
-                                        <option value="Grassland" class="bg-[#0B1325]">Grassland</option>
-                                        <option value="Mossy Forest" class="bg-[#0B1325]">Mossy Forest</option>
-                                        <option value="Pine Forest" class="bg-[#0B1325]">Pine Forest</option>
-                                        <option value="River Trek" class="bg-[#0B1325]">River Trek</option>
-                                        <option value="Rocky" class="bg-[#0B1325]">Rocky</option>
-                                        <option value="Rocky / Boulders" class="bg-[#0B1325]">Rocky / Boulders</option>
-                                        <option value="Volcanic" class="bg-[#0B1325]">Volcanic</option>
-                                        <option value="Muddy Trail" class="bg-[#0B1325]">Muddy Trail</option>
-                                        <option value="Mixed Terrain" class="bg-[#0B1325]">Mixed Terrain</option>
+                                        <option value="Grassland" class="bg-surface-card">Grassland</option>
+                                        <option value="Mossy Forest" class="bg-surface-card">Mossy Forest</option>
+                                        <option value="Pine Forest" class="bg-surface-card">Pine Forest</option>
+                                        <option value="River Trek" class="bg-surface-card">River Trek</option>
+                                        <option value="Rocky" class="bg-surface-card">Rocky</option>
+                                        <option value="Rocky / Boulders" class="bg-surface-card">Rocky / Boulders</option>
+                                        <option value="Volcanic" class="bg-surface-card">Volcanic</option>
+                                        <option value="Muddy Trail" class="bg-surface-card">Muddy Trail</option>
+                                        <option value="Mixed Terrain" class="bg-surface-card">Mixed Terrain</option>
                                     </select>
                                 </div>
                                 <div>
@@ -339,7 +339,7 @@
                     </div>
                 </div>
 
-                <div class="px-8 py-5 border-t border-gray-800 shrink-0 flex justify-end gap-3 bg-[#0B1325] rounded-b-xl">
+                <div class="px-8 py-5 border-t border-gray-800 shrink-0 flex justify-end gap-3 bg-surface-card rounded-b-xl">
                     <button type="button" onclick="closeAddTrailModal()" class="px-7 py-2.5 rounded-full text-sm font-bold text-gray-300 hover:text-white bg-transparent border border-gray-700 hover:bg-gray-800 transition-colors">
                         Cancel
                     </button>
@@ -354,7 +354,7 @@
 
     <div id="editTrailModal" class="fixed inset-0 z-100 modal-hidden" style="padding-top: 30px;">
         <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="closeEditTrailModal()"></div>
-        <div class="relative bg-[#0B1325] border border-gray-800 rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col mx-auto my-auto" style="z-index: 10;">
+        <div class="relative bg-surface-card border border-gray-800 rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col mx-auto my-auto" style="z-index: 10;">
             
             <div class="flex justify-between items-center px-8 py-5 border-b border-gray-800 shrink-0">
                 <div class="flex items-center gap-3">
@@ -398,15 +398,15 @@
                                     <select id="editTerrain" name="Terrain" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-purple-500 focus:outline-none appearance-none text-sm cursor-pointer"
                                             style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;">
                                         <option value="" disabled class="text-gray-500">Select Terrain</option>
-                                        <option value="Grassland" class="bg-[#0B1325]">Grassland</option>
-                                        <option value="Mossy Forest" class="bg-[#0B1325]">Mossy Forest</option>
-                                        <option value="Pine Forest" class="bg-[#0B1325]">Pine Forest</option>
-                                        <option value="River Trek" class="bg-[#0B1325]">River Trek</option>
-                                        <option value="Rocky" class="bg-[#0B1325]">Rocky</option>
-                                        <option value="Rocky / Boulders" class="bg-[#0B1325]">Rocky / Boulders</option>
-                                        <option value="Volcanic" class="bg-[#0B1325]">Volcanic</option>
-                                        <option value="Muddy Trail" class="bg-[#0B1325]">Muddy Trail</option>
-                                        <option value="Mixed Terrain" class="bg-[#0B1325]">Mixed Terrain</option>
+                                        <option value="Grassland" class="bg-surface-card">Grassland</option>
+                                        <option value="Mossy Forest" class="bg-surface-card">Mossy Forest</option>
+                                        <option value="Pine Forest" class="bg-surface-card">Pine Forest</option>
+                                        <option value="River Trek" class="bg-surface-card">River Trek</option>
+                                        <option value="Rocky" class="bg-surface-card">Rocky</option>
+                                        <option value="Rocky / Boulders" class="bg-surface-card">Rocky / Boulders</option>
+                                        <option value="Volcanic" class="bg-surface-card">Volcanic</option>
+                                        <option value="Muddy Trail" class="bg-surface-card">Muddy Trail</option>
+                                        <option value="Mixed Terrain" class="bg-surface-card">Mixed Terrain</option>
                                     </select>
                                 </div>
                                 <div>
@@ -458,7 +458,7 @@
                     </div>
                 </div>
 
-                <div class="px-8 py-5 border-t border-gray-800 shrink-0 flex justify-end gap-3 bg-[#0B1325] rounded-b-xl">
+                <div class="px-8 py-5 border-t border-gray-800 shrink-0 flex justify-end gap-3 bg-surface-card rounded-b-xl">
                     <button type="button" onclick="closeEditTrailModal()" class="px-7 py-2.5 rounded-full text-sm font-bold text-gray-300 hover:text-white bg-transparent border border-gray-700 hover:bg-gray-800 transition-colors">
                         Cancel
                     </button>

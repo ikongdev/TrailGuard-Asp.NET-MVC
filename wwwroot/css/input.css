@@ -3,6 +3,7 @@
 @source "../../Views/**/*.cshtml";
 @source "../../Pages/**/*.cshtml";
 @source "../../wwwroot/js/**/*.js";
+@source not "../../*.md";
 
 @font-face {
     font-family: 'Poppins';
@@ -33,6 +34,10 @@
     --color-surface-base: #000714;
     --color-surface-raised: #030816;
     --color-surface-card: #0B1325;
+}
+
+@utility accent-accent {
+    accent-color: var(--color-accent);
 }
 
 @layer base {

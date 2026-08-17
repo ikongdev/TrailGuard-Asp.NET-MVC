@@ -1,262 +1,127 @@
-# Active Plan — Participant Dashboard
+# Active Plan — Assessment Form Data Integrity
 
-Part of the UI/UX pass, but most of this turned out to be behaviour rather than styling. Reviewing each card surfaced logic that was written before the registration workflow changed, plus several numbers that don't mean what their labels claim.
+Part of the UI/UX pass, but what turned up is mostly data integrity: the form lets participants submit answer combinations that are internally contradictory, and those answers feed straight into the ML model as features.
 
-Read `DESIGN.md` first — its colour tokens, radius scale, and hover rules apply throughout.
+Read `DESIGN.md` first — its colour tokens, radius scale, and hover rules apply to the styling portion.
 
-**Already fixed in an earlier session** (don't redo): the hardcoded weather block is gone from `Index`, and the summary card counts now use `needsAction` and `activeRegistrations`. Everything below is still outstanding.
+---
+
+## Why This Matters
+
+Questions 8, 9, and 10 map directly to `hiking_experience_score`, `last_hike_recency_score`, and `hardest_trail_completed_score` — three of the model's features. Question 4 maps to the four health flags.
+
+Nothing currently stops a participant from answering "First-timer" for Q8 and "1–3 months ago" for Q9, or ticking both "Asthma" and "None of the above". Those combinations are impossible in reality and never appeared in the synthetic training data, so the model is being asked to score a profile it has no basis for.
+
+Garbage in, confident-looking garbage out — and the confidence score makes that worse, because a nonsense input can still come back at 95%.
 
 ---
 
 ## Decisions Already Made
 
-Settled during planning. Implement these; don't re-open them.
-
-### Weather
-
 | Question | Decision |
 |---|---|
-| Where does it display? | An expandable row inside Upcoming Events — badge always visible, details on click. The old dropdown card is gone. |
-| Fetched when? | **Client-side, after page load**, with a per-row loading state. |
-| Requests fired how? | **All at once**, not sequentially. Serialising them just moves the blocking problem to the client. |
-| No forecast available? | Show a **"No Forecast Available"** badge. |
-| Status badge in the list? | **Removed.** Everything in that list is upcoming by definition, so it said nothing. The weather badge needs a cloud icon so it doesn't read as a status. |
+| Q4 "None of the above" | **Mutually exclusive.** Ticking it clears and disables the four conditions; ticking any condition clears and disables it. |
+| Q8 → Q9, Q10 dependency | **Auto-set and disable**, not validate-and-warn. There's no legitimate reason to answer these inconsistently, so the form shouldn't allow it in the first place. |
+| Age range | **18–60**, matching the synthetic training data. |
+| Height / weight ranges | Sensible bounds so BMI stays meaningful. |
+| BMI computation | **No change** — the formula and WHO thresholds are already correct. |
 
-Open-Meteo only forecasts about 16 days out, so an event three weeks away legitimately has no data. That's a normal outcome, not an error — the badge should be muted and explanatory, not red and alarming.
+### The Q8 dependency, precisely
 
-### Upcoming Events list
+**Q8 = "First-timer"** →
+- Q9 auto-selects "Never climbed", other options disabled
+- Q10 auto-selects "None", other options disabled
 
-Only `Accepted` registrations, and only where the event's own status is still `Upcoming`. A `Pending` registration isn't a confirmed hike, and an event the organizer already marked `Completed` shouldn't sit in a list of upcoming ones.
+**Q8 = anything else** (Beginner / Intermediate / Experienced) →
+- Q9's "Never climbed" is disabled; the other three are selectable
+- Q10's "None" is disabled; the other three are selectable
+- If "Never climbed" or "None" was already selected, clear it
 
-### Latest Assessment
-
-| Question | Decision |
-|---|---|
-| How is "latest" chosen? | By `SubmittedAt`, not `RegisteredAt` — and only `IsActive` assessments. Retaking an assessment doesn't change when you registered, so the current sort returns stale results. |
-| What's in the donut? | **ML confidence**, replacing the 31/44 rule-based score. |
-| What else does the card show? | Event title, trail name, event difficulty, submission date, and a link to the full report. |
-
-The 31/44 was the legacy rule-based total, while the label beside it came from XGBoost — two unrelated numbers presented as though they belonged together. Confidence is what actually backs the label.
-
-Not every assessment has an ML prediction: if the Python service was unreachable, the controller fell back to rule-based scoring and no `SuitabilityResult` row was written. Handle that case — show the label without a donut rather than rendering an empty chart.
-
-### Recommended Events
-
-Current logic maps the label directly to a fixed difficulty: Good-Match → Difficult, Borderline → Moderate, Not Recommended → Easy. **This is the bug worth fixing most.** A Good-Match on an Easy trail means you suit that Easy trail — it is not evidence you can handle a Difficult one, but the code recommends Difficult events anyway. That's precisely the mismatch this system exists to prevent.
-
-| Question | Decision |
-|---|---|
-| What drives the recommendation? | The **difficulty of the assessed event**, combined with the result — not the result alone. |
-| Good-Match | **Same level.** Never one level up — the assessment proves you suit that level, nothing beyond it. |
-| Borderline | One level down. |
-| Not Recommended | Easy. |
-| Nothing at the target level? | **Fall back downward** until something is found. Never upward — recommending something harder because nothing easier exists is the wrong failure mode. |
-| Already registered? | Excluded. The `userId` parameter is currently passed in and never used. |
-
-`"Technical"` also appears in the difficulty list here. It's dead — `DifficultyCalculator` never returns it. Drop it.
-
-### Progress & Achievements
-
-| Question | Decision |
-|---|---|
-| Badges Earned | **Removed.** It was `completedHikes` mapped through a lookup table, so the card showed the same number twice under two labels. |
-| Replaced with | **Personal bests** from actual completed hikes: highest difficulty completed, longest distance, highest elevation. |
-| Top Hiker Rank | A **real position** — "Rank 3 of 47 hikers" — not a fabricated percentile. |
-| Outside the top 10? | Show **"Not yet ranked"** with a hint to complete more hikes. |
-| No completed hikes? | Also "Not yet ranked". |
-
-The existing rank is a lookup table on your own hike count. "Top 80%" implies a comparison against other users that never happens — you'd get the same string as the only user in the system. Either compute it honestly or don't claim it.
-
-Personal bests are also more useful here than badges: they're drawn from real hiking history and they connect directly to suitability. Having completed a Moderate hike is evidence about what you can handle next.
+Changing Q8 after the fact must re-apply the rule and clear anything now invalid. A participant who picks Experienced, answers Q9, then goes back to First-timer should not keep the old Q9 answer.
 
 ---
 
-## Phase 1 — Controller
+## Phase 1 — Question 4 Exclusivity
 
-### 1.1 Upcoming events filter
+In `Views/Assessment/Form.cshtml`:
 
-```csharp
-var upcomingEvents = registrations
-    .Where(r => r.Status == "Accepted")
-    .Select(r => r.Event)
-    .Where(e => e != null && e.EventDate >= DateTime.Today && e.Status == "Upcoming")
-    .ToList();
-```
+- Give the "None of the above" checkbox its own id
+- On change of any condition checkbox: if now checked, uncheck and disable "None of the above"; if none remain checked, re-enable it
+- On change of "None of the above": if checked, uncheck and disable all four conditions; if unchecked, re-enable them
+- Disabled checkboxes should read as disabled — muted text, `cursor-not-allowed`, reduced opacity
 
-### 1.2 Latest assessment
-
-```csharp
-var latestAssessment = registrations
-    .Where(r => r.Assessment != null && r.Assessment.IsActive == true)
-    .Select(r => r.Assessment)
-    .OrderByDescending(a => a!.SubmittedAt)
-    .FirstOrDefault();
-```
-
-Then find the registration and event that assessment belongs to, and look up its `SuitabilityResult` for the confidence score. Populate the expanded `LatestAssessmentResult` (see Phase 2).
-
-### 1.3 Recommendations
-
-```csharp
-private async Task<List<Event>> GetRecommendedEvents(
-    string assessmentResult, string assessedDifficulty, string userId)
-{
-    var levels = new List<string> { "Easy", "Moderate", "Difficult" };
-
-    var currentIndex = levels.IndexOf(assessedDifficulty);
-    if (currentIndex < 0) currentIndex = 1;
-
-    var targetIndex = assessmentResult switch
-    {
-        "Good-Match" => currentIndex,
-        "Borderline" => Math.Max(0, currentIndex - 1),
-        _ => 0
-    };
-
-    var registeredEventIds = await _context.EventRegistrations
-        .Where(r => r.UserId == userId && r.Status != "Cancelled" && r.Status != "Rejected")
-        .Select(r => r.EventId)
-        .ToListAsync();
-
-    for (var i = targetIndex; i >= 0; i--)
-    {
-        var events = await _context.Events
-            .Include(e => e.Trail)
-            .Where(e => e.Status == "Upcoming"
-                     && e.EventDate >= DateTime.Today
-                     && e.Difficulty == levels[i]
-                     && !registeredEventIds.Contains(e.Id))
-            .OrderBy(e => e.EventDate)
-            .Take(4)
-            .ToListAsync();
-
-        if (events.Any()) return events;
-    }
-
-    return new List<Event>();
-}
-```
-
-Call it with the assessed event's difficulty, not just the result.
-
-### 1.4 Personal bests and rank
-
-Personal bests come from completed hikes — registrations that are `Accepted` on events with status `Completed`. Take the highest difficulty reached, the longest `Trail.DistanceKm`, and the highest `Trail.ElevationGainMeters`. If there are no completed hikes, all three are unset and the section shows an empty state.
-
-Rank:
-
-```csharp
-var hikeCounts = await _context.EventRegistrations
-    .Where(r => r.Status == "Accepted" && r.Event!.Status == "Completed")
-    .GroupBy(r => r.UserId)
-    .Select(g => new { UserId = g.Key, Count = g.Count() })
-    .ToListAsync();
-
-var rank = hikeCounts.Count(x => x.Count > completedHikes) + 1;
-var totalHikers = hikeCounts.Count;
-var isRanked = completedHikes > 0 && rank <= 10;
-```
-
-### 1.5 Weather endpoint
-
-```csharp
-[HttpGet]
-public async Task<IActionResult> GetEventWeather(int eventId)
-```
-
-Load the event with its trail; return `success = false` if event, trail, or location is missing. Otherwise call `_weatherService.GetWeatherForecastAsync(trail.Location, ev.EventDate)` and return `success`, `riskLevel`, `details`, `reminder`.
-
-An empty `RiskLevel` means no forecast is available for that date — not an error.
-
-`WeatherService` needs injecting into the controller; it isn't currently.
-
-### 1.6 Remove the dead endpoint
-
-`GetWeatherForecast` served the dropdown that's being removed. Delete it.
+The existing `validateStep` check for `medicalConditions` already requires at least one selection, so that stays as is.
 
 ---
 
-## Phase 2 — View Model
+## Phase 2 — Q8 / Q9 / Q10 Dependency
 
-`LatestAssessmentResult` — drop `TotalScore`, add:
+Same file. Wire a handler to Q8 (`mountainsClimbed`) that applies the rule above to Q9 (`recencyOfHike`) and Q10 (`trailDifficultyCompleted`).
 
-```csharp
-public double ConfidenceScore { get; set; }
-public bool HasMlPrediction { get; set; }
-public int AssessmentId { get; set; }
-public int EventId { get; set; }
-public string EventTitle { get; set; } = string.Empty;
-public string TrailName { get; set; } = string.Empty;
-public string EventDifficulty { get; set; } = string.Empty;
-```
+Run it once on page load too, not just on change — a participant returning to a partially filled form should see the same state.
 
-`ParticipantDashboardViewModel` — remove `WeatherByEvent` (weather is client-side now). Add personal bests and rank fields; drop `BadgesEarned`.
+Disabled radio options need the same muted treatment as disabled checkboxes.
 
-Remove the `WeatherForecast` class if nothing else references it.
+**Watch out:** `validateStep` checks radio groups for *any* checked option. Auto-selecting satisfies that automatically, which is fine — but make sure disabling doesn't accidentally leave a group with nothing selected, or step 2 becomes impossible to pass.
 
 ---
 
-## Phase 3 — View
+## Phase 3 — Input Ranges
 
-### Upcoming Events
+| Field | Current | Change to |
+|---|---|---|
+| Age | `min="10" max="100"` | `min="18" max="60"` |
+| Height | `min="100" max="250"` | `min="120" max="220"` |
+| Weight | `min="30" max="200"` | `min="25" max="200"` |
 
-Spans two columns (`lg:col-span-2`). Each row renders with a loading placeholder in the badge slot and a collapsed, empty detail panel beneath it. No status badge.
+`validateStep` currently only checks that a value is present, not that it's within range. Add a range check for these three, with a clear message naming which field is out of bounds — the browser's own `min`/`max` validation doesn't fire reliably inside a hidden wizard step, which is the same reason the native `required` attributes were dropped from the feedback wizard earlier.
 
-Once a fetch resolves:
+Add a short line under the age field so the restriction doesn't look arbitrary:
 
-| Outcome | Badge |
-|---|---|
-| Forecast available | Cloud icon, risk level, chevron — coloured by risk, row clickable |
-| No forecast | "No Forecast Available", muted grey, no chevron, not clickable |
-| Fetch failed | "Forecast Unavailable", muted grey, no chevron |
+> Our assessment model currently covers ages 18–60.
 
-Risk colours: `Low` emerald, `Moderate` amber, `Moderate to High` orange, `High (Thunderstorm)` red — 15% background opacity with matching text, per the badge pattern in `DESIGN.md`.
+### Scope limitation
 
-The expanded panel shows forecast details, then the reminder below a divider with an accent info icon.
+The model was trained on synthetic data generated within an adult age range of 18–60, so the form restricts input to that range rather than extrapolating beyond what the model has seen. Predicting outside the training range would still return a confident-looking score with no basis behind it.
 
-### Latest Assessment
+This is a documented limitation to be addressed during empirical retraining, once real participant data across a wider demographic is available. It also belongs in the manuscript's Limitations section.
 
-Confidence donut, result label, then event title, trail name, difficulty, date, description, and a link to the full report. When `HasMlPrediction` is false, show the label without the donut.
+Related, and worth raising with the medical validator: the BMI thresholds used here are the adult WHO ranges. Children are assessed against age-and-sex percentile charts instead, so extending the age range later isn't just a matter of widening the input — the BMI handling would need revisiting too.
 
-### Progress & Achievements
+---
 
-Personal bests as a simple list, then rank. Empty state when there are no completed hikes.
+## Phase 4 — Styling
 
-### Everything else
+Bring the form in line with `DESIGN.md`:
 
-- Page heading plain white, not a gradient — the landing hero is the only gradient heading in the app
-- All `text-purple-400` icons become `text-accent`
-- `rounded-2xl` becomes `rounded-xl`
-- Difficulty chips on recommended events follow the documented difficulty colours
-- Avatar uses the brand gradient order: `from-orange-500 via-pink-500 to-violet-500`
-- Scrollbar thumb uses accent
+- `accent-orange-500` on checkboxes and radios → `accent-accent`
+- Step indicator, section numbers, and icons → accent
+- Card radius → `rounded-xl`
+- Consent boxes: keep amber and blue, they're carrying meaning — but use the documented opacity pattern
+- Privacy modal: move into `@section Modals` per the modal pattern in `DESIGN.md`, with a `fixed` backdrop
+- Submit and Next buttons → brand gradient, capsule, `hover:brightness-110 hover:scale-[1.02]`
 
 Run `npm run build` afterwards.
 
 ---
 
-## Phase 4 — Testing
+## Phase 5 — Testing
 
-1. Dashboard renders immediately, before any forecast has loaded
-2. Each row shows its own loading state and resolves independently
-3. An event within ~16 days shows a coloured risk badge; clicking expands details and reminder
-4. An event further out shows "No Forecast Available" and isn't clickable
-5. Stopping the weather API mid-load leaves the page usable, failed rows showing "Forecast Unavailable"
-6. Only `Accepted` registrations for `Upcoming` events appear in the list
-7. An event marked `Completed` disappears from the list
-8. Retaking an assessment updates the Latest Assessment card — this is what the `SubmittedAt` sort fixes
-9. An assessment made while the ML service was down shows its label without a donut
-10. Good-Match on a Moderate event recommends Moderate events, never Difficult
-11. With no events at the target level, recommendations fall back to an easier level
-12. Already-registered events don't appear in recommendations
-13. Personal bests match the actual completed hikes
-14. A user outside the top 10 sees "Not yet ranked"
+1. Tick "Asthma", then "None of the above" → Asthma clears, the four conditions disable
+2. Untick "None of the above" → the four re-enable
+3. Tick a condition while "None" is checked → "None" clears and disables
+4. Select "First-timer" → Q9 becomes "Never climbed", Q10 becomes "None", both locked
+5. Change Q8 to "Experienced" → Q9 and Q10 clear, "Never climbed" and "None" become the disabled options
+6. Select Experienced → answer Q9 → go back to First-timer → confirm the old Q9 answer is replaced, not kept
+7. Enter age 17 or 61 → blocked with a message naming the field
+8. Enter height 50 → blocked
+9. Submit a valid form end to end → confirm the assessment saves and the ML prediction returns
+10. Reload a partially filled form → dependency state matches the selected Q8
 
 ---
 
 ## Out of Scope
 
-- Caching forecasts — revisit if a participant ever has enough concurrent events for the request count to matter
-- A **My Profile** page for completed and cancelled hike history — planned, not part of this
-- Making "Needs Action" clickable through to a filtered MyRegistrations — would need a filter parameter that doesn't exist yet
-- Other participant pages
+- Changing the questions themselves — that's pending the expert validation currently with the medical and hiking reviewers
+- The BMI formula or thresholds — already correct
+- Assessment Report page — separate pass

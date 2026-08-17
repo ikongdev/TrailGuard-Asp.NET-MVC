@@ -472,7 +472,7 @@
 @if (!string.IsNullOrEmpty(Model.PaymentReceiptUrl))
 {
     <div id="receiptTooltip" class="fixed z-9999 hidden pointer-events-none">
-        <div class="bg-[#0B1325] border border-gray-700 rounded-xl shadow-2xl p-4 w-96">
+        <div class="bg-surface-card border border-gray-700 rounded-xl shadow-2xl p-4 w-96">
             <img src="@Model.PaymentReceiptUrl" alt="Receipt Preview" class="w-full h-auto max-h-96 object-contain rounded-lg" />
             <p class="text-center text-xs text-gray-400 mt-2">Receipt Preview</p>
         </div>
@@ -482,7 +482,7 @@
 @if (!string.IsNullOrEmpty(Model.MedicalClearanceUrl))
 {
     <div id="clearanceTooltip" class="fixed z-9999 hidden pointer-events-none">
-        <div class="bg-[#0B1325] border border-gray-700 rounded-xl shadow-2xl p-4 w-96">
+        <div class="bg-surface-card border border-gray-700 rounded-xl shadow-2xl p-4 w-96">
             <img src="@Model.MedicalClearanceUrl" alt="Medical Clearance Preview" class="w-full h-auto max-h-96 object-contain rounded-lg" />
             <p class="text-center text-xs text-gray-400 mt-2">Medical Clearance Preview</p>
         </div>

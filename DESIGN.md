@@ -54,6 +54,10 @@ Gradient for large surfaces, accent for small ones. Both come from the same fami
 white/10  borders
 ```
 
+Use the theme tokens (`bg-surface-base`, `bg-surface-raised`, `bg-surface-card`),
+never the raw hex. The tokens exist so the palette can change in one place, and
+Tailwind IntelliSense flags the hex form as a warning on every occurrence.
+
 ### Text
 
 ```

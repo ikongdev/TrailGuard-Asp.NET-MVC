@@ -14,9 +14,9 @@
         </a>
     </div>
 
-    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8">
+    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-8">
         <div class="flex items-center gap-4 mb-6">
-            <div class="w-14 h-14 rounded-full bg-linear-to-r from-orange-500 to-purple-500 flex items-center justify-center">
+            <div class="w-14 h-14 rounded-full bg-accent flex items-center justify-center">
                 <i class="fa-solid fa-clipboard-check text-white text-2xl"></i>
             </div>
             <div>
@@ -45,20 +45,20 @@
 
         @if (isRetake)
         {
-            <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 mb-6">
-                <p class="text-yellow-300 text-sm flex items-center gap-2">
+            <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mb-6">
+                <p class="text-amber-300 text-sm flex items-center gap-2">
                     <i class="fa-solid fa-triangle-exclamation"></i>
                     <span>Your previous assessment will be replaced with your new answers.</span>
                 </p>
             </div>
         }
 
-        <div class="bg-orange-500/10 border border-orange-500/30 rounded-xl p-4 mb-6">
-            <p class="text-orange-300 text-sm">
+        <div class="bg-accent/10 border border-accent/30 rounded-xl p-4 mb-6">
+            <p class="text-accent text-sm">
                 <i class="fa-solid fa-info-circle mr-2"></i>
                 <span class="font-semibold">Event:</span> @eventItem?.EventTitle
             </p>
-            <div class="flex flex-wrap gap-4 text-orange-300/70 text-sm mt-1">
+            <div class="flex flex-wrap gap-4 text-accent/70 text-sm mt-1">
                 <span><i class="fa-regular fa-calendar mr-2"></i>@eventItem?.EventDate.ToString("MMMM dd, yyyy")</span>
                 <span><i class="fa-solid fa-mountain mr-2"></i>@eventItem?.Difficulty</span>
                 <span><i class="fa-regular fa-clock mr-2"></i>@eventItem?.EstimatedDuration hrs</span>
@@ -73,10 +73,10 @@
                 <span class="text-sm text-gray-400" id="stepLabel">Personal & Physical Profile</span>
             </div>
             <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-                <div id="progressBar" class="h-full bg-linear-to-r from-orange-500 to-purple-600 rounded-full transition-all duration-500" style="width: 33.33%"></div>
+                <div id="progressBar" class="h-full bg-accent rounded-full transition-all duration-500" style="width: 33.33%"></div>
             </div>
             <div class="flex justify-between mt-1 text-xs text-gray-500">
-                <span class="text-orange-400" id="step1Label">● Step 1</span>
+                <span class="text-accent" id="step1Label">● Step 1</span>
                 <span id="step2Label">○ Step 2</span>
                 <span id="step3Label">○ Step 3</span>
             </div>
@@ -86,33 +86,34 @@
             @Html.AntiForgeryToken()
 
             <div id="step1" class="step-content">
-                <div class="bg-[#111A2E]/50 border border-white/5 rounded-2xl p-6">
+                <div class="bg-[#111A2E]/50 border border-white/5 rounded-xl p-6">
                     <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                        <span class="flex items-center justify-center w-7 h-7 rounded-full bg-orange-500 text-white text-xs font-bold">1</span>
+                        <span class="flex items-center justify-center w-7 h-7 rounded-full bg-accent text-white text-xs font-bold">1</span>
                         Personal and Physical Profile
                     </h2>
 
                     <div class="space-y-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">1. How old are you? <span class="text-red-400">*</span></label>
-                            <input type="number" name="age" id="age" required min="10" max="100" 
-                                   class="w-full bg-[#0B1325] border border-gray-700 text-white rounded-xl px-4 py-3 focus:border-orange-500 focus:outline-none transition-colors" 
+                            <input type="number" name="age" id="age" required min="18" max="60"
+                                   class="w-full bg-surface-card border border-gray-700 text-white rounded-xl px-4 py-3 focus:border-accent focus:outline-none transition-colors"
                                    placeholder="Enter your age" />
+                            <p class="text-gray-500 text-xs mt-1">Our assessment model currently covers ages 18–60.</p>
                         </div>
 
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">2. What is your Gender? <span class="text-red-400">*</span></label>
                             <div class="flex flex-wrap gap-2">
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                    <input type="radio" name="gender" value="Male" required class="w-4 h-4 accent-orange-500" />
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="radio" name="gender" value="Male" required class="w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">Male</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                    <input type="radio" name="gender" value="Female" class="w-4 h-4 accent-orange-500" />
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="radio" name="gender" value="Female" class="w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">Female</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                    <input type="radio" name="gender" value="Prefer not to answer" class="w-4 h-4 accent-orange-500" />
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="radio" name="gender" value="Prefer not to answer" class="w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">Prefer not to answer</span>
                                 </label>
                             </div>
@@ -122,17 +123,17 @@
                             <label class="block text-sm font-medium text-gray-300 mb-2">3. What is your current height and weight? <span class="text-red-400">*</span></label>
                             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <div>
-                                    <input type="number" name="heightCm" id="heightCm" required step="0.1" min="100" max="250" 
-                                           class="w-full bg-[#0B1325] border border-gray-700 text-white rounded-xl px-4 py-3 focus:border-orange-500 focus:outline-none transition-colors" 
+                                    <input type="number" name="heightCm" id="heightCm" required step="0.1" min="120" max="220"
+                                           class="w-full bg-surface-card border border-gray-700 text-white rounded-xl px-4 py-3 focus:border-accent focus:outline-none transition-colors"
                                            placeholder="Height (cm)" oninput="calculateBMI()" />
                                 </div>
                                 <div>
-                                    <input type="number" name="weightKg" id="weightKg" required step="0.1" min="30" max="200" 
-                                           class="w-full bg-[#0B1325] border border-gray-700 text-white rounded-xl px-4 py-3 focus:border-orange-500 focus:outline-none transition-colors" 
+                                    <input type="number" name="weightKg" id="weightKg" required step="0.1" min="25" max="200"
+                                           class="w-full bg-surface-card border border-gray-700 text-white rounded-xl px-4 py-3 focus:border-accent focus:outline-none transition-colors"
                                            placeholder="Weight (kg)" oninput="calculateBMI()" />
                                 </div>
                                 <div>
-                                    <div class="bg-[#0B1325] border border-gray-700 rounded-xl px-4 py-3 h-full flex items-center">
+                                    <div class="bg-surface-card border border-gray-700 rounded-xl px-4 py-3 h-full flex items-center">
                                         <span class="text-gray-400 text-sm">BMI: </span>
                                         <span id="bmiDisplay" class="text-white font-semibold ml-2">—</span>
                                         <span id="bmiCategory" class="text-xs ml-2"></span>
@@ -143,25 +144,25 @@
 
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">4. Do you have any of the following medical conditions? <span class="text-red-400">*</span></label>
-                            <div class="flex flex-wrap gap-2 bg-[#0B1325] border border-gray-700 rounded-xl p-4">
-                                <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                    <input type="checkbox" name="medicalConditions" value="Asthma / lung-related condition" class="w-4 h-4 accent-orange-500" />
+                            <div class="flex flex-wrap gap-2 bg-surface-card border border-gray-700 rounded-xl p-4">
+                                <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="checkbox" name="medicalConditions" value="Asthma / lung-related condition" class="medCondition w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">Asthma</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                    <input type="checkbox" name="medicalConditions" value="Hypertension / heart-related condition" class="w-4 h-4 accent-orange-500" />
+                                <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="checkbox" name="medicalConditions" value="Hypertension / heart-related condition" class="medCondition w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">Hypertension</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                    <input type="checkbox" name="medicalConditions" value="Joint or knee injury" class="w-4 h-4 accent-orange-500" />
+                                <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="checkbox" name="medicalConditions" value="Joint or knee injury" class="medCondition w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">Joint / Knee Injury</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                    <input type="checkbox" name="medicalConditions" value="Vertigo / frequent dizziness" class="w-4 h-4 accent-orange-500" />
+                                <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="checkbox" name="medicalConditions" value="Vertigo / frequent dizziness" class="medCondition w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">Vertigo / Dizziness</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                    <input type="checkbox" name="medicalConditions" value="None of the above" class="w-4 h-4 accent-orange-500" />
+                                <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="checkbox" name="medicalConditions" id="medNone" value="None of the above" class="w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">None of the above</span>
                                 </label>
                             </div>
@@ -172,9 +173,9 @@
             </div>
 
             <div id="step2" class="step-content hidden">
-                <div class="bg-[#111A2E]/50 border border-white/5 rounded-2xl p-6 mb-6">
+                <div class="bg-[#111A2E]/50 border border-white/5 rounded-xl p-6 mb-6">
                     <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                        <span class="flex items-center justify-center w-7 h-7 rounded-full bg-orange-500 text-white text-xs font-bold">2</span>
+                        <span class="flex items-center justify-center w-7 h-7 rounded-full bg-accent text-white text-xs font-bold">2</span>
                         Fitness and Endurance
                     </h2>
 
@@ -182,20 +183,20 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">5. In the past 3 months, how often did you exercise or do physical activities in a typical week? <span class="text-red-400">*</span></label>
                             <div class="flex flex-wrap gap-2">
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                    <input type="radio" name="exerciseFrequency" value="I do not exercise / Sedentary" required class="w-4 h-4 accent-orange-500" />
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="radio" name="exerciseFrequency" value="I do not exercise / Sedentary" required class="w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">Sedentary</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                    <input type="radio" name="exerciseFrequency" value="1 to 2 times per week" class="w-4 h-4 accent-orange-500" />
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="radio" name="exerciseFrequency" value="1 to 2 times per week" class="w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">1-2x / week</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                    <input type="radio" name="exerciseFrequency" value="3 to 4 times per week" class="w-4 h-4 accent-orange-500" />
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="radio" name="exerciseFrequency" value="3 to 4 times per week" class="w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">3-4x / week</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                    <input type="radio" name="exerciseFrequency" value="5 or more times per week" class="w-4 h-4 accent-orange-500" />
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="radio" name="exerciseFrequency" value="5 or more times per week" class="w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">5+ / week</span>
                                 </label>
                             </div>
@@ -204,20 +205,20 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">6. What is the main type of exercise you usually do? <span class="text-red-400">*</span></label>
                             <div class="flex flex-wrap gap-2">
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                    <input type="radio" name="exerciseType" value="None / No specific exercise" required class="w-4 h-4 accent-orange-500" />
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="radio" name="exerciseType" value="None / No specific exercise" required class="w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">None</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                    <input type="radio" name="exerciseType" value="Cardio or endurance only" class="w-4 h-4 accent-orange-500" />
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="radio" name="exerciseType" value="Cardio or endurance only" class="w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">Cardio Only</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                    <input type="radio" name="exerciseType" value="Strength or resistance only" class="w-4 h-4 accent-orange-500" />
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="radio" name="exerciseType" value="Strength or resistance only" class="w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">Strength Only</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                    <input type="radio" name="exerciseType" value="Combination of cardio and strength training" class="w-4 h-4 accent-orange-500" />
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="radio" name="exerciseType" value="Combination of cardio and strength training" class="w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">Combination</span>
                                 </label>
                             </div>
@@ -226,20 +227,20 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">7. If you were to run or walk briskly on a flat road, how long can you do it continuously without stopping to rest? <span class="text-red-400">*</span></label>
                             <div class="flex flex-wrap gap-2">
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                    <input type="radio" name="cardioEndurance" value="Less than 15 minutes" required class="w-4 h-4 accent-orange-500" />
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="radio" name="cardioEndurance" value="Less than 15 minutes" required class="w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">&lt;15 min</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                    <input type="radio" name="cardioEndurance" value="15 to 30 minutes" class="w-4 h-4 accent-orange-500" />
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="radio" name="cardioEndurance" value="15 to 30 minutes" class="w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">15-30 min</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                    <input type="radio" name="cardioEndurance" value="31 to 60 minutes" class="w-4 h-4 accent-orange-500" />
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="radio" name="cardioEndurance" value="31 to 60 minutes" class="w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">31-60 min</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                    <input type="radio" name="cardioEndurance" value="More than 60 minutes" class="w-4 h-4 accent-orange-500" />
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="radio" name="cardioEndurance" value="More than 60 minutes" class="w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">&gt;60 min</span>
                                 </label>
                             </div>
@@ -247,9 +248,9 @@
                     </div>
                 </div>
 
-                <div class="bg-[#111A2E]/50 border border-white/5 rounded-2xl p-6">
+                <div class="bg-[#111A2E]/50 border border-white/5 rounded-xl p-6">
                     <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                        <span class="flex items-center justify-center w-7 h-7 rounded-full bg-orange-500 text-white text-xs font-bold">3</span>
+                        <span class="flex items-center justify-center w-7 h-7 rounded-full bg-accent text-white text-xs font-bold">3</span>
                         Hiking Experience
                     </h2>
 
@@ -257,20 +258,20 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">8. How many mountains have you climbed in your lifetime? <span class="text-red-400">*</span></label>
                             <div class="flex flex-wrap gap-2">
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                    <input type="radio" name="mountainsClimbed" value="This will be my first time / First-timer" required class="w-4 h-4 accent-orange-500" />
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="radio" name="mountainsClimbed" value="This will be my first time / First-timer" required class="w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">First-timer</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                    <input type="radio" name="mountainsClimbed" value="1 to 3 mountains / Beginner" class="w-4 h-4 accent-orange-500" />
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="radio" name="mountainsClimbed" value="1 to 3 mountains / Beginner" class="w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">Beginner (1-3)</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                    <input type="radio" name="mountainsClimbed" value="4 to 10 mountains / Intermediate" class="w-4 h-4 accent-orange-500" />
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="radio" name="mountainsClimbed" value="4 to 10 mountains / Intermediate" class="w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">Intermediate (4-10)</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                    <input type="radio" name="mountainsClimbed" value="More than 10 mountains / Experienced" class="w-4 h-4 accent-orange-500" />
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="radio" name="mountainsClimbed" value="More than 10 mountains / Experienced" class="w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">Experienced (10+)</span>
                                 </label>
                             </div>
@@ -279,20 +280,20 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">9. When was your most recent mountain hike? <span class="text-red-400">*</span></label>
                             <div class="flex flex-wrap gap-2">
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                    <input type="radio" name="recencyOfHike" value="I have never climbed a mountain before" required class="w-4 h-4 accent-orange-500" />
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="radio" name="recencyOfHike" value="I have never climbed a mountain before" required class="w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">Never climbed</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                    <input type="radio" name="recencyOfHike" value="More than 1 year ago" class="w-4 h-4 accent-orange-500" />
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="radio" name="recencyOfHike" value="More than 1 year ago" class="w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">&gt;1 year ago</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                    <input type="radio" name="recencyOfHike" value="Within the past 4 to 12 months" class="w-4 h-4 accent-orange-500" />
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="radio" name="recencyOfHike" value="Within the past 4 to 12 months" class="w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">4-12 months</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                    <input type="radio" name="recencyOfHike" value="Within the past 1 to 3 months" class="w-4 h-4 accent-orange-500" />
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="radio" name="recencyOfHike" value="Within the past 1 to 3 months" class="w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">1-3 months</span>
                                 </label>
                             </div>
@@ -301,20 +302,20 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">10. What is the highest or most difficult type of trail you have completed before? <span class="text-red-400">*</span></label>
                             <div class="flex flex-wrap gap-2">
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                    <input type="radio" name="trailDifficultyCompleted" value="None / I have never climbed before" required class="w-4 h-4 accent-orange-500" />
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="radio" name="trailDifficultyCompleted" value="None / I have never climbed before" required class="w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">None</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                    <input type="radio" name="trailDifficultyCompleted" value="Minor day hikes only" class="w-4 h-4 accent-orange-500" />
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="radio" name="trailDifficultyCompleted" value="Minor day hikes only" class="w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">Minor hikes</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                    <input type="radio" name="trailDifficultyCompleted" value="Major hikes with steep assault sections" class="w-4 h-4 accent-orange-500" />
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="radio" name="trailDifficultyCompleted" value="Major hikes with steep assault sections" class="w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">Major hikes</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                    <input type="radio" name="trailDifficultyCompleted" value="Multi-day or overnight expeditions" class="w-4 h-4 accent-orange-500" />
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="radio" name="trailDifficultyCompleted" value="Multi-day or overnight expeditions" class="w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">Multi-day</span>
                                 </label>
                             </div>
@@ -324,45 +325,45 @@
             </div>
 
             <div id="step3" class="step-content hidden">
-                <div class="bg-[#111A2E]/50 border border-white/5 rounded-2xl p-6 mb-6">
+                <div class="bg-[#111A2E]/50 border border-white/5 rounded-xl p-6 mb-6">
                     <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                        <span class="flex items-center justify-center w-7 h-7 rounded-full bg-orange-500 text-white text-xs font-bold">4</span>
+                        <span class="flex items-center justify-center w-7 h-7 rounded-full bg-accent text-white text-xs font-bold">4</span>
                         Gear Preparedness
                     </h2>
 
                     <div>
                         <label class="block text-sm font-medium text-gray-300 mb-2">11. Which of the following items will you definitely bring or have already packed for this hike? <span class="text-red-400">*</span></label>
-                        <div class="flex flex-wrap gap-2 bg-[#0B1325] border border-gray-700 rounded-xl p-4">
-                            <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                <input type="checkbox" name="gearItems" value="Enough water" class="w-4 h-4 accent-orange-500" />
+                        <div class="flex flex-wrap gap-2 bg-surface-card border border-gray-700 rounded-xl p-4">
+                            <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                <input type="checkbox" name="gearItems" value="Enough water" class="w-4 h-4 accent-accent" />
                                 <span class="text-gray-300 text-sm">Water</span>
                             </label>
-                            <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                <input type="checkbox" name="gearItems" value="Trail food" class="w-4 h-4 accent-orange-500" />
+                            <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                <input type="checkbox" name="gearItems" value="Trail food" class="w-4 h-4 accent-accent" />
                                 <span class="text-gray-300 text-sm">Trail food</span>
                             </label>
-                            <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                <input type="checkbox" name="gearItems" value="First aid kit" class="w-4 h-4 accent-orange-500" />
+                            <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                <input type="checkbox" name="gearItems" value="First aid kit" class="w-4 h-4 accent-accent" />
                                 <span class="text-gray-300 text-sm">First aid kit</span>
                             </label>
-                            <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                <input type="checkbox" name="gearItems" value="Flashlight" class="w-4 h-4 accent-orange-500" />
+                            <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                <input type="checkbox" name="gearItems" value="Flashlight" class="w-4 h-4 accent-accent" />
                                 <span class="text-gray-300 text-sm">Flashlight</span>
                             </label>
-                            <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                <input type="checkbox" name="gearItems" value="Whistle" class="w-4 h-4 accent-orange-500" />
+                            <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                <input type="checkbox" name="gearItems" value="Whistle" class="w-4 h-4 accent-accent" />
                                 <span class="text-gray-300 text-sm">Whistle</span>
                             </label>
-                            <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                <input type="checkbox" name="gearItems" value="Raincoat" class="w-4 h-4 accent-orange-500" />
+                            <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                <input type="checkbox" name="gearItems" value="Raincoat" class="w-4 h-4 accent-accent" />
                                 <span class="text-gray-300 text-sm">Raincoat</span>
                             </label>
-                            <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                <input type="checkbox" name="gearItems" value="Navigation tool" class="w-4 h-4 accent-orange-500" />
+                            <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                <input type="checkbox" name="gearItems" value="Navigation tool" class="w-4 h-4 accent-accent" />
                                 <span class="text-gray-300 text-sm">Navigation</span>
                             </label>
-                            <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
-                                <input type="checkbox" name="gearItems" value="Proper hiking shoes" class="w-4 h-4 accent-orange-500" />
+                            <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                <input type="checkbox" name="gearItems" value="Proper hiking shoes" class="w-4 h-4 accent-accent" />
                                 <span class="text-gray-300 text-sm">Hiking shoes</span>
                             </label>
                         </div>
@@ -371,9 +372,9 @@
                 </div>
 
                 <div class="space-y-4">
-                    <div class="bg-yellow-500/5 border border-yellow-500/30 rounded-xl p-4">
+                    <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4">
                         <label class="flex items-start gap-3 cursor-pointer">
-                            <input type="checkbox" name="consentGiven" value="true" required class="w-5 h-5 mt-0.5 accent-orange-500" />
+                            <input type="checkbox" name="consentGiven" value="true" required class="w-5 h-5 mt-0.5 accent-accent" />
                             <div>
                                 <p class="text-gray-300 text-sm font-medium">I certify that the information I provided is true and accurate.</p>
                                 <p class="text-gray-400 text-sm">I understand that false or misleading answers may affect my safety and may result in rejection, waisting, or removal from the event.</p>
@@ -381,14 +382,14 @@
                         </label>
                     </div>
 
-                    <div class="bg-blue-500/5 border border-blue-500/30 rounded-xl p-4">
+                    <div class="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
                         <label class="flex items-start gap-3 cursor-pointer">
-                            <input type="checkbox" name="dataPrivacyConsent" value="true" required class="w-5 h-5 mt-0.5 accent-orange-500" />
+                            <input type="checkbox" name="dataPrivacyConsent" value="true" required class="w-5 h-5 mt-0.5 accent-accent" />
                             <div>
                                 <p class="text-gray-300 text-sm font-medium">I have read and understood the Data Privacy Consent Statement.</p>
                                 <p class="text-gray-400 text-sm">
                                     I voluntarily give my consent to the collection, processing, storage, and use of my personal information for the purposes stated above.
-                                    <button type="button" onclick="openPrivacyModal()" class="text-orange-400 hover:text-orange-300 underline ml-1">
+                                    <button type="button" onclick="openPrivacyModal()" class="text-accent hover:brightness-125 underline ml-1">
                                         Read more
                                     </button>
                                 </p>
@@ -407,14 +408,14 @@
             </div>
 
             <div class="flex justify-between mt-8 pt-4 border-t border-white/10">
-                <button type="button" id="prevBtn" onclick="prevStep()" class="px-6 py-3 rounded-xl text-gray-300 font-medium bg-gray-800 hover:bg-gray-700 transition-colors hidden">
+                <button type="button" id="prevBtn" onclick="prevStep()" class="px-6 py-3 rounded-full text-gray-300 font-medium bg-gray-800 hover:bg-gray-700 transition-colors hidden">
                     <i class="fa-solid fa-arrow-left mr-2"></i> Previous
                 </button>
                 <div class="flex-1"></div>
-                <button type="button" id="nextBtn" onclick="nextStep()" class="px-6 py-3 rounded-xl text-white font-bold bg-linear-to-r from-orange-500 to-purple-600 hover:opacity-90 transition-all">
+                <button type="button" id="nextBtn" onclick="nextStep()" class="px-6 py-3 rounded-full text-white font-semibold bg-linear-to-r from-orange-500 via-pink-500 to-violet-500 hover:brightness-110 hover:scale-[1.02] transition duration-200 ease-out">
                     Next <i class="fa-solid fa-arrow-right ml-2"></i>
                 </button>
-                <button type="submit" id="submitBtn" class="px-6 py-3 rounded-xl text-white font-bold bg-linear-to-r from-green-500 to-emerald-600 hover:opacity-90 transition-all hidden">
+                <button type="submit" id="submitBtn" class="px-6 py-3 rounded-full text-white font-semibold bg-linear-to-r from-orange-500 via-pink-500 to-violet-500 hover:brightness-110 hover:scale-[1.02] transition duration-200 ease-out hidden">
                     <i class="fa-regular fa-paper-plane mr-2"></i> Submit Assessment
                 </button>
             </div>
@@ -423,13 +424,13 @@
 </div>
 
 @section Modals {
-    <div id="privacyModal" class="fixed inset-0 z-100 modal-hidden" style="padding-top: 30px;">
-        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="closePrivacyModal()"></div>
-        <div class="relative bg-[#0B1325] border border-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col mx-auto my-auto" style="z-index: 10;">
-            
-            <div class="flex justify-between items-center px-6 py-4 border-b border-gray-800 shrink-0">
+    <div id="privacyModal" class="fixed inset-0 z-60 hidden items-center justify-center p-4">
+        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm z-60" onclick="closePrivacyModal()"></div>
+        <div class="relative bg-surface-card border border-white/10 rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden flex flex-col z-60">
+
+            <div class="flex justify-between items-center px-6 py-4 border-b border-white/10 shrink-0">
                 <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-full bg-linear-to-r from-orange-500 to-purple-500 flex items-center justify-center">
+                    <div class="w-8 h-8 rounded-full bg-accent flex items-center justify-center">
                         <i class="fa-solid fa-shield-halved text-white text-sm"></i>
                     </div>
                     <h2 class="text-xl font-bold text-white">Data Privacy Consent Statement</h2>
@@ -463,7 +464,7 @@
                         <p class="text-gray-400 text-sm">
                             <strong>Reference:</strong><br />
                             National Privacy Commission. (2012). Republic Act 10173 – Data Privacy Act of 2012. National Privacy Commission.
-                            <a href="https://privacy.gov.ph/data-privacy-act/" target="_blank" class="text-orange-400 hover:text-orange-300 underline">
+                            <a href="https://privacy.gov.ph/data-privacy-act/" target="_blank" class="text-accent hover:brightness-125 underline">
                                 https://privacy.gov.ph/data-privacy-act/
                             </a>
                         </p>
@@ -471,11 +472,11 @@
                 </div>
             </div>
 
-            <div class="px-6 py-4 border-t border-gray-800 shrink-0 flex justify-end gap-3">
+            <div class="px-6 py-4 border-t border-white/10 shrink-0 flex justify-end gap-3">
                 <button onclick="closePrivacyModal()" class="px-5 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white bg-gray-800 hover:bg-gray-700 transition-colors">
                     Close
                 </button>
-                <button onclick="closePrivacyModal()" class="px-5 py-2 rounded-lg text-sm font-medium text-white bg-linear-to-r from-orange-500 to-purple-600 hover:opacity-90 transition-all">
+                <button onclick="closePrivacyModal()" class="px-5 py-2 rounded-full text-sm font-semibold text-white bg-linear-to-r from-orange-500 via-pink-500 to-violet-500 hover:brightness-110 hover:scale-[1.02] transition duration-200 ease-out">
                     I Understand
                 </button>
             </div>
@@ -488,25 +489,18 @@
     .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
     .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
-    
-    .modal-hidden {
-        display: none !important;
-    }
-    
-    .modal-visible {
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
+
+    .option-disabled {
+        opacity: 0.4 !important;
+        cursor: not-allowed !important;
     }
 
-    #privacyModal.modal-visible {
-        padding: 1rem;
-        padding-top: 80px;
+    .option-disabled span {
+        color: #6b7280 !important;
     }
-    
-    .modal-visible .relative {
-        margin: auto;
-        max-height: 85vh;
+
+    .option-disabled input {
+        cursor: not-allowed !important;
     }
 </style>
 
@@ -540,7 +534,7 @@
                     label.className = 'text-green-400';
                     label.textContent = '✓ Step ' + i;
                 } else if (i === currentStep) {
-                    label.className = 'text-orange-400';
+                    label.className = 'text-accent';
                     label.textContent = '● Step ' + i;
                 } else {
                     label.className = 'text-gray-500';
@@ -567,7 +561,7 @@
             submitBtn.classList.add('hidden');
         }
 
-        var formContainer = document.querySelector('.bg-white\\/5.border-white\\/10.rounded-3xl');
+        var formContainer = document.querySelector('.bg-white\\/5.border-white\\/10.rounded-xl');
         if (formContainer) {
             formContainer.scrollIntoView({ 
                 behavior: 'smooth', 
@@ -597,6 +591,7 @@
         var requiredInputs = stepElement.querySelectorAll('[required]');
         var isValid = true;
         var firstInvalid = null;
+        var rangeErrorMessage = null;
 
         requiredInputs.forEach(function(input) {
             if (input.type === 'hidden') return;
@@ -667,29 +662,57 @@
             }
         });
 
+        var rangeFields = [
+            { id: 'age', label: 'Age' },
+            { id: 'heightCm', label: 'Height' },
+            { id: 'weightKg', label: 'Weight' }
+        ];
+        rangeFields.forEach(function(field) {
+            var input = document.getElementById(field.id);
+            if (!input) return;
+            var parent = input.closest('.step-content');
+            if (parent && parent.classList.contains('hidden')) return;
+            if (input.value === '' || input.value === null) return;
+
+            var numValue = parseFloat(input.value);
+            var min = parseFloat(input.min);
+            var max = parseFloat(input.max);
+            if (isNaN(numValue) || numValue < min || numValue > max) {
+                isValid = false;
+                if (!firstInvalid) firstInvalid = input;
+                input.classList.add('border-red-500');
+                setTimeout(function() {
+                    input.classList.remove('border-red-500');
+                }, 3000);
+                if (!rangeErrorMessage) {
+                    rangeErrorMessage = field.label + ' must be between ' + input.min + ' and ' + input.max + '.';
+                }
+            }
+        });
+
         if (step === 3) {
             var consentGiven = document.querySelector('input[name="consentGiven"]');
             var dataPrivacyConsent = document.querySelector('input[name="dataPrivacyConsent"]');
             
             if (consentGiven && !consentGiven.checked) {
                 isValid = false;
-                consentGiven.closest('.bg-yellow-500/5')?.classList.add('border-red-500/50');
+                consentGiven.closest('.bg-amber-500\\/10')?.classList.add('border-red-500/50');
                 setTimeout(function() {
-                    consentGiven.closest('.bg-yellow-500/5')?.classList.remove('border-red-500/50');
+                    consentGiven.closest('.bg-amber-500\\/10')?.classList.remove('border-red-500/50');
                 }, 3000);
             }
-            
+
             if (dataPrivacyConsent && !dataPrivacyConsent.checked) {
                 isValid = false;
-                dataPrivacyConsent.closest('.bg-blue-500/5')?.classList.add('border-red-500/50');
+                dataPrivacyConsent.closest('.bg-blue-500\\/10')?.classList.add('border-red-500/50');
                 setTimeout(function() {
-                    dataPrivacyConsent.closest('.bg-blue-500/5')?.classList.remove('border-red-500/50');
+                    dataPrivacyConsent.closest('.bg-blue-500\\/10')?.classList.remove('border-red-500/50');
                 }, 3000);
             }
         }
 
         if (!isValid) {
-            showToast('Please fill in all required fields before proceeding.', 'error');
+            showToast(rangeErrorMessage || 'Please fill in all required fields before proceeding.', 'error');
             if (firstInvalid) {
                 firstInvalid.focus();
                 if (firstInvalid.type === 'radio') {
@@ -732,6 +755,110 @@
         }
     }
 
+    function setOptionDisabled(input, disabled) {
+        if (!input) return;
+        input.disabled = disabled;
+        var label = input.closest('label');
+        if (!label) return;
+        if (disabled) {
+            label.classList.add('option-disabled');
+        } else {
+            label.classList.remove('option-disabled');
+        }
+    }
+
+    function setupMedicalConditions() {
+        var noneCheckbox = document.getElementById('medNone');
+        var conditionCheckboxes = document.querySelectorAll('.medCondition');
+        if (!noneCheckbox || conditionCheckboxes.length === 0) return;
+
+        function syncFromConditions() {
+            var anyChecked = false;
+            conditionCheckboxes.forEach(function(cb) {
+                if (cb.checked) anyChecked = true;
+            });
+            setOptionDisabled(noneCheckbox, anyChecked);
+        }
+
+        function syncFromNone() {
+            var disable = noneCheckbox.checked;
+            conditionCheckboxes.forEach(function(cb) {
+                setOptionDisabled(cb, disable);
+            });
+        }
+
+        conditionCheckboxes.forEach(function(cb) {
+            cb.addEventListener('change', function() {
+                if (cb.checked) {
+                    noneCheckbox.checked = false;
+                }
+                syncFromConditions();
+            });
+        });
+
+        noneCheckbox.addEventListener('change', function() {
+            if (noneCheckbox.checked) {
+                conditionCheckboxes.forEach(function(condCb) { condCb.checked = false; });
+            }
+            syncFromNone();
+        });
+
+        syncFromConditions();
+        syncFromNone();
+    }
+
+    function applyHikingExperienceDependency() {
+        var q8 = document.querySelector('input[name="mountainsClimbed"]:checked');
+        var q9Never = document.querySelector('input[name="recencyOfHike"][value="I have never climbed a mountain before"]');
+        var q9Others = document.querySelectorAll('input[name="recencyOfHike"]:not([value="I have never climbed a mountain before"])');
+        var q10None = document.querySelector('input[name="trailDifficultyCompleted"][value="None / I have never climbed before"]');
+        var q10Others = document.querySelectorAll('input[name="trailDifficultyCompleted"]:not([value="None / I have never climbed before"])');
+
+        if (!q9Never || !q10None) return;
+
+        if (!q8) {
+            setOptionDisabled(q9Never, false);
+            q9Others.forEach(function(r) { setOptionDisabled(r, false); });
+            setOptionDisabled(q10None, false);
+            q10Others.forEach(function(r) { setOptionDisabled(r, false); });
+            return;
+        }
+
+        var isFirstTimer = q8.value === 'This will be my first time / First-timer';
+
+        if (isFirstTimer) {
+            q9Never.checked = true;
+            setOptionDisabled(q9Never, false);
+            q9Others.forEach(function(r) {
+                r.checked = false;
+                setOptionDisabled(r, true);
+            });
+
+            q10None.checked = true;
+            setOptionDisabled(q10None, false);
+            q10Others.forEach(function(r) {
+                r.checked = false;
+                setOptionDisabled(r, true);
+            });
+        } else {
+            if (q9Never.checked) q9Never.checked = false;
+            setOptionDisabled(q9Never, true);
+            q9Others.forEach(function(r) { setOptionDisabled(r, false); });
+
+            if (q10None.checked) q10None.checked = false;
+            setOptionDisabled(q10None, true);
+            q10Others.forEach(function(r) { setOptionDisabled(r, false); });
+        }
+    }
+
+    function setupHikingExperienceDependency() {
+        var q8Radios = document.querySelectorAll('input[name="mountainsClimbed"]');
+        q8Radios.forEach(function(radio) {
+            radio.addEventListener('change', applyHikingExperienceDependency);
+        });
+        applyHikingExperienceDependency();
+    }
+
     function showToast(message, type) {
         var existingToast = document.querySelector('.toast-message');
         if (existingToast) existingToast.remove();
@@ -754,15 +881,15 @@
 
     function openPrivacyModal() {
         var modal = document.getElementById('privacyModal');
-        modal.classList.remove('modal-hidden');
-        modal.classList.add('modal-visible');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
         document.body.style.overflow = 'hidden';
     }
 
     function closePrivacyModal() {
         var modal = document.getElementById('privacyModal');
-        modal.classList.remove('modal-visible');
-        modal.classList.add('modal-hidden');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
         document.body.style.overflow = 'auto';
     }
 
@@ -781,5 +908,7 @@
     document.addEventListener('DOMContentLoaded', function() {
         updateStepUI();
         calculateBMI();
+        setupMedicalConditions();
+        setupHikingExperienceDependency();
     });
 </script>
