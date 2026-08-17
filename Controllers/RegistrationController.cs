@@ -233,10 +233,14 @@ namespace TrailGuard.Controllers
         [HttpPost]
         public async Task<IActionResult> CancelRegistration([FromBody] CancelRegistrationRequest request)
         {
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
             var registration = await _context.EventRegistrations
                 .FirstOrDefaultAsync(r => r.Id == request.Id);
 
-            if (registration == null)
+            // Same message whether the ID doesn't exist or just isn't this user's —
+            // no reason to confirm someone else's registration ID is valid.
+            if (registration == null || registration.UserId != userId)
             {
                 return Json(new { success = false, message = "Registration not found" });
             }
@@ -262,10 +266,14 @@ namespace TrailGuard.Controllers
         {
             await RegistrationStatusHelper.ExpireOverdueRegistrations(_context);
 
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
             var registration = await _context.EventRegistrations
                 .FirstOrDefaultAsync(r => r.Id == id);
 
-            if (registration == null)
+            // Same message whether the ID doesn't exist or just isn't this user's —
+            // no reason to confirm someone else's registration ID is valid.
+            if (registration == null || registration.UserId != userId)
             {
                 return Json(new { success = false, message = "Registration not found" });
             }
@@ -305,6 +313,8 @@ namespace TrailGuard.Controllers
         [HttpGet]
         public async Task<IActionResult> GetRegistrationDetails(int id)
         {
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
             var registration = await _context.EventRegistrations
                 .Include(r => r.Event)
                 .ThenInclude(e => e!.Trail)
@@ -313,10 +323,24 @@ namespace TrailGuard.Controllers
                 .ThenInclude(e => e!.Trail)
                 .FirstOrDefaultAsync(r => r.Id == id);
 
-            if (registration == null)
+            // Same message whether the ID doesn't exist or just isn't this user's —
+            // no reason to confirm someone else's registration ID is valid.
+            if (registration == null || registration.UserId != userId)
             {
                 return Json(new { success = false, message = "Registration not found" });
             }
+
+            SuitabilityResult? suitabilityResult = null;
+            if (registration.Assessment != null)
+            {
+                suitabilityResult = await _context.SuitabilityResults
+                    .Include(s => s.ShapValues)
+                    .FirstOrDefaultAsync(s => s.AssessmentId == registration.Assessment.Id);
+            }
+
+            var shapFactors = suitabilityResult != null
+                ? ShapHelper.BuildDisplayItems(suitabilityResult.ShapValues, 3)
+                : new List<ShapDisplayItem>();
 
             return Json(new
             {
@@ -343,10 +367,14 @@ namespace TrailGuard.Controllers
                     emergencyContactNumber = registration.EmergencyContactNumber,
                     assessmentResult = registration.Assessment?.Result,
                     assessmentScore = registration.Assessment?.TotalScore,
-                    fitnessScore = registration.Assessment?.FitnessScore ?? 0,
-                    experienceScore = registration.Assessment?.ExperienceScore ?? 0,
-                    healthScore = registration.Assessment?.HealthScore ?? 0,
-                    gearScore = registration.Assessment?.GearScore ?? 0,
+                    hasMlPrediction = suitabilityResult != null,
+                    confidenceScore = suitabilityResult?.ConfidenceScore,
+                    shapFactors = shapFactors.Select(f => new
+                    {
+                        friendlyName = f.FriendlyName,
+                        isPositive = f.IsPositive,
+                        barWidth = f.BarWidth
+                    }),
                     status = registration.Status,
                     registeredAt = registration.RegisteredAt.ToString("MMM dd, yyyy hh:mm tt"),
                     alternativeEventId = registration.AlternativeEventId,
