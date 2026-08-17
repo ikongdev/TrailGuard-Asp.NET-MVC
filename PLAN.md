@@ -1,18 +1,22 @@
-# Active Plan — Assessment Form Data Integrity
+# Active Plan — Assessment Report
 
-Part of the UI/UX pass, but what turned up is mostly data integrity: the form lets participants submit answer combinations that are internally contradictory, and those answers feed straight into the ML model as features.
+The last participant-side page. Like the others, most of what turned up is behaviour rather than styling — this page still presents the legacy rule-based scoring alongside the ML result, and the two contradict each other on screen.
 
-Read `DESIGN.md` first — its colour tokens, radius scale, and hover rules apply to the styling portion.
+Read `DESIGN.md` first for colour tokens, radius, and the modal pattern.
 
 ---
 
-## Why This Matters
+## The Contradiction
 
-Questions 8, 9, and 10 map directly to `hiking_experience_score`, `last_hike_recency_score`, and `hardest_trail_completed_score` — three of the model's features. Question 4 maps to the four health flags.
+A real screenshot from the current page:
 
-Nothing currently stops a participant from answering "First-timer" for Q8 and "1–3 months ago" for Q9, or ticking both "Asthma" and "None of the above". Those combinations are impossible in reality and never appeared in the synthetic training data, so the model is being asked to score a profile it has no basis for.
+- Header: **Good-Match** (from the ML model)
+- Summary sidebar: **Score 31, Required 32 — ❌ Below requirement** (from rule-based scoring)
+- Recommendations: *"Your score of 31 meets the requirement of 32"* — which isn't even internally consistent
 
-Garbage in, confident-looking garbage out — and the confidence score makes that worse, because a nonsense input can still come back at 95%.
+Two scoring systems reaching opposite conclusions, presented side by side as though they agree. A panel would notice this immediately, and a participant would just be confused.
+
+The ML result is the one the system acts on. The rule-based scoring survives only as a fallback when the Python service is unreachable — it shouldn't be the page's headline.
 
 ---
 
@@ -20,108 +24,98 @@ Garbage in, confident-looking garbage out — and the confidence score makes tha
 
 | Question | Decision |
 |---|---|
-| Q4 "None of the above" | **Mutually exclusive.** Ticking it clears and disables the four conditions; ticking any condition clears and disables it. |
-| Q8 → Q9, Q10 dependency | **Auto-set and disable**, not validate-and-warn. There's no legitimate reason to answer these inconsistently, so the form shouldn't allow it in the first place. |
-| Age range | **18–60**, matching the synthetic training data. |
-| Height / weight ranges | Sensible bounds so BMI stays meaningful. |
-| BMI computation | **No change** — the formula and WHO thresholds are already correct. |
+| Rule-based scoring display | **Remove entirely** — the donut's 31/44, the four category bars, the threshold comparison, and the score fields in the summary sidebar. |
+| What replaces the donut | **ML confidence**, as on the dashboard and My Registrations. |
+| SHAP factors | Add a **numerical value** alongside Helped / Reduced. |
+| Risk Flags | **Remove.** It's rule-based and can contradict SHAP — the current screenshot flags "Low Cardio" when cardio isn't among the top SHAP factors at all. Anything that actually matters already surfaces there. |
+| Recommendations | **Derive from negative SHAP factors** instead of score thresholds. |
+| Other Events for You | Use the same corrected logic as the dashboard. |
 
-### The Q8 dependency, precisely
+### Showing SHAP numerically
 
-**Q8 = "First-timer"** →
-- Q9 auto-selects "Never climbed", other options disabled
-- Q10 auto-selects "None", other options disabled
+Raw SHAP values (`-1.836`, `+1.690`) mean nothing to a participant. Convert each factor to its **share of the total absolute impact** across the displayed factors, and show that as a percentage:
 
-**Q8 = anything else** (Beginner / Intermediate / Experienced) →
-- Q9's "Never climbed" is disabled; the other three are selectable
-- Q10's "None" is disabled; the other three are selectable
-- If "Never climbed" or "None" was already selected, clear it
+> Recency of last hike — Helped · 32%
 
-Changing Q8 after the fact must re-apply the rule and clear anything now invalid. A participant who picks Experienced, answers Q9, then goes back to First-timer should not keep the old Q9 answer.
+That reads as "this accounts for 32% of why you got this result", which is what someone actually wants to know. The bar width should match the same percentage so the number and the bar agree.
 
----
+### Deriving recommendations
 
-## Phase 1 — Question 4 Exclusivity
+Take the SHAP factors with negative impact — the ones working against the result — and turn each into an action:
 
-In `Views/Assessment/Form.cshtml`:
+| Feature | Recommendation |
+|---|---|
+| `exercise_frequency_score` | Increase how often you exercise each week |
+| `continuous_cardio_duration_score` | Build up how long you can sustain cardio without stopping |
+| `hiking_experience_score` | Gain experience on easier trails before attempting this one |
+| `last_hike_recency_score` | Consider a shorter warm-up hike before this event |
+| `hardest_trail_completed_score` | Work up through easier trail types first |
+| `gear_score` or any `gear_*` | Complete your gear checklist before the hike |
+| `bmi` | General fitness preparation may help |
+| Any health flag | Consult a physician before joining a hike of this difficulty |
+| Trail-side features | Not actionable by the participant — skip |
 
-- Give the "None of the above" checkbox its own id
-- On change of any condition checkbox: if now checked, uncheck and disable "None of the above"; if none remain checked, re-enable it
-- On change of "None of the above": if checked, uncheck and disable all four conditions; if unchecked, re-enable them
-- Disabled checkboxes should read as disabled — muted text, `cursor-not-allowed`, reduced opacity
+Each one should say **why** it's being suggested, e.g. "this was one of the main factors working against your result", so it reads as explanation rather than generic advice.
 
-The existing `validateStep` check for `medicalConditions` already requires at least one selection, so that stays as is.
+When every displayed factor is positive, say so plainly instead of padding with filler: "Nothing significant is working against your result for this event."
 
----
-
-## Phase 2 — Q8 / Q9 / Q10 Dependency
-
-Same file. Wire a handler to Q8 (`mountainsClimbed`) that applies the rule above to Q9 (`recencyOfHike`) and Q10 (`trailDifficultyCompleted`).
-
-Run it once on page load too, not just on change — a participant returning to a partially filled form should see the same state.
-
-Disabled radio options need the same muted treatment as disabled checkboxes.
-
-**Watch out:** `validateStep` checks radio groups for *any* checked option. Auto-selecting satisfies that automatically, which is fine — but make sure disabling doesn't accidentally leave a group with nothing selected, or step 2 becomes impossible to pass.
+Trail-side features (distance, elevation, terrain, duration) describe the trail, not the participant — there's no action to take, so they're excluded from recommendations even when negative.
 
 ---
 
-## Phase 3 — Input Ranges
+## Phase 1 — Controller
 
-| Field | Current | Change to |
-|---|---|---|
-| Age | `min="10" max="100"` | `min="18" max="60"` |
-| Height | `min="100" max="250"` | `min="120" max="220"` |
-| Weight | `min="30" max="200"` | `min="25" max="200"` |
+`AssessmentController.Report`:
 
-`validateStep` currently only checks that a value is present, not that it's within range. Add a range check for these three, with a clear message naming which field is out of bounds — the browser's own `min`/`max` validation doesn't fire reliably inside a hidden wizard step, which is the same reason the native `required` attributes were dropped from the feedback wizard earlier.
+- Drop `TotalScore`, the four category scores, `MaxScore`, `Threshold`, and `RiskFlags` from the view model
+- Replace `ComputeRecommendations` with SHAP-derived recommendations per the table above
+- Update `GetAlternativeEvents` to match the dashboard's corrected logic: base the target on the **assessed event's difficulty** combined with the result (Good-Match → same level, Borderline → one down, otherwise Easy), fall back **downward** only, and exclude events the participant is already registered for
+- Compute each SHAP factor's percentage share of total absolute impact
 
-Add a short line under the age field so the restriction doesn't look arbitrary:
-
-> Our assessment model currently covers ages 18–60.
-
-### Scope limitation
-
-The model was trained on synthetic data generated within an adult age range of 18–60, so the form restricts input to that range rather than extrapolating beyond what the model has seen. Predicting outside the training range would still return a confident-looking score with no basis behind it.
-
-This is a documented limitation to be addressed during empirical retraining, once real participant data across a wider demographic is available. It also belongs in the manuscript's Limitations section.
-
-Related, and worth raising with the medical validator: the BMI thresholds used here are the adult WHO ranges. Children are assessed against age-and-sex percentile charts instead, so extending the age range later isn't just a matter of widening the input — the BMI handling would need revisiting too.
+`ComputeFitnessScore`, `ComputeExperienceScore`, `ComputeHealthScore`, and `ComputeGearScore` **stay** — they feed the ML request. Only the *display* of their output goes. `ComputeRiskFlags` and `GetResult` also stay: `GetResult` is still the fallback when the ML service is down.
 
 ---
 
-## Phase 4 — Styling
+## Phase 2 — View
 
-Bring the form in line with `DESIGN.md`:
+Remove:
+- The score donut and its 31/44 label
+- The Category Scores card
+- The Risk Flags card
+- Score, threshold, and category rows in the Result Summary sidebar
+- The score-vs-threshold progress bar and its "Below requirement" line
 
-- `accent-orange-500` on checkboxes and radios → `accent-accent`
-- Step indicator, section numbers, and icons → accent
-- Card radius → `rounded-xl`
-- Consent boxes: keep amber and blue, they're carrying meaning — but use the documented opacity pattern
-- Privacy modal: move into `@section Modals` per the modal pattern in `DESIGN.md`, with a `fixed` backdrop
-- Submit and Next buttons → brand gradient, capsule, `hover:brightness-110 hover:scale-[1.02]`
+Replace the donut with a **confidence donut**, matching the dashboard: capped at 99.9%, one decimal, coloured by result.
+
+The Result Summary sidebar becomes: result, confidence, event, trail, difficulty, date.
+
+In "Why This Result?", add the percentage next to Helped / Reduced and size each bar to match.
+
+Keep Trail Demands, the acknowledgement flow, and the action buttons as they are.
+
+Apply `DESIGN.md` throughout — accent instead of orange and purple, `rounded-xl`, capsule buttons, shared badge colours.
 
 Run `npm run build` afterwards.
 
 ---
 
-## Phase 5 — Testing
+## Phase 3 — Testing
 
-1. Tick "Asthma", then "None of the above" → Asthma clears, the four conditions disable
-2. Untick "None of the above" → the four re-enable
-3. Tick a condition while "None" is checked → "None" clears and disables
-4. Select "First-timer" → Q9 becomes "Never climbed", Q10 becomes "None", both locked
-5. Change Q8 to "Experienced" → Q9 and Q10 clear, "Never climbed" and "None" become the disabled options
-6. Select Experienced → answer Q9 → go back to First-timer → confirm the old Q9 answer is replaced, not kept
-7. Enter age 17 or 61 → blocked with a message naming the field
-8. Enter height 50 → blocked
-9. Submit a valid form end to end → confirm the assessment saves and the ML prediction returns
-10. Reload a partially filled form → dependency state matches the selected Q8
+1. A Good-Match result shows a confidence donut, no 31/44, and no category bars anywhere on the page
+2. SHAP factors show a percentage that matches their bar width, and the percentages across displayed factors sum to roughly 100%
+3. Recommendations name real negative factors from this participant's own SHAP breakdown, and don't mention scores or thresholds
+4. An assessment where every displayed factor is positive shows the "nothing working against you" message rather than filler advice
+5. An assessment made while the ML service was down (no `SuitabilityResult`) still renders — result label, no donut, no SHAP panel, no crash
+6. Good-Match on a Moderate event lists Moderate alternatives, never Difficult
+7. Already-registered events don't appear in alternatives
+8. The acknowledgement checkbox still gates the Proceed button
+
+Test 5 matters most — the fallback path is easy to break when removing the rule-based display, since that's exactly the path where rule-based scoring is still what produced the result.
 
 ---
 
 ## Out of Scope
 
-- Changing the questions themselves — that's pending the expert validation currently with the medical and hiking reviewers
-- The BMI formula or thresholds — already correct
-- Assessment Report page — separate pass
+- Removing the rule-based scoring functions themselves — they're the ML fallback
+- The Feedback page
+- Organizer and Admin pages
