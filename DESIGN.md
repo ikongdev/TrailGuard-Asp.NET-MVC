@@ -133,6 +133,26 @@ Deliberately quiet next to the primary — the two shouldn't compete, and the hi
 
 *To be decided as we build it.*
 
+### Modals
+
+- **Always render inside `@section Modals`, never inline in the page body.** The layout puts `@RenderSectionAsync("Modals")` at the very end of `<body>`, after the footer — anything rendered there sits above everything else in the DOM. A modal left inline only stacks correctly within whatever ancestor it happens to be nested in.
+- **Both the wrapper and the backdrop use `fixed inset-0`.** An `absolute` backdrop only covers its nearest positioned ancestor — if that ancestor is a `<div>` partway down the page, the blur stops there and the navbar and footer stay sharp behind the modal.
+- **`z-60` sits above the navbar's `z-50`.** Apply it to the wrapper, the backdrop, and the panel.
+- **`z-100` is not a real Tailwind class.** The default scale stops at `z-50`. `z-100` compiles to nothing, so the class silently does nothing and the element falls back to normal stacking order — the modal renders behind whatever the navbar's `z-50` already claims.
+
+Structural reference:
+
+```html
+@section Modals {
+<div id="exampleModal" class="fixed inset-0 z-60 hidden items-center justify-center p-4">
+    <div class="fixed inset-0 bg-black/70 backdrop-blur-sm z-60" onclick="closeModal()"></div>
+    <div class="relative bg-surface-card border border-white/10 rounded-xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-hidden flex flex-col z-60">
+        <!-- modal content -->
+    </div>
+</div>
+}
+```
+
 ---
 
 ## Motion
@@ -168,6 +188,7 @@ Two values. `rounded-3xl`, `rounded-4xl`, and arbitrary `rounded-[...]` are out.
 - **`_SecondaryButton.cshtml` is empty.** Every secondary button in the app is hand-rolled, which is a large part of the inconsistency. Filling this in is the single highest-leverage fix available.
 - **A fourth difficulty level that doesn't exist.** `"Technical"` appears in `AssessmentController.GetResult`, `GetAlternativeEvents`, and several view conditionals, but `DifficultyCalculator` only ever returns Easy, Moderate, or Difficult. Dead code from an earlier design — harmless today, misleading to read.
 - **`bg-[#0A1122]`** on the landing page doesn't match any of the three documented surface tokens. Either it should be one of them, or it's intentional and needs a name.
+- **Two different modal show/hide mechanisms.** `Trails.cshtml` uses custom `.modal-hidden`/`.modal-visible` CSS classes; `MyRegistrations.cshtml` uses Tailwind's `hidden`/`flex`. Standardize on the Tailwind approach and drop the custom CSS. Not urgent, but it's the same inconsistency this pass exists to remove.
 
 ---
 
