@@ -181,7 +181,7 @@
                         </h2>
                         <div class="text-right">
                             <div class="text-xs text-gray-400">Model Confidence</div>
-                            <div class="text-lg font-bold text-orange-400">@((Model.ConfidenceScore * 100).ToString("0.0"))%</div>
+                            <div class="text-lg font-bold text-orange-400">@(Math.Min(Model.ConfidenceScore * 100, 99.9).ToString("0.0"))%</div>
                         </div>
                     </div>
                     <p class="text-sm text-gray-400 mb-5">
@@ -318,7 +318,7 @@
                     {
                         <div class="flex justify-between">
                             <span class="text-gray-400">Model Confidence</span>
-                            <span class="text-orange-400 font-semibold">@((Model.ConfidenceScore * 100).ToString("0.0"))%</span>
+                            <span class="text-orange-400 font-semibold">@(Math.Min(Model.ConfidenceScore * 100, 99.9).ToString("0.0"))%</span>
                         </div>
                     }
                     <div class="flex justify-between">

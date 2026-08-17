@@ -276,7 +276,7 @@
                     ? `<div class="flex items-center gap-3 mb-3">
                            <p class="text-gray-500 text-[10px] uppercase tracking-wider">Assessment</p>
                            <span class="text-sm font-bold ${assessColor}">${reg.assessmentResult || 'N/A'}</span>
-                           <span class="text-accent text-xs font-semibold ml-auto">${Math.round(reg.confidenceScore * 100)}% confidence</span>
+                           <span class="text-accent text-xs font-semibold ml-auto">${Math.min(reg.confidenceScore * 100, 99.9).toFixed(1)}% confidence</span>
                        </div>
                        <div class="space-y-2.5">${shapFactors.map(factorBar).join('')}</div>`
                     : `<div class="flex items-center gap-3">
