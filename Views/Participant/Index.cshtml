@@ -126,14 +126,15 @@
                                               Model.LatestAssessment.Result == "Borderline" ? "#fbbf24" : "#f87171";
                     var resultTextColor = Model.LatestAssessment.Result == "Good-Match" ? "text-emerald-400" :
                                           Model.LatestAssessment.Result == "Borderline" ? "text-amber-400" : "text-red-400";
-                    var confidencePct = (int)Math.Round(Model.LatestAssessment.ConfidenceScore * 100);
+                    var confidencePct = Math.Min(Math.Round(Model.LatestAssessment.ConfidenceScore * 100, 1), 99.9);
+                    var confidenceDisplay = confidencePct.ToString("0.0");
 
                     @if (Model.LatestAssessment.HasMlPrediction)
                     {
                         <div class="relative" style="width: 150px; height: 150px;">
                             <canvas id="assessmentDonutChart" width="150" height="150"></canvas>
                             <div class="absolute inset-0 flex flex-col items-center justify-center">
-                                <span class="text-2xl font-bold text-white">@confidencePct%</span>
+                                <span class="text-2xl font-bold text-white">@confidenceDisplay%</span>
                                 <span class="text-[10px] text-gray-400">confidence</span>
                             </div>
                         </div>
