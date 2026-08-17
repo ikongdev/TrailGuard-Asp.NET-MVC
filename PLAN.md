@@ -1,22 +1,22 @@
-# Active Plan — Assessment Report
+# Active Plan — Registration Form
 
-The last participant-side page. Like the others, most of what turned up is behaviour rather than styling — this page still presents the legacy rule-based scoring alongside the ML result, and the two contradict each other on screen.
+The last participant-side page. Same pattern as the assessment report: it still shows the legacy rule-based score breakdown, and the sidebar is carrying information that belongs on the page the participant just came from.
 
-Read `DESIGN.md` first for colour tokens, radius, and the modal pattern.
+Read `DESIGN.md` first for colour tokens, radius, and input patterns.
 
 ---
 
-## The Contradiction
+## What's Wrong
 
-A real screenshot from the current page:
+**The rule-based scoring is back.** The sidebar shows "Score: 31 / 44" and four category bars — the same display just removed from the assessment report, for the same reason: it can contradict the ML result sitting directly above it.
 
-- Header: **Good-Match** (from the ML model)
-- Summary sidebar: **Score 31, Required 32 — ❌ Below requirement** (from rule-based scoring)
-- Recommendations: *"Your score of 31 meets the requirement of 32"* — which isn't even internally consistent
+**The sidebar is doing too much.** Four cards: assessment result, category scores, trail demands, event details. The participant arrived here from the assessment report, where they already saw all of this in more detail. Repeating it pushes the actual task — filling in the form — into a narrow column.
 
-Two scoring systems reaching opposite conclusions, presented side by side as though they agree. A panel would notice this immediately, and a participant would just be confused.
+**The layout is lopsided.** The left column ends at the medical clearance field while the right column keeps going, leaving a large empty gap. Removing two sidebar cards makes that worse unless the layout changes with it.
 
-The ML result is the one the system acts on. The rule-based scoring survives only as a fallback when the Python service is unreachable — it shouldn't be the page's headline.
+**Trail Demands bars have no scale.** "Distance 7 km" with a bar filled to roughly 40% — 40% of what? No maximum is stated, so the bar conveys nothing.
+
+**"Step 2 of 2"** implies a wizard that doesn't exist on this page. It's presumably counting the assessment as step 1, but nothing says so.
 
 ---
 
@@ -24,98 +24,85 @@ The ML result is the one the system acts on. The rule-based scoring survives onl
 
 | Question | Decision |
 |---|---|
-| Rule-based scoring display | **Remove entirely** — the donut's 31/44, the four category bars, the threshold comparison, and the score fields in the summary sidebar. |
-| What replaces the donut | **ML confidence**, as on the dashboard and My Registrations. |
-| SHAP factors | Add a **numerical value** alongside Helped / Reduced. |
-| Risk Flags | **Remove.** It's rule-based and can contradict SHAP — the current screenshot flags "Low Cardio" when cardio isn't among the top SHAP factors at all. Anything that actually matters already surfaces there. |
-| Recommendations | **Derive from negative SHAP factors** instead of score thresholds. |
-| Other Events for You | Use the same corrected logic as the dashboard. |
-
-### Showing SHAP numerically
-
-Raw SHAP values (`-1.836`, `+1.690`) mean nothing to a participant. Convert each factor to its **share of the total absolute impact** across the displayed factors, and show that as a percentage:
-
-> Recency of last hike — Helped · 32%
-
-That reads as "this accounts for 32% of why you got this result", which is what someone actually wants to know. The bar width should match the same percentage so the number and the bar agree.
-
-### Deriving recommendations
-
-Take the SHAP factors with negative impact — the ones working against the result — and turn each into an action:
-
-| Feature | Recommendation |
-|---|---|
-| `exercise_frequency_score` | Increase how often you exercise each week |
-| `continuous_cardio_duration_score` | Build up how long you can sustain cardio without stopping |
-| `hiking_experience_score` | Gain experience on easier trails before attempting this one |
-| `last_hike_recency_score` | Consider a shorter warm-up hike before this event |
-| `hardest_trail_completed_score` | Work up through easier trail types first |
-| `gear_score` or any `gear_*` | Complete your gear checklist before the hike |
-| `bmi` | General fitness preparation may help |
-| Any health flag | Consult a physician before joining a hike of this difficulty |
-| Trail-side features | Not actionable by the participant — skip |
-
-Each one should say **why** it's being suggested, e.g. "this was one of the main factors working against your result", so it reads as explanation rather than generic advice.
-
-When every displayed factor is positive, say so plainly instead of padding with filler: "Nothing significant is working against your result for this event."
-
-Trail-side features (distance, elevation, terrain, duration) describe the trail, not the participant — there's no action to take, so they're excluded from recommendations even when negative.
+| Category Scores card | **Remove** — legacy rule-based, same as the report. |
+| Trail Demands card | **Remove** — the event details card already lists distance, elevation, duration, and terrain as plain values, without the meaningless bars. |
+| Assessment result card | **Keep**, showing result and confidence, plus a link to the full report. |
+| Full SHAP breakdown here | **No** — the participant just came from the report where they saw it. A link back is enough. |
+| Contact number fields | Fixed `+63` prefix, participant types the local number starting with 9. |
+| Medical clearance upload | Add a clear (×) button, matching My Registrations. |
 
 ---
 
-## Phase 1 — Controller
+## Phase 1 — Contact Number Inputs
 
-`AssessmentController.Report`:
+Three fields: `contactNumber`, `emergencyContactNumber`, and the participant's own number pulled from their profile.
 
-- Drop `TotalScore`, the four category scores, `MaxScore`, `Threshold`, and `RiskFlags` from the view model
-- Replace `ComputeRecommendations` with SHAP-derived recommendations per the table above
-- Update `GetAlternativeEvents` to match the dashboard's corrected logic: base the target on the **assessed event's difficulty** combined with the result (Good-Match → same level, Borderline → one down, otherwise Easy), fall back **downward** only, and exclude events the participant is already registered for
-- Compute each SHAP factor's percentage share of total absolute impact
+Render each as a `+63` prefix attached to the input, with the field itself holding the 10-digit local number (starting with 9). Format as `9XX XXX XXXX` while typing.
 
-`ComputeFitnessScore`, `ComputeExperienceScore`, `ComputeHealthScore`, and `ComputeGearScore` **stay** — they feed the ML request. Only the *display* of their output goes. `ComputeRiskFlags` and `GetResult` also stay: `GetResult` is still the fallback when the ML service is down.
+On submit, combine the prefix and the digits into the value posted — the controller and database expect a full number, and this shouldn't change what gets stored.
+
+Handle an existing profile number that already includes `+63` or a leading `0`: strip it when populating the field, so the prefix isn't doubled.
 
 ---
 
-## Phase 2 — View
+## Phase 2 — Sidebar
 
-Remove:
-- The score donut and its 31/44 label
-- The Category Scores card
-- The Risk Flags card
-- Score, threshold, and category rows in the Result Summary sidebar
-- The score-vs-threshold progress bar and its "Below requirement" line
+Remove the Category Scores and Trail Demands cards entirely.
 
-Replace the donut with a **confidence donut**, matching the dashboard: capped at 99.9%, one decimal, coloured by result.
+The assessment result card becomes:
 
-The Result Summary sidebar becomes: result, confidence, event, trail, difficulty, date.
+- Result label, in the shared result colours
+- Confidence, capped at 99.9%, one decimal — only when there's an ML prediction
+- A link: "View full assessment report →"
 
-In "Why This Result?", add the percentage next to Helped / Reduced and size each bar to match.
+When there's no `SuitabilityResult` (the ML service was down and the rule-based fallback produced the result), show the label without confidence. Don't leave an empty space where the percentage would be.
 
-Keep Trail Demands, the acknowledgement flow, and the action buttons as they are.
+Keep the Event & Trail Details card as it is — it's the one piece of context genuinely useful while filling in the form.
 
-Apply `DESIGN.md` throughout — accent instead of orange and purple, `rounded-xl`, capsule buttons, shared badge colours.
+---
+
+## Phase 3 — Layout
+
+With two cards gone, the sidebar is short and the form column is long. Widen the form and narrow the sidebar so the two end closer together.
+
+Also:
+- Remove "Step 2 of 2" — there's no wizard on this page
+- Add the clear (×) button to the medical clearance file input, matching the pattern in `Views/Registration/MyRegistrations.cshtml`
+
+---
+
+## Phase 4 — Styling
+
+Apply `DESIGN.md`:
+
+- Orange and purple → accent
+- Cards → `rounded-xl`
+- Inputs → the documented pattern: `bg-surface-card border-gray-700 rounded-xl focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none`
+- Submit button → capsule, brand gradient, `hover:brightness-110 hover:scale-[1.02]`
+- Cancel and Retake → capsule, secondary treatment
+- Replace any hardcoded surface hex with the theme tokens
 
 Run `npm run build` afterwards.
 
 ---
 
-## Phase 3 — Testing
+## Phase 5 — Testing
 
-1. A Good-Match result shows a confidence donut, no 31/44, and no category bars anywhere on the page
-2. SHAP factors show a percentage that matches their bar width, and the percentages across displayed factors sum to roughly 100%
-3. Recommendations name real negative factors from this participant's own SHAP breakdown, and don't mention scores or thresholds
-4. An assessment where every displayed factor is positive shows the "nothing working against you" message rather than filler advice
-5. An assessment made while the ML service was down (no `SuitabilityResult`) still renders — result label, no donut, no SHAP panel, no crash
-6. Good-Match on a Moderate event lists Moderate alternatives, never Difficult
-7. Already-registered events don't appear in alternatives
-8. The acknowledgement checkbox still gates the Proceed button
+1. Typing a contact number produces a correctly formatted `+63 9XX XXX XXXX`, and the submitted value matches what the controller expects
+2. A profile number already stored with `+63` or a leading `0` populates the field without doubling the prefix
+3. Selecting a medical clearance file shows the × button; clicking it clears the input and hides the button again
+4. No score, category bars, or trail demand bars appear anywhere on the page
+5. The assessment result card shows confidence for an ML-backed assessment, and just the label when there's none
+6. "View full assessment report" opens the correct report
+7. A Not Recommended registration still shows both required documents and blocks submission when either is missing
+8. Submitting a complete form still creates the registration with status `Pending`
 
-Test 5 matters most — the fallback path is easy to break when removing the rule-based display, since that's exactly the path where rule-based scoring is still what produced the result.
+Test 7 matters — the document requirements were built in an earlier pass and shouldn't regress while the layout around them changes.
 
 ---
 
 ## Out of Scope
 
-- Removing the rule-based scoring functions themselves — they're the ML fallback
 - The Feedback page
 - Organizer and Admin pages
+- `AssessmentResultViewModel` itself — the report now uses its own model, and this page can keep using the shared one as long as the score fields simply aren't displayed

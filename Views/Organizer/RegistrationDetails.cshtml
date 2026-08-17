@@ -73,13 +73,13 @@
                 </div>
                 <div>
                     <p class="text-white font-semibold text-base">@Model.ParticipantName</p>
-                    <p class="text-gray-400 text-sm">@Model.User?.Email</p>
+                    <p class="text-gray-400 text-sm">@(!string.IsNullOrEmpty(Model.Email) ? Model.Email : Model.User?.Email)</p>
                 </div>
             </div>
             <div class="space-y-3 text-sm">
                 <div>
                     <p class="text-gray-500 text-[10px] uppercase tracking-wider">Contact Number</p>
-                    <p class="text-white font-medium">@Model.User?.PhoneNumber</p>
+                    <p class="text-white font-medium">@(!string.IsNullOrEmpty(Model.ContactNumber) ? Model.ContactNumber : (Model.User?.PhoneNumber ?? "N/A"))</p>
                 </div>
                 <div>
                     <p class="text-gray-500 text-[10px] uppercase tracking-wider">Pickup Point</p>
