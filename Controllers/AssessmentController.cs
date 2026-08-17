@@ -230,12 +230,12 @@ namespace TrailGuard.Controllers
         [HttpGet]
         public async Task<IActionResult> Report(int assessmentId)
         {
-            
+
             var assessment = await _context.Assessments
                 .Include(a => a.Event)
                 .ThenInclude(e => e!.Trail)
                 .FirstOrDefaultAsync(a => a.Id == assessmentId && a.IsActive == true);
-            
+
             if (assessment == null)
             {
                 TempData["Error"] = "Assessment not found or has been replaced.";
@@ -246,31 +246,6 @@ namespace TrailGuard.Controllers
             var trail = eventItem?.Trail;
 
             var difficulty = eventItem?.Difficulty ?? "Moderate";
-            var threshold = difficulty switch
-            {
-                "Technical" => 40,
-                "Difficult" => 36,
-                "Moderate" => 32,
-                "Easy" => 28,
-                _ => 32
-            };
-
-            var recommendations = ComputeRecommendations(
-                assessment.Result ?? "",
-                assessment.CardioEndurance,
-                assessment.ExerciseFrequency,
-                assessment.MountainsClimbed,
-                trail?.Terrain ?? "",
-                eventItem?.EstimatedDuration ?? 0,
-                assessment.TotalScore ?? 0,
-                threshold
-            );
-
-            var alternativeEvents = await GetAlternativeEvents(
-                eventItem?.Id ?? 0,
-                eventItem?.Difficulty ?? "",
-                assessment.Result ?? ""
-            );
 
             var suitabilityResult = await _context.SuitabilityResults
                 .Include(s => s.ShapValues)
@@ -279,53 +254,43 @@ namespace TrailGuard.Controllers
             var shapFactors = new List<ShapDisplayItem>();
             if (suitabilityResult != null && suitabilityResult.ShapValues.Any())
             {
-                var maxAbsImpact = suitabilityResult.ShapValues.Max(s => Math.Abs(s.ImpactValue));
-                if (maxAbsImpact == 0) maxAbsImpact = 1;
-
-                shapFactors = suitabilityResult.ShapValues
+                var topShapValues = suitabilityResult.ShapValues
                     .OrderByDescending(s => Math.Abs(s.ImpactValue))
                     .Take(6)
+                    .ToList();
+
+                var totalAbsImpact = topShapValues.Sum(s => Math.Abs(s.ImpactValue));
+                if (totalAbsImpact == 0) totalAbsImpact = 1;
+
+                shapFactors = topShapValues
                     .Select(s => new ShapDisplayItem
                     {
                         FeatureName = s.FeatureName,
                         FriendlyName = GetFriendlyFeatureName(s.FeatureName),
                         RawValue = s.RawValue ?? "",
                         Impact = s.ImpactValue,
-                        BarWidth = Math.Round(Math.Abs(s.ImpactValue) / maxAbsImpact * 100, 1)
+                        BarWidth = Math.Round(Math.Abs(s.ImpactValue) / totalAbsImpact * 100, 1)
                     })
                     .ToList();
             }
 
-            var viewModel = new AssessmentResultViewModel
+            var recommendations = ComputeRecommendations(assessment.Result ?? "", shapFactors, suitabilityResult != null);
+
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var alternativeEvents = await GetAlternativeEvents(
+                eventItem?.Id ?? 0,
+                difficulty,
+                assessment.Result ?? "",
+                userId
+            );
+
+            var viewModel = new AssessmentReportViewModel
             {
                 AssessmentId = assessment.Id,
                 EventId = assessment.EventId,
                 EventTitle = eventItem?.EventTitle ?? "Event Not Found",
                 EventDifficulty = difficulty,
                 Result = assessment.Result ?? "Not Recommended",
-                TotalScore = assessment.TotalScore ?? 0,
-                MaxScore = 44,
-                Threshold = threshold,
-                FitnessScore = assessment.FitnessScore ?? 0,
-                FitnessMax = 12,
-                ExperienceScore = assessment.ExperienceScore ?? 0,
-                ExperienceMax = 12,
-                HealthScore = assessment.HealthScore ?? 0,
-                HealthMax = 12,
-                GearScore = assessment.GearScore ?? 0,
-                GearMax = 8,
-                RiskFlags = ComputeRiskFlags(
-                    assessment.CardioEndurance,
-                    assessment.ExerciseFrequency,
-                    assessment.HeightCm,
-                    assessment.WeightKg,
-                    assessment.Age,
-                    assessment.TrailDifficultyCompleted,
-                    assessment.MedicalConditions,
-                    assessment.GearItems,
-                    trail?.Terrain ?? "",
-                    eventItem?.EstimatedDuration ?? 0
-                ),
                 Recommendations = recommendations,
                 AlternativeEvents = alternativeEvents,
                 Answers = new Dictionary<string, string>
@@ -733,70 +698,67 @@ namespace TrailGuard.Controllers
             _ => featureName
         };
 
-        private List<string> ComputeRecommendations(
-            string result,
-            string? cardioEndurance,
-            string? exerciseFrequency,
-            string? mountainsClimbed,
-            string terrain,
-            double estimatedDuration,
-            int totalScore,
-            int threshold)
+        private static readonly HashSet<string> TrailSideFeatures = new HashSet<string>
+        {
+            "trail_distance_km", "trail_elevation_gain_m", "trail_terrain_type", "trail_estimated_duration_hr"
+        };
+
+        private static readonly HashSet<string> HealthFlagFeatures = new HashSet<string>
+        {
+            "has_asthma", "has_hypertension_heart_condition", "has_joint_knee_injury", "has_vertigo"
+        };
+
+        private string? GetRecommendationForFeature(string featureName)
+        {
+            if (TrailSideFeatures.Contains(featureName)) return null;
+            if (HealthFlagFeatures.Contains(featureName)) return "Consult a physician before joining a hike of this difficulty";
+            if (featureName.StartsWith("gear_", StringComparison.OrdinalIgnoreCase)) return "Complete your gear checklist before the hike";
+
+            return featureName switch
+            {
+                "exercise_frequency_score" => "Increase how often you exercise each week",
+                "continuous_cardio_duration_score" => "Build up how long you can sustain cardio without stopping",
+                "hiking_experience_score" => "Gain experience on easier trails before attempting this one",
+                "last_hike_recency_score" => "Consider a shorter warm-up hike before this event",
+                "hardest_trail_completed_score" => "Work up through easier trail types first",
+                "bmi" => "General fitness preparation may help",
+                _ => null
+            };
+        }
+
+        private List<string> ComputeRecommendations(string result, List<ShapDisplayItem> shapFactors, bool hasMlPrediction)
         {
             var recommendations = new List<string>();
 
-            if (result == "Good-Match")
+            if (!hasMlPrediction)
             {
-                recommendations.Add("Great! You are well-prepared for this event.");
-                recommendations.Add($"Your score of {totalScore} meets the requirement of {threshold}.");
-                recommendations.Add("Continue your current fitness routine.");
-                recommendations.Add("Stay hydrated and enjoy the hike!");
+                recommendations.Add("Personalized recommendations aren't available for this result.");
+                return recommendations;
             }
-            else if (result == "Borderline")
+
+            var negativeAdvice = shapFactors
+                .Where(f => !f.IsPositive)
+                .Select(f => GetRecommendationForFeature(f.FeatureName))
+                .Where(advice => advice != null)
+                .Select(advice => $"{advice} — this was one of the main factors working against your result.")
+                .Distinct()
+                .ToList();
+
+            if (negativeAdvice.Any())
             {
-                var gap = threshold - totalScore;
-                recommendations.Add($"Your score of {totalScore} is {gap} points below the required {threshold}.");
-                recommendations.Add("Increase cardio training to 3-4x per week.");
-                recommendations.Add("Practice hiking with a weighted pack.");
-                recommendations.Add("Consider trying an easier trail first.");
-                
-                if (cardioEndurance == "Less than 15 minutes" || cardioEndurance == "15 to 30 minutes")
-                {
-                    recommendations.Add("Build your cardio endurance by running or cycling.");
-                }
-                
-                if (terrain == "Difficult" || terrain == "Technical")
-                {
-                    recommendations.Add("Familiarize yourself with steep terrain before the event.");
-                }
+                recommendations.AddRange(negativeAdvice!);
             }
             else
             {
-                var gap = threshold - totalScore;
-                recommendations.Add($"Your score of {totalScore} is {gap} points below the required {threshold}.");
-                recommendations.Add("Start with easier trails first.");
-                recommendations.Add("Build your fitness gradually.");
-                recommendations.Add("Consider joining a beginner-friendly event.");
-                
-                if (mountainsClimbed == "This will be my first time / First-timer")
-                {
-                    recommendations.Add("Try a shorter, easier trail for your first hike.");
-                }
-                
-                if (estimatedDuration > 6)
-                {
-                    recommendations.Add("Start with shorter hikes before attempting long-duration events.");
-                }
+                recommendations.Add("Nothing significant is working against your result for this event.");
             }
 
             return recommendations;
         }
 
-        private async Task<List<Event>> GetAlternativeEvents(int eventId, string currentDifficulty, string result)
+        private async Task<List<Event>> GetAlternativeEvents(int eventId, string currentDifficulty, string result, string? userId)
         {
-            var alternativeEvents = new List<Event>();
-
-            var difficultyLevels = new List<string> { "Easy", "Moderate", "Difficult", "Technical" };
+            var difficultyLevels = new List<string> { "Easy", "Moderate", "Difficult" };
             var currentIndex = difficultyLevels.IndexOf(currentDifficulty);
 
             if (currentIndex < 0)
@@ -804,33 +766,38 @@ namespace TrailGuard.Controllers
                 currentIndex = 1;
             }
 
-            int targetIndex;
-            if (result == "Good-Match")
+            var targetIndex = result switch
             {
-                targetIndex = currentIndex;
-            }
-            else if (result == "Borderline")
+                "Good-Match" => currentIndex,
+                "Borderline" => Math.Max(0, currentIndex - 1),
+                _ => 0
+            };
+
+            var registeredEventIds = string.IsNullOrEmpty(userId)
+                ? new List<int>()
+                : await _context.EventRegistrations
+                    .Where(r => r.UserId == userId && r.Status != "Cancelled" && r.Status != "Rejected")
+                    .Select(r => r.EventId)
+                    .ToListAsync();
+
+            for (var i = targetIndex; i >= 0; i--)
             {
-                targetIndex = Math.Max(0, currentIndex - 1);
-            }
-            else // Not Recommended
-            {
-                targetIndex = Math.Max(0, currentIndex - 2);
+                var events = await _context.Events
+                    .Include(e => e.Trail)
+                    .Where(e =>
+                        e.Id != eventId &&
+                        e.Status == "Upcoming" &&
+                        e.Difficulty == difficultyLevels[i] &&
+                        e.EventDate >= DateTime.Today &&
+                        !registeredEventIds.Contains(e.Id))
+                    .OrderBy(e => e.EventDate)
+                    .Take(5)
+                    .ToListAsync();
+
+                if (events.Any()) return events;
             }
 
-            var targetDifficulty = difficultyLevels[targetIndex];
-
-            alternativeEvents = await _context.Events
-                .Include(e => e.Trail)
-                .Where(e => 
-                    e.Id != eventId && 
-                    e.Status == "Upcoming" &&
-                    e.Difficulty == targetDifficulty &&
-                    e.EventDate >= DateTime.Today)
-                .Take(5)
-                .ToListAsync();
-
-            return alternativeEvents;
+            return new List<Event>();
         }
     }
 }
