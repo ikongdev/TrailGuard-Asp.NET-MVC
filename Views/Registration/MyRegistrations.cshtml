@@ -316,6 +316,8 @@
                             <p class="text-gray-500 text-[10px] uppercase tracking-wider mb-2">Your Registration</p>
                             <div class="grid grid-cols-2 gap-y-2 text-sm">
                                 <span class="text-gray-400">Name</span><span class="text-white text-right">${reg.participantName || 'N/A'}</span>
+                                <span class="text-gray-400">Contact Number</span><span class="text-white text-right">${reg.contactNumber || 'Not provided'}</span>
+                                <span class="text-gray-400">Email</span><span class="text-white text-right">${reg.email || 'Not provided'}</span>
                                 <span class="text-gray-400">Pickup Point</span><span class="text-white text-right">${reg.pickupPoint || 'N/A'}</span>
                                 <span class="text-gray-400">Payment</span><span class="text-white text-right">${reg.isPaid ? 'Paid' : 'Unpaid'}</span>
                                 <span class="text-gray-400">Registered</span><span class="text-white text-right">${reg.registeredAt || 'N/A'}</span>

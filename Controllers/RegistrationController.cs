@@ -34,7 +34,6 @@ namespace TrailGuard.Controllers
 
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
-            // ✅ I-check kung may ACTIVE registration
             var activeRegistration = await _context.EventRegistrations
                 .FirstOrDefaultAsync(r => r.EventId == eventId && r.UserId == userId && RegistrationStatusHelper.ActiveStatuses.Contains(r.Status));
 
@@ -44,7 +43,6 @@ namespace TrailGuard.Controllers
                 return RedirectToAction("Details", "Participant", new { id = eventId });
             }
 
-            // ✅ I-check kung may ACTIVE assessment
             var assessment = await _context.Assessments
                 .FirstOrDefaultAsync(a => a.Id == assessmentId && a.EventId == eventId && a.UserId == userId && a.IsActive == true);
 
@@ -55,6 +53,9 @@ namespace TrailGuard.Controllers
             }
 
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+
+            var suitabilityResult = await _context.SuitabilityResults
+                .FirstOrDefaultAsync(s => s.AssessmentId == assessmentId);
 
             var viewModel = new AssessmentResultViewModel
             {
@@ -75,7 +76,9 @@ namespace TrailGuard.Controllers
                 GearMax = 8,
                 RiskFlags = new List<string>(),
                 Recommendations = new List<string>(),
-                AlternativeEvents = new List<Event>()
+                AlternativeEvents = new List<Event>(),
+                HasMlPrediction = suitabilityResult != null,
+                ConfidenceScore = suitabilityResult?.ConfidenceScore ?? 0
             };
 
             ViewBag.Event = eventItem;
@@ -114,7 +117,6 @@ namespace TrailGuard.Controllers
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
 
-            // ✅ I-validate na active ang assessment
             var assessment = await _context.Assessments
                 .FirstOrDefaultAsync(a => a.Id == assessmentId && a.EventId == eventId && a.UserId == userId && a.IsActive == true);
 
@@ -195,6 +197,8 @@ namespace TrailGuard.Controllers
                 EventId = eventId,
                 UserId = userId ?? "",
                 ParticipantName = participantName,
+                ContactNumber = contactNumber,
+                Email = email,
                 PickupPoint = pickupPoint,
                 Status = "Pending",
                 AssessmentId = assessmentId,
@@ -360,6 +364,8 @@ namespace TrailGuard.Controllers
                     trailElevation = registration.Event?.Trail?.ElevationGainMeters,
                     trailTerrain = registration.Event?.Trail?.Terrain,
                     participantName = registration.ParticipantName,
+                    contactNumber = registration.ContactNumber,
+                    email = registration.Email,
                     pickupPoint = registration.PickupPoint,
                     isPaid = registration.IsPaid,
                     paymentReceiptUrl = registration.PaymentReceiptUrl,

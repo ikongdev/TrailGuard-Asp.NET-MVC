@@ -5,12 +5,16 @@
     var assessment = ViewBag.Assessment as TrailGuard.Models.Assessment;
     var user = ViewBag.User as TrailGuard.Models.ApplicationUser;
     var resultViewModel = ViewBag.ResultViewModel as TrailGuard.Models.AssessmentResultViewModel;
-    
+
     var isGoodMatch = resultViewModel?.Result == "Good-Match";
     var isBorderline = resultViewModel?.Result == "Borderline";
     var isNotRecommended = resultViewModel?.Result == "Not Recommended";
-    var resultColor = isGoodMatch ? "text-green-400" : isBorderline ? "text-yellow-400" : "text-red-400";
-    var resultBg = isGoodMatch ? "bg-green-500/20 border-green-500/50" : isBorderline ? "bg-yellow-500/20 border-yellow-500/50" : "bg-red-500/20 border-red-500/50";
+    var resultColor = isGoodMatch ? "text-emerald-400" : isBorderline ? "text-amber-400" : "text-red-400";
+    var resultBg = isGoodMatch ? "bg-emerald-500/20 border-emerald-500/50" : isBorderline ? "bg-amber-500/20 border-amber-500/50" : "bg-red-500/20 border-red-500/50";
+    var resultIcon = isGoodMatch ? "fa-check-circle" : isBorderline ? "fa-triangle-exclamation" : "fa-xmark-circle";
+
+    var hasMlPrediction = resultViewModel?.HasMlPrediction == true;
+    var confidenceDisplay = Math.Min(Math.Round((resultViewModel?.ConfidenceScore ?? 0) * 100, 1), 99.9).ToString("0.0");
 
     var requiresClearance = ViewBag.RequiresMedicalClearance == true;
     var requiresPlan = ViewBag.RequiresPreparationPlan == true;
@@ -20,38 +24,52 @@
         : "Required because you indicated a pre-existing medical condition.";
 
     var trail = eventItem?.Trail;
+
+    string ExtractLocalDigits(string? phone)
+    {
+        if (string.IsNullOrWhiteSpace(phone)) return "";
+        var digits = new string(phone.Where(char.IsDigit).ToArray());
+        if (digits.StartsWith("63") && digits.Length >= 12) digits = digits.Substring(digits.Length - 10);
+        else if (digits.StartsWith("0") && digits.Length == 11) digits = digits.Substring(1);
+        else if (digits.Length > 10) digits = digits.Substring(digits.Length - 10);
+        return digits;
+    }
+
+    string GroupLocalDigits(string digits)
+    {
+        if (digits.Length > 6) return $"{digits.Substring(0, 3)} {digits.Substring(3, 3)} {digits.Substring(6)}";
+        if (digits.Length > 3) return $"{digits.Substring(0, 3)} {digits.Substring(3)}";
+        return digits;
+    }
+
+    var contactNumberLocal = GroupLocalDigits(ExtractLocalDigits(user?.PhoneNumber));
 }
 
 <div class="pt-24 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
-    
+
     <div class="mb-6">
         <a asp-controller="Participant" asp-action="Events" class="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors group">
             <i class="fa-solid fa-arrow-left group-hover:-translate-x-1 transition-transform"></i>
             Back to Events
         </a>
     </div>
-    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 mb-8">
+    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-6 mb-8">
         <div class="flex flex-col md:flex-row items-center gap-4">
-            <div class="w-16 h-16 rounded-full bg-linear-to-r from-orange-500 to-purple-500 flex items-center justify-center shrink-0">
+            <div class="w-16 h-16 rounded-full bg-accent flex items-center justify-center shrink-0">
                 <i class="fa-regular fa-clipboard text-white text-2xl"></i>
             </div>
             <div class="text-center md:text-left flex-1">
                 <h1 class="text-2xl font-bold text-white">Complete Your Registration</h1>
                 <p class="text-gray-400 text-sm">Please review your assessment result and provide the required information.</p>
             </div>
-            <div class="flex items-center gap-3 bg-white/5 px-4 py-2 rounded-full">
-                <span class="text-xs text-gray-400">Step</span>
-                <span class="text-sm font-bold text-white">2</span>
-                <span class="text-xs text-gray-400">of 2</span>
-            </div>
         </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
-        <div class="lg:col-span-3">
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 h-full">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div class="lg:col-span-2">
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-6 h-full">
                 <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                    <i class="fa-solid fa-user text-orange-400"></i>
+                    <i class="fa-solid fa-user text-accent"></i>
                     Registration Form
                 </h2>
 
@@ -61,36 +79,39 @@
                     <div class="flex-1 space-y-4">
                         <div class="space-y-3">
                             <h3 class="text-sm font-semibold text-gray-300 border-b border-white/10 pb-2">
-                                <i class="fa-regular fa-user text-orange-400 mr-2"></i>Personal Information
+                                <i class="fa-regular fa-user text-accent mr-2"></i>Personal Information
                             </h3>
                             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                 <div>
                                     <label class="block text-xs font-medium text-gray-400 mb-1">First Name <span class="text-red-400">*</span></label>
                                     <input type="text" name="firstName" value="@(user?.FirstName ?? "")" required
-                                           class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-xl px-4 py-2.5 focus:border-orange-500 focus:outline-none transition-colors text-sm" />
+                                           class="w-full bg-surface-card border border-gray-700 text-white rounded-xl px-4 py-2.5 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors text-sm" />
                                 </div>
                                 <div>
                                     <label class="block text-xs font-medium text-gray-400 mb-1">Middle Name <span class="text-gray-500 text-[10px]">(Optional)</span></label>
-                                    <input type="text" name="middleName" value="@(user?.MiddleName ?? "")" 
-                                           class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-xl px-4 py-2.5 focus:border-orange-500 focus:outline-none transition-colors text-sm" />
+                                    <input type="text" name="middleName" value="@(user?.MiddleName ?? "")"
+                                           class="w-full bg-surface-card border border-gray-700 text-white rounded-xl px-4 py-2.5 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors text-sm" />
                                 </div>
                                 <div>
                                     <label class="block text-xs font-medium text-gray-400 mb-1">Last Name <span class="text-red-400">*</span></label>
                                     <input type="text" name="lastName" value="@(user?.LastName ?? "")" required
-                                           class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-xl px-4 py-2.5 focus:border-orange-500 focus:outline-none transition-colors text-sm" />
+                                           class="w-full bg-surface-card border border-gray-700 text-white rounded-xl px-4 py-2.5 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors text-sm" />
                                 </div>
                             </div>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
                                     <label class="block text-xs font-medium text-gray-400 mb-1">Email Address <span class="text-red-400">*</span></label>
                                     <input type="email" name="email" value="@(user?.Email ?? "")" required
-                                           class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-xl px-4 py-2.5 focus:border-orange-500 focus:outline-none transition-colors text-sm" />
+                                           class="w-full bg-surface-card border border-gray-700 text-white rounded-xl px-4 py-2.5 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors text-sm" />
                                 </div>
                                 <div>
                                     <label class="block text-xs font-medium text-gray-400 mb-1">Contact Number <span class="text-red-400">*</span></label>
-                                    <input type="text" name="contactNumber" value="@(user?.PhoneNumber ?? "")" required
-                                           class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-xl px-4 py-2.5 focus:border-orange-500 focus:outline-none transition-colors text-sm"
-                                           placeholder="+63 912 345 6789" />
+                                    <div class="relative">
+                                        <span class="absolute inset-y-0 left-0 flex items-center pl-4 pr-3 text-gray-400 text-sm border-r border-gray-700 pointer-events-none">+63</span>
+                                        <input type="text" name="contactNumber" id="contactNumber" value="@contactNumberLocal" required
+                                               inputmode="numeric" maxlength="12" placeholder="912 345 6789"
+                                               class="w-full bg-surface-card border border-gray-700 text-white rounded-xl pl-16 pr-4 py-2.5 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors text-sm" />
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -98,20 +119,23 @@
                         <!-- Emergency Contact -->
                         <div class="space-y-3">
                             <h3 class="text-sm font-semibold text-gray-300 border-b border-white/10 pb-2">
-                                <i class="fa-solid fa-phone text-orange-400 mr-2"></i>Emergency Contact
+                                <i class="fa-solid fa-phone text-accent mr-2"></i>Emergency Contact
                             </h3>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
                                     <label class="block text-xs font-medium text-gray-400 mb-1">Contact Name <span class="text-red-400">*</span></label>
-                                    <input type="text" name="emergencyContactName" required 
-                                           class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-xl px-4 py-2.5 focus:border-orange-500 focus:outline-none transition-colors text-sm"
+                                    <input type="text" name="emergencyContactName" required
+                                           class="w-full bg-surface-card border border-gray-700 text-white rounded-xl px-4 py-2.5 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors text-sm"
                                            placeholder="Full name" />
                                 </div>
                                 <div>
                                     <label class="block text-xs font-medium text-gray-400 mb-1">Contact Number <span class="text-red-400">*</span></label>
-                                    <input type="text" name="emergencyContactNumber" required 
-                                           class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-xl px-4 py-2.5 focus:border-orange-500 focus:outline-none transition-colors text-sm"
-                                           placeholder="+63 912 345 6789" />
+                                    <div class="relative">
+                                        <span class="absolute inset-y-0 left-0 flex items-center pl-4 pr-3 text-gray-400 text-sm border-r border-gray-700 pointer-events-none">+63</span>
+                                        <input type="text" name="emergencyContactNumber" id="emergencyContactNumber" required
+                                               inputmode="numeric" maxlength="12" placeholder="912 345 6789"
+                                               class="w-full bg-surface-card border border-gray-700 text-white rounded-xl pl-16 pr-4 py-2.5 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors text-sm" />
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -119,11 +143,11 @@
                         <!-- Pickup Point -->
                         <div class="space-y-3">
                             <h3 class="text-sm font-semibold text-gray-300 border-b border-white/10 pb-2">
-                                <i class="fa-solid fa-bus text-orange-400 mr-2"></i>Pickup Point
+                                <i class="fa-solid fa-bus text-accent mr-2"></i>Pickup Point
                             </h3>
                             <div>
                                 <label class="block text-xs font-medium text-gray-400 mb-1">Select Pickup Point <span class="text-red-400">*</span></label>
-                                <select name="pickupPoint" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-xl px-4 py-2.5 focus:border-orange-500 focus:outline-none transition-colors text-sm">
+                                <select name="pickupPoint" required class="w-full bg-surface-card border border-gray-700 text-white rounded-xl px-4 py-2.5 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors text-sm">
                                     <option value="">Select a pickup point...</option>
                                     @if (!string.IsNullOrEmpty(eventItem?.PickupPoints))
                                     {
@@ -143,7 +167,7 @@
                         <!-- Required Documents -->
                         <div class="space-y-3 flex-1 flex flex-col">
                             <h3 class="text-sm font-semibold text-gray-300 border-b border-white/10 pb-2 shrink-0">
-                                <i class="fa-solid fa-file-medical text-orange-400 mr-2"></i>Required Documents
+                                <i class="fa-solid fa-file-medical text-accent mr-2"></i>Required Documents
                             </h3>
                             <div class="flex-1 flex flex-col gap-4">
                                 @if (!string.IsNullOrEmpty(eventItem?.PaymentDetails))
@@ -165,16 +189,24 @@
                                             <span class="text-gray-500 text-[10px]">(Optional)</span>
                                         }
                                     </label>
-                                    @if (requiresClearance)
-                                    {
-                                        <input type="file" name="medicalClearance" accept="image/*,.pdf" required
-                                            class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-xl px-4 py-2.5 text-sm focus:border-orange-500 focus:outline-none transition-colors file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-orange-500/20 file:text-white file:text-xs file:cursor-pointer hover:file:bg-orange-500/30" />
-                                    }
-                                    else
-                                    {
-                                        <input type="file" name="medicalClearance" accept="image/*,.pdf"
-                                            class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-xl px-4 py-2.5 text-sm focus:border-orange-500 focus:outline-none transition-colors file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-orange-500/20 file:text-white file:text-xs file:cursor-pointer hover:file:bg-orange-500/30" />
-                                    }
+                                    <div class="relative">
+                                        @if (requiresClearance)
+                                        {
+                                            <input type="file" name="medicalClearance" id="medicalClearance" accept="image/*,.pdf" required
+                                                onchange="toggleClearMedicalClearance()"
+                                                class="w-full bg-surface-card border border-gray-700 text-white rounded-xl pl-4 pr-10 py-2.5 text-sm focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-accent/20 file:text-white file:text-xs file:cursor-pointer hover:file:bg-accent/30" />
+                                        }
+                                        else
+                                        {
+                                            <input type="file" name="medicalClearance" id="medicalClearance" accept="image/*,.pdf"
+                                                onchange="toggleClearMedicalClearance()"
+                                                class="w-full bg-surface-card border border-gray-700 text-white rounded-xl pl-4 pr-10 py-2.5 text-sm focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-accent/20 file:text-white file:text-xs file:cursor-pointer hover:file:bg-accent/30" />
+                                        }
+                                        <button type="button" id="clearMedicalClearanceBtn" onclick="clearMedicalClearanceInput()"
+                                                class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors">
+                                            <i class="fa-solid fa-xmark text-sm"></i>
+                                        </button>
+                                    </div>
                                     <p class="text-gray-500 text-[10px] mt-1">JPG, PNG, or PDF accepted.</p>
                                     @if (requiresClearance)
                                     {
@@ -191,7 +223,7 @@
                                             Preparation Plan <span class="text-red-400">* Required</span>
                                         </label>
                                         <textarea name="preparationPlan" required rows="4"
-                                            class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-xl px-4 py-2.5 text-sm focus:border-orange-500 focus:outline-none transition-colors resize-none"
+                                            class="w-full bg-surface-card border border-gray-700 text-white rounded-xl px-4 py-2.5 text-sm focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors resize-none"
                                             placeholder="Describe how you plan to prepare before this event (e.g. training schedule, gear you'll acquire, precautions you'll take)..."></textarea>
                                         <p class="text-amber-400/80 text-[10px] mt-1">
                                             <i class="fa-solid fa-circle-info mr-1"></i>Required because your assessment result is Not Recommended.
@@ -206,137 +238,48 @@
         </div>
 
         <!-- ============================================================ -->
-        <!-- RIGHT COLUMN: SUMMARY (2/5) - FLEX COLUMN PARA PUMUNO        -->
+        <!-- RIGHT COLUMN: SUMMARY                                        -->
         <!-- ============================================================ -->
-        <div class="lg:col-span-2 flex flex-col gap-4 justify-between">
-            
+        <div class="flex flex-col gap-4 justify-between">
+
             <!-- Assessment Result -->
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4">
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-4">
                 <h3 class="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                    <i class="fa-solid fa-clipboard-check text-orange-400"></i>
+                    <i class="fa-solid fa-clipboard-check text-accent"></i>
                     Assessment Result
                 </h3>
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-full @resultBg flex items-center justify-center shrink-0">
-                        <i class="fa-solid @(isGoodMatch ? "fa-check-circle" : "fa-triangle-exclamation") text-lg @resultColor"></i>
+                        <i class="fa-solid @resultIcon text-lg @resultColor"></i>
                     </div>
                     <div>
                         <p class="font-bold @resultColor text-sm">@resultViewModel?.Result</p>
-                        <p class="text-gray-400 text-[10px]">Score: @resultViewModel?.TotalScore / @resultViewModel?.MaxScore</p>
+                        @if (hasMlPrediction)
+                        {
+                            <p class="text-accent text-[10px] font-semibold">@confidenceDisplay% confidence</p>
+                        }
                     </div>
                 </div>
-            </div>
-
-            <!-- Category Scores -->
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4">
-                <h3 class="text-sm font-semibold text-white mb-2 flex items-center gap-2">
-                    <i class="fa-solid fa-chart-bar text-orange-400"></i>
-                    Category Scores
-                </h3>
-                <div class="space-y-1.5">
-                    <div>
-                        <div class="flex justify-between text-[10px]">
-                            <span class="text-gray-400">Fitness</span>
-                            <span class="text-white">@resultViewModel?.FitnessScore / @resultViewModel?.FitnessMax</span>
-                        </div>
-                        <div class="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                            <div class="h-full rounded-full bg-blue-500" style="width: @((resultViewModel?.FitnessScore ?? 0) * 100 / (resultViewModel?.FitnessMax ?? 1))%"></div>
-                        </div>
-                    </div>
-                    <div>
-                        <div class="flex justify-between text-[10px]">
-                            <span class="text-gray-400">Experience</span>
-                            <span class="text-white">@resultViewModel?.ExperienceScore / @resultViewModel?.ExperienceMax</span>
-                        </div>
-                        <div class="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                            <div class="h-full rounded-full bg-green-500" style="width: @((resultViewModel?.ExperienceScore ?? 0) * 100 / (resultViewModel?.ExperienceMax ?? 1))%"></div>
-                        </div>
-                    </div>
-                    <div>
-                        <div class="flex justify-between text-[10px]">
-                            <span class="text-gray-400">Health</span>
-                            <span class="text-white">@resultViewModel?.HealthScore / @resultViewModel?.HealthMax</span>
-                        </div>
-                        <div class="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                            <div class="h-full rounded-full bg-purple-500" style="width: @((resultViewModel?.HealthScore ?? 0) * 100 / (resultViewModel?.HealthMax ?? 1))%"></div>
-                        </div>
-                    </div>
-                    <div>
-                        <div class="flex justify-between text-[10px]">
-                            <span class="text-gray-400">Gear</span>
-                            <span class="text-white">@resultViewModel?.GearScore / @resultViewModel?.GearMax</span>
-                        </div>
-                        <div class="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                            <div class="h-full rounded-full bg-orange-500" style="width: @((resultViewModel?.GearScore ?? 0) * 100 / (resultViewModel?.GearMax ?? 1))%"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Trail Demands -->
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4">
-                <h3 class="text-sm font-semibold text-white mb-2 flex items-center gap-2">
-                    <i class="fa-solid fa-mountain text-orange-400"></i>
-                    Trail Demands
-                </h3>
-                <div class="space-y-1.5">
-                    <div>
-                        <div class="flex justify-between text-[10px]">
-                            <span class="text-gray-400">Distance</span>
-                            <span class="text-white">@(trail?.DistanceKm ?? 0) km</span>
-                        </div>
-                        <div class="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                            <div class="h-full rounded-full @((trail?.DistanceKm ?? 0) >= 15 ? "bg-red-500" : (trail?.DistanceKm ?? 0) >= 10 ? "bg-yellow-500" : "bg-green-500")" 
-                                 style="width: @(Math.Min(((trail?.DistanceKm ?? 0) / 20) * 100, 100))%"></div>
-                        </div>
-                    </div>
-                    <div>
-                        <div class="flex justify-between text-[10px]">
-                            <span class="text-gray-400">Elevation</span>
-                            <span class="text-white">@(trail?.ElevationGainMeters ?? 0) m</span>
-                        </div>
-                        <div class="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                            <div class="h-full rounded-full @((trail?.ElevationGainMeters ?? 0) >= 1000 ? "bg-red-500" : (trail?.ElevationGainMeters ?? 0) >= 600 ? "bg-yellow-500" : "bg-green-500")" 
-                                 style="width: @(Math.Min(((trail?.ElevationGainMeters ?? 0) / 1500) * 100, 100))%"></div>
-                        </div>
-                    </div>
-                    <div>
-                        <div class="flex justify-between text-[10px]">
-                            <span class="text-gray-400">Duration</span>
-                            <span class="text-white">@(eventItem?.EstimatedDuration ?? 0) hrs</span>
-                        </div>
-                        <div class="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                            <div class="h-full rounded-full @((eventItem?.EstimatedDuration ?? 0) >= 8 ? "bg-red-500" : (eventItem?.EstimatedDuration ?? 0) >= 6 ? "bg-yellow-500" : "bg-green-500")" 
-                                 style="width: @(Math.Min(((eventItem?.EstimatedDuration ?? 0) / 10) * 100, 100))%"></div>
-                        </div>
-                    </div>
-                    <div>
-                        <div class="flex justify-between text-[10px]">
-                            <span class="text-gray-400">Terrain</span>
-                            <span class="text-white">@(trail?.Terrain ?? "N/A")</span>
-                        </div>
-                        <div class="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                            <div class="h-full rounded-full @(trail?.Terrain == "Technical" ? "bg-red-500" : trail?.Terrain == "Difficult" ? "bg-yellow-500" : "bg-green-500")" 
-                                 style="width: @(trail?.Terrain == "Technical" ? 100 : trail?.Terrain == "Difficult" ? 75 : trail?.Terrain == "Moderate" ? 50 : 25)%"></div>
-                        </div>
-                    </div>
-                </div>
+                <a asp-controller="Assessment" asp-action="Report" asp-route-assessmentId="@(assessment?.Id)"
+                   class="mt-3 inline-flex items-center gap-1 text-accent text-xs font-medium hover:brightness-125 transition-all">
+                    View full assessment report <i class="fa-solid fa-arrow-right"></i>
+                </a>
             </div>
 
             <!-- Event & Trail Details -->
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4">
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-4">
                 <h3 class="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                    <i class="fa-regular fa-calendar text-orange-400"></i>
+                    <i class="fa-regular fa-calendar text-accent"></i>
                     Event & Trail Details
                 </h3>
-                
-                <div class="bg-[#111A2E]/50 rounded-xl p-3">
+
+                <div class="bg-surface-card/50 rounded-xl p-3">
                     <p class="text-white font-semibold text-sm">@eventItem?.EventTitle</p>
                     <p class="text-gray-400 text-xs flex items-center gap-1">
-                        <i class="fa-solid fa-mountain text-[10px] text-orange-400"></i>
+                        <i class="fa-solid fa-mountain text-[10px] text-accent"></i>
                         @trail?.Name
                     </p>
-                    
+
                     <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 mt-3 pt-3 border-t border-white/5">
                         <div>
                             <p class="text-gray-500 text-[10px] uppercase tracking-wider">Date</p>
@@ -374,16 +317,16 @@
                 </div>
             </div>
 
-            <div class="bg-linear-to-r from-orange-500/10 to-purple-500/10 border border-white/10 rounded-2xl p-4 space-y-2">
-                <button type="submit" form="registrationForm" class="w-full px-6 py-3 rounded-xl text-white font-bold bg-linear-to-r from-orange-500 to-purple-600 hover:opacity-90 hover:scale-105 transition-all text-center">
+            <div class="bg-accent/10 border border-white/10 rounded-xl p-4 space-y-2">
+                <button type="submit" form="registrationForm" class="w-full flex justify-center py-3.5 px-4 rounded-full text-sm font-semibold text-white bg-linear-to-r from-orange-500 via-pink-500 to-violet-500 hover:brightness-110 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-base transition duration-200 ease-out">
                     <i class="fa-regular fa-paper-plane mr-2"></i> Submit Registration
                 </button>
-                <a asp-controller="Participant" asp-action="Events" 
-                   class="w-full px-6 py-2.5 rounded-xl text-gray-300 font-medium bg-gray-800 hover:bg-gray-700 transition-colors text-center block text-sm">
+                <a asp-controller="Participant" asp-action="Events"
+                   class="w-full px-6 py-2.5 rounded-full text-sm font-medium text-slate-400 border border-white/20 hover:text-white hover:border-white/40 transition-colors text-center block">
                     Cancel
                 </a>
                 <a asp-controller="Assessment" asp-action="Form" asp-route-eventId="@Model?.EventId"
-                   class="w-full px-6 py-2.5 rounded-xl text-gray-400 font-medium hover:text-white transition-colors text-center block text-sm border border-white/5">
+                   class="w-full px-6 py-2.5 rounded-full text-sm font-medium text-slate-400 border border-white/20 hover:text-white hover:border-white/40 transition-colors text-center block">
                     <i class="fa-solid fa-rotate mr-2"></i> Retake Assessment
                 </a>
             </div>
@@ -397,3 +340,48 @@
     .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
     .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
 </style>
+
+<script>
+    function formatLocalDigits(raw) {
+        var digits = raw.replace(/\D/g, '').slice(0, 10);
+        if (digits.length > 6) return digits.slice(0, 3) + ' ' + digits.slice(3, 6) + ' ' + digits.slice(6);
+        if (digits.length > 3) return digits.slice(0, 3) + ' ' + digits.slice(3);
+        return digits;
+    }
+
+    function toggleClearMedicalClearance() {
+        var input = document.getElementById('medicalClearance');
+        var clearBtn = document.getElementById('clearMedicalClearanceBtn');
+        if (!input || !clearBtn) return;
+        clearBtn.classList.toggle('hidden', !(input.files && input.files.length > 0));
+    }
+
+    function clearMedicalClearanceInput() {
+        var input = document.getElementById('medicalClearance');
+        if (input) input.value = '';
+        document.getElementById('clearMedicalClearanceBtn')?.classList.add('hidden');
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        ['contactNumber', 'emergencyContactNumber'].forEach(function(id) {
+            var input = document.getElementById(id);
+            if (!input) return;
+            input.value = formatLocalDigits(input.value);
+            input.addEventListener('input', function() {
+                this.value = formatLocalDigits(this.value);
+            });
+        });
+
+        var form = document.getElementById('registrationForm');
+        if (form) {
+            form.addEventListener('submit', function() {
+                ['contactNumber', 'emergencyContactNumber'].forEach(function(id) {
+                    var input = document.getElementById(id);
+                    if (input && input.value) {
+                        input.value = '+63 ' + input.value;
+                    }
+                });
+            });
+        }
+    });
+</script>

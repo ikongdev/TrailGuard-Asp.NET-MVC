@@ -23,6 +23,9 @@ namespace TrailGuard.Models
         [Required]
         public string ParticipantName { get; set; } = string.Empty;
 
+        public string? ContactNumber { get; set; }
+        public string? Email { get; set; }
+
         public string? PickupPoint { get; set; }
 
         public string? PaymentReference { get; set; }
