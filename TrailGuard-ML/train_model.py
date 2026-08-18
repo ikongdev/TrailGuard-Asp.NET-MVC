@@ -1,84 +1,67 @@
-import pandas as pd
-import numpy as np
+"""TrailGuard - model training (v2). Monotonic constraints enforced."""
+
+import pandas as pd, numpy as np, joblib, xgboost as xgb
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import accuracy_score, precision_recall_fscore_support, confusion_matrix, classification_report
-import xgboost as xgb
-import joblib
+from sklearn.metrics import (accuracy_score, precision_recall_fscore_support,
+                             classification_report, confusion_matrix)
+from generate_synthetic_dataset import FEATURE_COLUMNS
 
-df = pd.read_csv("trailguard_synthetic_dataset.csv")
+# Safety monotonicity. Classes are encoded alphabetically by LabelEncoder:
+#   0 = Borderline, 1 = Good Match, 2 = Not Recommended
+# so the constraint sign is expressed against the "Good Match" logit.
+#  +1 : more of this feature must never worsen the outcome
+#  -1 : more of this feature must never improve the outcome
+#   0 : unconstrained (BMI is non-monotonic - both extremes are penalised)
+MONOTONE = {
+    "bmi": 0,
+    "exercise_frequency_score": 1,
+    "continuous_cardio_duration_score": 1,
+    "exercise_consistency_score": 1,
+    "hiking_experience_score": 1,
+    "last_hike_recency_score": 1,
+    "hardest_trail_completed_score": 1,
+    "gear_score": 1,
+    "has_asthma": -1,
+    "has_cvd": -1,
+    "has_joint_knee_injury": -1,
+    "has_cvd_symptoms": -1,
+    "trail_shenandoah_score": -1,
+    "trail_terrain_type": -1,
+}
 
-feature_columns = [
-    "age", "height_cm", "weight_kg", "bmi",
-    "has_asthma", "has_hypertension_heart_condition", "has_joint_knee_injury", "has_vertigo",
-    "exercise_frequency_score", "exercise_type_category", "continuous_cardio_duration_score",
-    "hiking_experience_score", "last_hike_recency_score", "hardest_trail_completed_score",
-    "gear_water", "gear_trail_food", "gear_first_aid_medicine", "gear_flashlight_headlamp",
-    "gear_whistle", "gear_raincoat_poncho", "gear_navigation", "gear_proper_shoes", "gear_score",
-    "trail_distance_km", "trail_elevation_gain_m", "trail_terrain_type", "trail_estimated_duration_hr",
-]
-
-X = df[feature_columns]
-y_raw = df["suitability_label"]
-
-label_encoder = LabelEncoder()
-y = label_encoder.fit_transform(y_raw)
-
-print("Label mapping:")
-for i, label in enumerate(label_encoder.classes_):
-    print(f"  {i} -> {label}")
+df = pd.read_csv("trailguard_synthetic_dataset_v2.csv")
+X, y_raw = df[FEATURE_COLUMNS], df["suitability_label"]
+le = LabelEncoder(); y = le.fit_transform(y_raw)
 
 X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42, stratify=y
-)
-
-print(f"\nTraining set: {len(X_train)} rows")
-print(f"Test set: {len(X_test)} rows")
+    X, y, test_size=0.2, random_state=42, stratify=y)
 
 model = xgb.XGBClassifier(
-    n_estimators=200,
-    max_depth=4,
-    learning_rate=0.1,
-    objective="multi:softprob",
-    num_class=3,
-    eval_metric="mlogloss",
+    objective="multi:softprob", num_class=3, eval_metric="mlogloss",
+    n_estimators=400, max_depth=5, learning_rate=0.08,
+    min_child_weight=3, subsample=0.9, colsample_bytree=0.9,
+    monotone_constraints="(" + ",".join(str(MONOTONE[c]) for c in FEATURE_COLUMNS) + ")",
     random_state=42,
 )
-
 model.fit(X_train, y_train)
 
-y_pred = model.predict(X_test)
+pred = model.predict(X_test)
+acc = accuracy_score(y_test, pred)
+pr, rc, f1, _ = precision_recall_fscore_support(y_test, pred, average="weighted")
 
-accuracy = accuracy_score(y_test, y_pred)
-precision, recall, f1, support = precision_recall_fscore_support(y_test, y_pred, average="weighted")
+print("=" * 52); print("TEST SET RESULTS (v2)"); print("=" * 52)
+print(f"Accuracy: {acc:.4f}  Precision: {pr:.4f}  Recall: {rc:.4f}  F1: {f1:.4f}\n")
+print(classification_report(y_test, pred, target_names=le.classes_))
+print("Confusion matrix (rows = actual):")
+print(pd.DataFrame(confusion_matrix(y_test, pred),
+                   index=le.classes_, columns=le.classes_))
 
-print("\n" + "=" * 50)
-print("EVALUATION RESULTS")
-print("=" * 50)
-print(f"Accuracy:  {accuracy:.4f}")
-print(f"Precision: {precision:.4f}")
-print(f"Recall:    {recall:.4f}")
-print(f"F1 Score:  {f1:.4f}")
+# Safety-critical error: someone the rules call Not Recommended, predicted Good Match
+nr, gm = list(le.classes_).index("Not Recommended"), list(le.classes_).index("Good Match")
+print(f"\nCritical false-positives (Not Recommended -> Good Match): "
+      f"{int(((y_test == nr) & (pred == gm)).sum())} of {len(y_test)}")
 
-print("\nPer-Class Report:")
-print(classification_report(y_test, y_pred, target_names=label_encoder.classes_))
-
-print("Confusion Matrix:")
-print("Rows = actual, Columns = predicted")
-cm = confusion_matrix(y_test, y_pred)
-cm_df = pd.DataFrame(cm, index=label_encoder.classes_, columns=label_encoder.classes_)
-print(cm_df)
-
-feature_importance = pd.DataFrame({
-    "feature": feature_columns,
-    "importance": model.feature_importances_,
-}).sort_values("importance", ascending=False)
-
-print("\nTop 10 Most Important Features:")
-print(feature_importance.head(10).to_string(index=False))
-
-model.save_model("trailguard_xgboost_model.json")
-joblib.dump(label_encoder, "label_encoder.pkl")
-
-print("\nModel saved as trailguard_xgboost_model.json")
-print("Label encoder saved as label_encoder.pkl")
+model.save_model("trailguard_xgboost_model_v2.json")
+joblib.dump(le, "label_encoder_v2.pkl")
+print("\nSaved trailguard_xgboost_model_v2.json")
