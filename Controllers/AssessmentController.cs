@@ -19,20 +19,41 @@ namespace TrailGuard.Controllers
             _suitabilityApi = suitabilityApi;
         }
 
-        [HttpGet]
-        public async Task<IActionResult> Form(int eventId)
+        // Loads the event and sets ViewBag.Event / ViewBag.RetakeMode the same way
+        // for the GET form and every POST validation-failure redisplay, so the two
+        // paths can't drift apart. Returns null if the event doesn't exist.
+        private async Task<Event?> PopulateAssessmentFormViewBagAsync(int eventId, string? userId)
         {
             var eventItem = await _context.Events
                 .Include(e => e.Trail)
                 .FirstOrDefaultAsync(e => e.Id == eventId);
-            
+
+            if (eventItem == null)
+            {
+                return null;
+            }
+
+            var isRetake = await _context.Assessments
+                .AnyAsync(a => a.EventId == eventId && a.UserId == userId && a.IsActive == true);
+
+            ViewBag.Event = eventItem;
+            ViewBag.RetakeMode = isRetake;
+
+            return eventItem;
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Form(int eventId)
+        {
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+            var eventItem = await PopulateAssessmentFormViewBagAsync(eventId, userId);
+
             if (eventItem == null)
             {
                 TempData["Error"] = "Event not found";
                 return RedirectToAction("Events", "Participant");
             }
-
-            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
             TempData.Remove("Error");
 
@@ -50,17 +71,10 @@ namespace TrailGuard.Controllers
 
             if (existingAssessment != null)
             {
-
                 existingAssessment.IsActive = false;
                 await _context.SaveChangesAsync();
-
-                ViewBag.Event = eventItem;
-                ViewBag.RetakeMode = true;
-                return View();
             }
 
-            ViewBag.Event = eventItem;
-            ViewBag.RetakeMode = false;
             return View();
         }
 
@@ -81,10 +95,12 @@ namespace TrailGuard.Controllers
             string[]? gearItems,
             bool consentGiven)
         {
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
             var eventItem = await _context.Events
                 .Include(e => e.Trail)
                 .FirstOrDefaultAsync(e => e.Id == eventId);
-            
+
             if (eventItem == null)
             {
                 TempData["Error"] = "Event not found";
@@ -94,11 +110,23 @@ namespace TrailGuard.Controllers
             if (!consentGiven)
             {
                 TempData["Error"] = "You must give consent to proceed.";
-                ViewBag.Event = eventItem;
+                await PopulateAssessmentFormViewBagAsync(eventId, userId);
                 return View();
             }
 
-            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrWhiteSpace(medicalConditions))
+            {
+                TempData["Error"] = "Please answer the medical conditions question.";
+                await PopulateAssessmentFormViewBagAsync(eventId, userId);
+                return View();
+            }
+
+            if (gearItems == null || gearItems.Length == 0)
+            {
+                TempData["Error"] = "Please select at least one gear item, or \"None of the above\".";
+                await PopulateAssessmentFormViewBagAsync(eventId, userId);
+                return View();
+            }
 
             if (!string.IsNullOrEmpty(medicalConditions))
             {
@@ -171,7 +199,6 @@ namespace TrailGuard.Controllers
                 EventId = eventId,
                 UserId = userId ?? "",
                 Age = age,
-                Gender = gender,
                 HeightCm = heightCm,
                 WeightKg = weightKg,
                 MedicalConditions = medicalConditions,
@@ -296,7 +323,6 @@ namespace TrailGuard.Controllers
                 Answers = new Dictionary<string, string>
                 {
                     { "Age", assessment.Age?.ToString() ?? "N/A" },
-                    { "Gender", assessment.Gender ?? "N/A" },
                     { "Height/Weight", $"{assessment.HeightCm?.ToString() ?? "N/A"}cm / {assessment.WeightKg?.ToString() ?? "N/A"}kg" },
                     { "Medical Conditions", assessment.MedicalConditions ?? "None" },
                     { "Exercise Frequency", assessment.ExerciseFrequency ?? "N/A" },
