@@ -22,15 +22,16 @@ namespace TrailGuard.Models
 
         // SECTION 1: Personal and Physical Profile
         public int? Age { get; set; }
-        public string? Gender { get; set; }
         public double? HeightCm { get; set; }
         public double? WeightKg { get; set; }
         public string? MedicalConditions { get; set; }
+        public bool MedicalClearanceRequired { get; set; } = false;
 
         // SECTION 2: Fitness & Endurance
         public string? ExerciseFrequency { get; set; }
         public string? ExerciseType { get; set; }
         public string? CardioEndurance { get; set; }
+        public string? ExerciseConsistency { get; set; }
 
         // SECTION 3: Hiking Experience
         public string? MountainsClimbed { get; set; }

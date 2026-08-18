@@ -43,6 +43,16 @@
             </div>
         </div>
 
+        @if (TempData["Error"] != null)
+        {
+            <div class="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-6">
+                <p class="text-red-300 text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span>@TempData["Error"]</span>
+                </p>
+            </div>
+        }
+
         @if (isRetake)
         {
             <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mb-6">
@@ -102,25 +112,7 @@
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">2. What is your Gender? <span class="text-red-400">*</span></label>
-                            <div class="flex flex-wrap gap-2">
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
-                                    <input type="radio" name="gender" value="Male" required class="w-4 h-4 accent-accent" />
-                                    <span class="text-gray-300 text-sm">Male</span>
-                                </label>
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
-                                    <input type="radio" name="gender" value="Female" class="w-4 h-4 accent-accent" />
-                                    <span class="text-gray-300 text-sm">Female</span>
-                                </label>
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
-                                    <input type="radio" name="gender" value="Prefer not to answer" class="w-4 h-4 accent-accent" />
-                                    <span class="text-gray-300 text-sm">Prefer not to answer</span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">3. What is your current height and weight? <span class="text-red-400">*</span></label>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">2. What is your current height and weight? <span class="text-red-400">*</span></label>
                             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <div>
                                     <input type="number" name="heightCm" id="heightCm" required step="0.1" min="120" max="220"
@@ -143,7 +135,7 @@
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">4. Do you have any of the following medical conditions? <span class="text-red-400">*</span></label>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">3. Do you have any of the following medical conditions? <span class="text-red-400">*</span></label>
                             <div class="flex flex-wrap gap-2 bg-surface-card border border-gray-700 rounded-xl p-4">
                                 <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
                                     <input type="checkbox" name="medicalConditions" value="Asthma / lung-related condition" class="medCondition w-4 h-4 accent-accent" />
@@ -160,6 +152,14 @@
                                 <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
                                     <input type="checkbox" name="medicalConditions" value="Vertigo / frequent dizziness" class="medCondition w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">Vertigo / Dizziness</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="checkbox" name="medicalConditions" value="Chest pain or discomfort during activity" class="medCondition w-4 h-4 accent-accent" />
+                                    <span class="text-gray-300 text-sm">Chest pain</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="checkbox" name="medicalConditions" value="Shortness of breath at rest or with mild exertion" class="medCondition w-4 h-4 accent-accent" />
+                                    <span class="text-gray-300 text-sm">Shortness of breath</span>
                                 </label>
                                 <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
                                     <input type="checkbox" name="medicalConditions" id="medNone" value="None of the above" class="w-4 h-4 accent-accent" />
@@ -181,7 +181,7 @@
 
                     <div class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">5. In the past 3 months, how often did you exercise or do physical activities in a typical week? <span class="text-red-400">*</span></label>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">4. In the past 3 months, how often did you exercise or do physical activities in a typical week? <span class="text-red-400">*</span></label>
                             <div class="flex flex-wrap gap-2">
                                 <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
                                     <input type="radio" name="exerciseFrequency" value="I do not exercise / Sedentary" required class="w-4 h-4 accent-accent" />
@@ -203,7 +203,7 @@
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">6. What is the main type of exercise you usually do? <span class="text-red-400">*</span></label>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">5. What is the main type of exercise you usually do? <span class="text-red-400">*</span></label>
                             <div class="flex flex-wrap gap-2">
                                 <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
                                     <input type="radio" name="exerciseType" value="None / No specific exercise" required class="w-4 h-4 accent-accent" />
@@ -225,23 +225,41 @@
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">7. If you were to run or walk briskly on a flat road, how long can you do it continuously without stopping to rest? <span class="text-red-400">*</span></label>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">6. If you were to run or walk briskly on a flat road, how long can you do it continuously without stopping to rest? <span class="text-red-400">*</span></label>
                             <div class="flex flex-wrap gap-2">
                                 <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
                                     <input type="radio" name="cardioEndurance" value="Less than 15 minutes" required class="w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">&lt;15 min</span>
                                 </label>
                                 <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
-                                    <input type="radio" name="cardioEndurance" value="15 to 30 minutes" class="w-4 h-4 accent-accent" />
-                                    <span class="text-gray-300 text-sm">15-30 min</span>
+                                    <input type="radio" name="cardioEndurance" value="15 to 29 minutes" class="w-4 h-4 accent-accent" />
+                                    <span class="text-gray-300 text-sm">15-29 min</span>
                                 </label>
                                 <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
-                                    <input type="radio" name="cardioEndurance" value="31 to 60 minutes" class="w-4 h-4 accent-accent" />
-                                    <span class="text-gray-300 text-sm">31-60 min</span>
+                                    <input type="radio" name="cardioEndurance" value="30 to 60 minutes" class="w-4 h-4 accent-accent" />
+                                    <span class="text-gray-300 text-sm">30-60 min</span>
                                 </label>
                                 <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
                                     <input type="radio" name="cardioEndurance" value="More than 60 minutes" class="w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">&gt;60 min</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">7. How long have you been exercising at this frequency? <span class="text-red-400">*</span></label>
+                            <div class="flex flex-wrap gap-2">
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="radio" name="exerciseConsistency" value="Less than 1 month" required class="w-4 h-4 accent-accent" />
+                                    <span class="text-gray-300 text-sm">Less than 1 month</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="radio" name="exerciseConsistency" value="1 to 2 months" class="w-4 h-4 accent-accent" />
+                                    <span class="text-gray-300 text-sm">1 to 2 months</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                    <input type="radio" name="exerciseConsistency" value="3 months or more" class="w-4 h-4 accent-accent" />
+                                    <span class="text-gray-300 text-sm">3 months or more</span>
                                 </label>
                             </div>
                         </div>
@@ -335,36 +353,40 @@
                         <label class="block text-sm font-medium text-gray-300 mb-2">11. Which of the following items will you definitely bring or have already packed for this hike? <span class="text-red-400">*</span></label>
                         <div class="flex flex-wrap gap-2 bg-surface-card border border-gray-700 rounded-xl p-4">
                             <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
-                                <input type="checkbox" name="gearItems" value="Enough water" class="w-4 h-4 accent-accent" />
+                                <input type="checkbox" name="gearItems" value="Enough water" class="gearItem w-4 h-4 accent-accent" />
                                 <span class="text-gray-300 text-sm">Water</span>
                             </label>
                             <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
-                                <input type="checkbox" name="gearItems" value="Trail food" class="w-4 h-4 accent-accent" />
+                                <input type="checkbox" name="gearItems" value="Trail food" class="gearItem w-4 h-4 accent-accent" />
                                 <span class="text-gray-300 text-sm">Trail food</span>
                             </label>
                             <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
-                                <input type="checkbox" name="gearItems" value="First aid kit" class="w-4 h-4 accent-accent" />
+                                <input type="checkbox" name="gearItems" value="First aid kit" class="gearItem w-4 h-4 accent-accent" />
                                 <span class="text-gray-300 text-sm">First aid kit</span>
                             </label>
                             <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
-                                <input type="checkbox" name="gearItems" value="Flashlight" class="w-4 h-4 accent-accent" />
+                                <input type="checkbox" name="gearItems" value="Flashlight" class="gearItem w-4 h-4 accent-accent" />
                                 <span class="text-gray-300 text-sm">Flashlight</span>
                             </label>
                             <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
-                                <input type="checkbox" name="gearItems" value="Whistle" class="w-4 h-4 accent-accent" />
+                                <input type="checkbox" name="gearItems" value="Whistle" class="gearItem w-4 h-4 accent-accent" />
                                 <span class="text-gray-300 text-sm">Whistle</span>
                             </label>
                             <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
-                                <input type="checkbox" name="gearItems" value="Raincoat" class="w-4 h-4 accent-accent" />
+                                <input type="checkbox" name="gearItems" value="Raincoat" class="gearItem w-4 h-4 accent-accent" />
                                 <span class="text-gray-300 text-sm">Raincoat</span>
                             </label>
                             <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
-                                <input type="checkbox" name="gearItems" value="Navigation tool" class="w-4 h-4 accent-accent" />
+                                <input type="checkbox" name="gearItems" value="Navigation tool" class="gearItem w-4 h-4 accent-accent" />
                                 <span class="text-gray-300 text-sm">Navigation</span>
                             </label>
                             <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
-                                <input type="checkbox" name="gearItems" value="Proper hiking shoes" class="w-4 h-4 accent-accent" />
+                                <input type="checkbox" name="gearItems" value="Proper hiking shoes" class="gearItem w-4 h-4 accent-accent" />
                                 <span class="text-gray-300 text-sm">Hiking shoes</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
+                                <input type="checkbox" name="gearItems" id="gearNone" value="None of the above" class="w-4 h-4 accent-accent" />
+                                <span class="text-gray-300 text-sm">None of the above</span>
                             </label>
                         </div>
                         <p class="text-gray-500 text-xs mt-1">Select all items you will bring.</p>
@@ -595,14 +617,6 @@
 
         requiredInputs.forEach(function(input) {
             if (input.type === 'hidden') return;
-            
-            var isVisible = true;
-            var parent = input.closest('.step-content');
-            if (parent && parent.classList.contains('hidden')) {
-                isVisible = false;
-            }
-            
-            if (!isVisible) return;
 
             if (input.type === 'radio') {
                 var radioGroup = document.querySelectorAll('input[name="' + input.name + '"]');
@@ -626,29 +640,7 @@
                 return;
             }
 
-            if (input.type === 'checkbox' && input.name === 'medicalConditions') {
-                var checkboxGroup = document.querySelectorAll('input[name="medicalConditions"]');
-                var isChecked = false;
-                checkboxGroup.forEach(function(cb) {
-                    if (cb.checked) isChecked = true;
-                });
-                if (!isChecked) {
-                    isValid = false;
-                    if (!firstInvalid) firstInvalid = input;
-                    var container = input.closest('.flex-wrap');
-                    if (container) {
-                        container.classList.add('border-red-500/50');
-                        container.classList.add('bg-red-500/5');
-                        setTimeout(function() {
-                            container.classList.remove('border-red-500/50');
-                            container.classList.remove('bg-red-500/5');
-                        }, 3000);
-                    }
-                }
-                return;
-            }
-
-            if (input.type === 'checkbox' && input.name !== 'medicalConditions') {
+            if (input.type === 'checkbox') {
                 return;
             }
 
@@ -668,10 +660,8 @@
             { id: 'weightKg', label: 'Weight' }
         ];
         rangeFields.forEach(function(field) {
-            var input = document.getElementById(field.id);
+            var input = stepElement.querySelector('#' + field.id);
             if (!input) return;
-            var parent = input.closest('.step-content');
-            if (parent && parent.classList.contains('hidden')) return;
             if (input.value === '' || input.value === null) return;
 
             var numValue = parseFloat(input.value);
@@ -686,6 +676,31 @@
                 }, 3000);
                 if (!rangeErrorMessage) {
                     rangeErrorMessage = field.label + ' must be between ' + input.min + ' and ' + input.max + '.';
+                }
+            }
+        });
+
+        var checkboxGroups = ['medicalConditions', 'gearItems'];
+        checkboxGroups.forEach(function(groupName) {
+            var groupCheckboxes = stepElement.querySelectorAll('input[name="' + groupName + '"]');
+            if (groupCheckboxes.length === 0) return;
+
+            var isChecked = false;
+            groupCheckboxes.forEach(function(cb) {
+                if (cb.checked) isChecked = true;
+            });
+
+            if (!isChecked) {
+                isValid = false;
+                if (!firstInvalid) firstInvalid = groupCheckboxes[0];
+                var container = groupCheckboxes[0].closest('.flex-wrap');
+                if (container) {
+                    container.classList.add('border-red-500/50');
+                    container.classList.add('bg-red-500/5');
+                    setTimeout(function() {
+                        container.classList.remove('border-red-500/50');
+                        container.classList.remove('bg-red-500/5');
+                    }, 3000);
                 }
             }
         });
@@ -767,14 +782,14 @@
         }
     }
 
-    function setupMedicalConditions() {
-        var noneCheckbox = document.getElementById('medNone');
-        var conditionCheckboxes = document.querySelectorAll('.medCondition');
-        if (!noneCheckbox || conditionCheckboxes.length === 0) return;
+    function setupExclusiveNoneOption(noneId, itemClass) {
+        var noneCheckbox = document.getElementById(noneId);
+        var itemCheckboxes = document.querySelectorAll('.' + itemClass);
+        if (!noneCheckbox || itemCheckboxes.length === 0) return;
 
-        function syncFromConditions() {
+        function syncFromItems() {
             var anyChecked = false;
-            conditionCheckboxes.forEach(function(cb) {
+            itemCheckboxes.forEach(function(cb) {
                 if (cb.checked) anyChecked = true;
             });
             setOptionDisabled(noneCheckbox, anyChecked);
@@ -782,28 +797,28 @@
 
         function syncFromNone() {
             var disable = noneCheckbox.checked;
-            conditionCheckboxes.forEach(function(cb) {
+            itemCheckboxes.forEach(function(cb) {
                 setOptionDisabled(cb, disable);
             });
         }
 
-        conditionCheckboxes.forEach(function(cb) {
+        itemCheckboxes.forEach(function(cb) {
             cb.addEventListener('change', function() {
                 if (cb.checked) {
                     noneCheckbox.checked = false;
                 }
-                syncFromConditions();
+                syncFromItems();
             });
         });
 
         noneCheckbox.addEventListener('change', function() {
             if (noneCheckbox.checked) {
-                conditionCheckboxes.forEach(function(condCb) { condCb.checked = false; });
+                itemCheckboxes.forEach(function(itemCb) { itemCb.checked = false; });
             }
             syncFromNone();
         });
 
-        syncFromConditions();
+        syncFromItems();
         syncFromNone();
     }
 
@@ -905,10 +920,28 @@
         }
     });
 
+    document.getElementById('assessmentForm').addEventListener('submit', function(e) {
+        var firstInvalidStep = null;
+        for (var s = 1; s <= totalSteps; s++) {
+            var stepValid = validateStep(s);
+            if (!stepValid && !firstInvalidStep) {
+                firstInvalidStep = s;
+            }
+        }
+
+        if (firstInvalidStep) {
+            e.preventDefault();
+            currentStep = firstInvalidStep;
+            updateStepUI();
+            showToast('Please complete Step ' + firstInvalidStep + ' before submitting.', 'error');
+        }
+    });
+
     document.addEventListener('DOMContentLoaded', function() {
         updateStepUI();
         calculateBMI();
-        setupMedicalConditions();
+        setupExclusiveNoneOption('medNone', 'medCondition');
+        setupExclusiveNoneOption('gearNone', 'gearItem');
         setupHikingExperienceDependency();
     });
 </script>
