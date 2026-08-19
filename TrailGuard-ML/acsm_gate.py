@@ -43,7 +43,15 @@ VIGOROUS_INTENSITY_NPS_THRESHOLD = 100.0
 # ============================================================================
 
 def shenandoah_rating(distance_km, elevation_gain_m):
-    """Official NPS Shenandoah difficulty rating. Inputs metric, formula imperial."""
+    """Official NPS Shenandoah difficulty rating. Inputs metric, formula imperial.
+
+    Mirrored in C# by Services/DifficultyCalculator.cs (ComputeRating/LabelFor/
+    PaceMph). These two files must be changed together - the C# side is what
+    Views/Event and TrailController show and recompute, this side is what /predict
+    returns as nps_score/nps_band. A rating computed two different ways here and
+    there produces exactly the report-page-vs-event-page disagreement this pairing
+    exists to prevent.
+    """
     elevation_ft = elevation_gain_m * 3.28084
     distance_mi = distance_km / 1.60934
     return np.sqrt(elevation_ft * 2.0 * distance_mi)

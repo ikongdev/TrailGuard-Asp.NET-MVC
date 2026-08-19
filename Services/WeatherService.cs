@@ -6,10 +6,12 @@ namespace TrailGuard.Services
     public class WeatherService
     {
         private readonly HttpClient _httpClient;
+        private readonly ILogger<WeatherService> _logger;
 
-        public WeatherService(HttpClient httpClient)
+        public WeatherService(HttpClient httpClient, ILogger<WeatherService> logger)
         {
             _httpClient = httpClient;
+            _logger = logger;
         }
 
         public async Task<WeatherResult> GetWeatherForecastAsync(string location, DateTime eventDate)
@@ -27,6 +29,9 @@ namespace TrailGuard.Services
 
                 // Geocoding - convert location name to coordinates
                 var geoUrl = $"https://geocoding-api.open-meteo.com/v1/search?name={Uri.EscapeDataString(searchTerm)}&count=10&language=en&format=json&countryCode=PH";
+                // ASP.NET's HttpClient logging redacts query strings by default, which is
+                // why a bad request here was previously undiagnosable - log the real URL.
+                _logger.LogDebug("Weather geocoding request: {GeoUrl}", geoUrl);
                 var geoResponse = await _httpClient.GetAsync(geoUrl);
 
                 if (!geoResponse.IsSuccessStatusCode)
@@ -47,14 +52,38 @@ namespace TrailGuard.Services
                 var targetDate = eventDate.ToString("yyyy-MM-dd");
                 var forecastUrl = $"https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,weathercode,windspeed_10m_max&timezone=auto&start_date={targetDate}&end_date={targetDate}";
 
+                // ASP.NET's HttpClient logging redacts query strings by default, which is
+                // why a bad request here was previously undiagnosable - log the real URL.
+                _logger.LogDebug("Weather forecast request: {ForecastUrl}", forecastUrl);
                 var forecastResponse = await _httpClient.GetAsync(forecastUrl);
 
                 // Open-Meteo answers a date past its ~16-day horizon with 400 Bad Request
-                // (verified: in-range dates return 200, out-of-range return 400 with an
-                // "out of allowed range" error body) — not a 200 with null values, so this
-                // has to be caught here rather than after parsing "daily".
+                // (verified: in-range dates return 200, out-of-range return 400 with a JSON
+                // body like {"reason":"Parameter 'start_date' is out of allowed range from
+                // 2026-05-18 to 2026-09-03","error":true}) — not a 200 with null values, so
+                // this has to be caught here rather than after parsing "daily". But Open-Meteo
+                // returns 400 for other malformed requests too (bad parameter names, invalid
+                // coordinates, etc.), and treating every 400 as "date out of range" silently
+                // mislabels those as a normal, expected outcome instead of a real bug - read
+                // the actual reason and only call it a date problem when it says so.
                 if (forecastResponse.StatusCode == System.Net.HttpStatusCode.BadRequest)
-                    return UnavailableResult("This date is beyond the available forecast window.", "TooFarAhead");
+                {
+                    var errorBody = await forecastResponse.Content.ReadAsStringAsync();
+                    var reason = TryGetErrorReason(errorBody) ?? errorBody;
+
+                    if (reason.Contains("out of allowed range", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _logger.LogWarning(
+                            "Weather forecast date out of range. Url={ForecastUrl} Reason={Reason}",
+                            forecastUrl, reason);
+                        return UnavailableResult("This date is beyond the available forecast window.", "TooFarAhead");
+                    }
+
+                    _logger.LogWarning(
+                        "Weather forecast request rejected (400) for a reason other than date range. Url={ForecastUrl} Reason={Reason}",
+                        forecastUrl, reason);
+                    return UnavailableResult("Weather forecast temporarily unavailable.", "ServiceDown");
+                }
 
                 if (!forecastResponse.IsSuccessStatusCode)
                     return UnavailableResult("Weather forecast temporarily unavailable.", "ServiceDown");
@@ -108,6 +137,23 @@ namespace TrailGuard.Services
         private static WeatherResult UnavailableResult(string message, string reason)
         {
             return new WeatherResult { ForecastDetails = message, UnavailableReason = reason };
+        }
+
+        // Open-Meteo's error body is {"reason": "...", "error": true}. Falls back to null
+        // (caller uses the raw body) if it isn't in that shape.
+        private static string? TryGetErrorReason(string errorBody)
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(errorBody);
+                if (doc.RootElement.TryGetProperty("reason", out var reasonElement))
+                    return reasonElement.GetString();
+            }
+            catch (JsonException)
+            {
+            }
+
+            return null;
         }
 
         // Prefers a geocoding result whose region (admin1) or province (admin2) matches the

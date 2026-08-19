@@ -96,23 +96,29 @@ namespace TrailGuard.Controllers
             {
                 success = true,
                 location = trail.Location,
-                masl = trail.ElevationGainMeters,
+                elevationGainMeters = trail.ElevationGainMeters,
                 distance = trail.DistanceKm,
-                terrain = trail.Terrain
+                terrain = trail.Terrain,
+                terrainType = trail.TerrainType,
+                terrainTypeLabel = DifficultyCalculator.TerrainTypeLabel(trail.TerrainType)
             });
         }
 
         [HttpGet]
-        public async Task<JsonResult> GetCalculatedDifficulty(int trailId, double duration)
+        public async Task<JsonResult> GetCalculatedDifficulty(int trailId)
         {
             var trail = await _context.Trails.FindAsync(trailId);
             if (trail == null)
             {
                 return Json(new { success = false });
             }
-            
-            var difficulty = DifficultyCalculator.ComputeDifficulty(trail, duration);
-            return Json(new { success = true, difficulty = difficulty });
+
+            return Json(new
+            {
+                success = true,
+                difficulty = DifficultyCalculator.ComputeDifficulty(trail),
+                suggestedDurationHours = Math.Round(DifficultyCalculator.SuggestedDurationHours(trail), 1)
+            });
         }
 
         [HttpGet]
@@ -177,12 +183,11 @@ namespace TrailGuard.Controllers
                     EventTime = model.EventTime,
                     TrailId = model.TrailId,
                     Location = trail.Location,
-                    Difficulty = DifficultyCalculator.ComputeDifficulty(trail, model.EstimatedDuration),
+                    Difficulty = DifficultyCalculator.ComputeDifficulty(trail),
                     EstimatedDuration = model.EstimatedDuration,
                     Capacity = model.Capacity,
                     OrganizedBy = organizerName,
                     Status = "Upcoming",
-                    MASL = trail.ElevationGainMeters,
                     WeatherForecastAdvisory = model.WeatherForecastAdvisory,
                     WeatherRiskLevel = model.WeatherRiskLevel,
                     WeatherReminder = model.WeatherReminder,
@@ -434,12 +439,11 @@ namespace TrailGuard.Controllers
                 existingEvent.EventTime = model.EventTime;
                 existingEvent.TrailId = model.TrailId;
                 existingEvent.Location = trail.Location;
-                existingEvent.Difficulty = DifficultyCalculator.ComputeDifficulty(trail, model.EstimatedDuration);
+                existingEvent.Difficulty = DifficultyCalculator.ComputeDifficulty(trail);
                 existingEvent.EstimatedDuration = model.EstimatedDuration;
                 existingEvent.Capacity = model.Capacity;
                 existingEvent.OrganizedBy = model.OrganizedBy;
                 existingEvent.Status = model.Status ?? existingEvent.Status;
-                existingEvent.MASL = trail.ElevationGainMeters;
                 existingEvent.WeatherForecastAdvisory = model.WeatherForecastAdvisory;
                 existingEvent.WeatherRiskLevel = model.WeatherRiskLevel ?? existingEvent.WeatherRiskLevel;
                 existingEvent.WeatherReminder = model.WeatherReminder ?? existingEvent.WeatherReminder;

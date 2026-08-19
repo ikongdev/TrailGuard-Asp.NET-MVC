@@ -76,9 +76,11 @@
             <div class="relative inline-block">
                 <select id="difficultyFilter" class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-orange-500 focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors w-full">
                     <option value="All" class="bg-[#0b1329] text-white py-2">All Difficulties</option>
-                    <option value="Easy" class="bg-[#0b1329] text-white py-2">Easy</option>
+                    <option value="Easiest" class="bg-[#0b1329] text-white py-2">Easiest</option>
                     <option value="Moderate" class="bg-[#0b1329] text-white py-2">Moderate</option>
-                    <option value="Difficult" class="bg-[#0b1329] text-white py-2">Difficult</option>
+                    <option value="Moderately Strenuous" class="bg-[#0b1329] text-white py-2">Moderately Strenuous</option>
+                    <option value="Strenuous" class="bg-[#0b1329] text-white py-2">Strenuous</option>
+                    <option value="Very Strenuous" class="bg-[#0b1329] text-white py-2">Very Strenuous</option>
                 </select>
                 <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
                     <i class="fa-solid fa-chevron-down text-xs"></i>
@@ -195,7 +197,7 @@
                                         </div>
                                         
                                         <div class="flex flex-wrap gap-2 mb-4">
-                                            <span class="text-xs px-2 py-1 bg-purple-500/20 text-purple-300 rounded-full">
+                                            <span class="text-xs px-2 py-1 rounded-full @TrailGuard.Services.DifficultyCalculator.BadgeClass(eventItem.Difficulty)">
                                                 <i class="fa-solid fa-signal"></i> @eventItem.Difficulty
                                             </span>
                                             <span class="text-xs px-2 py-1 bg-blue-500/20 text-blue-300 rounded-full">
@@ -302,19 +304,20 @@
                             <p id="previewLocation" class="text-white font-semibold">-</p>
                         </div>
                         <div class="bg-[#111A2E] rounded-lg p-3 border border-gray-700">
-                            <p class="text-gray-500 text-xs uppercase tracking-wider">Terrain Type</p>
+                            <p class="text-gray-500 text-xs uppercase tracking-wider">Terrain</p>
                             <p id="previewTerrain" class="text-white font-semibold">-</p>
                         </div>
                         <div class="bg-[#111A2E] rounded-lg p-3 border border-gray-700">
-                            <p class="text-gray-500 text-xs uppercase tracking-wider">MASL</p>
-                            <p id="previewMASL" class="text-white font-semibold">-</p>
+                            <p class="text-gray-500 text-xs uppercase tracking-wider">Terrain Type</p>
+                            <p id="previewTerrainType" class="text-white font-semibold">-</p>
                         </div>
                     </div>
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">Estimated Duration (Hours) <span class="text-red-400">*</span></label>
-                            <input type="number" step="0.5" id="eventDuration" name="EstimatedDuration" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none" placeholder="e.g., 6">
+                            <input type="number" step="any" min="0.1" id="eventDuration" name="EstimatedDuration" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none" placeholder="e.g., 6">
+                            <p class="text-xs text-gray-500 mt-1">Prefilled from the NPS pace estimate — adjust as needed.</p>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">Slots Available (Capacity) <span class="text-red-400">*</span></label>
@@ -503,19 +506,20 @@
                             <p id="editPreviewLocation" class="text-white font-semibold">-</p>
                         </div>
                         <div class="bg-[#111A2E] rounded-lg p-3 border border-gray-700">
-                            <p class="text-gray-500 text-xs uppercase tracking-wider">Terrain Type</p>
+                            <p class="text-gray-500 text-xs uppercase tracking-wider">Terrain</p>
                             <p id="editPreviewTerrain" class="text-white font-semibold">-</p>
                         </div>
                         <div class="bg-[#111A2E] rounded-lg p-3 border border-gray-700">
-                            <p class="text-gray-500 text-xs uppercase tracking-wider">MASL</p>
-                            <p id="editPreviewMASL" class="text-white font-semibold">-</p>
+                            <p class="text-gray-500 text-xs uppercase tracking-wider">Terrain Type</p>
+                            <p id="editPreviewTerrainType" class="text-white font-semibold">-</p>
                         </div>
                     </div>
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">Estimated Duration (Hours) <span class="text-red-400">*</span></label>
-                            <input type="number" step="0.5" id="editEventDuration" name="EstimatedDuration" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none" placeholder="e.g., 6">
+                            <input type="number" step="any" min="0.1" id="editEventDuration" name="EstimatedDuration" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none" placeholder="e.g., 6">
+                            <p class="text-xs text-gray-500 mt-1">Prefilled from the NPS pace estimate — adjust as needed.</p>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">Slots Available (Capacity) <span class="text-red-400">*</span></label>
@@ -976,40 +980,25 @@
             if (data.success) {
                 document.getElementById('previewDifficulty').textContent = 'Calculating...';
                 document.getElementById('previewDistance').textContent = data.distance + ' km';
-                document.getElementById('previewElevation').textContent = data.masl + ' m';
+                document.getElementById('previewElevation').textContent = data.elevationGainMeters + ' m';
                 document.getElementById('previewLocation').textContent = data.location;
                 document.getElementById('previewTerrain').textContent = data.terrain;
-                document.getElementById('previewMASL').textContent = data.masl + ' m';
-                
-                const duration = document.getElementById('eventDuration').value;
-                if (duration) {
-                    const diffResponse = await fetch(`/Event/GetCalculatedDifficulty?trailId=${trailId}&duration=${duration}`);
-                    const diffData = await diffResponse.json();
-                    if (diffData.success) {
-                        document.getElementById('previewDifficulty').textContent = diffData.difficulty;
+                document.getElementById('previewTerrainType').textContent = data.terrainTypeLabel;
+
+                const diffResponse = await fetch(`/Event/GetCalculatedDifficulty?trailId=${trailId}`);
+                const diffData = await diffResponse.json();
+                if (diffData.success) {
+                    document.getElementById('previewDifficulty').textContent = diffData.difficulty;
+                    const durationInput = document.getElementById('eventDuration');
+                    if (durationInput && !durationInput.value) {
+                        durationInput.value = diffData.suggestedDurationHours;
                     }
                 }
-                
+
                 const eventDate = document.getElementById('eventDate')?.value;
                 if (eventDate) {
                     await fetchWeatherForecast(trailId, eventDate);
                 }
-            }
-        } catch (error) {
-            console.error('Error:', error);
-        }
-    });
-
-    document.getElementById('eventDuration')?.addEventListener('change', async function() {
-        const trailId = document.getElementById('eventTrailId').value;
-        const duration = this.value;
-        if (!trailId || !duration) return;
-        
-        try {
-            const response = await fetch(`/Event/GetCalculatedDifficulty?trailId=${trailId}&duration=${duration}`);
-            const data = await response.json();
-            if (data.success) {
-                document.getElementById('previewDifficulty').textContent = data.difficulty;
             }
         } catch (error) {
             console.error('Error:', error);
@@ -1107,7 +1096,7 @@
             document.getElementById('previewElevation').textContent = '-';
             document.getElementById('previewLocation').textContent = '-';
             document.getElementById('previewTerrain').textContent = '-';
-            document.getElementById('previewMASL').textContent = '-';
+            document.getElementById('previewTerrainType').textContent = '-';
         }
     }
 
@@ -1294,40 +1283,25 @@
             if (data.success) {
                 document.getElementById('editPreviewDifficulty').textContent = 'Calculating...';
                 document.getElementById('editPreviewDistance').textContent = data.distance + ' km';
-                document.getElementById('editPreviewElevation').textContent = data.masl + ' m';
+                document.getElementById('editPreviewElevation').textContent = data.elevationGainMeters + ' m';
                 document.getElementById('editPreviewLocation').textContent = data.location;
                 document.getElementById('editPreviewTerrain').textContent = data.terrain;
-                document.getElementById('editPreviewMASL').textContent = data.masl + ' m';
-                
-                const duration = document.getElementById('editEventDuration').value;
-                if (duration) {
-                    const diffResponse = await fetch(`/Event/GetCalculatedDifficulty?trailId=${trailId}&duration=${duration}`);
-                    const diffData = await diffResponse.json();
-                    if (diffData.success) {
-                        document.getElementById('editPreviewDifficulty').textContent = diffData.difficulty;
+                document.getElementById('editPreviewTerrainType').textContent = data.terrainTypeLabel;
+
+                const diffResponse = await fetch(`/Event/GetCalculatedDifficulty?trailId=${trailId}`);
+                const diffData = await diffResponse.json();
+                if (diffData.success) {
+                    document.getElementById('editPreviewDifficulty').textContent = diffData.difficulty;
+                    const durationInput = document.getElementById('editEventDuration');
+                    if (durationInput && !durationInput.value) {
+                        durationInput.value = diffData.suggestedDurationHours;
                     }
                 }
-                
+
                 const eventDate = document.getElementById('editEventDate')?.value;
                 if (eventDate) {
                     await editFetchWeatherForecast(trailId, eventDate);
                 }
-            }
-        } catch (error) {
-            console.error('Error:', error);
-        }
-    });
-
-    document.getElementById('editEventDuration')?.addEventListener('change', async function() {
-        const trailId = document.getElementById('editEventTrailId').value;
-        const duration = this.value;
-        if (!trailId || !duration) return;
-        
-        try {
-            const response = await fetch(`/Event/GetCalculatedDifficulty?trailId=${trailId}&duration=${duration}`);
-            const data = await response.json();
-            if (data.success) {
-                document.getElementById('editPreviewDifficulty').textContent = data.difficulty;
             }
         } catch (error) {
             console.error('Error:', error);

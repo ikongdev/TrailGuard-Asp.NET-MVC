@@ -52,9 +52,6 @@ namespace TrailGuard.Models
         [Display(Name = "Status")]
         public string Status { get; set; } = "Upcoming";
 
-        [Display(Name = "MASL (Elevation)")]
-        public int MASL { get; set; }
-
         [Display(Name = "Weather Forecast Advisory")]
         public string? WeatherForecastAdvisory { get; set; }
 

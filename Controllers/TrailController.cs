@@ -5,6 +5,7 @@ using TrailGuard.Models;
 using System.IO;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
+using TrailGuard.Services;
 
 namespace TrailGuard.Controllers
 {
@@ -132,6 +133,19 @@ namespace TrailGuard.Controllers
                 existingTrail.Terrain = model.Terrain;
                 existingTrail.TerrainType = model.TerrainType;
                 existingTrail.Description = model.Description;
+
+                // Distance, elevation, or terrain may have just changed - every event
+                // still pointing at this trail was rated at the old values. Without
+                // this, an edited trail's events keep a stale Difficulty label until
+                // someone happens to re-save the event itself.
+                var affectedEvents = await _context.Events
+                    .Where(e => e.TrailId == id)
+                    .ToListAsync();
+                foreach (var affectedEvent in affectedEvents)
+                {
+                    affectedEvent.Difficulty = DifficultyCalculator.ComputeDifficulty(existingTrail);
+                    affectedEvent.DateUpdated = DateTime.Now;
+                }
 
                 if (ThumbnailImage != null && ThumbnailImage.Length > 0)
                 {

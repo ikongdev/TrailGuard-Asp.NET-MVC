@@ -24,13 +24,7 @@
         .ToList();
     var totalJoined = joinedParticipants.Count;
 
-    var difficultyBadge = Model.Difficulty switch
-    {
-        "Easy" => "badge-easy",
-        "Moderate" => "badge-moderate",
-        "Difficult" => "badge-hard",
-        _ => "text-slate-400 bg-slate-500/15"
-    };
+    var difficultyBadge = TrailGuard.Services.DifficultyCalculator.BadgeClass(Model.Difficulty);
 
     var eventStatusBadge = Model.Status switch
     {
@@ -144,8 +138,8 @@
                         <p class="text-white font-semibold text-sm">@trail?.ElevationGainMeters m</p>
                     </div>
                     <div>
-                        <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">MASL</p>
-                        <p class="text-white font-semibold text-sm">@Model.MASL m</p>
+                        <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Terrain Type</p>
+                        <p class="text-white font-semibold text-sm">@TrailGuard.Services.DifficultyCalculator.TerrainTypeLabel(trail?.TerrainType ?? 0)</p>
                     </div>
                     <div>
                         <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Duration</p>
