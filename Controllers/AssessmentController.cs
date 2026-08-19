@@ -82,7 +82,6 @@ namespace TrailGuard.Controllers
         public async Task<IActionResult> Form(
             int eventId,
             int? age,
-            string? gender,
             double? heightCm,
             double? weightKg,
             string? medicalConditions,
@@ -141,16 +140,13 @@ namespace TrailGuard.Controllers
                 gearItemsString = string.Join(",", gearItems.Select(g => g.Trim()).Where(g => !string.IsNullOrEmpty(g)));
             }
 
-            var trailDifficulty = eventItem.Difficulty ?? "Moderate";
-
             var fitnessScore = ComputeFitnessScore(exerciseFrequency, exerciseType, cardioEndurance);
             var experienceScore = ComputeExperienceScore(mountainsClimbed, recencyOfHike, trailDifficultyCompleted);
             var healthScore = ComputeHealthScore(medicalConditions, age, heightCm, weightKg);
-            var gearScore = ComputeGearScore(gearItemsString);
-            
+            var gearScore = ComputeMlGearScore(gearItemsString);
+
             var totalScore = fitnessScore + experienceScore + healthScore + gearScore;
 
-            string result;
             SuitabilityPredictionResponse? mlResponse = null;
 
             if (eventItem.Trail != null)
@@ -165,29 +161,19 @@ namespace TrailGuard.Controllers
                 mlResponse = await _suitabilityApi.PredictAsync(mlRequest);
             }
 
-            var isRuleBasedFallback = mlResponse == null;
-
-            if (mlResponse != null)
+            // No rule-based fallback: GetResult() was a v1 heuristic with its own
+            // notion of trail demand, agreeing with neither the model nor the ACSM/
+            // NPS-based ground truth in generate_synthetic_dataset.py. Producing a
+            // result from it would be a third, unvalidated answer to the same
+            // question. If the model can't answer, neither do we.
+            if (mlResponse == null)
             {
-                result = NormalizeLabel(mlResponse.SuitabilityLabel);
-            }
-            else
-            {
-                result = GetResult(totalScore, trailDifficulty);
+                TempData["Error"] = "The assessment service is temporarily unavailable. Please try again shortly.";
+                await PopulateAssessmentFormViewBagAsync(eventId, userId);
+                return View();
             }
 
-            var riskFlags = ComputeRiskFlags(
-                cardioEndurance,
-                exerciseFrequency,
-                heightCm,
-                weightKg,
-                age,
-                trailDifficultyCompleted,
-                medicalConditions,
-                gearItemsString,
-                eventItem.Trail?.Terrain ?? "",
-                eventItem.EstimatedDuration
-            );
+            var result = NormalizeLabel(mlResponse.SuitabilityLabel);
 
             var oldAssessment = await _context.Assessments
                 .FirstOrDefaultAsync(a => a.EventId == eventId && a.UserId == userId && a.IsActive == true);
@@ -205,7 +191,7 @@ namespace TrailGuard.Controllers
                 HeightCm = heightCm,
                 WeightKg = weightKg,
                 MedicalConditions = medicalConditions,
-                MedicalClearanceRequired = mlResponse?.MedicalClearanceRequired ?? false,
+                MedicalClearanceRequired = mlResponse.MedicalClearanceRequired,
                 ExerciseFrequency = exerciseFrequency,
                 ExerciseType = exerciseType,
                 CardioEndurance = cardioEndurance,
@@ -221,7 +207,6 @@ namespace TrailGuard.Controllers
                 ExperienceScore = experienceScore,
                 HealthScore = healthScore,
                 GearScore = gearScore,
-                IsRuleBasedFallback = isRuleBasedFallback,
                 IsActive = true,
                 SubmittedAt = DateTime.Now
             };
@@ -229,38 +214,35 @@ namespace TrailGuard.Controllers
             _context.Assessments.Add(assessment);
             await _context.SaveChangesAsync();
 
-            if (mlResponse != null)
+            var suitabilityResult = new SuitabilityResult
             {
-                var suitabilityResult = new SuitabilityResult
+                AssessmentId = assessment.Id,
+                PredictedLabel = mlResponse.SuitabilityLabel,
+                ModelLabel = mlResponse.ModelLabel,
+                ConfidenceScore = mlResponse.ConfidenceScore,
+                GateApplied = mlResponse.GateApplied,
+                GateReason = mlResponse.GateReason,
+                NpsScore = mlResponse.NpsScore,
+                NpsBand = mlResponse.NpsBand,
+                ModelVersion = mlResponse.ModelVersion,
+                PredictedAt = DateTime.Now
+            };
+
+            _context.SuitabilityResults.Add(suitabilityResult);
+            await _context.SaveChangesAsync();
+
+            foreach (var shap in mlResponse.ShapBreakdown)
+            {
+                _context.ShapValues.Add(new ShapValue
                 {
-                    AssessmentId = assessment.Id,
-                    PredictedLabel = mlResponse.SuitabilityLabel,
-                    ModelLabel = mlResponse.ModelLabel,
-                    ConfidenceScore = mlResponse.ConfidenceScore,
-                    GateApplied = mlResponse.GateApplied,
-                    GateReason = mlResponse.GateReason,
-                    NpsScore = mlResponse.NpsScore,
-                    NpsBand = mlResponse.NpsBand,
-                    ModelVersion = mlResponse.ModelVersion,
-                    PredictedAt = DateTime.Now
-                };
-
-                _context.SuitabilityResults.Add(suitabilityResult);
-                await _context.SaveChangesAsync();
-
-                foreach (var shap in mlResponse.ShapBreakdown)
-                {
-                    _context.ShapValues.Add(new ShapValue
-                    {
-                        SuitabilityResultId = suitabilityResult.Id,
-                        FeatureName = shap.Feature,
-                        ImpactValue = shap.Impact,
-                        RawValue = shap.RawValue.ToString()
-                    });
-                }
-
-                await _context.SaveChangesAsync();
+                    SuitabilityResultId = suitabilityResult.Id,
+                    FeatureName = shap.Feature,
+                    ImpactValue = shap.Impact,
+                    RawValue = shap.RawValue.ToString()
+                });
             }
+
+            await _context.SaveChangesAsync();
 
             return RedirectToAction("Report", new { assessmentId = assessment.Id });
         }
@@ -501,8 +483,8 @@ namespace TrailGuard.Controllers
             score += cardioEndurance switch
             {
                 "More than 60 minutes" => 4,
-                "31 to 60 minutes" => 3,
-                "15 to 30 minutes" => 2,
+                "30 to 60 minutes" => 3,
+                "15 to 29 minutes" => 2,
                 _ => 1
             };
 
@@ -582,116 +564,6 @@ namespace TrailGuard.Controllers
 
             return score;
         }
-
-        private int ComputeGearScore(string? gearItems)
-        {
-            Console.WriteLine($"===== COMPUTE GEAR SCORE =====");
-            Console.WriteLine($"Input gearItems: '{gearItems}'");
-            
-            if (string.IsNullOrEmpty(gearItems)) 
-            {
-                Console.WriteLine("gearItems is null or empty");
-                return 0;
-            }
-            
-            var items = gearItems.Split(',')
-                .Select(g => g.Trim())
-                .Where(g => !string.IsNullOrEmpty(g))
-                .ToList();
-            
-            Console.WriteLine($"Items after split: {string.Join(", ", items)}");
-            Console.WriteLine($"Items count: {items.Count}");
-            
-            var score = Math.Min(items.Count, 8);
-            Console.WriteLine($"Final score: {score}");
-            Console.WriteLine($"================================");
-            
-            return score;
-        }
-
-        private string GetResult(int totalScore, string difficulty)
-        {
-            var threshold = difficulty switch
-            {
-                "Technical" => 40,
-                "Difficult" => 36,
-                "Moderate" => 32,
-                "Easy" => 28,
-                _ => 32
-            };
-
-            var borderlineThreshold = threshold - 8;
-
-            Console.WriteLine($"Difficulty: {difficulty}, Threshold: {threshold}, Score: {totalScore}");
-
-            if (totalScore >= threshold)
-                return "Good-Match";
-            else if (totalScore >= borderlineThreshold)
-                return "Borderline";
-            else
-                return "Not Recommended";
-        }
-
-        private List<string> ComputeRiskFlags(
-            string? cardioEndurance,
-            string? exerciseFrequency,
-            double? heightCm,
-            double? weightKg,
-            int? age,
-            string? trailDifficultyCompleted,
-            string? medicalConditions,
-            string? gearItems,
-            string terrain,
-            double estimatedDuration)
-        {
-            var flags = new List<string>();
-
-            if (cardioEndurance == "Less than 15 minutes" || cardioEndurance == "15 to 30 minutes" ||
-                exerciseFrequency == "I do not exercise / Sedentary" || exerciseFrequency == "1 to 2 times per week")
-            {
-                flags.Add("Low Cardio");
-            }
-
-            var bmi = 0.0;
-            if (heightCm.HasValue && heightCm.Value > 0 && weightKg.HasValue && weightKg.Value > 0)
-            {
-                var heightM = heightCm.Value / 100;
-                bmi = weightKg.Value / (heightM * heightM);
-            }
-
-            if (bmi > 25 && (age > 50 || trailDifficultyCompleted == "None" || trailDifficultyCompleted == "First-timer"))
-            {
-                flags.Add("Elevation Challenge");
-            }
-
-            if (estimatedDuration > 6 && 
-                (cardioEndurance == "Less than 15 minutes" || cardioEndurance == "15 to 30 minutes"))
-            {
-                flags.Add("Moderate Endurance Gap");
-            }
-
-            if ((terrain == "Difficult" || terrain == "Technical") && 
-                (trailDifficultyCompleted == "None" || trailDifficultyCompleted == "First-timer" || 
-                trailDifficultyCompleted == "Minor day hikes only"))
-            {
-                flags.Add("Terrain Difficulty");
-            }
-
-            if (!string.IsNullOrEmpty(medicalConditions) && medicalConditions != "None of the above" &&
-                (string.IsNullOrEmpty(gearItems) || !gearItems.Contains("First aid kit")))
-            {
-                flags.Add("Medical Risk");
-            }
-
-            var gearCount = string.IsNullOrEmpty(gearItems) ? 0 : gearItems.Split(',').Length;
-            if (gearCount < 4)
-            {
-                flags.Add("Gear Gap");
-            }
-
-            return flags;
-        }
-
 
         private string GetFriendlyFeatureName(string featureName) => featureName switch
         {

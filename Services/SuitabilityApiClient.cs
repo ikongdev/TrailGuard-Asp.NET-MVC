@@ -14,6 +14,22 @@ namespace TrailGuard.Services
             _logger = logger;
         }
 
+        // Startup-only liveness probe against GET / - lets us log loudly before a
+        // participant ever hits a submission that silently can't get a prediction.
+        public async Task<bool> CheckHealthAsync()
+        {
+            try
+            {
+                var response = await _httpClient.GetAsync("/");
+                return response.IsSuccessStatusCode;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "ML API health check failed.");
+                return false;
+            }
+        }
+
         public async Task<SuitabilityPredictionResponse?> PredictAsync(SuitabilityPredictionRequest request)
         {
             try
