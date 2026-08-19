@@ -27,6 +27,9 @@ namespace TrailGuard.Models
         public string Terrain { get; set; } = string.Empty;
 
         [Required]
+        public int TerrainType { get; set; }   // 1, 2, or 3
+
+        [Required]
         public string Description { get; set; } = string.Empty;
 
         public string? ThumbnailUrl { get; set; } 

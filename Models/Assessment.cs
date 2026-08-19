@@ -52,6 +52,10 @@ namespace TrailGuard.Models
         public int? HealthScore { get; set; }
         public int? GearScore { get; set; }
 
+        // True when the ML service was unreachable and Result came from the
+        // legacy rule-based GetResult() instead of a model prediction.
+        public bool IsRuleBasedFallback { get; set; } = false;
+
         // ✅ BAGONG PROPERTY: Soft Delete
         public bool IsActive { get; set; } = true;
 
