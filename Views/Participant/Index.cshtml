@@ -126,7 +126,7 @@
                                               Model.LatestAssessment.Result == "Borderline" ? "#fbbf24" : "#f87171";
                     var resultTextColor = Model.LatestAssessment.Result == "Good-Match" ? "text-emerald-400" :
                                           Model.LatestAssessment.Result == "Borderline" ? "text-amber-400" : "text-red-400";
-                    var confidencePct = Math.Min(Math.Round(Model.LatestAssessment.ConfidenceScore * 100, 1), 99.9);
+                    var confidencePct = Math.Round(Model.LatestAssessment.ConfidenceScore * 100, 1);
                     var confidenceDisplay = confidencePct.ToString("0.0");
 
                     @if (Model.LatestAssessment.HasMlPrediction)
@@ -170,6 +170,9 @@
                                 }
                             });
                         </script>
+                        <p class="text-[10px] text-gray-500 text-center mt-2 max-w-45">
+                            Confidence reflects how certain the model is that this result matches its trained rules. It does not measure whether the recommendation is right for you.
+                        </p>
                     }
                     <div class="text-center mt-4">
                         <p class="text-lg font-bold @resultTextColor">@Model.LatestAssessment.Result</p>

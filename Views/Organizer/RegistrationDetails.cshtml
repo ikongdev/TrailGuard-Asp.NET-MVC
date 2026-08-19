@@ -433,7 +433,7 @@
                 </h2>
                 <div class="text-right">
                     <p class="text-gray-500 text-[10px] uppercase tracking-wider">Model Confidence</p>
-                    <p class="text-blue-400 font-bold text-base">@(Math.Min((double)ViewBag.MlConfidence * 100, 99.9).ToString("0.0"))%</p>
+                    <p class="text-blue-400 font-bold text-base">@(((double)ViewBag.MlConfidence * 100).ToString("0.0"))%</p>
                 </div>
             </div>
             <p class="text-gray-500 text-xs mb-5">

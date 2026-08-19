@@ -329,7 +329,12 @@ namespace TrailGuard.Controllers
                 HasMlPrediction = suitabilityResult != null,
                 ConfidenceScore = suitabilityResult?.ConfidenceScore ?? 0,
                 ModelVersion = suitabilityResult?.ModelVersion ?? "",
-                ShapFactors = shapFactors
+                ShapFactors = shapFactors,
+                NpsScore = suitabilityResult?.NpsScore ?? 0,
+                NpsBand = suitabilityResult?.NpsBand ?? "",
+                GateApplied = suitabilityResult?.GateApplied ?? false,
+                GateReason = suitabilityResult?.GateReason ?? "",
+                MedicalClearanceRequired = assessment.MedicalClearanceRequired
             };
 
             ViewBag.Assessment = assessment;
@@ -565,61 +570,61 @@ namespace TrailGuard.Controllers
             return score;
         }
 
+        // Exactly the 14 v2 SHAP feature names. Throws rather than falling through
+        // to the raw snake_case string - a name we don't recognize means the
+        // Python feature contract moved and this mapping wasn't updated with it,
+        // and a raw "has_cvd_symptoms" shown to a participant is worse than a
+        // crash caught in development.
         private string GetFriendlyFeatureName(string featureName) => featureName switch
         {
-            "age" => "Age",
-            "height_cm" => "Height",
-            "weight_kg" => "Weight",
             "bmi" => "Body Mass Index",
-            "has_asthma" => "Asthma condition",
-            "has_hypertension_heart_condition" => "Hypertension / heart condition",
-            "has_joint_knee_injury" => "Joint or knee injury",
-            "has_vertigo" => "Vertigo",
             "exercise_frequency_score" => "Exercise frequency",
-            "exercise_type_category" => "Type of exercise",
             "continuous_cardio_duration_score" => "Cardio endurance",
+            "exercise_consistency_score" => "How long you've been exercising",
             "hiking_experience_score" => "Hiking experience",
             "last_hike_recency_score" => "Recency of last hike",
             "hardest_trail_completed_score" => "Hardest trail completed",
-            "gear_water" => "Water supply",
-            "gear_trail_food" => "Trail food",
-            "gear_first_aid_medicine" => "First aid kit",
-            "gear_flashlight_headlamp" => "Flashlight / headlamp",
-            "gear_whistle" => "Whistle",
-            "gear_raincoat_poncho" => "Raincoat / poncho",
-            "gear_navigation" => "Navigation tool",
-            "gear_proper_shoes" => "Proper hiking shoes",
-            "gear_score" => "Overall gear preparedness",
-            "trail_distance_km" => "Trail distance",
-            "trail_elevation_gain_m" => "Trail elevation gain",
-            "trail_terrain_type" => "Terrain difficulty",
-            "trail_estimated_duration_hr" => "Estimated hike duration",
-            _ => featureName
+            "gear_score" => "Gear preparedness",
+            "has_asthma" => "Asthma or lung condition",
+            "has_cvd" => "Hypertension or heart condition",
+            "has_joint_knee_injury" => "Joint or knee injury",
+            "has_cvd_symptoms" => "Reported symptoms",
+            "trail_shenandoah_score" => "Trail difficulty rating",
+            "trail_terrain_type" => "Terrain type",
+            _ => throw new ArgumentException($"Unrecognized SHAP feature name: '{featureName}'")
         };
 
         private static readonly HashSet<string> TrailSideFeatures = new HashSet<string>
         {
-            "trail_distance_km", "trail_elevation_gain_m", "trail_terrain_type", "trail_estimated_duration_hr"
+            "trail_shenandoah_score", "trail_terrain_type"
         };
 
         private static readonly HashSet<string> HealthFlagFeatures = new HashSet<string>
         {
-            "has_asthma", "has_hypertension_heart_condition", "has_joint_knee_injury", "has_vertigo"
+            "has_asthma", "has_cvd", "has_joint_knee_injury", "has_cvd_symptoms"
         };
 
         private string? GetRecommendationForFeature(string featureName)
         {
             if (TrailSideFeatures.Contains(featureName)) return null;
+
+            // Reported symptoms are the one case the ACSM algorithm gates on
+            // regardless of fitness or intensity - the generic health-flag advice
+            // below undersells that, so this gets its own line.
+            if (featureName == "has_cvd_symptoms")
+                return "See a doctor before joining any hike — the symptoms you reported need to be checked first.";
+
             if (HealthFlagFeatures.Contains(featureName)) return "Consult a physician before joining a hike of this difficulty";
-            if (featureName.StartsWith("gear_", StringComparison.OrdinalIgnoreCase)) return "Complete your gear checklist before the hike";
 
             return featureName switch
             {
                 "exercise_frequency_score" => "Increase how often you exercise each week",
                 "continuous_cardio_duration_score" => "Build up how long you can sustain cardio without stopping",
+                "exercise_consistency_score" => "Build a consistent routine — aim for at least three months at your current frequency.",
                 "hiking_experience_score" => "Gain experience on easier trails before attempting this one",
                 "last_hike_recency_score" => "Consider a shorter warm-up hike before this event",
                 "hardest_trail_completed_score" => "Work up through easier trail types first",
+                "gear_score" => "Complete your gear checklist before the hike",
                 "bmi" => "General fitness preparation may help",
                 _ => null
             };

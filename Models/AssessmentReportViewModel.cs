@@ -17,5 +17,11 @@ namespace TrailGuard.Models
         public double ConfidenceScore { get; set; }
         public string ModelVersion { get; set; } = string.Empty;
         public List<ShapDisplayItem> ShapFactors { get; set; } = new List<ShapDisplayItem>();
+
+        public double NpsScore { get; set; }
+        public string NpsBand { get; set; } = string.Empty;
+        public bool GateApplied { get; set; }
+        public string GateReason { get; set; } = string.Empty;
+        public bool MedicalClearanceRequired { get; set; }
     }
 }
