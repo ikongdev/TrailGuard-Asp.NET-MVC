@@ -66,6 +66,19 @@ using (var scope = app.Services.CreateScope())
         var logger = services.GetRequiredService<ILogger<Program>>();
         logger.LogError(ex, "An error occurred while seeding the database.");
     }
+
+    var startupLogger = services.GetRequiredService<ILogger<Program>>();
+    var suitabilityApi = services.GetRequiredService<SuitabilityApiClient>();
+    if (await suitabilityApi.CheckHealthAsync())
+    {
+        startupLogger.LogInformation("ML suitability API is reachable.");
+    }
+    else
+    {
+        startupLogger.LogCritical(
+            "ML suitability API is UNREACHABLE at startup. Assessment submissions will be " +
+            "rejected with a service-unavailable message until it comes back up.");
+    }
 }
 
 app.Run();
