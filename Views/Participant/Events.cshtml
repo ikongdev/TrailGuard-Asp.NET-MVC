@@ -67,9 +67,11 @@
             <div class="relative">
                 <select id="difficultyFilter" class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors w-full">
                     <option value="All" class="bg-surface-card">All Difficulties</option>
-                    <option value="Easy" class="bg-surface-card">Easy</option>
+                    <option value="Easiest" class="bg-surface-card">Easiest</option>
                     <option value="Moderate" class="bg-surface-card">Moderate</option>
-                    <option value="Difficult" class="bg-surface-card">Difficult</option>
+                    <option value="Moderately Strenuous" class="bg-surface-card">Moderately Strenuous</option>
+                    <option value="Strenuous" class="bg-surface-card">Strenuous</option>
+                    <option value="Very Strenuous" class="bg-surface-card">Very Strenuous</option>
                 </select>
                 <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
                     <i class="fa-solid fa-chevron-down text-xs"></i>
@@ -82,8 +84,8 @@
                     <option value="date_desc" class="bg-surface-card">Date (Latest)</option>
                     <option value="title_asc" class="bg-surface-card">Title (A-Z)</option>
                     <option value="title_desc" class="bg-surface-card">Title (Z-A)</option>
-                    <option value="difficulty_asc" class="bg-surface-card">Difficulty (Easy to Hard)</option>
-                    <option value="difficulty_desc" class="bg-surface-card">Difficulty (Hard to Easy)</option>
+                    <option value="difficulty_asc" class="bg-surface-card">Difficulty (Low to High)</option>
+                    <option value="difficulty_desc" class="bg-surface-card">Difficulty (High to Low)</option>
                 </select>
                 <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
                     <i class="fa-solid fa-chevron-down text-xs"></i>
@@ -115,15 +117,15 @@
                 <div class="events-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     @foreach (var eventItem in group.Events)
                     {
-                        var diffBadge = eventItem.Difficulty == "Easy" ? "badge-easy"
-                                      : eventItem.Difficulty == "Moderate" ? "badge-moderate"
-                                      : "badge-hard";
+                        var diffBadge = TrailGuard.Services.DifficultyCalculator.BadgeClass(eventItem.Difficulty);
                         var slotsLeft = eventItem.Capacity - eventItem.RegisteredCount;
+                        var npsRating = eventItem.Trail != null ? TrailGuard.Services.DifficultyCalculator.ComputeRating(eventItem.Trail) : 0;
 
                         <div class="event-card bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden hover:border-white/20 transition-colors flex flex-col"
                              data-title="@eventItem.EventTitle.ToLower()"
                              data-location="@eventItem.Location.ToLower()"
                              data-difficulty="@eventItem.Difficulty"
+                             data-nps-rating="@npsRating.ToString("0.0")"
                              data-date="@eventItem.EventDate.ToString("yyyy-MM-dd")">
                             
                             <div class="relative h-40 overflow-hidden bg-black/30">
@@ -201,8 +203,28 @@
         const noResults = document.getElementById('noResultsMessage');
         const eventCount = document.getElementById('eventCount');
 
-        const trailGroups = document.querySelectorAll('.trail-group');
-        const diffOrder = { 'Easy': 1, 'Moderate': 2, 'Difficult': 3 };
+        const trailGroups = Array.from(document.querySelectorAll('.trail-group'));
+        const groupsContainer = trailGroups[0]?.parentElement;
+
+        function compareCards(sort, a, b) {
+            switch (sort) {
+                case 'date_desc':
+                    return new Date(b.dataset.date) - new Date(a.dataset.date);
+                case 'title_asc':
+                    return (a.dataset.title || '').localeCompare(b.dataset.title || '');
+                case 'title_desc':
+                    return (b.dataset.title || '').localeCompare(a.dataset.title || '');
+                case 'difficulty_asc':
+                    // Sort on the precise NPS rating, not the band name - two trails in
+                    // the same band (e.g. both "Moderate") still have different ratings,
+                    // and ranking by band alone left same-band pairs in arbitrary order.
+                    return (parseFloat(a.dataset.npsRating) || 0) - (parseFloat(b.dataset.npsRating) || 0);
+                case 'difficulty_desc':
+                    return (parseFloat(b.dataset.npsRating) || 0) - (parseFloat(a.dataset.npsRating) || 0);
+                default:
+                    return new Date(a.dataset.date) - new Date(b.dataset.date);
+            }
+        }
 
         function filterAndSort() {
             const term = (searchInput?.value || '').toLowerCase().trim();
@@ -211,6 +233,7 @@
             const sort = sortFilter?.value || 'date_asc';
 
             let totalVisible = 0;
+            const visibleGroups = [];
 
             trailGroups.forEach(group => {
                 const trailId = group.dataset.trailId || '';
@@ -230,30 +253,27 @@
                     return show;
                 });
 
-                visible.sort((a, b) => {
-                    switch (sort) {
-                        case 'date_desc':
-                            return new Date(b.dataset.date) - new Date(a.dataset.date);
-                        case 'title_asc':
-                            return (a.dataset.title || '').localeCompare(b.dataset.title || '');
-                        case 'title_desc':
-                            return (b.dataset.title || '').localeCompare(a.dataset.title || '');
-                        case 'difficulty_asc':
-                            return (diffOrder[a.dataset.difficulty] || 0) - (diffOrder[b.dataset.difficulty] || 0);
-                        case 'difficulty_desc':
-                            return (diffOrder[b.dataset.difficulty] || 0) - (diffOrder[a.dataset.difficulty] || 0);
-                        default:
-                            return new Date(a.dataset.date) - new Date(b.dataset.date);
-                    }
-                });
+                visible.sort((a, b) => compareCards(sort, a, b));
 
                 const container = group.querySelector('.events-grid');
                 if (container) visible.forEach(card => container.appendChild(card));
 
                 const showGroup = matchesTrail && visible.length > 0;
                 group.style.display = showGroup ? '' : 'none';
-                if (showGroup) totalVisible += visible.length;
+                if (showGroup) {
+                    totalVisible += visible.length;
+                    visibleGroups.push({ group, cards: visible });
+                }
             });
+
+            // Sorting only reordered cards inside a trail's own group, which had no
+            // visible effect once every trail settled to one event each - a group of
+            // one has nothing to sort against. The groups themselves need reordering
+            // too, ranked by their own (already-sorted) first card.
+            visibleGroups.sort((a, b) => compareCards(sort, a.cards[0], b.cards[0]));
+            if (groupsContainer) {
+                visibleGroups.forEach(({ group }) => groupsContainer.appendChild(group));
+            }
 
             if (eventCount) eventCount.textContent = totalVisible;
             if (noResults) noResults.classList.toggle('hidden', totalVisible > 0);

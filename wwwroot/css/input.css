@@ -138,10 +138,22 @@
     border: 1px solid rgb(52 211 153 / 0.35);
 }
 
+.badge-lime {
+    background: rgb(26 46 5 / 0.85);
+    color: rgb(190 242 100);
+    border: 1px solid rgb(163 230 53 / 0.35);
+}
+
 .badge-moderate {
     background: rgb(69 39 8 / 0.85);
     color: rgb(252 211 77);
     border: 1px solid rgb(251 191 36 / 0.35);
+}
+
+.badge-orange {
+    background: rgb(67 20 7 / 0.85);
+    color: rgb(253 186 116);
+    border: 1px solid rgb(251 146 60 / 0.35);
 }
 
 .badge-hard {

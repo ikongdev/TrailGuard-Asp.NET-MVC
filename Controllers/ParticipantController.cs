@@ -86,7 +86,7 @@ namespace TrailGuard.Controllers
                 recommendedEvents = await GetRecommendedEvents(latestResult.Result, latestResult.EventDifficulty, userId);
             }
 
-            var difficultyLevels = new List<string> { "Easy", "Moderate", "Difficult" };
+            var difficultyLevels = DifficultyCalculator.Bands;
 
             string? personalBestDifficulty = null;
             double? personalBestDistanceKm = null;
@@ -97,7 +97,7 @@ namespace TrailGuard.Controllers
             {
                 personalBestDifficulty = hikesWithTrail
                     .Select(r => r.Event!.Difficulty)
-                    .OrderByDescending(d => difficultyLevels.IndexOf(d))
+                    .OrderByDescending(d => Array.IndexOf(difficultyLevels, d))
                     .FirstOrDefault();
 
                 personalBestDistanceKm = hikesWithTrail.Max(r => r.Event!.Trail!.DistanceKm);
@@ -194,9 +194,9 @@ namespace TrailGuard.Controllers
         private async Task<List<Event>> GetRecommendedEvents(
             string assessmentResult, string assessedDifficulty, string userId)
         {
-            var levels = new List<string> { "Easy", "Moderate", "Difficult" };
+            var levels = DifficultyCalculator.Bands;
 
-            var currentIndex = levels.IndexOf(assessedDifficulty);
+            var currentIndex = Array.IndexOf(levels, assessedDifficulty);
             if (currentIndex < 0) currentIndex = 1;
 
             var targetIndex = assessmentResult switch
@@ -269,17 +269,30 @@ namespace TrailGuard.Controllers
                 events = events.Where(e => e.TrailId == trailId);
             }
 
-            events = sortOrder switch
+            List<Event> eventsList;
+            if (sortOrder == "difficulty_asc" || sortOrder == "difficulty_desc")
             {
-                "date_desc" => events.OrderByDescending(e => e.EventDate),
-                "title_asc" => events.OrderBy(e => e.EventTitle),
-                "title_desc" => events.OrderByDescending(e => e.EventTitle),
-                "difficulty_asc" => events.OrderBy(e => e.Difficulty),
-                "difficulty_desc" => events.OrderByDescending(e => e.Difficulty),
-                _ => events.OrderBy(e => e.EventDate),
-            };
-
-            var eventsList = await events.ToListAsync();
+                // Event.Difficulty is a band name ("Moderate", "Moderately Strenuous", ...),
+                // not a rank - an alphabetical OrderBy on the string only happened to match
+                // severity order for today's exact band names and would silently break the
+                // moment a label changed. Sorting on the underlying NPS rating can't drift
+                // that way, and it's the only way to order two trails that share a band.
+                eventsList = await events.ToListAsync();
+                eventsList = sortOrder == "difficulty_asc"
+                    ? eventsList.OrderBy(e => e.Trail != null ? DifficultyCalculator.ComputeRating(e.Trail) : 0).ToList()
+                    : eventsList.OrderByDescending(e => e.Trail != null ? DifficultyCalculator.ComputeRating(e.Trail) : 0).ToList();
+            }
+            else
+            {
+                events = sortOrder switch
+                {
+                    "date_desc" => events.OrderByDescending(e => e.EventDate),
+                    "title_asc" => events.OrderBy(e => e.EventTitle),
+                    "title_desc" => events.OrderByDescending(e => e.EventTitle),
+                    _ => events.OrderBy(e => e.EventDate),
+                };
+                eventsList = await events.ToListAsync();
+            }
 
             var eventIds = eventsList.Select(e => e.Id).ToList();
             var capacityCounts = await _context.EventRegistrations

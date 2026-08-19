@@ -289,8 +289,8 @@ namespace TrailGuard.Controllers
 
         private async Task<List<Event>> GetAlternativeEvents(int eventId, string currentDifficulty, string result)
         {
-            var difficultyLevels = new List<string> { "Easy", "Moderate", "Difficult", "Technical" };
-            var currentIndex = difficultyLevels.IndexOf(currentDifficulty);
+            var difficultyLevels = DifficultyCalculator.Bands;
+            var currentIndex = Array.IndexOf(difficultyLevels, currentDifficulty);
             if (currentIndex < 0) currentIndex = 1;
 
             int targetIndex;

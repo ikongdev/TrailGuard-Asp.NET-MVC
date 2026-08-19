@@ -330,7 +330,7 @@
                                 <span class="text-white font-medium">@Model.Event?.Trail?.ElevationGainMeters m</span>
                             </div>
                             <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-                                <div class="h-full rounded-full @((Model.Event?.Trail?.ElevationGainMeters ?? 0) >= 1000 ? "bg-red-500" : (Model.Event?.Trail?.ElevationGainMeters ?? 0) >= 600 ? "bg-yellow-500" : "bg-green-500")" style="width: @(Math.Min(((Model.Event?.Trail?.ElevationGainMeters ?? 0) / 1500) * 100, 100))%"></div>
+                                <div class="h-full rounded-full @((Model.Event?.Trail?.ElevationGainMeters ?? 0) >= 1000 ? "bg-red-500" : (Model.Event?.Trail?.ElevationGainMeters ?? 0) >= 600 ? "bg-yellow-500" : "bg-green-500")" style="width: @(Math.Min(((double)(Model.Event?.Trail?.ElevationGainMeters ?? 0) / 1500) * 100, 100))%"></div>
                             </div>
                         </div>
                         <div>
@@ -342,14 +342,24 @@
                                 <div class="h-full rounded-full @((Model.Event?.EstimatedDuration ?? 0) >= 8 ? "bg-red-500" : (Model.Event?.EstimatedDuration ?? 0) >= 6 ? "bg-yellow-500" : "bg-green-500")" style="width: @(Math.Min(((Model.Event?.EstimatedDuration ?? 0) / 10) * 100, 100))%"></div>
                             </div>
                         </div>
+                        @{
+                            var rdTerrainType = Model.Event?.Trail?.TerrainType ?? 0;
+                            var rdTerrainLabel = TrailGuard.Services.DifficultyCalculator.TerrainTypeLabel(rdTerrainType);
+                            var rdTerrainPct = rdTerrainType switch { 1 => 33, 2 => 66, 3 => 100, _ => 0 };
+                            var rdTerrainColor = rdTerrainType switch { 1 => "bg-green-500", 2 => "bg-yellow-500", 3 => "bg-red-500", _ => "bg-gray-500" };
+                        }
                         <div>
                             <div class="flex justify-between text-xs">
-                                <span class="text-gray-400">Terrain</span>
-                                <span class="text-white font-medium">@Model.Event?.Trail?.Terrain</span>
+                                <span class="text-gray-400">Terrain Type</span>
+                                <span class="text-white font-medium">@rdTerrainLabel</span>
                             </div>
                             <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-                                <div class="h-full rounded-full @(Model.Event?.Trail?.Terrain == "Technical" ? "bg-red-500" : Model.Event?.Trail?.Terrain == "Difficult" ? "bg-yellow-500" : "bg-green-500")" style="width: @(Model.Event?.Trail?.Terrain == "Technical" ? 100 : Model.Event?.Trail?.Terrain == "Difficult" ? 75 : Model.Event?.Trail?.Terrain == "Moderate" ? 50 : 25)%"></div>
+                                <div class="h-full rounded-full @rdTerrainColor" style="width: @(rdTerrainPct)%"></div>
                             </div>
+                        </div>
+                        <div>
+                            <span class="text-gray-400 text-xs">Terrain</span>
+                            <span class="text-white text-xs ml-2">@(Model.Event?.Trail?.Terrain ?? "N/A")</span>
                         </div>
                     </div>
                 </div>

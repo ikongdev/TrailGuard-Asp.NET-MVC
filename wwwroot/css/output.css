@@ -40,7 +40,6 @@
     --color-blue-500: oklch(62.3% 0.214 259.815);
     --color-blue-600: oklch(54.6% 0.245 262.881);
     --color-violet-500: oklch(60.6% 0.25 292.717);
-    --color-purple-300: oklch(82.7% 0.119 306.383);
     --color-purple-400: oklch(71.4% 0.203 305.504);
     --color-purple-500: oklch(62.7% 0.265 303.9);
     --color-purple-600: oklch(55.8% 0.288 302.321);
@@ -2748,9 +2747,6 @@
       color: color-mix(in oklab, var(--color-orange-400) 70%, transparent);
     }
   }
-  .text-purple-300 {
-    color: var(--color-purple-300);
-  }
   .text-purple-400 {
     color: var(--color-purple-400);
   }
@@ -3826,10 +3822,20 @@
   color: rgb(110 231 183);
   border: 1px solid rgb(52 211 153 / 0.35);
 }
+.badge-lime {
+  background: rgb(26 46 5 / 0.85);
+  color: rgb(190 242 100);
+  border: 1px solid rgb(163 230 53 / 0.35);
+}
 .badge-moderate {
   background: rgb(69 39 8 / 0.85);
   color: rgb(252 211 77);
   border: 1px solid rgb(251 191 36 / 0.35);
+}
+.badge-orange {
+  background: rgb(67 20 7 / 0.85);
+  color: rgb(253 186 116);
+  border: 1px solid rgb(251 146 60 / 0.35);
 }
 .badge-hard {
   background: rgb(69 10 10 / 0.85);

@@ -128,7 +128,7 @@
                         <p class="text-white font-semibold">@trail?.DistanceKm km</p>
                     </div>
                     <div>
-                        <p class="text-gray-500 text-xs uppercase tracking-wider"><i class="fa-solid fa-tree text-orange-400 mr-1"></i>Terrain Type</p>
+                        <p class="text-gray-500 text-xs uppercase tracking-wider"><i class="fa-solid fa-tree text-orange-400 mr-1"></i>Terrain</p>
                         <p class="text-white font-semibold">@trail?.Terrain</p>
                     </div>
                     <div>
@@ -140,8 +140,8 @@
                         <p class="text-white font-semibold">@trail?.ElevationGainMeters m</p>
                     </div>
                     <div>
-                        <p class="text-gray-500 text-xs uppercase tracking-wider"><i class="fa-solid fa-mountain-city text-orange-400 mr-1"></i>MASL</p>
-                        <p class="text-white font-semibold">@Model.MASL m</p>
+                        <p class="text-gray-500 text-xs uppercase tracking-wider"><i class="fa-solid fa-hand text-orange-400 mr-1"></i>Terrain Type</p>
+                        <p class="text-white font-semibold">@TrailGuard.Services.DifficultyCalculator.TerrainTypeLabel(trail?.TerrainType ?? 0)</p>
                     </div>
                     <div>
                         <p class="text-gray-500 text-xs uppercase tracking-wider"><i class="fa-solid fa-clock text-orange-400 mr-1"></i>Estimated Duration</p>

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using TrailGuard.Models;
+using TrailGuard.Services;
 
 namespace TrailGuard.Data
 {
@@ -259,6 +260,11 @@ namespace TrailGuard.Data
 
                     if (organizerId != null && trails.Any())
                     {
+                        var ulapTrail = trails.First(t => t.Name == "Mt. Ulap");
+                        var pulagTrail = trails.First(t => t.Name == "Mt. Pulag");
+                        var batulaoTrail = trails.First(t => t.Name == "Mt. Batulao");
+                        var daraitanTrail = trails.First(t => t.Name == "Mt. Daraitan");
+
                         var events = new List<Event>
                         {
                             new Event
@@ -267,14 +273,13 @@ namespace TrailGuard.Data
                                 Description = "Join us for an early morning hike to witness the beautiful sunrise at Mt. Ulap.",
                                 EventDate = DateTime.Now.AddDays(14),
                                 EventTime = new TimeSpan(4, 0, 0),
-                                TrailId = trails.First(t => t.Name == "Mt. Ulap").Id,
+                                TrailId = ulapTrail.Id,
                                 Location = "Itogon, Benguet",
-                                Difficulty = "Moderate",
+                                Difficulty = DifficultyCalculator.ComputeDifficulty(ulapTrail),
                                 EstimatedDuration = 5,
                                 Capacity = 20,
                                 OrganizedBy = organizerId,
                                 Status = "Upcoming",
-                                MASL = 1846,
                                 WeatherForecastAdvisory = "Partly cloudy, 15-20°C",
                                 NotesAndReminders = "Bring water and trail food. Meeting: 3:30 AM.",
                                 PaymentDetails = "PHP 500. BDO: 1234567890",
@@ -288,14 +293,13 @@ namespace TrailGuard.Data
                                 Description = "A 2-day adventure to the highest peak in Luzon.",
                                 EventDate = DateTime.Now.AddDays(21),
                                 EventTime = new TimeSpan(6, 0, 0),
-                                TrailId = trails.First(t => t.Name == "Mt. Pulag").Id,
+                                TrailId = pulagTrail.Id,
                                 Location = "Kabayan, Benguet",
-                                Difficulty = "Difficult",
+                                Difficulty = DifficultyCalculator.ComputeDifficulty(pulagTrail),
                                 EstimatedDuration = 8,
                                 Capacity = 15,
                                 OrganizedBy = organizerId,
                                 Status = "Upcoming",
-                                MASL = 2922,
                                 WeatherForecastAdvisory = "Cold, 5-15°C",
                                 NotesAndReminders = "Overnight camping. Bring tent and sleeping bag.",
                                 PaymentDetails = "PHP 2,500. BDO: 1234567890",
@@ -309,14 +313,13 @@ namespace TrailGuard.Data
                                 Description = "A quick day hike perfect for beginners.",
                                 EventDate = DateTime.Now.AddDays(7),
                                 EventTime = new TimeSpan(5, 30, 0),
-                                TrailId = trails.First(t => t.Name == "Mt. Batulao").Id,
+                                TrailId = batulaoTrail.Id,
                                 Location = "Nasugbu, Batangas",
-                                Difficulty = "Moderate",
+                                Difficulty = DifficultyCalculator.ComputeDifficulty(batulaoTrail),
                                 EstimatedDuration = 4,
                                 Capacity = 25,
                                 OrganizedBy = organizerId,
                                 Status = "Upcoming",
-                                MASL = 811,
                                 WeatherForecastAdvisory = "Sunny, 25-30°C",
                                 NotesAndReminders = "Bring trail food and 2L water.",
                                 PaymentDetails = "PHP 350. BDO: 1234567890",
@@ -330,14 +333,13 @@ namespace TrailGuard.Data
                                 Description = "Experience the scenic river and limestone formations.",
                                 EventDate = DateTime.Now.AddDays(10),
                                 EventTime = new TimeSpan(5, 0, 0),
-                                TrailId = trails.First(t => t.Name == "Mt. Daraitan").Id,
+                                TrailId = daraitanTrail.Id,
                                 Location = "Tanay, Rizal",
-                                Difficulty = "Moderate",
+                                Difficulty = DifficultyCalculator.ComputeDifficulty(daraitanTrail),
                                 EstimatedDuration = 4.5,
                                 Capacity = 20,
                                 OrganizedBy = organizerId,
                                 Status = "Upcoming",
-                                MASL = 739,
                                 WeatherForecastAdvisory = "Fair weather, 22-28°C",
                                 NotesAndReminders = "Bring extra clothes for river crossing.",
                                 PaymentDetails = "PHP 400. BDO: 1234567890",
