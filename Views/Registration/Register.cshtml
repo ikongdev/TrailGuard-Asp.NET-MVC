@@ -19,9 +19,12 @@
     var requiresClearance = ViewBag.RequiresMedicalClearance == true;
     var requiresPlan = ViewBag.RequiresPreparationPlan == true;
     var hasMedicalCondition = ViewBag.HasMedicalCondition == true;
-    var clearanceReason = isNotRecommended
-        ? "Required because your assessment result is Not Recommended."
-        : "Required because you indicated a pre-existing medical condition.";
+    var gateReason = ViewBag.GateReason as string;
+    var clearanceReason = !string.IsNullOrWhiteSpace(gateReason)
+        ? gateReason
+        : isNotRecommended
+            ? "Required because your assessment result is Not Recommended."
+            : "Required because your assessment flagged a health condition that needs medical clearance.";
 
     var trail = eventItem?.Trail;
 

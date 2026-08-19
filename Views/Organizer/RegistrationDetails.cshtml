@@ -212,36 +212,62 @@
     </div>
 
     @{
+        var clearanceRequired = Model.Assessment?.MedicalClearanceRequired == true;
         var hasMedicalClearance = !string.IsNullOrEmpty(Model.MedicalClearanceUrl);
         var hasPreparationPlan = !string.IsNullOrEmpty(Model.PreparationPlan);
-        var documentsGridClass = (hasMedicalClearance && hasPreparationPlan)
+        var showClearanceCard = hasMedicalClearance || clearanceRequired;
+        var documentsGridClass = (showClearanceCard && hasPreparationPlan)
             ? "grid grid-cols-1 md:grid-cols-2 gap-6 mt-6"
             : "grid grid-cols-1 gap-6 mt-6";
+        var gateReason = ViewBag.GateReason as string;
     }
-    @if (hasMedicalClearance || hasPreparationPlan)
+    @if (showClearanceCard || hasPreparationPlan)
     {
         <!-- ROW 1.5: Submitted Documents -->
         <div class="@documentsGridClass">
 
-            @if (hasMedicalClearance)
+            @if (showClearanceCard)
             {
                 <!-- Medical Clearance -->
                 <div class="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-5 h-full overflow-visible relative">
-                    <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                    <h2 class="text-sm font-semibold text-white mb-1 flex items-center gap-2">
                         <i class="fa-solid fa-file-medical text-blue-400"></i>
                         Medical Clearance
+                        @if (clearanceRequired)
+                        {
+                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 font-semibold">Required</span>
+                        }
+                        else
+                        {
+                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-gray-500/20 text-gray-400 font-semibold">Voluntary</span>
+                        }
                     </h2>
-                    <div class="flex justify-center">
-                        <div class="relative cursor-pointer mt-2" id="clearanceWrapper">
-                            <img src="@Model.MedicalClearanceUrl" alt="Medical Clearance"
-                                 class="h-52 object-contain bg-[#111A2E] rounded-xl border border-gray-700"
-                                 id="clearanceImage"
-                                 onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\'p-4 text-center text-gray-400\'><i class=\'fa-regular fa-file-image text-2xl block mb-2\'></i><p class=\'text-sm\'>Document not available</p></div>';" />
-                            <div class="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black/50 rounded-xl" id="clearanceOverlay">
-                                <span class="text-white text-xs font-medium"><i class="fa-regular fa-eye mr-2"></i> Preview</span>
+                    @if (clearanceRequired && !string.IsNullOrWhiteSpace(gateReason))
+                    {
+                        <p class="text-amber-400/80 text-xs mb-3"><i class="fa-solid fa-circle-info mr-1"></i>@gateReason</p>
+                    }
+                    @if (hasMedicalClearance)
+                    {
+                        <div class="flex justify-center">
+                            <div class="relative cursor-pointer mt-2" id="clearanceWrapper">
+                                <img src="@Model.MedicalClearanceUrl" alt="Medical Clearance"
+                                     class="h-52 object-contain bg-[#111A2E] rounded-xl border border-gray-700"
+                                     id="clearanceImage"
+                                     onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\'p-4 text-center text-gray-400\'><i class=\'fa-regular fa-file-image text-2xl block mb-2\'></i><p class=\'text-sm\'>Document not available</p></div>';" />
+                                <div class="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black/50 rounded-xl" id="clearanceOverlay">
+                                    <span class="text-white text-xs font-medium"><i class="fa-regular fa-eye mr-2"></i> Preview</span>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    }
+                    else
+                    {
+                        <div class="flex flex-col items-center justify-center py-6 text-center">
+                            <i class="fa-solid fa-triangle-exclamation text-2xl text-red-400 mb-2"></i>
+                            <p class="text-red-400 text-sm font-medium">Not uploaded</p>
+                            <p class="text-gray-500 text-xs mt-1">This participant has not submitted a medical clearance document.</p>
+                        </div>
+                    }
                 </div>
             }
 

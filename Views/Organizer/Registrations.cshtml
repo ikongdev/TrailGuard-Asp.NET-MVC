@@ -177,6 +177,16 @@
                                             <span class="text-gray-500 text-xs ml-1">(@item.AssessmentTotalScore/44)</span>
                                         }
                                     </div>
+                                    @if (item.MedicalClearanceRequired)
+                                    {
+                                        var clearanceMissing = string.IsNullOrEmpty(item.MedicalClearanceUrl);
+                                        <div class="mt-1">
+                                            <span class="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium @(clearanceMissing ? "bg-red-500/20 text-red-400" : "bg-blue-500/20 text-blue-400")">
+                                                <i class="fa-solid fa-file-medical"></i>
+                                                @(clearanceMissing ? "Clearance missing" : "Clearance required")
+                                            </span>
+                                        </div>
+                                    }
                                 </td>
                                 <td class="px-6 py-4">
                                     <span class="px-3 py-1 rounded-full text-xs font-semibold @statusColor">

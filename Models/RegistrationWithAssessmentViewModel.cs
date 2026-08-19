@@ -25,5 +25,7 @@ namespace TrailGuard.Models
         public string? FitnessLevel { get; set; }
         public string? HikingExperience { get; set; }
         public string? GearItems { get; set; }
+        public bool MedicalClearanceRequired { get; set; }
+        public string? MedicalClearanceUrl { get; set; }
     }
 }
