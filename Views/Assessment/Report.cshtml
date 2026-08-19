@@ -13,8 +13,33 @@
     var eventItem = ViewBag.Assessment?.Event as TrailGuard.Models.Event;
     var trail = eventItem?.Trail;
 
-    var confidencePct = Math.Min(Math.Round((Model?.ConfidenceScore ?? 0) * 100, 1), 99.9);
+    var confidencePct = Math.Round((Model?.ConfidenceScore ?? 0) * 100, 1);
     var confidenceDisplay = confidencePct.ToString("0.0");
+
+    var medicalClearanceRequired = Model?.MedicalClearanceRequired == true;
+
+    var terrainType = trail?.TerrainType ?? 0;
+    var terrainTypeLabel = terrainType switch
+    {
+        1 => "Established",
+        2 => "Rugged",
+        3 => "Technical",
+        _ => "N/A"
+    };
+    var terrainTypeColor = terrainType switch
+    {
+        1 => "bg-green-500",
+        2 => "bg-yellow-500",
+        3 => "bg-red-500",
+        _ => "bg-gray-500"
+    };
+    var terrainTypePct = terrainType switch
+    {
+        1 => 33,
+        2 => 66,
+        3 => 100,
+        _ => 0
+    };
 }
 
 <div class="pt-24 px-4 max-w-6xl mx-auto min-h-screen text-white pb-12">
@@ -75,12 +100,32 @@
         </div>
     </div>
 
+    @if (medicalClearanceRequired)
+    {
+        <div class="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-8 flex items-start gap-3">
+            <i class="fa-solid fa-notes-medical text-red-400 text-xl mt-0.5"></i>
+            <div>
+                <p class="text-red-400 font-semibold text-sm">Medical clearance required</p>
+                <p class="text-gray-300 text-sm mt-1">
+                    Based on your answers, you'll need to provide medical clearance from a physician before your registration for this event can be approved.
+                </p>
+            </div>
+        </div>
+    }
+
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
         <div class="lg:col-span-2 space-y-6">
 
             <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-6">
                 <h2 class="text-lg font-bold text-white mb-4"><i class="fa-solid fa-mountain text-accent mr-2"></i>Trail Demands</h2>
+                @if (Model?.HasMlPrediction == true)
+                {
+                    <p class="text-sm text-gray-400 mb-4">
+                        This trail rates <span class="text-white font-semibold">@Model.NpsScore.ToString("0.0")</span> on the NPS hiking difficulty scale
+                        (<span class="text-white font-semibold">@Model.NpsBand</span>).
+                    </p>
+                }
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <div class="flex justify-between text-sm mb-1">
@@ -99,7 +144,7 @@
                         </div>
                         <div class="w-full h-2.5 bg-gray-700 rounded-full overflow-hidden">
                             <div class="h-full rounded-full transition-all duration-700 @((trail?.ElevationGainMeters ?? 0) >= 1000 ? "bg-red-500" : (trail?.ElevationGainMeters ?? 0) >= 600 ? "bg-yellow-500" : "bg-green-500")"
-                                 style="width: @(Math.Min(((trail?.ElevationGainMeters ?? 0) / 1500) * 100, 100))%"></div>
+                                 style="width: @(Math.Min(((double)(trail?.ElevationGainMeters ?? 0) / 1500) * 100, 100))%"></div>
                         </div>
                     </div>
                     <div>
@@ -114,13 +159,17 @@
                     </div>
                     <div>
                         <div class="flex justify-between text-sm mb-1">
-                            <span class="text-gray-300">Terrain Type</span>
-                            <span class="text-white font-semibold">@(trail?.Terrain ?? "N/A")</span>
+                            <span class="text-gray-300">Terrain Difficulty</span>
+                            <span class="text-white font-semibold">@terrainTypeLabel</span>
                         </div>
                         <div class="w-full h-2.5 bg-gray-700 rounded-full overflow-hidden">
-                            <div class="h-full rounded-full transition-all duration-700 @(trail?.Terrain == "Technical" ? "bg-red-500" : trail?.Terrain == "Difficult" ? "bg-yellow-500" : "bg-green-500")"
-                                 style="width: @(trail?.Terrain == "Technical" ? 100 : trail?.Terrain == "Difficult" ? 75 : trail?.Terrain == "Moderate" ? 50 : 25)%"></div>
+                            <div class="h-full rounded-full transition-all duration-700 @terrainTypeColor"
+                                 style="width: @terrainTypePct%"></div>
                         </div>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <span class="text-gray-300 text-sm">Terrain</span>
+                        <span class="text-white text-sm ml-2">@(trail?.Terrain ?? "N/A")</span>
                     </div>
                 </div>
             </div>
@@ -137,9 +186,21 @@
                             <div class="text-lg font-bold text-accent">@confidenceDisplay%</div>
                         </div>
                     </div>
-                    <p class="text-sm text-gray-400 mb-5">
+                    <p class="text-sm text-gray-400 mb-1">
                         These are the factors that most influenced your assessment result.
                     </p>
+                    <p class="text-xs text-gray-500 mb-5">
+                        Confidence reflects how certain the model is that this result matches its trained rules. It does not measure whether the recommendation is right for you.
+                    </p>
+
+                    @if (Model.GateApplied)
+                    {
+                        <div class="mb-5 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                            <p class="text-amber-300 text-sm">
+                                <i class="fa-solid fa-shield-halved mr-1"></i> @Model.GateReason
+                            </p>
+                        </div>
+                    }
 
                     <div class="space-y-4">
                         @foreach (var factor in Model.ShapFactors)

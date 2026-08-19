@@ -27,6 +27,18 @@ label_encoder = joblib.load("label_encoder_v2.pkl")
 
 explainer = shap.TreeExplainer(model)
 
+# SHAP is always explained against the "Good Match" class logit, never the
+# predicted class. For a gated case (e.g. reported CVD symptoms) the predicted
+# class is "Not Recommended" reached by elimination: the model has pushed the
+# case out of "Good Match" and "Borderline", so at the "Not Recommended" logit
+# itself the decisive feature can show an impact of ~0.0 while an unrelated
+# feature (e.g. BMI) appears dominant. Anchoring on "Good Match" instead means
+# a negative impact always means "pushed away from Good Match", which is what
+# the participant-facing "Helped / Reduced your result" copy already claims.
+# Looked up by label rather than hardcoded so a change in class ordering can't
+# silently break this.
+GOOD_MATCH_CLASS_INDEX = int(list(label_encoder.classes_).index("Good Match"))
+
 # Reproduce train_model.py's held-out test split (same random_state/test_size/
 # stratify) against the model already on disk, so /model-info reports a real,
 # current accuracy figure without retraining at startup.
@@ -135,7 +147,7 @@ def predict(request: PredictionRequest):
         )
 
     shap_result = explainer(input_row)
-    sample_shap = shap_result.values[0, :, predicted_class_index]
+    sample_shap = shap_result.values[0, :, GOOD_MATCH_CLASS_INDEX]
 
     shap_breakdown = [
         ShapFeatureImpact(

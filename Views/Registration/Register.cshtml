@@ -14,7 +14,7 @@
     var resultIcon = isGoodMatch ? "fa-check-circle" : isBorderline ? "fa-triangle-exclamation" : "fa-xmark-circle";
 
     var hasMlPrediction = resultViewModel?.HasMlPrediction == true;
-    var confidenceDisplay = Math.Min(Math.Round((resultViewModel?.ConfidenceScore ?? 0) * 100, 1), 99.9).ToString("0.0");
+    var confidenceDisplay = Math.Round((resultViewModel?.ConfidenceScore ?? 0) * 100, 1).ToString("0.0");
 
     var requiresClearance = ViewBag.RequiresMedicalClearance == true;
     var requiresPlan = ViewBag.RequiresPreparationPlan == true;
@@ -257,6 +257,7 @@
                         @if (hasMlPrediction)
                         {
                             <p class="text-accent text-[10px] font-semibold">@confidenceDisplay% confidence</p>
+                            <p class="text-gray-500 text-[10px] mt-0.5">Confidence reflects how certain the model is that this result matches its trained rules. It does not measure whether the recommendation is right for you.</p>
                         }
                     </div>
                 </div>
