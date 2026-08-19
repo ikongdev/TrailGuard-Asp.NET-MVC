@@ -334,7 +334,9 @@ namespace TrailGuard.Controllers
                 NpsBand = suitabilityResult?.NpsBand ?? "",
                 GateApplied = suitabilityResult?.GateApplied ?? false,
                 GateReason = suitabilityResult?.GateReason ?? "",
-                MedicalClearanceRequired = assessment.MedicalClearanceRequired
+                MedicalClearanceRequired = assessment.MedicalClearanceRequired,
+                RequiresMedicalClearance = RegistrationRulesHelper.RequiresMedicalClearance(assessment),
+                RequiresPreparationPlan = RegistrationRulesHelper.RequiresPreparationPlan(assessment)
             };
 
             ViewBag.Assessment = assessment;

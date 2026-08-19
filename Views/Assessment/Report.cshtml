@@ -16,7 +16,17 @@
     var confidencePct = Math.Round((Model?.ConfidenceScore ?? 0) * 100, 1);
     var confidenceDisplay = confidencePct.ToString("0.0");
 
-    var medicalClearanceRequired = Model?.MedicalClearanceRequired == true;
+    // What registration will actually ask for - same trigger RegistrationRulesHelper
+    // uses, computed once in the controller so this can't drift from the form again.
+    var requiresClearance = Model?.RequiresMedicalClearance == true;
+    var requiresPlan = Model?.RequiresPreparationPlan == true;
+    // A gate-flagged health condition is the more serious reason and wins the
+    // headline message even when Not Recommended would also require clearance on
+    // its own; the itemized list below still shows everything that's required
+    // either way, so nothing goes unmentioned.
+    var clearanceReasonText = Model?.MedicalClearanceRequired == true
+        ? "Your assessment flagged a health condition that needs medical clearance before you can register."
+        : "This trail is significantly beyond your current readiness. Registration will require a medical clearance and a preparation plan.";
 
     var terrainType = trail?.TerrainType ?? 0;
     var terrainTypeLabel = terrainType switch
@@ -100,15 +110,20 @@
         </div>
     </div>
 
-    @if (medicalClearanceRequired)
+    @if (requiresClearance)
     {
         <div class="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-8 flex items-start gap-3">
             <i class="fa-solid fa-notes-medical text-red-400 text-xl mt-0.5"></i>
             <div>
-                <p class="text-red-400 font-semibold text-sm">Medical clearance required</p>
-                <p class="text-gray-300 text-sm mt-1">
-                    Based on your answers, you'll need to provide medical clearance from a physician before your registration for this event can be approved.
-                </p>
+                <p class="text-red-400 font-semibold text-sm">Registration will require additional documents</p>
+                <p class="text-gray-300 text-sm mt-1">@clearanceReasonText</p>
+                <ul class="text-gray-300 text-sm mt-2 space-y-1">
+                    <li><i class="fa-solid fa-check text-red-400/70 mr-2"></i>Medical clearance document</li>
+                    @if (requiresPlan)
+                    {
+                        <li><i class="fa-solid fa-check text-red-400/70 mr-2"></i>Preparation plan</li>
+                    }
+                </ul>
             </div>
         </div>
     }

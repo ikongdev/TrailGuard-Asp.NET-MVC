@@ -1252,6 +1252,11 @@
   .gap-12 {
     gap: calc(var(--spacing) * 12);
   }
+  :where(.space-y-1 > :not(:last-child)) {
+    --tw-space-y-reverse: 0;
+    margin-block-start: calc(var(--spacing) * var(--tw-space-y-reverse));
+    margin-block-end: calc(var(--spacing) * calc(1 - var(--tw-space-y-reverse)));
+  }
   :where(.space-y-1\.5 > :not(:last-child)) {
     --tw-space-y-reverse: 0;
     margin-block-start: calc(calc(var(--spacing) * 1.5) * var(--tw-space-y-reverse));
@@ -2764,6 +2769,12 @@
   }
   .text-red-400 {
     color: var(--color-red-400);
+  }
+  .text-red-400\/70 {
+    color: color-mix(in srgb, oklch(70.4% 0.191 22.216) 70%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      color: color-mix(in oklab, var(--color-red-400) 70%, transparent);
+    }
   }
   .text-red-400\/80 {
     color: color-mix(in srgb, oklch(70.4% 0.191 22.216) 80%, transparent);
