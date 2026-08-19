@@ -130,6 +130,7 @@ namespace TrailGuard.Controllers
                 existingTrail.DistanceKm = model.DistanceKm;
                 existingTrail.ElevationGainMeters = model.ElevationGainMeters;
                 existingTrail.Terrain = model.Terrain;
+                existingTrail.TerrainType = model.TerrainType;
                 existingTrail.Description = model.Description;
 
                 if (ThumbnailImage != null && ThumbnailImage.Length > 0)

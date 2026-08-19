@@ -89,6 +89,7 @@ namespace TrailGuard.Controllers
             string? exerciseFrequency,
             string? exerciseType,
             string? cardioEndurance,
+            string? exerciseConsistency,
             string? mountainsClimbed,
             string? recencyOfHike,
             string? trailDifficultyCompleted,
@@ -155,14 +156,16 @@ namespace TrailGuard.Controllers
             if (eventItem.Trail != null)
             {
                 var mlRequest = BuildMlRequest(
-                    age, heightCm, weightKg, medicalConditions,
-                    exerciseFrequency, exerciseType, cardioEndurance,
+                    heightCm, weightKg, medicalConditions,
+                    exerciseFrequency, cardioEndurance, exerciseConsistency,
                     mountainsClimbed, recencyOfHike, trailDifficultyCompleted,
-                    gearItemsString, eventItem.Trail, eventItem.EstimatedDuration
+                    gearItemsString, eventItem.Trail
                 );
 
                 mlResponse = await _suitabilityApi.PredictAsync(mlRequest);
             }
+
+            var isRuleBasedFallback = mlResponse == null;
 
             if (mlResponse != null)
             {
@@ -202,9 +205,11 @@ namespace TrailGuard.Controllers
                 HeightCm = heightCm,
                 WeightKg = weightKg,
                 MedicalConditions = medicalConditions,
+                MedicalClearanceRequired = mlResponse?.MedicalClearanceRequired ?? false,
                 ExerciseFrequency = exerciseFrequency,
                 ExerciseType = exerciseType,
                 CardioEndurance = cardioEndurance,
+                ExerciseConsistency = exerciseConsistency,
                 MountainsClimbed = mountainsClimbed,
                 RecencyOfHike = recencyOfHike,
                 TrailDifficultyCompleted = trailDifficultyCompleted,
@@ -216,6 +221,7 @@ namespace TrailGuard.Controllers
                 ExperienceScore = experienceScore,
                 HealthScore = healthScore,
                 GearScore = gearScore,
+                IsRuleBasedFallback = isRuleBasedFallback,
                 IsActive = true,
                 SubmittedAt = DateTime.Now
             };
@@ -229,7 +235,12 @@ namespace TrailGuard.Controllers
                 {
                     AssessmentId = assessment.Id,
                     PredictedLabel = mlResponse.SuitabilityLabel,
+                    ModelLabel = mlResponse.ModelLabel,
                     ConfidenceScore = mlResponse.ConfidenceScore,
+                    GateApplied = mlResponse.GateApplied,
+                    GateReason = mlResponse.GateReason,
+                    NpsScore = mlResponse.NpsScore,
+                    NpsBand = mlResponse.NpsBand,
                     ModelVersion = mlResponse.ModelVersion,
                     PredictedAt = DateTime.Now
                 };
@@ -351,62 +362,66 @@ namespace TrailGuard.Controllers
             "Not Recommended" => "Not Recommended",
             _ => "Not Recommended"
         };
-        private int MapExerciseFrequency(string? value) => value switch
+        // Exact-string lookups for the ML request's ordinal fields. Keyed on the
+        // literal option values from Views/Assessment/Form.cshtml. An answer that
+        // doesn't match throws rather than silently defaulting to 0 - a silent
+        // default would make an unfit participant look unfit for the wrong reason,
+        // and a fit one look unfit too.
+        private static readonly Dictionary<string, int> ExerciseFrequencyMap = new()
         {
-            "5 or more times per week" => 3,
-            "3 to 4 times per week" => 2,
-            "1 to 2 times per week" => 1,
-            _ => 0
+            ["I do not exercise / Sedentary"] = 0,
+            ["1 to 2 times per week"] = 1,
+            ["3 to 4 times per week"] = 2,
+            ["5 or more times per week"] = 3,
         };
 
-        private int MapExerciseType(string? value) => value switch
+        private static readonly Dictionary<string, int> CardioEnduranceMap = new()
         {
-            "Combination of cardio and strength training" => 3,
-            "Cardio or endurance only" => 2,
-            "Strength or resistance only" => 2,
-            _ => 1
+            ["Less than 15 minutes"] = 0,
+            ["15 to 29 minutes"] = 1,
+            ["30 to 60 minutes"] = 2,
+            ["More than 60 minutes"] = 3,
         };
 
-        private int MapCardioEndurance(string? value) => value switch
+        private static readonly Dictionary<string, int> ExerciseConsistencyMap = new()
         {
-            "More than 60 minutes" => 3,
-            "31 to 60 minutes" => 2,
-            "15 to 30 minutes" => 1,
-            _ => 0
+            ["Less than 1 month"] = 0,
+            ["1 to 2 months"] = 1,
+            ["3 months or more"] = 2,
         };
 
-        private int MapMountainsClimbed(string? value) => value switch
+        private static readonly Dictionary<string, int> MountainsClimbedMap = new()
         {
-            "More than 10 mountains / Experienced" => 3,
-            "4 to 10 mountains / Intermediate" => 2,
-            "1 to 3 mountains / Beginner" => 1,
-            _ => 0
+            ["This will be my first time / First-timer"] = 0,
+            ["1 to 3 mountains / Beginner"] = 1,
+            ["4 to 10 mountains / Intermediate"] = 2,
+            ["More than 10 mountains / Experienced"] = 3,
         };
 
-        private int MapRecencyOfHike(string? value) => value switch
+        private static readonly Dictionary<string, int> RecencyOfHikeMap = new()
         {
-            "Within the past 1 to 3 months" => 3,
-            "Within the past 4 to 12 months" => 2,
-            "More than 1 year ago" => 1,
-            _ => 0
+            ["I have never climbed a mountain before"] = 0,
+            ["More than 1 year ago"] = 1,
+            ["Within the past 4 to 12 months"] = 2,
+            ["Within the past 1 to 3 months"] = 3,
         };
 
-        private int MapTrailDifficultyCompleted(string? value) => value switch
+        private static readonly Dictionary<string, int> TrailDifficultyCompletedMap = new()
         {
-            "Multi-day or overnight expeditions" => 3,
-            "Major hikes with steep assault sections" => 2,
-            "Minor day hikes only" => 1,
-            _ => 0
+            ["None / I have never climbed before"] = 0,
+            ["Minor day hikes only"] = 1,
+            ["Major hikes with steep assault sections"] = 2,
+            ["Multi-day or overnight expeditions"] = 3,
         };
 
-        private int MapTerrainType(string? terrain)
+        private static int MapScore(IReadOnlyDictionary<string, int> map, string? value, string fieldName)
         {
-            var t = terrain?.ToLower() ?? "";
-            if (t.Contains("rocky") || t.Contains("volcanic") || t.Contains("technical"))
-                return 3;
-            if (t.Contains("grassland") || t.Contains("pine forest"))
-                return 1;
-            return 2;
+            if (value != null && map.TryGetValue(value, out var score))
+            {
+                return score;
+            }
+
+            throw new ArgumentException($"Unrecognized {fieldName} value: '{value ?? "null"}'");
         }
 
         private bool HasCondition(string? medicalConditions, string keyword)
@@ -415,65 +430,51 @@ namespace TrailGuard.Controllers
             return medicalConditions.Contains(keyword, StringComparison.OrdinalIgnoreCase);
         }
 
-        private bool HasGear(string? gearItems, string itemName)
+        private int ComputeMlGearScore(string? gearItems)
         {
-            if (string.IsNullOrEmpty(gearItems)) return false;
+            if (string.IsNullOrEmpty(gearItems)) return 0;
+
             return gearItems.Split(',')
                 .Select(g => g.Trim())
-                .Any(g => g.Equals(itemName, StringComparison.OrdinalIgnoreCase));
+                .Count(g => !string.IsNullOrEmpty(g) && !g.Equals("None of the above", StringComparison.OrdinalIgnoreCase));
         }
 
         private SuitabilityPredictionRequest BuildMlRequest(
-            int? age, double? heightCm, double? weightKg,
-            string? medicalConditions, string? exerciseFrequency, string? exerciseType,
-            string? cardioEndurance, string? mountainsClimbed, string? recencyOfHike,
-            string? trailDifficultyCompleted, string? gearItems,
-            Trail trail, double estimatedDuration)
+            double? heightCm, double? weightKg,
+            string? medicalConditions, string? exerciseFrequency, string? cardioEndurance,
+            string? exerciseConsistency, string? mountainsClimbed, string? recencyOfHike,
+            string? trailDifficultyCompleted, string? gearItems, Trail trail)
         {
             var h = heightCm ?? 165;
             var w = weightKg ?? 60;
             var heightM = h / 100;
             var bmi = heightM > 0 ? w / (heightM * heightM) : 22.0;
 
-            var gearWater = HasGear(gearItems, "Enough water") ? 1 : 0;
-            var gearFood = HasGear(gearItems, "Trail food") ? 1 : 0;
-            var gearFirstAid = HasGear(gearItems, "First aid kit") ? 1 : 0;
-            var gearFlashlight = HasGear(gearItems, "Flashlight") ? 1 : 0;
-            var gearWhistle = HasGear(gearItems, "Whistle") ? 1 : 0;
-            var gearRaincoat = HasGear(gearItems, "Raincoat") ? 1 : 0;
-            var gearNavigation = HasGear(gearItems, "Navigation tool") ? 1 : 0;
-            var gearShoes = HasGear(gearItems, "Proper hiking shoes") ? 1 : 0;
+            if (trail.TerrainType < 1 || trail.TerrainType > 3)
+            {
+                throw new InvalidOperationException(
+                    $"Trail '{trail.Name}' (Id={trail.Id}) has an invalid TerrainType ({trail.TerrainType}); expected 1-3.");
+            }
 
             return new SuitabilityPredictionRequest
             {
-                Age = age ?? 25,
-                HeightCm = h,
-                WeightKg = w,
                 Bmi = Math.Round(bmi, 2),
+                ExerciseFrequencyScore = MapScore(ExerciseFrequencyMap, exerciseFrequency, "exerciseFrequency"),
+                ContinuousCardioDurationScore = MapScore(CardioEnduranceMap, cardioEndurance, "cardioEndurance"),
+                ExerciseConsistencyScore = MapScore(ExerciseConsistencyMap, exerciseConsistency, "exerciseConsistency"),
+                HikingExperienceScore = MapScore(MountainsClimbedMap, mountainsClimbed, "mountainsClimbed"),
+                LastHikeRecencyScore = MapScore(RecencyOfHikeMap, recencyOfHike, "recencyOfHike"),
+                HardestTrailCompletedScore = MapScore(TrailDifficultyCompletedMap, trailDifficultyCompleted, "trailDifficultyCompleted"),
+                GearScore = ComputeMlGearScore(gearItems),
                 HasAsthma = HasCondition(medicalConditions, "Asthma") ? 1 : 0,
-                HasHypertensionHeartCondition = HasCondition(medicalConditions, "Hypertension") ? 1 : 0,
+                HasCvd = HasCondition(medicalConditions, "Hypertension") ? 1 : 0,
                 HasJointKneeInjury = HasCondition(medicalConditions, "Joint or knee") ? 1 : 0,
-                HasVertigo = HasCondition(medicalConditions, "Vertigo") ? 1 : 0,
-                ExerciseFrequencyScore = MapExerciseFrequency(exerciseFrequency),
-                ExerciseTypeCategory = MapExerciseType(exerciseType),
-                ContinuousCardioDurationScore = MapCardioEndurance(cardioEndurance),
-                HikingExperienceScore = MapMountainsClimbed(mountainsClimbed),
-                LastHikeRecencyScore = MapRecencyOfHike(recencyOfHike),
-                HardestTrailCompletedScore = MapTrailDifficultyCompleted(trailDifficultyCompleted),
-                GearWater = gearWater,
-                GearTrailFood = gearFood,
-                GearFirstAidMedicine = gearFirstAid,
-                GearFlashlightHeadlamp = gearFlashlight,
-                GearWhistle = gearWhistle,
-                GearRaincoatPoncho = gearRaincoat,
-                GearNavigation = gearNavigation,
-                GearProperShoes = gearShoes,
-                GearScore = gearWater + gearFood + gearFirstAid + gearFlashlight
-                        + gearWhistle + gearRaincoat + gearNavigation + gearShoes,
+                HasCvdSymptoms = (HasCondition(medicalConditions, "Vertigo")
+                                || HasCondition(medicalConditions, "Chest pain")
+                                || HasCondition(medicalConditions, "Shortness of breath")) ? 1 : 0,
                 TrailDistanceKm = trail.DistanceKm,
                 TrailElevationGainM = trail.ElevationGainMeters,
-                TrailTerrainType = MapTerrainType(trail.Terrain),
-                TrailEstimatedDurationHr = estimatedDuration
+                TrailTerrainType = trail.TerrainType,
             };
         }
 
