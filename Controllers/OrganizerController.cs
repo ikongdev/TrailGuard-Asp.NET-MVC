@@ -242,7 +242,9 @@ namespace TrailGuard.Controllers
                 MedicalConditions = r.Assessment?.MedicalConditions,
                 FitnessLevel = r.Assessment?.ExerciseFrequency,
                 HikingExperience = r.Assessment?.MountainsClimbed,
-                GearItems = r.Assessment?.GearItems
+                GearItems = r.Assessment?.GearItems,
+                MedicalClearanceRequired = r.Assessment?.MedicalClearanceRequired ?? false,
+                MedicalClearanceUrl = r.MedicalClearanceUrl
             }).ToList();
 
             return View(viewModel);
@@ -277,6 +279,7 @@ namespace TrailGuard.Controllers
                     ViewBag.MlConfidence = suitabilityResult.ConfidenceScore;
                     ViewBag.MlModelVersion = suitabilityResult.ModelVersion;
                     ViewBag.ShapFactors = ShapHelper.BuildDisplayItems(suitabilityResult.ShapValues);
+                    ViewBag.GateReason = suitabilityResult.GateReason;
                 }
                 else
                 {

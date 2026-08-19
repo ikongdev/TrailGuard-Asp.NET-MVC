@@ -88,6 +88,7 @@ namespace TrailGuard.Controllers
             ViewBag.RequiresMedicalClearance = RegistrationRulesHelper.RequiresMedicalClearance(assessment);
             ViewBag.RequiresPreparationPlan = RegistrationRulesHelper.RequiresPreparationPlan(assessment);
             ViewBag.HasMedicalCondition = RegistrationRulesHelper.HasAnyMedicalCondition(assessment.MedicalConditions);
+            ViewBag.GateReason = suitabilityResult?.GateReason;
 
             return View();
         }
