@@ -23,5 +23,11 @@ namespace TrailGuard.Models
         public bool GateApplied { get; set; }
         public string GateReason { get; set; } = string.Empty;
         public bool MedicalClearanceRequired { get; set; }
+
+        // What registration will actually ask for - computed the same way
+        // RegistrationController computes it (via RegistrationRulesHelper), so the
+        // report and the registration form can never show a different answer.
+        public bool RequiresMedicalClearance { get; set; }
+        public bool RequiresPreparationPlan { get; set; }
     }
 }
