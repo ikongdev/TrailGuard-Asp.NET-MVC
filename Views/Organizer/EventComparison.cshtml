@@ -52,16 +52,16 @@
                 <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 text-center hover:bg-yellow-500/20 transition-colors">
                     <div class="flex items-center justify-center gap-2">
                         <i class="fa-solid fa-triangle-exclamation text-yellow-400 text-xl"></i>
-                        <p class="text-2xl font-bold text-yellow-400">@Model.Count(m => m.Comparison.Contains("Overestimated"))</p>
+                        <p class="text-2xl font-bold text-yellow-400">@Model.Count(m => m.Comparison.Contains("Over-cautious"))</p>
                     </div>
-                    <p class="text-gray-400 text-xs mt-1">Overestimated</p>
+                    <p class="text-gray-400 text-xs mt-1">Over-cautious</p>
                 </div>
-                <div class="bg-orange-500/10 border border-orange-500/30 rounded-xl p-4 text-center hover:bg-orange-500/20 transition-colors">
+                <div class="bg-red-500/10 border-2 border-red-500/40 rounded-xl p-4 text-center hover:bg-red-500/20 transition-colors ring-1 ring-red-500/20">
                     <div class="flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-arrow-trend-up text-orange-400 text-xl"></i>
-                        <p class="text-2xl font-bold text-orange-400">@Model.Count(m => m.Comparison.Contains("Underestimated"))</p>
+                        <i class="fa-solid fa-shield-halved text-red-400 text-xl"></i>
+                        <p class="text-2xl font-bold text-red-400">@Model.Count(m => m.IsMissedRisk)</p>
                     </div>
-                    <p class="text-gray-400 text-xs mt-1">Underestimated</p>
+                    <p class="text-red-300 text-xs mt-1 font-semibold">Missed risk</p>
                 </div>
                 <div class="bg-gray-500/10 border border-gray-500/30 rounded-xl p-4 text-center hover:bg-gray-500/20 transition-colors">
                     <div class="flex items-center justify-center gap-2">
@@ -120,7 +120,7 @@
                                 _ => "bg-gray-500/20 text-gray-400"
                             };
 
-                            <tr class="border-b border-gray-800 hover:bg-white/5 transition-colors group">
+                            <tr class="border-b border-gray-800 hover:bg-white/5 transition-colors group @(item.IsMissedRisk ? "bg-red-500/5 border-l-2 border-l-red-500" : "")">
                                 <td class="px-4 py-3">
                                     <span class="text-white font-medium">@item.ParticipantName</span>
                                 </td>
@@ -179,13 +179,13 @@
                     </div>
                     <div class="flex items-center gap-2">
                         <i class="fa-solid fa-triangle-exclamation text-yellow-400"></i>
-                        <span class="text-gray-300">Overestimated</span>
-                        <span class="text-gray-500">- Expected harder than actual</span>
+                        <span class="text-gray-300">Over-cautious</span>
+                        <span class="text-gray-500">- Predicted harder than actual. Inefficient, not unsafe.</span>
                     </div>
                     <div class="flex items-center gap-2">
-                        <i class="fa-solid fa-arrow-trend-up text-orange-400"></i>
-                        <span class="text-gray-300">Underestimated</span>
-                        <span class="text-gray-500">- Expected easier than actual</span>
+                        <i class="fa-solid fa-shield-halved text-red-400"></i>
+                        <span class="text-red-300 font-semibold">Missed risk</span>
+                        <span class="text-gray-500">- Predicted easier than actual. Safety-critical: a participant was told they were ready, and they weren't.</span>
                     </div>
                     <div class="flex items-center gap-2">
                         <i class="fa-solid fa-minus-circle text-gray-400"></i>

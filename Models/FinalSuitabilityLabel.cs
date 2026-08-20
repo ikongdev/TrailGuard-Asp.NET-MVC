@@ -35,6 +35,11 @@ namespace TrailGuard.Models
         [Required]
         public string PreHikeLabel { get; set; } = string.Empty;
 
+        // The model's own output before the ACSM gate, from SuitabilityResult.ModelLabel.
+        // Differs from PreHikeLabel only when the gate overrode the model. Null when the
+        // assessment predates this field or had no SuitabilityResult (rule-based fallback).
+        public string? ModelPreHikeLabel { get; set; }
+
         public string? ParticipantFeedback { get; set; }
         public string? OrganizerAssessment { get; set; }
 
