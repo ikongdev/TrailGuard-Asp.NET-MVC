@@ -1,0 +1,326 @@
+@model TrailGuard.Controllers.ReportsViewModel
+@using TrailGuard.Services
+@using TrailGuard.Controllers
+@{
+    ViewData["Title"] = "Reports";
+    var categories = FinalLabelService.LabelCategories;
+
+    string Pct(double value) => value.ToString("F1") + "%";
+}
+
+<div class="pt-24 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
+
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+        <div class="flex items-center gap-4">
+            <div class="w-14 h-14 rounded-full bg-linear-to-r from-blue-500 to-cyan-500 flex items-center justify-center shrink-0">
+                <i class="fa-solid fa-chart-line text-white text-2xl"></i>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-white">Model Validation Report</h1>
+                <p class="text-gray-400 text-sm">Prediction-vs-outcome accuracy aggregated across every event</p>
+            </div>
+        </div>
+        <a asp-controller="Reports" asp-action="Export"
+           class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full text-sm font-bold text-white bg-linear-to-r from-orange-500 to-purple-600 hover:opacity-90 transition-all">
+            <i class="fa-solid fa-download"></i> Export Retraining Data (CSV)
+        </a>
+    </div>
+
+    <!-- D. Sampling-bias funnel -->
+    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 mb-8">
+        <h2 class="text-lg font-bold text-white mb-1"><i class="fa-solid fa-filter text-blue-400 mr-2"></i>Where the Data Comes From</h2>
+        <p class="text-gray-400 text-sm mb-5">
+            A resolved label only exists for a participant who was assessed, registered, accepted, and completed the event.
+            Every drop-off below is a participant this report has no outcome for — the collected data is skewed toward
+            participants the system approved.
+        </p>
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-black/20 border border-white/10 rounded-xl p-4 text-center">
+                <p class="text-3xl font-bold text-white">@Model.TotalAssessments</p>
+                <p class="text-gray-400 text-xs mt-1">Assessments Taken</p>
+            </div>
+            <div class="bg-black/20 border border-white/10 rounded-xl p-4 text-center">
+                <p class="text-3xl font-bold text-white">@Model.TotalRegistrations</p>
+                <p class="text-gray-400 text-xs mt-1">Became Registrations</p>
+            </div>
+            <div class="bg-black/20 border border-white/10 rounded-xl p-4 text-center">
+                <p class="text-3xl font-bold text-white">@Model.TotalAccepted</p>
+                <p class="text-gray-400 text-xs mt-1">Accepted</p>
+            </div>
+            <div class="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 text-center">
+                <p class="text-3xl font-bold text-blue-400">@Model.TotalResolvedLabels</p>
+                <p class="text-gray-400 text-xs mt-1">Produced a Resolved Label</p>
+            </div>
+        </div>
+    </div>
+
+    @if (!Model.HasEnoughData)
+    {
+        <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-5 mb-8 flex items-start gap-3">
+            <i class="fa-solid fa-triangle-exclamation text-yellow-400 text-lg mt-0.5"></i>
+            <div>
+                <p class="text-yellow-300 font-semibold">Not enough data for reliable accuracy figures</p>
+                <p class="text-yellow-300/70 text-sm mt-1">
+                    Only @Model.TotalResolvedLabels resolved label@(Model.TotalResolvedLabels == 1 ? "" : "s") so far — below the
+                    @ReportsController.MinSampleSize needed for percentages and kappa to mean anything. Raw counts are shown
+                    below; treat any percentage on this page as illustrative only until the sample grows.
+                </p>
+            </div>
+        </div>
+    }
+
+    <!-- A1. Overall accuracy -->
+    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 mb-8">
+        <h2 class="text-lg font-bold text-white mb-1"><i class="fa-solid fa-bullseye text-blue-400 mr-2"></i>Overall Accuracy</h2>
+        <p class="text-gray-400 text-sm mb-5">Pre-hike label (after the ACSM gate) vs. the final resolved outcome — validates the whole system as participants actually experienced it.</p>
+
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+            <div class="bg-green-500/10 border border-green-500/30 rounded-xl p-4 text-center">
+                <p class="text-2xl font-bold text-green-400">
+                    @Model.Overall.Accurate
+                    @if (Model.Overall.HasEnoughData) { <span class="text-sm font-normal text-green-400/70">(@Pct(Model.Overall.AccuratePct))</span> }
+                </p>
+                <p class="text-gray-400 text-xs mt-1"><i class="fa-solid fa-check-circle mr-1"></i>Accurate</p>
+            </div>
+            <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 text-center">
+                <p class="text-2xl font-bold text-yellow-400">
+                    @Model.Overall.OverCautious
+                    @if (Model.Overall.HasEnoughData) { <span class="text-sm font-normal text-yellow-400/70">(@Pct(Model.Overall.OverCautiousPct))</span> }
+                </p>
+                <p class="text-gray-400 text-xs mt-1"><i class="fa-solid fa-arrow-up mr-1"></i>Over-cautious (predicted harder)</p>
+            </div>
+            <div class="bg-red-500/10 border-2 border-red-500/40 rounded-xl p-4 text-center ring-1 ring-red-500/20">
+                <p class="text-2xl font-bold text-red-400">
+                    @Model.Overall.MissedRisk
+                    @if (Model.Overall.HasEnoughData) { <span class="text-sm font-normal text-red-400/70">(@Pct(Model.Overall.MissedRiskPct))</span> }
+                </p>
+                <p class="text-red-300 text-xs mt-1 font-semibold"><i class="fa-solid fa-shield-halved mr-1"></i>Missed risk (predicted easier)</p>
+                <p class="text-red-400/60 text-[10px] mt-0.5">Safety-critical — told ready, wasn't</p>
+            </div>
+        </div>
+
+        @if (Model.Kappa.HasValue && Model.WeightedKappa.HasValue)
+        {
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <div class="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+                    <p class="text-3xl font-bold text-blue-400">@Model.WeightedKappa.Value.ToString("F3")</p>
+                    <p class="text-gray-300 text-sm mt-1 font-medium">Quadratic Weighted Kappa <span class="text-blue-400/70">(headline figure)</span></p>
+                    <p class="text-gray-500 text-xs mt-1">Weighted because the three categories are ordinal — a Good-Match/Not-Recommended miss is penalized more than a Good-Match/Borderline one.</p>
+                </div>
+                <div class="bg-white/5 border border-white/10 rounded-xl p-4">
+                    <p class="text-3xl font-bold text-gray-300">@Model.Kappa.Value.ToString("F3")</p>
+                    <p class="text-gray-300 text-sm mt-1 font-medium">Unweighted Cohen's Kappa</p>
+                    <p class="text-gray-500 text-xs mt-1">Treats every disagreement the same regardless of how far apart the categories are. Shown for reference only.</p>
+                </div>
+            </div>
+        }
+
+        <!-- A2. Confusion matrix -->
+        <div class="overflow-x-auto">
+            <table class="w-full text-center border-collapse">
+                <thead>
+                    <tr>
+                        <th class="p-3 text-xs text-gray-500 uppercase"></th>
+                        <th colspan="3" class="p-2 text-xs text-gray-400 uppercase tracking-wider border-b border-white/10">Final Label (Actual)</th>
+                    </tr>
+                    <tr>
+                        <th class="p-3 text-xs text-gray-500 uppercase text-right">Predicted</th>
+                        @foreach (var c in categories)
+                        {
+                            <th class="p-3 text-xs font-medium text-gray-400 uppercase">@c</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (int i = 0; i < categories.Length; i++)
+                    {
+                        <tr class="border-t border-white/5">
+                            <td class="p-3 text-xs font-medium text-gray-400 text-right">@categories[i]</td>
+                            @for (int j = 0; j < categories.Length; j++)
+                            {
+                                var cell = Model.ConfusionMatrix[i, j];
+                                var cellClass = i == j ? "bg-green-500/10 text-green-300 font-bold"
+                                    : cell == 0 ? "text-gray-600"
+                                    : j > i ? "bg-red-500/10 text-red-300 font-semibold"
+                                    : "bg-white/5 text-gray-200";
+                                <td class="p-3 @cellClass">@cell</td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <p class="text-gray-500 text-xs mt-3">
+            Diagonal = accurate. Below the diagonal (predicted a harder category than the final label) = over-cautious.
+            <span class="text-red-400">Above the diagonal (predicted an easier category than the final label) = missed risk.</span>
+        </p>
+    </div>
+
+    <!-- C. Model-only validation -->
+    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 mb-8">
+        <h2 class="text-lg font-bold text-white mb-1"><i class="fa-solid fa-microchip text-blue-400 mr-2"></i>Model-Only Validation</h2>
+        <p class="text-gray-400 text-sm mb-5">
+            The model's own prediction, before the ACSM gate can override it, vs. the final outcome. This is what
+            retraining needs — it isolates the model from the gate's rule-based adjustments.
+            (@Model.ModelOnly.Total of @Model.TotalResolvedLabels resolved labels have a recorded model prediction.)
+        </p>
+
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+            <div class="bg-green-500/10 border border-green-500/30 rounded-xl p-4 text-center">
+                <p class="text-2xl font-bold text-green-400">
+                    @Model.ModelOnly.Accurate
+                    @if (Model.ModelOnly.HasEnoughData) { <span class="text-sm font-normal text-green-400/70">(@Pct(Model.ModelOnly.AccuratePct))</span> }
+                </p>
+                <p class="text-gray-400 text-xs mt-1">Accurate</p>
+            </div>
+            <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 text-center">
+                <p class="text-2xl font-bold text-yellow-400">
+                    @Model.ModelOnly.OverCautious
+                    @if (Model.ModelOnly.HasEnoughData) { <span class="text-sm font-normal text-yellow-400/70">(@Pct(Model.ModelOnly.OverCautiousPct))</span> }
+                </p>
+                <p class="text-gray-400 text-xs mt-1">Over-cautious</p>
+            </div>
+            <div class="bg-red-500/10 border-2 border-red-500/40 rounded-xl p-4 text-center ring-1 ring-red-500/20">
+                <p class="text-2xl font-bold text-red-400">
+                    @Model.ModelOnly.MissedRisk
+                    @if (Model.ModelOnly.HasEnoughData) { <span class="text-sm font-normal text-red-400/70">(@Pct(Model.ModelOnly.MissedRiskPct))</span> }
+                </p>
+                <p class="text-red-300 text-xs mt-1 font-semibold">Missed risk</p>
+            </div>
+        </div>
+
+        @if (Model.ModelKappa.HasValue && Model.ModelWeightedKappa.HasValue)
+        {
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+                    <p class="text-2xl font-bold text-blue-400">@Model.ModelWeightedKappa.Value.ToString("F3")</p>
+                    <p class="text-gray-300 text-sm mt-1 font-medium">Quadratic Weighted Kappa</p>
+                </div>
+                <div class="bg-white/5 border border-white/10 rounded-xl p-4">
+                    <p class="text-2xl font-bold text-gray-300">@Model.ModelKappa.Value.ToString("F3")</p>
+                    <p class="text-gray-300 text-sm mt-1 font-medium">Unweighted Cohen's Kappa</p>
+                </div>
+            </div>
+        }
+        else
+        {
+            <p class="text-gray-500 text-xs"><i class="fa-solid fa-circle-info mr-1"></i>Fewer than @ReportsController.MinSampleSize labels have a recorded model prediction — kappa suppressed.</p>
+        }
+    </div>
+
+    <!-- A4. Breakdown by NPS band and terrain type -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6">
+            <h2 class="text-lg font-bold text-white mb-1"><i class="fa-solid fa-mountain-sun text-blue-400 mr-2"></i>By NPS Difficulty Band</h2>
+            <p class="text-gray-400 text-sm mb-4">Is the model equally reliable on easy trails and strenuous ones?</p>
+            @if (Model.ByNpsBand.Any())
+            {
+                <div class="space-y-2">
+                    @foreach (var g in Model.ByNpsBand)
+                    {
+                        <div class="bg-black/20 border border-white/10 rounded-xl p-3">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-white text-sm font-medium">@g.GroupName</span>
+                                <span class="text-gray-500 text-xs">n = @g.Stats.Total</span>
+                            </div>
+                            @if (g.Stats.HasEnoughData)
+                            {
+                                <div class="flex gap-3 text-xs">
+                                    <span class="text-green-400">Accurate @Pct(g.Stats.AccuratePct)</span>
+                                    <span class="text-yellow-400">Over-cautious @Pct(g.Stats.OverCautiousPct)</span>
+                                    <span class="text-red-400 font-semibold">Missed risk @Pct(g.Stats.MissedRiskPct)</span>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="flex gap-3 text-xs text-gray-500">
+                                    <span>Accurate: @g.Stats.Accurate</span>
+                                    <span>Over-cautious: @g.Stats.OverCautious</span>
+                                    <span class="text-red-400/80">Missed risk: @g.Stats.MissedRisk</span>
+                                    <span class="italic">(sample too small for %)</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <p class="text-gray-500 text-sm">No resolved labels yet.</p>
+            }
+        </div>
+
+        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6">
+            <h2 class="text-lg font-bold text-white mb-1"><i class="fa-solid fa-road text-blue-400 mr-2"></i>By Terrain Type</h2>
+            <p class="text-gray-400 text-sm mb-4">Is the model equally reliable across established, rugged, and technical terrain?</p>
+            @if (Model.ByTerrainType.Any())
+            {
+                <div class="space-y-2">
+                    @foreach (var g in Model.ByTerrainType)
+                    {
+                        <div class="bg-black/20 border border-white/10 rounded-xl p-3">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-white text-sm font-medium">@g.GroupName</span>
+                                <span class="text-gray-500 text-xs">n = @g.Stats.Total</span>
+                            </div>
+                            @if (g.Stats.HasEnoughData)
+                            {
+                                <div class="flex gap-3 text-xs">
+                                    <span class="text-green-400">Accurate @Pct(g.Stats.AccuratePct)</span>
+                                    <span class="text-yellow-400">Over-cautious @Pct(g.Stats.OverCautiousPct)</span>
+                                    <span class="text-red-400 font-semibold">Missed risk @Pct(g.Stats.MissedRiskPct)</span>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="flex gap-3 text-xs text-gray-500">
+                                    <span>Accurate: @g.Stats.Accurate</span>
+                                    <span>Over-cautious: @g.Stats.OverCautious</span>
+                                    <span class="text-red-400/80">Missed risk: @g.Stats.MissedRisk</span>
+                                    <span class="italic">(sample too small for %)</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <p class="text-gray-500 text-sm">No resolved labels yet.</p>
+            }
+        </div>
+    </div>
+
+    <!-- D8. Not Recommended acknowledgement pathway -->
+    <div class="bg-red-500/5 backdrop-blur-xl border border-red-500/20 rounded-3xl p-6">
+        <h2 class="text-lg font-bold text-white mb-1"><i class="fa-solid fa-triangle-exclamation text-red-400 mr-2"></i>Not-Recommended Acknowledgement Pathway</h2>
+        <p class="text-gray-400 text-sm mb-4">
+            The system never blocks registration on a Not Recommended result — it just requires acknowledgement and
+            organizer review. These @Model.NotRecommendedResolvedCount resolved label@(Model.NotRecommendedResolvedCount == 1 ? "" : "s") are the
+            <span class="text-white font-medium">only</span> evidence the system has about whether its negative predictions
+            were actually correct — every other Not Recommended participant never proceeded, so no outcome was ever recorded for them.
+        </p>
+        @if (Model.NotRecommendedPathway.Total > 0)
+        {
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div class="bg-green-500/10 border border-green-500/30 rounded-xl p-4 text-center">
+                    <p class="text-2xl font-bold text-green-400">@Model.NotRecommendedPathway.Accurate</p>
+                    <p class="text-gray-400 text-xs mt-1">Confirmed Not Recommended</p>
+                </div>
+                <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 text-center">
+                    <p class="text-2xl font-bold text-yellow-400">@Model.NotRecommendedPathway.OverCautious</p>
+                    <p class="text-gray-400 text-xs mt-1">Turned out fine anyway (false alarm)</p>
+                </div>
+                <div class="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
+                    <p class="text-2xl font-bold text-gray-400">@Model.NotRecommendedPathway.MissedRisk</p>
+                    <p class="text-gray-400 text-xs mt-1">N/A — already the most conservative label</p>
+                </div>
+            </div>
+        }
+        else
+        {
+            <p class="text-gray-500 text-sm">No participant who received a Not Recommended result has a resolved outcome yet.</p>
+        }
+    </div>
+
+</div>

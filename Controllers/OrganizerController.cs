@@ -696,7 +696,9 @@ namespace TrailGuard.Controllers
                     : "No assessment";
 
                 var finalResult = GetConservativeResult(participantFeedback, organizerAssessment);
-                var comparison = ComparePreHikeToPostHike(preHike, finalResult);
+                var finalCategory = FinalLabelService.MapFeedbackToClass(finalResult);
+                var classification = FinalLabelService.ClassifyAccuracy(preHike, finalCategory);
+                var comparison = ComparisonDisplay(classification);
 
                 results.Add(new ComparisonResult
                 {
@@ -708,7 +710,8 @@ namespace TrailGuard.Controllers
                     FinalLabel = finalLabels.ContainsKey(reg.Id) ? finalLabels[reg.Id] : null,
                     Comparison = comparison.Item1,
                     ComparisonColor = comparison.Item2,
-                    ComparisonIcon = comparison.Item3
+                    ComparisonIcon = comparison.Item3,
+                    IsMissedRisk = classification == "Missed risk"
                 });
             }
 
@@ -728,50 +731,16 @@ namespace TrailGuard.Controllers
             return FinalLabelService.GetMoreConservativeFeedback(participantFeedback, organizerAssessment) ?? "Insufficient data";
         }
 
-        private Tuple<string, string, string> ComparePreHikeToPostHike(string preHike, string postHike)
+        // Display mapping for FinalLabelService.ClassifyAccuracy's three outcomes, shared
+        // in spirit with ReportsController — same classification, same names, so the
+        // per-event and aggregate views can't independently invert this comparison again.
+        private static Tuple<string, string, string> ComparisonDisplay(string? classification) => classification switch
         {
-            var mapping = new Dictionary<string, string>
-            {
-                { "Much easier than expected", "Good-Match" },
-                { "Matched perfectly", "Good-Match" },
-                { "Matched but challenging", "Borderline" },
-                { "Harder than expected", "Borderline" },
-                { "Much harder", "Not Recommended" },
-                { "Could not finish - turned back", "Not Recommended" },
-                { "Could not finish - injured", "Not Recommended" }
-            };
-
-            var postCategory = mapping.ContainsKey(postHike) ? mapping[postHike] : "N/A";
-
-            if (preHike == "N/A" || postCategory == "N/A")
-            {
-                return Tuple.Create("Insufficient Data", "text-gray-400", "fa-minus-circle");
-            }
-
-            if (preHike == postCategory)
-            {
-                return Tuple.Create("✅ Accurate", "text-green-400", "fa-check-circle");
-            }
-
-            var order = new Dictionary<string, int>
-            {
-                { "Good-Match", 1 },
-                { "Borderline", 2 },
-                { "Not Recommended", 3 }
-            };
-
-            var preOrder = order[preHike];
-            var postOrder = order[postCategory];
-
-            if (preOrder < postOrder)
-            {
-                return Tuple.Create("⚠️ Overestimated", "text-yellow-400", "fa-triangle-exclamation");
-            }
-            else
-            {
-                return Tuple.Create("⚠️ Underestimated", "text-orange-400", "fa-arrow-trend-up");
-            }
-        }
+            "Accurate" => Tuple.Create("✅ Accurate", "text-green-400", "fa-check-circle"),
+            "Over-cautious" => Tuple.Create("⚠️ Over-cautious", "text-yellow-400", "fa-triangle-exclamation"),
+            "Missed risk" => Tuple.Create("🚨 Missed risk", "text-red-400", "fa-shield-halved"),
+            _ => Tuple.Create("Insufficient Data", "text-gray-400", "fa-minus-circle")
+        };
 
     }
 }

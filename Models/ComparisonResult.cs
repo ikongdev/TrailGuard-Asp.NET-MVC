@@ -11,5 +11,10 @@ namespace TrailGuard.Models
         public string Comparison { get; set; } = string.Empty;
         public string ComparisonColor { get; set; } = string.Empty;
         public string ComparisonIcon { get; set; } = string.Empty;
+
+        // The failure mode the system exists to prevent — a participant was told they
+        // were ready and were not. Views highlight this distinctly, not as one of three
+        // equally-weighted outcomes.
+        public bool IsMissedRisk { get; set; }
     }
 }
