@@ -1,4 +1,5 @@
-@model IEnumerable<EventGroupViewModel>
+@using TrailGuard.Services
+@model IEnumerable<EventBrowseCardViewModel>
 @{
     ViewData["Title"] = "Browse Events";
 }
@@ -33,7 +34,7 @@
         </div>
         <div class="bg-white/5 border border-white/10 px-4 py-2 rounded-full flex items-center gap-2">
             <i class="fa-regular fa-calendar text-accent"></i>
-            <span class="text-sm text-gray-300"><strong class="text-white" id="eventCount">@Model.Sum(g => g.Events.Count)</strong> events available</span>
+            <span class="text-sm text-gray-300"><strong class="text-white" id="eventCount">@Model.Count()</strong> events available</span>
         </div>
     </div>
 
@@ -96,87 +97,96 @@
 
     @if (Model.Any())
     {
-        @foreach (var group in Model)
-        {
-            <div class="trail-group mb-10" data-trail-id="@group.TrailId" data-trail-name="@group.TrailName.ToLower()">
-                <div class="flex items-center gap-3 mb-4 pb-3 border-b border-white/10">
-                    <div class="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
-                        <i class="fa-solid fa-mountain text-accent text-sm"></i>
-                    </div>
-                    <div>
-                        <h2 class="text-xl font-bold text-white">@group.TrailName</h2>
-                        <p class="text-gray-400 text-sm"><i class="fa-solid fa-location-dot text-accent mr-1"></i> @group.TrailLocation</p>
-                    </div>
-                    <div class="ml-auto">
-                        <span class="text-xs px-3 py-1 bg-white/5 border border-white/10 rounded-full text-gray-400">
-                            <i class="fa-regular fa-calendar mr-1"></i> @group.Events.Count event(s)
+        <div class="events-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            @foreach (var card in Model)
+            {
+                var eventItem = card.Event;
+                var diffBadge = DifficultyCalculator.BadgeClass(eventItem.Difficulty);
+                var slotsLeft = eventItem.Capacity - eventItem.RegisteredCount;
+                var npsRating = eventItem.Trail != null ? DifficultyCalculator.ComputeRating(eventItem.Trail) : 0;
+                var buttonState = RegistrationButtonHelper.GetState(card.RegistrationStatus, slotsLeft <= 0);
+
+                var buttonClasses = buttonState.Style switch
+                {
+                    RegisterButtonStyle.Primary => "flex-1 bg-linear-to-r from-orange-500 via-pink-500 to-violet-500 hover:brightness-110 hover:scale-[1.02] text-white py-2 rounded-full text-sm font-semibold transition duration-200 ease-out flex items-center justify-center gap-2",
+                    RegisterButtonStyle.Muted => "flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-2",
+                    _ => "flex-1 bg-white/5 border border-white/10 text-gray-500 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 cursor-not-allowed"
+                };
+
+                <div class="event-card bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden hover:border-white/20 transition-colors flex flex-col"
+                     data-title="@eventItem.EventTitle.ToLower()"
+                     data-location="@eventItem.Location.ToLower()"
+                     data-difficulty="@eventItem.Difficulty"
+                     data-nps-rating="@npsRating.ToString("0.0")"
+                     data-date="@eventItem.EventDate.ToString("yyyy-MM-dd")"
+                     data-trail-id="@eventItem.TrailId">
+
+                    <div class="relative h-40 overflow-hidden bg-black/30">
+                        @if (!string.IsNullOrEmpty(eventItem.Trail?.ThumbnailUrl))
+                        {
+                            <img src="@eventItem.Trail.ThumbnailUrl" alt="@eventItem.Trail.Name" class="w-full h-full object-cover">
+                        }
+                        else
+                        {
+                            <div class="w-full h-full flex items-center justify-center">
+                                <i class="fa-solid fa-mountain text-4xl text-slate-700"></i>
+                            </div>
+                        }
+                        <div class="absolute inset-0 bg-linear-to-t from-surface-card to-transparent opacity-80"></div>
+                        <span class="absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-medium @diffBadge">
+                            @eventItem.Difficulty
+                        </span>
+                        <span class="absolute bottom-3 left-3 text-xs text-gray-300 bg-black/50 backdrop-blur-sm px-2.5 py-1 rounded-full">
+                            <i class="fa-regular fa-calendar mr-1"></i> @eventItem.EventDate.ToString("MMM dd, yyyy")
                         </span>
                     </div>
-                </div>
 
-                <div class="events-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    @foreach (var eventItem in group.Events)
-                    {
-                        var diffBadge = TrailGuard.Services.DifficultyCalculator.BadgeClass(eventItem.Difficulty);
-                        var slotsLeft = eventItem.Capacity - eventItem.RegisteredCount;
-                        var npsRating = eventItem.Trail != null ? TrailGuard.Services.DifficultyCalculator.ComputeRating(eventItem.Trail) : 0;
+                    <div class="p-4 flex flex-col grow">
+                        <h3 class="text-lg font-bold text-white mb-1">@eventItem.EventTitle</h3>
+                        <p class="text-gray-400 text-sm mb-1">
+                            <i class="fa-solid fa-mountain text-accent mr-1"></i> @(eventItem.Trail?.Name ?? "Unknown Trail")
+                        </p>
+                        <p class="text-gray-400 text-sm mb-3">
+                            <i class="fa-solid fa-location-dot text-accent mr-1"></i> @eventItem.Location
+                        </p>
 
-                        <div class="event-card bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden hover:border-white/20 transition-colors flex flex-col"
-                             data-title="@eventItem.EventTitle.ToLower()"
-                             data-location="@eventItem.Location.ToLower()"
-                             data-difficulty="@eventItem.Difficulty"
-                             data-nps-rating="@npsRating.ToString("0.0")"
-                             data-date="@eventItem.EventDate.ToString("yyyy-MM-dd")">
-                            
-                            <div class="relative h-40 overflow-hidden bg-black/30">
-                                @if (!string.IsNullOrEmpty(eventItem.Trail?.ThumbnailUrl))
-                                {
-                                    <img src="@eventItem.Trail.ThumbnailUrl" alt="@eventItem.Trail.Name" class="w-full h-full object-cover">
-                                }
-                                else
-                                {
-                                    <div class="w-full h-full flex items-center justify-center">
-                                        <i class="fa-solid fa-mountain text-4xl text-slate-700"></i>
-                                    </div>
-                                }
-                                <div class="absolute inset-0 bg-linear-to-t from-surface-card to-transparent opacity-80"></div>
-                                <span class="absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-medium @diffBadge">
-                                    @eventItem.Difficulty
-                                </span>
-                                <span class="absolute bottom-3 left-3 text-xs text-gray-300 bg-black/50 backdrop-blur-sm px-2.5 py-1 rounded-full">
-                                    <i class="fa-regular fa-calendar mr-1"></i> @eventItem.EventDate.ToString("MMM dd, yyyy")
-                                </span>
-                            </div>
-
-                            <div class="p-4 flex flex-col grow">
-                                <h3 class="text-lg font-bold text-white mb-1">@eventItem.EventTitle</h3>
-                                <p class="text-gray-400 text-sm mb-3">
-                                    <i class="fa-solid fa-location-dot text-accent mr-1"></i> @eventItem.Location
-                                </p>
-
-                                <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400 mb-4">
-                                    <span><i class="fa-regular fa-clock mr-1.5"></i>@eventItem.EstimatedDuration hrs</span>
-                                    <span class="@(slotsLeft <= 3 ? "text-amber-400" : "")">
-                                        <i class="fa-solid fa-users mr-1.5"></i>@slotsLeft slots left
-                                    </span>
-                                </div>
-
-                                <div class="flex gap-2 mt-auto">
-                                    <a asp-controller="Participant" asp-action="Details" asp-route-id="@eventItem.Id"
-                                       class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-2">
-                                        <i class="fa-regular fa-eye"></i> View
-                                    </a>
-                                    <a asp-controller="Assessment" asp-action="Form" asp-route-eventId="@eventItem.Id"
-                                       class="flex-1 bg-linear-to-r from-orange-500 via-pink-500 to-violet-500 hover:brightness-110 hover:scale-[1.02] text-white py-2 rounded-full text-sm font-semibold transition duration-200 ease-out flex items-center justify-center gap-2">
-                                        <i class="fa-regular fa-clipboard"></i> Register
-                                    </a>
-                                </div>
-                            </div>
+                        <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400 mb-4">
+                            <span><i class="fa-regular fa-clock mr-1.5"></i>@eventItem.EstimatedDuration hrs</span>
+                            <span class="@(slotsLeft <= 3 ? "text-amber-400" : "")">
+                                <i class="fa-solid fa-users mr-1.5"></i>@slotsLeft slots left
+                            </span>
                         </div>
-                    }
+
+                        <div class="flex gap-2 mt-auto">
+                            <a asp-controller="Participant" asp-action="Details" asp-route-id="@eventItem.Id"
+                               class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+                                <i class="fa-regular fa-eye"></i> View
+                            </a>
+                            @if (buttonState.Target == RegisterButtonTarget.Assessment)
+                            {
+                                <a asp-controller="Assessment" asp-action="Form" asp-route-eventId="@eventItem.Id"
+                                   class="@buttonClasses">
+                                    <i class="fa-regular fa-clipboard"></i> @buttonState.Label
+                                </a>
+                            }
+                            else if (buttonState.Target == RegisterButtonTarget.MyRegistrations)
+                            {
+                                <a asp-controller="Registration" asp-action="MyRegistrations"
+                                   class="@buttonClasses">
+                                    <i class="fa-regular fa-clipboard"></i> @buttonState.Label
+                                </a>
+                            }
+                            else
+                            {
+                                <span class="@buttonClasses">
+                                    <i class="fa-regular fa-clipboard"></i> @buttonState.Label
+                                </span>
+                            }
+                        </div>
+                    </div>
                 </div>
-            </div>
-        }
+            }
+        </div>
 
         <div id="noResultsMessage" class="hidden text-center py-20 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl">
             <i class="fa-solid fa-calendar-xmark text-4xl text-slate-600 mb-4"></i>
@@ -203,8 +213,8 @@
         const noResults = document.getElementById('noResultsMessage');
         const eventCount = document.getElementById('eventCount');
 
-        const trailGroups = Array.from(document.querySelectorAll('.trail-group'));
-        const groupsContainer = trailGroups[0]?.parentElement;
+        const cards = Array.from(document.querySelectorAll('.event-card'));
+        const cardsContainer = cards[0]?.parentElement;
 
         function compareCards(sort, a, b) {
             switch (sort) {
@@ -232,51 +242,26 @@
             const difficulty = difficultyFilter?.value || 'All';
             const sort = sortFilter?.value || 'date_asc';
 
-            let totalVisible = 0;
-            const visibleGroups = [];
+            const visible = cards.filter(card => {
+                const title = card.dataset.title || '';
+                const location = card.dataset.location || '';
+                const cardDiff = card.dataset.difficulty || '';
+                const cardTrailId = card.dataset.trailId || '';
 
-            trailGroups.forEach(group => {
-                const trailId = group.dataset.trailId || '';
-                const matchesTrail = trail === 'All' || trailId === trail;
+                const matchesSearch = !term || title.includes(term) || location.includes(term);
+                const matchesDiff = difficulty === 'All' || cardDiff === difficulty;
+                const matchesTrail = trail === 'All' || cardTrailId === trail;
+                const show = matchesSearch && matchesDiff && matchesTrail;
 
-                const cards = Array.from(group.querySelectorAll('.event-card'));
-                const visible = cards.filter(card => {
-                    const title = card.dataset.title || '';
-                    const location = card.dataset.location || '';
-                    const cardDiff = card.dataset.difficulty || '';
-
-                    const matchesSearch = !term || title.includes(term) || location.includes(term);
-                    const matchesDiff = difficulty === 'All' || cardDiff === difficulty;
-                    const show = matchesSearch && matchesDiff;
-
-                    card.style.display = show ? 'flex' : 'none';
-                    return show;
-                });
-
-                visible.sort((a, b) => compareCards(sort, a, b));
-
-                const container = group.querySelector('.events-grid');
-                if (container) visible.forEach(card => container.appendChild(card));
-
-                const showGroup = matchesTrail && visible.length > 0;
-                group.style.display = showGroup ? '' : 'none';
-                if (showGroup) {
-                    totalVisible += visible.length;
-                    visibleGroups.push({ group, cards: visible });
-                }
+                card.style.display = show ? 'flex' : 'none';
+                return show;
             });
 
-            // Sorting only reordered cards inside a trail's own group, which had no
-            // visible effect once every trail settled to one event each - a group of
-            // one has nothing to sort against. The groups themselves need reordering
-            // too, ranked by their own (already-sorted) first card.
-            visibleGroups.sort((a, b) => compareCards(sort, a.cards[0], b.cards[0]));
-            if (groupsContainer) {
-                visibleGroups.forEach(({ group }) => groupsContainer.appendChild(group));
-            }
+            visible.sort((a, b) => compareCards(sort, a, b));
+            if (cardsContainer) visible.forEach(card => cardsContainer.appendChild(card));
 
-            if (eventCount) eventCount.textContent = totalVisible;
-            if (noResults) noResults.classList.toggle('hidden', totalVisible > 0);
+            if (eventCount) eventCount.textContent = visible.length;
+            if (noResults) noResults.classList.toggle('hidden', visible.length > 0);
         }
 
         searchInput?.addEventListener('input', filterAndSort);

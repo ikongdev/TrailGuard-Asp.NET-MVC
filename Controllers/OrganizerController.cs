@@ -342,6 +342,12 @@ namespace TrailGuard.Controllers
 
             registration.Status = "Alternative Recommended";
             registration.AlternativeEventId = request.AlternativeEventIds.First();
+
+            if (!string.IsNullOrWhiteSpace(request.Reason))
+            {
+                registration.DecisionReason = request.Reason;
+            }
+
             await _context.SaveChangesAsync();
 
             return Json(new { success = true, message = $"Recommended {request.AlternativeEventIds.Length} alternative event(s)" });
