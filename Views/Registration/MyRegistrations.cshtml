@@ -6,7 +6,10 @@
     var totalRegistrations = Model.Count(r => activeStatuses.Contains(r.Status));
     var needsActionCount = Model.Count(r => r.Status == "Pending" || r.Status == "Awaiting Payment");
     var acceptedCount = Model.Count(r => r.Status == "Accepted");
-    var closedCount = Model.Count(r => r.Status == "Rejected" || r.Status == "Voided" || r.Status == "Cancelled");
+    // Alternative Recommended counts as Closed: the organizer has decided, nothing further
+    // happens on this row, and any next action belongs to a different registration entirely
+    // (a fresh row against the suggested event, not an update to this one).
+    var closedCount = Model.Count(r => r.Status == "Rejected" || r.Status == "Voided" || r.Status == "Cancelled" || r.Status == "Alternative Recommended");
 }
 
 <div class="pt-24 px-4 max-w-5xl mx-auto min-h-screen text-white pb-12">
@@ -76,7 +79,10 @@
                 };
 
                 var canCancel = reg.Status == "Pending" || reg.Status == "Awaiting Payment";
-                var canRetake = reg.Status == "Rejected" || reg.Status == "Alternative Recommended";
+                // Alternative Recommended is deliberately excluded: it's the organizer's
+                // judgement that this participant doesn't suit this trail, not a fixable
+                // problem like Rejected is, so it doesn't get a one-click retake here.
+                var canRetake = reg.Status == "Rejected";
 
                 <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-5">
 
@@ -143,15 +149,67 @@
                             </p>
                         </div>
                     }
-                    else if (reg.Status == "Alternative Recommended" && reg.AlternativeEventId.HasValue)
+                    else if (reg.Status == "Rejected")
                     {
-                        <div class="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 mb-4">
-                            <p class="text-blue-300 text-sm mb-1">
-                                <i class="fa-solid fa-arrows-rotate mr-1.5"></i>The organizer suggested a different event for you.
+                        <div class="bg-white/5 border border-white/10 rounded-xl p-4 mb-4">
+                            <p class="text-gray-400 text-sm">
+                                <i class="fa-solid fa-circle-xmark mr-1.5"></i>Your registration for this event was not accepted.
                             </p>
-                            <a href="/Participant/Details/@reg.AlternativeEventId" class="text-accent text-sm font-medium hover:brightness-125 transition-all">
-                                View the recommended event <i class="fa-solid fa-arrow-right ml-1"></i>
-                            </a>
+                            @if (!string.IsNullOrWhiteSpace(reg.DecisionReason))
+                            {
+                                <p class="text-gray-300 text-sm bg-black/20 rounded-lg p-3 mt-2">
+                                    <span class="text-gray-500">Organizer's note:</span> @reg.DecisionReason
+                                </p>
+                            }
+                            else
+                            {
+                                <p class="text-gray-500 text-xs mt-2">No reason was recorded for this decision.</p>
+                            }
+                        </div>
+                    }
+                    else if (reg.Status == "Alternative Recommended")
+                    {
+                        var altEvent = reg.AlternativeEvent;
+                        var altOrganizer = (ViewBag.AlternativeOrganizers as Dictionary<string, TrailGuard.Models.ApplicationUser>)
+                            ?.GetValueOrDefault(reg.Event?.OrganizedBy ?? string.Empty);
+
+                        <div class="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 mb-4 space-y-3">
+                            <p class="text-blue-300 text-sm">
+                                <i class="fa-solid fa-arrows-rotate mr-1.5"></i>The organizer felt this trail wasn't the right fit and suggested a different event instead.
+                            </p>
+
+                            @if (!string.IsNullOrWhiteSpace(reg.DecisionReason))
+                            {
+                                <p class="text-gray-300 text-sm bg-black/20 rounded-lg p-3">
+                                    <span class="text-gray-500">Organizer's note:</span> @reg.DecisionReason
+                                </p>
+                            }
+
+                            @if (altEvent != null)
+                            {
+                                <div class="bg-black/20 rounded-lg p-3 flex items-center justify-between gap-3 flex-wrap">
+                                    <div class="min-w-0">
+                                        <p class="text-white text-sm font-medium truncate">@altEvent.EventTitle</p>
+                                        <p class="text-gray-500 text-xs">@altEvent.EventDate.ToString("MMM dd, yyyy") &middot; @altEvent.Difficulty</p>
+                                    </div>
+                                    <a asp-controller="Assessment" asp-action="Form" asp-route-eventId="@reg.AlternativeEventId"
+                                       class="px-4 py-2 rounded-full text-sm font-semibold text-white bg-linear-to-r from-orange-500 via-pink-500 to-violet-500 hover:brightness-110 transition shrink-0">
+                                        Register for This Event
+                                    </a>
+                                </div>
+                            }
+
+                            <p class="text-gray-500 text-xs">
+                                Still want @(reg.Event?.EventTitle ?? "the original event")? That's the organizer's call, not something you can restart here
+                                @if (altOrganizer != null && !string.IsNullOrEmpty(altOrganizer.Email))
+                                {
+                                    <text> &mdash; reach out at <a href="mailto:@altOrganizer.Email" class="text-accent hover:underline">@altOrganizer.Email</a></text>
+                                }
+                                else if (!string.IsNullOrEmpty(reg.Event?.OrganizedBy))
+                                {
+                                    <text> &mdash; reach out to @reg.Event.OrganizedBy directly</text>
+                                }.
+                            </p>
                         </div>
                     }
 

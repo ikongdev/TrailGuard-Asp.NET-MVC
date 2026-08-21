@@ -34,13 +34,34 @@ namespace TrailGuard.Controllers
 
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
+            // Rejected is deliberately left out of this block: it's a point-in-time outcome
+            // (missing document, event was full, etc.) and those conditions can change, so a
+            // rejected participant may try again. Alternative Recommended is a judgement call
+            // about fit for this trail, not a fixable problem, so it blocks re-registration
+            // here the same way an active registration would.
             var activeRegistration = await _context.EventRegistrations
-                .FirstOrDefaultAsync(r => r.EventId == eventId && r.UserId == userId && RegistrationStatusHelper.ActiveStatuses.Contains(r.Status));
+                .FirstOrDefaultAsync(r => r.EventId == eventId && r.UserId == userId &&
+                    (RegistrationStatusHelper.ActiveStatuses.Contains(r.Status) || r.Status == "Alternative Recommended"));
 
             if (activeRegistration != null)
             {
                 TempData["Success"] = "You are already registered for this event.";
                 return RedirectToAction("Details", "Participant", new { id = eventId });
+            }
+
+            if (!EventJoinabilityHelper.IsJoinable(eventItem))
+            {
+                TempData["Error"] = "This event is no longer open for registration.";
+                return RedirectToAction("Events", "Participant");
+            }
+
+            var activeCount = await _context.EventRegistrations
+                .CountAsync(r => r.EventId == eventId && RegistrationStatusHelper.ActiveStatuses.Contains(r.Status));
+
+            if (activeCount >= eventItem.Capacity)
+            {
+                TempData["Error"] = "This event is at full capacity.";
+                return RedirectToAction("Events", "Participant");
             }
 
             var assessment = await _context.Assessments
@@ -128,13 +149,34 @@ namespace TrailGuard.Controllers
             }
 
             // ✅ I-check kung may active registration
+            // Rejected is deliberately left out of this block: it's a point-in-time outcome
+            // (missing document, event was full, etc.) and those conditions can change, so a
+            // rejected participant may try again. Alternative Recommended is a judgement call
+            // about fit for this trail, not a fixable problem, so it blocks re-registration
+            // here the same way an active registration would.
             var activeRegistration = await _context.EventRegistrations
-                .FirstOrDefaultAsync(r => r.EventId == eventId && r.UserId == userId && RegistrationStatusHelper.ActiveStatuses.Contains(r.Status));
+                .FirstOrDefaultAsync(r => r.EventId == eventId && r.UserId == userId &&
+                    (RegistrationStatusHelper.ActiveStatuses.Contains(r.Status) || r.Status == "Alternative Recommended"));
 
             if (activeRegistration != null)
             {
                 TempData["Success"] = "You are already registered for this event.";
                 return RedirectToAction("Details", "Participant", new { id = eventId });
+            }
+
+            if (!EventJoinabilityHelper.IsJoinable(eventItem))
+            {
+                TempData["Error"] = "This event is no longer open for registration.";
+                return RedirectToAction("Events", "Participant");
+            }
+
+            var activeCount = await _context.EventRegistrations
+                .CountAsync(r => r.EventId == eventId && RegistrationStatusHelper.ActiveStatuses.Contains(r.Status));
+
+            if (activeCount >= eventItem.Capacity)
+            {
+                TempData["Error"] = "This event is at full capacity.";
+                return RedirectToAction("Events", "Participant");
             }
 
             var requiresClearance = RegistrationRulesHelper.RequiresMedicalClearance(assessment);
@@ -228,9 +270,37 @@ namespace TrailGuard.Controllers
                 .Include(r => r.Event)
                 .ThenInclude(e => e!.Trail)
                 .Include(r => r.Assessment)
-                .Where(r => r.UserId == userId && r.Status != "Rejected")
+                .Include(r => r.AlternativeEvent)
+                .Where(r => r.UserId == userId)
                 .OrderByDescending(r => r.RegisteredAt)
                 .ToListAsync();
+
+            // Alternative Recommended is a closed door back to the original event - the
+            // participant is pointed at the organizer instead, so this page needs the
+            // organizer's contact details. Resolved only for that status; every other
+            // status has no need for it.
+            var organizerNames = registrations
+                .Where(r => r.Status == "Alternative Recommended" && !string.IsNullOrEmpty(r.Event?.OrganizedBy))
+                .Select(r => r.Event!.OrganizedBy!)
+                .Distinct()
+                .ToList();
+
+            var organizersByName = new Dictionary<string, ApplicationUser>();
+            foreach (var name in organizerNames)
+            {
+                var organizer = await _context.Users.FirstOrDefaultAsync(u =>
+                    (u.FirstName + " " + u.LastName) == name ||
+                    (u.FirstName + " " + u.MiddleName + " " + u.LastName) == name ||
+                    u.Email == name ||
+                    u.Id == name);
+
+                if (organizer != null)
+                {
+                    organizersByName[name] = organizer;
+                }
+            }
+
+            ViewBag.AlternativeOrganizers = organizersByName;
 
             return View(registrations);
         }

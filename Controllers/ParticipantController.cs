@@ -250,7 +250,7 @@ namespace TrailGuard.Controllers
 
             var events = _context.Events
                 .Include(e => e.Trail)
-                .Where(e => e.Status == "Upcoming" || e.Status == "Completed")
+                .Where(e => e.Status == "Upcoming" && e.EventDate >= DateTime.Today)
                 .AsQueryable();
 
             if (!string.IsNullOrEmpty(searchString))
@@ -301,22 +301,36 @@ namespace TrailGuard.Controllers
                 .Select(g => new { EventId = g.Key, Count = g.Count() })
                 .ToDictionaryAsync(x => x.EventId, x => x.Count);
 
-            var groupedEvents = eventsList
+            foreach (var e in eventsList)
+            {
+                e.RegisteredCount = capacityCounts.TryGetValue(e.Id, out var count) ? count : 0;
+            }
+
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var userRegistrations = await _context.EventRegistrations
+                .Where(r => eventIds.Contains(r.EventId) && r.UserId == userId)
+                .ToListAsync();
+
+            // A participant can hold several rows for one event (cancel, then register
+            // again), so this can't be a plain lookup - the active one wins if there is
+            // one, otherwise fall back to whichever attempt is most recent.
+            var statusByEventId = userRegistrations
+                .GroupBy(r => r.EventId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => (g.FirstOrDefault(r => RegistrationStatusHelper.ActiveStatuses.Contains(r.Status))
+                          ?? g.OrderByDescending(r => r.RegisteredAt).First()).Status);
+
+            var cardViewModels = eventsList
                 .Where(e => e.Trail != null)
-                .GroupBy(e => e.TrailId)
-                .Select(g => new EventGroupViewModel
+                .Select(e => new EventBrowseCardViewModel
                 {
-                    TrailId = g.Key,
-                    TrailName = g.First().Trail?.Name ?? "Unknown Trail",
-                    TrailLocation = g.First().Location,
-                    Events = g.OrderBy(e => e.EventDate).Select(e => {
-                        e.RegisteredCount = capacityCounts.ContainsKey(e.Id) ? capacityCounts[e.Id] : 0;
-                        return e;
-                    }).ToList()
+                    Event = e,
+                    RegistrationStatus = statusByEventId.TryGetValue(e.Id, out var status) ? status : null
                 })
                 .ToList();
 
-            return View(groupedEvents);
+            return View(cardViewModels);
         }
 
         // GET: Participant/GetTrailEvents (for modal)
