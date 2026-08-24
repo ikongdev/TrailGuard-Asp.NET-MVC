@@ -11,9 +11,21 @@ REFERENCES
   [NPS]   National Park Service, Shenandoah National Park.
           "How to Determine Hiking Difficulty."
           Rating = sqrt(elevation_gain_ft * 2 * distance_mi)
-          Bands: <50 Easiest | 50-100 Moderate | 100-150 Moderately Strenuous
-                 | 150-200 Strenuous | >200 Very Strenuous
-          Pace bands: 1.5 / 1.4 / 1.3 / 1.2 mph respectively.
+          Pace bands: 1.5 / 1.4 / 1.3 / 1.2 mph at <50 / 50-100 / 100-150 / >=150.
+  [PM]    PinoyMountaineer difficulty bands. The published NPS bands above are
+          calibrated for Shenandoah National Park - 68% of Philippine
+          mountains exceed the top band, so they can't distinguish, e.g.,
+          Mt. Amuyao from Mt. Halcon. nps_band() below instead reports four
+          bands fitted against 28 Philippine mountains with published
+          PinoyMountaineer difficulty ratings, applied to the NPS rating x
+          TrailClass multiplier (Spearman rho 0.859; 82% exact-tier
+          agreement, 100% agreement within one tier). This is NOT the
+          PinoyMountaineer scale itself - applying PM's own written rule
+          (duration + trail class) reproduced its published ratings only 50%
+          of the time, because multi-day status in the Philippines often
+          reflects logistics (e.g. camping for sunrise) rather than
+          difficulty. The boundaries were fitted and validated on the same
+          28-mountain sample - see MODEL.md for the calibration caveat.
   [ACSM]  Riebe D, Franklin BA, Thompson PD, Garber CE, Whitfield GP,
           Magal M, Pescatello LS. "Updating ACSM's Recommendations for
           Exercise Preparticipation Health Screening."
@@ -57,12 +69,16 @@ def shenandoah_rating(distance_km, elevation_gain_m):
     return np.sqrt(elevation_ft * 2.0 * distance_mi)
 
 
-def nps_band(rating):
-    """Published NPS descriptor for a difficulty rating."""
+def nps_band(adjusted_rating):
+    """PinoyMountaineer-calibrated difficulty tier for an ADJUSTED rating
+    (shenandoah_rating() x TrailClass multiplier - see [PM] above), NOT the
+    plain NPS rating. Mirrored in C# by DifficultyCalculator.LabelFor, which
+    must receive the same adjusted value.
+    """
     return np.select(
-        [rating < 50, rating < 100, rating < 150, rating < 200],
-        ["Easiest", "Moderate", "Moderately Strenuous", "Strenuous"],
-        default="Very Strenuous",
+        [adjusted_rating < 81, adjusted_rating < 354, adjusted_rating < 411],
+        ["Easy", "Minor Climb", "Major Climb"],
+        default="Major Climb — Difficult",
     )
 
 
@@ -131,8 +147,12 @@ def apply_acsm_gate(base_label, p, demand):
 
     # RULE 5: musculoskeletal injury on steep or technical terrain.
     # SOURCE: PENDING EXPERT ELICITATION - no ACSM basis.
+    # Trail Class >= 3 covers both Scrambling and the newly-added Simple
+    # Climbing (Class 4) - the original ==3 check predates the 4-class scale
+    # and would otherwise silently exempt the hardest, most exposed trails
+    # from this rule.
     cap((p.has_joint_knee_injury.to_numpy() == 1)
-        & ((demand >= 150) | (p.trail_terrain_type.to_numpy() == 3)),
+        & ((demand >= 150) | (p.trail_terrain_type.to_numpy() >= 3)),
         "Borderline", "Joint/knee injury on steep or technical terrain",
         needs_clearance=False)
 

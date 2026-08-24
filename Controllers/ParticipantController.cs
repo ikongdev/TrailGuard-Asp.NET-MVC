@@ -272,7 +272,7 @@ namespace TrailGuard.Controllers
             List<Event> eventsList;
             if (sortOrder == "difficulty_asc" || sortOrder == "difficulty_desc")
             {
-                // Event.Difficulty is a band name ("Moderate", "Moderately Strenuous", ...),
+                // Event.Difficulty is a band name ("Easy", "Minor Climb", ...),
                 // not a rank - an alphabetical OrderBy on the string only happened to match
                 // severity order for today's exact band names and would silently break the
                 // moment a label changed. Sorting on the underlying NPS rating can't drift

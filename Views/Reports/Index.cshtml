@@ -208,11 +208,11 @@
         }
     </div>
 
-    <!-- A4. Breakdown by NPS band and terrain type -->
+    <!-- A4. Breakdown by PinoyMountaineer difficulty tier and trail class -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6">
-            <h2 class="text-lg font-bold text-white mb-1"><i class="fa-solid fa-mountain-sun text-blue-400 mr-2"></i>By NPS Difficulty Band</h2>
-            <p class="text-gray-400 text-sm mb-4">Is the model equally reliable on easy trails and strenuous ones?</p>
+            <h2 class="text-lg font-bold text-white mb-1"><i class="fa-solid fa-mountain-sun text-blue-400 mr-2"></i>By PinoyMountaineer Difficulty Tier</h2>
+            <p class="text-gray-400 text-sm mb-4">Is the model equally reliable on easy trails and major climbs?</p>
             @if (Model.ByNpsBand.Any())
             {
                 <div class="space-y-2">
@@ -251,12 +251,12 @@
         </div>
 
         <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6">
-            <h2 class="text-lg font-bold text-white mb-1"><i class="fa-solid fa-road text-blue-400 mr-2"></i>By Terrain Type</h2>
-            <p class="text-gray-400 text-sm mb-4">Is the model equally reliable across established, rugged, and technical terrain?</p>
-            @if (Model.ByTerrainType.Any())
+            <h2 class="text-lg font-bold text-white mb-1"><i class="fa-solid fa-road text-blue-400 mr-2"></i>By Trail Class</h2>
+            <p class="text-gray-400 text-sm mb-4">Is the model equally reliable across Walking, Hiking, Scrambling, and Simple Climbing trails?</p>
+            @if (Model.ByTrailClass.Any())
             {
                 <div class="space-y-2">
-                    @foreach (var g in Model.ByTerrainType)
+                    @foreach (var g in Model.ByTrailClass)
                     {
                         <div class="bg-black/20 border border-white/10 rounded-xl p-3">
                             <div class="flex items-center justify-between mb-1">

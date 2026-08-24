@@ -369,14 +369,14 @@
                             </div>
                         </div>
                         @{
-                            var rdTerrainType = Model.Event?.Trail?.TerrainType ?? 0;
-                            var rdTerrainLabel = TrailGuard.Services.DifficultyCalculator.TerrainTypeLabel(rdTerrainType);
-                            var rdTerrainPct = rdTerrainType switch { 1 => 33, 2 => 66, 3 => 100, _ => 0 };
-                            var rdTerrainColor = rdTerrainType switch { 1 => "bg-green-500", 2 => "bg-yellow-500", 3 => "bg-red-500", _ => "bg-gray-500" };
+                            var rdTerrainType = Model.Event?.Trail?.TrailClass ?? 0;
+                            var rdTerrainLabel = TrailGuard.Services.DifficultyCalculator.TrailClassLabel(rdTerrainType);
+                            var rdTerrainPct = rdTerrainType switch { 1 => 25, 2 => 50, 3 => 75, 4 => 100, _ => 0 };
+                            var rdTerrainColor = rdTerrainType switch { 1 => "bg-green-500", 2 => "bg-yellow-500", 3 => "bg-orange-500", 4 => "bg-red-500", _ => "bg-gray-500" };
                         }
                         <div>
                             <div class="flex justify-between text-xs">
-                                <span class="text-gray-400">Terrain Type</span>
+                                <span class="text-gray-400">Trail Class</span>
                                 <span class="text-white font-medium">@rdTerrainLabel</span>
                             </div>
                             <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">

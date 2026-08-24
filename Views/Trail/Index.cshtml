@@ -130,7 +130,7 @@
                                         data-distance="@trail.DistanceKm"
                                         data-elevation="@trail.ElevationGainMeters"
                                         data-terrain="@trail.Terrain"
-                                        data-terrain-type="@trail.TerrainType"
+                                        data-terrain-type="@trail.TrailClass"
                                         data-description="@trail.Description"
                                         data-image="@(string.IsNullOrEmpty(trail.ThumbnailUrl) ? "" : trail.ThumbnailUrl)"
                                         data-date-added="@trail.DateAdded.ToString("MMM dd, yyyy")"
@@ -144,7 +144,7 @@
                                         data-distance="@trail.DistanceKm"
                                         data-elevation="@trail.ElevationGainMeters"
                                         data-terrain="@trail.Terrain"
-                                        data-terrain-type="@trail.TerrainType"
+                                        data-terrain-type="@trail.TrailClass"
                                         data-description="@trail.Description"
                                         data-image="@(string.IsNullOrEmpty(trail.ThumbnailUrl) ? "" : trail.ThumbnailUrl)"
                                         class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
@@ -296,15 +296,16 @@
                                     </select>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-300 mb-1.5"><i class="fa-solid fa-hand text-purple-400 mr-1.5"></i> Terrain Type</label>
-                                    <select name="TerrainType" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-purple-500 focus:outline-none appearance-none text-sm cursor-pointer"
+                                    <label class="block text-sm font-medium text-gray-300 mb-1.5"><i class="fa-solid fa-hand text-purple-400 mr-1.5"></i> Trail Class</label>
+                                    <select name="TrailClass" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-purple-500 focus:outline-none appearance-none text-sm cursor-pointer"
                                             style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;">
-                                        <option value="" disabled selected class="text-gray-500">Select Difficulty</option>
-                                        <option value="1" class="bg-surface-card">1 — Established (maintained trail, walking only)</option>
-                                        <option value="2" class="bg-surface-card">2 — Rugged (steep sections, loose ground, or some hand use)</option>
-                                        <option value="3" class="bg-surface-card">3 — Technical (scrambling, exposure, ropes, or river crossings)</option>
+                                        <option value="" disabled selected class="text-gray-500">Select Trail Class</option>
+                                        <option value="1" class="bg-surface-card">1 — Walking (flat, clear, often paved or packed earth. No fall risk, no need to use your hands for balance.)</option>
+                                        <option value="2" class="bg-surface-card">2 — Hiking (rugged or rocky trails with some ascent. You may hold onto roots or branches for balance, but it stays safe.)</option>
+                                        <option value="3" class="bg-surface-card">3 — Scrambling (steep sections where you genuinely need hands and feet to climb over boulders or roots. Rope not strictly required, but real care is needed. e.g. Mt. Maculot Rockies, Mt. Pamitinan)</option>
+                                        <option value="4" class="bg-surface-card">4 — Simple Climbing (steeper and more dangerous, with exposure such as cliffs or drop-offs. Ropes are normally fixed for hiker safety, since a fall could be fatal. e.g. Mt. Guiting-Guiting, Mt. Mantalingajan)</option>
                                     </select>
-                                    <p class="text-xs text-gray-500 mt-1.5">How physically demanding the ground itself is to cross — independent of distance or elevation.</p>
+                                    <p class="text-xs text-gray-500 mt-1.5">PinoyMountaineer Trail Class. Classes 5–6 (technical rock climbing, aid climbing) are excluded — no organized hiking event runs those for general participants.</p>
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-300 mb-1.5"><i class="fa-solid fa-location-dot text-purple-400 mr-1.5"></i> Location</label>
@@ -423,15 +424,16 @@
                                     </select>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-300 mb-1.5"><i class="fa-solid fa-hand text-purple-400 mr-1.5"></i> Terrain Type</label>
-                                    <select id="editTerrainType" name="TerrainType" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-purple-500 focus:outline-none appearance-none text-sm cursor-pointer"
+                                    <label class="block text-sm font-medium text-gray-300 mb-1.5"><i class="fa-solid fa-hand text-purple-400 mr-1.5"></i> Trail Class</label>
+                                    <select id="editTerrainType" name="TrailClass" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-purple-500 focus:outline-none appearance-none text-sm cursor-pointer"
                                             style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;">
-                                        <option value="" disabled class="text-gray-500">Select Difficulty</option>
-                                        <option value="1" class="bg-surface-card">1 — Established (maintained trail, walking only)</option>
-                                        <option value="2" class="bg-surface-card">2 — Rugged (steep sections, loose ground, or some hand use)</option>
-                                        <option value="3" class="bg-surface-card">3 — Technical (scrambling, exposure, ropes, or river crossings)</option>
+                                        <option value="" disabled class="text-gray-500">Select Trail Class</option>
+                                        <option value="1" class="bg-surface-card">1 — Walking (flat, clear, often paved or packed earth. No fall risk, no need to use your hands for balance.)</option>
+                                        <option value="2" class="bg-surface-card">2 — Hiking (rugged or rocky trails with some ascent. You may hold onto roots or branches for balance, but it stays safe.)</option>
+                                        <option value="3" class="bg-surface-card">3 — Scrambling (steep sections where you genuinely need hands and feet to climb over boulders or roots. Rope not strictly required, but real care is needed. e.g. Mt. Maculot Rockies, Mt. Pamitinan)</option>
+                                        <option value="4" class="bg-surface-card">4 — Simple Climbing (steeper and more dangerous, with exposure such as cliffs or drop-offs. Ropes are normally fixed for hiker safety, since a fall could be fatal. e.g. Mt. Guiting-Guiting, Mt. Mantalingajan)</option>
                                     </select>
-                                    <p class="text-xs text-gray-500 mt-1.5">How physically demanding the ground itself is to cross — independent of distance or elevation.</p>
+                                    <p class="text-xs text-gray-500 mt-1.5">PinoyMountaineer Trail Class. Classes 5–6 (technical rock climbing, aid climbing) are excluded — no organized hiking event runs those for general participants.</p>
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-300 mb-1.5"><i class="fa-solid fa-location-dot text-purple-400 mr-1.5"></i> Location</label>

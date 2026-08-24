@@ -131,7 +131,7 @@ namespace TrailGuard.Controllers
                 existingTrail.DistanceKm = model.DistanceKm;
                 existingTrail.ElevationGainMeters = model.ElevationGainMeters;
                 existingTrail.Terrain = model.Terrain;
-                existingTrail.TerrainType = model.TerrainType;
+                existingTrail.TrailClass = model.TrailClass;
                 existingTrail.Description = model.Description;
 
                 // Distance, elevation, or terrain may have just changed - every event

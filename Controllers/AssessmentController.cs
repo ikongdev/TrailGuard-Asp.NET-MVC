@@ -439,10 +439,10 @@ namespace TrailGuard.Controllers
             var heightM = h / 100;
             var bmi = heightM > 0 ? w / (heightM * heightM) : 22.0;
 
-            if (trail.TerrainType < 1 || trail.TerrainType > 3)
+            if (trail.TrailClass < 1 || trail.TrailClass > 4)
             {
                 throw new InvalidOperationException(
-                    $"Trail '{trail.Name}' (Id={trail.Id}) has an invalid TerrainType ({trail.TerrainType}); expected 1-3.");
+                    $"Trail '{trail.Name}' (Id={trail.Id}) has an invalid TrailClass ({trail.TrailClass}); expected 1-4.");
             }
 
             return new SuitabilityPredictionRequest
@@ -463,7 +463,10 @@ namespace TrailGuard.Controllers
                                 || HasCondition(medicalConditions, "Shortness of breath")) ? 1 : 0,
                 TrailDistanceKm = trail.DistanceKm,
                 TrailElevationGainM = trail.ElevationGainMeters,
-                TrailTerrainType = trail.TerrainType,
+                // The ML request field is still named TrailTerrainType/trail_terrain_type -
+                // that's the Python feature contract (FEATURE_COLUMNS, the trained model's
+                // column names), unrelated to what the C# Trail entity calls the value.
+                TrailTerrainType = trail.TrailClass,
             };
         }
 
@@ -592,7 +595,7 @@ namespace TrailGuard.Controllers
             "has_joint_knee_injury" => "Joint or knee injury",
             "has_cvd_symptoms" => "Reported symptoms",
             "trail_shenandoah_score" => "Trail difficulty rating",
-            "trail_terrain_type" => "Terrain type",
+            "trail_terrain_type" => "Trail class",
             _ => throw new ArgumentException($"Unrecognized SHAP feature name: '{featureName}'")
         };
 

@@ -51,7 +51,7 @@ namespace TrailGuard.Controllers
                     ModelPreHikeLabel = label.ModelPreHikeLabel,
                     FinalLabel = label.FinalLabel,
                     NpsBand = sr != null ? sr.NpsBand : null,
-                    TerrainType = trail != null ? trail.TerrainType : (int?)null
+                    TrailClass = trail != null ? trail.TrailClass : (int?)null
                 }
             ).ToListAsync();
 
@@ -83,15 +83,15 @@ namespace TrailGuard.Controllers
                 .OrderBy(g => Array.IndexOf(DifficultyCalculator.Bands, g.GroupName) is var i && i >= 0 ? i : int.MaxValue)
                 .ToList();
 
-            model.ByTerrainType = rows
-                .Where(r => r.TerrainType.HasValue)
-                .GroupBy(r => r.TerrainType!.Value)
+            model.ByTrailClass = rows
+                .Where(r => r.TrailClass.HasValue)
+                .GroupBy(r => r.TrailClass!.Value)
+                .OrderBy(g => g.Key) // Walking(1) -> Hiking(2) -> Scrambling(3) -> Simple Climbing(4); alphabetical on the label would scramble that order.
                 .Select(g => new GroupBreakdown
                 {
-                    GroupName = DifficultyCalculator.TerrainTypeLabel(g.Key),
+                    GroupName = DifficultyCalculator.TrailClassLabel(g.Key),
                     Stats = BuildBreakdown(g.Select(r => (r.PreHikeLabel, r.FinalLabel)))
                 })
-                .OrderBy(g => g.GroupName)
                 .ToList();
 
             // D8. The "Not Recommended" acknowledgement pathway — the only evidence the
@@ -126,7 +126,7 @@ namespace TrailGuard.Controllers
                     TrailName = trail != null ? trail.Name : "",
                     TrailDistanceKm = trail != null ? trail.DistanceKm : (double?)null,
                     TrailElevationGainMeters = trail != null ? trail.ElevationGainMeters : (int?)null,
-                    TrailTerrainType = trail != null ? trail.TerrainType : (int?)null,
+                    TrailClass = trail != null ? trail.TrailClass : (int?)null,
                     assessment.Age,
                     assessment.HeightCm,
                     assessment.WeightKg,
@@ -152,7 +152,7 @@ namespace TrailGuard.Controllers
             ).ToListAsync();
 
             var csv = new System.Text.StringBuilder();
-            csv.AppendLine("LabelId,EventId,EventTitle,TrailName,TrailDistanceKm,TrailElevationGainM,TrailTerrainType," +
+            csv.AppendLine("LabelId,EventId,EventTitle,TrailName,TrailDistanceKm,TrailElevationGainM,TrailClass," +
                 "Age,HeightCm,WeightKg,MedicalConditions,ExerciseFrequency,ExerciseType,CardioEndurance,ExerciseConsistency," +
                 "MountainsClimbed,RecencyOfHike,TrailDifficultyCompleted,GearItems,NpsScore,NpsBand,ConfidenceScore," +
                 "PreHikeLabel,ModelPreHikeLabel,ParticipantFeedback,OrganizerAssessment,FinalLabel,ResolvedAt");
@@ -167,7 +167,7 @@ namespace TrailGuard.Controllers
                     Csv(r.TrailName),
                     r.TrailDistanceKm?.ToString() ?? "",
                     r.TrailElevationGainMeters?.ToString() ?? "",
-                    r.TrailTerrainType?.ToString() ?? "",
+                    r.TrailClass?.ToString() ?? "",
                     r.Age?.ToString() ?? "",
                     r.HeightCm?.ToString() ?? "",
                     r.WeightKg?.ToString() ?? "",
@@ -236,7 +236,7 @@ namespace TrailGuard.Controllers
             public string? ModelPreHikeLabel { get; set; }
             public string? FinalLabel { get; set; }
             public string? NpsBand { get; set; }
-            public int? TerrainType { get; set; }
+            public int? TrailClass { get; set; }
         }
     }
 
@@ -257,7 +257,7 @@ namespace TrailGuard.Controllers
         public double? ModelWeightedKappa { get; set; }
 
         public List<GroupBreakdown> ByNpsBand { get; set; } = new();
-        public List<GroupBreakdown> ByTerrainType { get; set; } = new();
+        public List<GroupBreakdown> ByTrailClass { get; set; } = new();
 
         public int TotalAssessments { get; set; }
         public int TotalRegistrations { get; set; }

@@ -149,6 +149,9 @@ namespace TrailGuard.Data
                 {
                     var trails = new List<Trail>
                     {
+                        // TrailClass is a placeholder pending organizer review, same as the
+                        // rest of this seed data - not a substitute for a real PinoyMountaineer
+                        // classification.
                         new Trail
                         {
                             Name = "Mt. Ulap",
@@ -156,6 +159,7 @@ namespace TrailGuard.Data
                             DistanceKm = 8.5,
                             ElevationGainMeters = 700,
                             Terrain = "Grassland, Pine Forest",
+                            TrailClass = 2, // Hiking
                             Description = "A scenic trail with breathtaking views of the Cordillera mountains.",
                             IsActive = true,
                             DateAdded = DateTime.Now
@@ -167,6 +171,7 @@ namespace TrailGuard.Data
                             DistanceKm = 12.5,
                             ElevationGainMeters = 1200,
                             Terrain = "Mossy Forest, Grassland",
+                            TrailClass = 2, // Hiking (Ambangeg trail)
                             Description = "The highest peak in Luzon. Known for its sea of clouds.",
                             IsActive = true,
                             DateAdded = DateTime.Now
@@ -178,6 +183,7 @@ namespace TrailGuard.Data
                             DistanceKm = 6.5,
                             ElevationGainMeters = 550,
                             Terrain = "Grassland, Rocky",
+                            TrailClass = 2, // Hiking
                             Description = "A popular day hike with panoramic views of Batangas.",
                             IsActive = true,
                             DateAdded = DateTime.Now
@@ -189,6 +195,7 @@ namespace TrailGuard.Data
                             DistanceKm = 10.0,
                             ElevationGainMeters = 800,
                             Terrain = "Forest, Rocky",
+                            TrailClass = 2, // Hiking
                             Description = "A well-known trail with diverse flora and fauna.",
                             IsActive = true,
                             DateAdded = DateTime.Now
@@ -200,6 +207,7 @@ namespace TrailGuard.Data
                             DistanceKm = 5.5,
                             ElevationGainMeters = 400,
                             Terrain = "Forest, Rocky, River",
+                            TrailClass = 2, // Hiking
                             Description = "Features a crystal-clear river and limestone formations.",
                             IsActive = true,
                             DateAdded = DateTime.Now
@@ -211,6 +219,7 @@ namespace TrailGuard.Data
                             DistanceKm = 7.0,
                             ElevationGainMeters = 300,
                             Terrain = "Lahar, Rocky",
+                            TrailClass = 1, // Walking (flat lahar riverbed trek)
                             Description = "Famous for its crater lake and unique lahar landscape.",
                             IsActive = true,
                             DateAdded = DateTime.Now
@@ -222,6 +231,7 @@ namespace TrailGuard.Data
                             DistanceKm = 8.0,
                             ElevationGainMeters = 900,
                             Terrain = "Forest, Rocky",
+                            TrailClass = 3, // Scrambling (rocky, root-climbing sections near the summit)
                             Description = "A dormant volcano with a challenging trail.",
                             IsActive = true,
                             DateAdded = DateTime.Now

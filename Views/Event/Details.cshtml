@@ -133,15 +133,15 @@
                     </div>
                     <div>
                         <p class="text-gray-500 text-xs uppercase tracking-wider"><i class="fa-solid fa-signal text-orange-400 mr-1"></i>Difficulty</p>
-                        <p class="text-white font-semibold">@Model.Difficulty</p>
+                        <p class="text-white font-semibold">@Model.Difficulty <span class="text-gray-400 font-normal text-sm">(@TrailGuard.Services.DifficultyCalculator.PmRangeFor(Model.Difficulty))</span></p>
                     </div>
                     <div>
                         <p class="text-gray-500 text-xs uppercase tracking-wider"><i class="fa-solid fa-arrow-trend-up text-orange-400 mr-1"></i>Elevation Gain</p>
                         <p class="text-white font-semibold">@trail?.ElevationGainMeters m</p>
                     </div>
                     <div>
-                        <p class="text-gray-500 text-xs uppercase tracking-wider"><i class="fa-solid fa-hand text-orange-400 mr-1"></i>Terrain Type</p>
-                        <p class="text-white font-semibold">@TrailGuard.Services.DifficultyCalculator.TerrainTypeLabel(trail?.TerrainType ?? 0)</p>
+                        <p class="text-gray-500 text-xs uppercase tracking-wider"><i class="fa-solid fa-hand text-orange-400 mr-1"></i>Trail Class</p>
+                        <p class="text-white font-semibold">@TrailGuard.Services.DifficultyCalculator.TrailClassLabel(trail?.TrailClass ?? 0)</p>
                     </div>
                     <div>
                         <p class="text-gray-500 text-xs uppercase tracking-wider"><i class="fa-solid fa-clock text-orange-400 mr-1"></i>Estimated Duration</p>

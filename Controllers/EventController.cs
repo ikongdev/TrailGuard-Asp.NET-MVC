@@ -99,8 +99,8 @@ namespace TrailGuard.Controllers
                 elevationGainMeters = trail.ElevationGainMeters,
                 distance = trail.DistanceKm,
                 terrain = trail.Terrain,
-                terrainType = trail.TerrainType,
-                terrainTypeLabel = DifficultyCalculator.TerrainTypeLabel(trail.TerrainType)
+                trailClass = trail.TrailClass,
+                trailClassLabel = DifficultyCalculator.TrailClassLabel(trail.TrailClass)
             });
         }
 

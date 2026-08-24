@@ -9,9 +9,10 @@ REFERENCES
   [NPS]   National Park Service, Shenandoah National Park.
           "How to Determine Hiking Difficulty."
           Rating = sqrt(elevation_gain_ft * 2 * distance_mi)
-          Bands: <50 Easiest | 50-100 Moderate | 100-150 Moderately Strenuous
-                 | 150-200 Strenuous | >200 Very Strenuous
-          Pace bands: 1.5 / 1.4 / 1.3 / 1.2 mph respectively.
+          Pace bands: 1.5 / 1.4 / 1.3 / 1.2 mph at <50 / 50-100 / 100-150 / >=150.
+  [PM]    PinoyMountaineer difficulty bands - see acsm_gate.nps_band() for the
+          boundaries and calibration caveat. trail_nps_band below is diagnostic
+          output only (not a model feature).
   [ACSM]  Riebe D, Franklin BA, Thompson PD, Garber CE, Whitfield GP,
           Magal M, Pescatello LS. "Updating ACSM's Recommendations for
           Exercise Preparticipation Health Screening."
@@ -50,10 +51,13 @@ N_SAMPLES = 6000
 # serving can never apply different gate logic.
 
 # --- Terrain multiplier ------------------------------------------------------
-# SOURCE: PENDING EXPERT ELICITATION (organizer session, Sept 2026)
+# SOURCE: fitted against 28 Philippine mountains with published
+#         PinoyMountaineer difficulty ratings, Spearman rho 0.859. See
+#         acsm_gate.py's [PM] reference and MODEL.md for the calibration
+#         caveat (fitted and validated on the same 28-mountain sample).
 # NOTE: [NPS] formula has NO terrain term. This is a local adaptation for
 #       Philippine trails and must be disclosed as such in Chapter 3.
-TERRAIN_MULTIPLIER = {1: 1.00, 2: 1.10, 3: 1.25}  # Moderate / Difficult / Technical
+TERRAIN_MULTIPLIER = {1: 1.00, 2: 1.15, 3: 1.35, 4: 1.60}  # Walking / Hiking / Scrambling / Simple Climbing
 
 # --- Readiness component weights ---------------------------------------------
 # SOURCE: PENDING EXPERT ELICITATION (organizer session, Sept 2026)
@@ -65,9 +69,8 @@ W_GEAR       = 0.15
 W_BMI        = 0.10
 
 # --- Capacity mapping ---------------------------------------------------------
-# Maps readiness in [0,1] onto the maximum NPS difficulty rating the
-# participant is estimated to handle. Anchored to the [NPS] band boundaries:
-# readiness 0.0 -> only "Easiest" trails; readiness 1.0 -> "Very Strenuous".
+# Maps readiness in [0,1] onto the maximum (plain, un-adjusted) NPS
+# difficulty rating the participant is estimated to handle.
 # SOURCE: PENDING EXPERT ELICITATION
 CAPACITY_MIN = 60.0
 CAPACITY_MAX = 230.0
@@ -214,7 +217,10 @@ def generate_participants(n):
 def generate_trails(n):
     distance = np.clip(RNG.gamma(3.4, 1.7, n), 1.5, 30.0)
     elevation = np.clip(RNG.gamma(2.7, 230.0, n), 60.0, 2600.0)
-    terrain = RNG.choice([1, 2, 3], n, p=[0.42, 0.40, 0.18])
+    # Class 4 (Simple Climbing) events are genuinely rare - 6% keeps roughly
+    # 360 examples at N_SAMPLES=6000, enough to learn from without distorting
+    # the overall terrain distribution.
+    terrain = RNG.choice([1, 2, 3, 4], n, p=[0.40, 0.36, 0.18, 0.06])
     rating = shenandoah_rating(distance, elevation)
     duration = (distance / 1.60934) / nps_pace_mph(rating)
     return pd.DataFrame({
@@ -222,7 +228,6 @@ def generate_trails(n):
         "trail_elevation_gain_m": elevation.round(0),
         "trail_terrain_type": terrain,
         "trail_shenandoah_score": rating.round(1),
-        "trail_nps_band": nps_band(rating),
         "trail_estimated_duration_hr": duration.round(1),
     })
 
@@ -270,6 +275,11 @@ def build(n=N_SAMPLES):
     demand = df.trail_shenandoah_score * df.trail_terrain_type.map(TERRAIN_MULTIPLIER)
     ratio = demand / capacity
 
+    # Diagnostic only (not a model feature) - nps_band() now expects the
+    # terrain-adjusted rating, which isn't known until trail_terrain_type is
+    # merged in above, so this can't live in generate_trails() any more.
+    df["trail_nps_band"] = nps_band(demand)
+
     base = np.select(
         [ratio <= RATIO_GOOD_MATCH, ratio <= RATIO_NOT_RECOMMENDED],
         ["Good Match", "Borderline"],
@@ -310,5 +320,5 @@ if __name__ == "__main__":
           f"{(df.label_before_gate != df.suitability_label).mean()*100:.1f}%")
     print(f"  medical clearance required      : "
           f"{df.medical_clearance_required.mean()*100:.1f}%")
-    print("\nNPS band distribution:")
+    print("\nPinoyMountaineer difficulty tier distribution:")
     print(df.trail_nps_band.value_counts())

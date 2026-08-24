@@ -31,7 +31,7 @@ namespace TrailGuard.Services
             "gear_score" => "Overall gear preparedness",
             "trail_distance_km" => "Trail distance",
             "trail_elevation_gain_m" => "Trail elevation gain",
-            "trail_terrain_type" => "Terrain difficulty",
+            "trail_terrain_type" => "Trail class",
             "trail_estimated_duration_hr" => "Estimated hike duration",
             _ => featureName
         };

@@ -17,21 +17,43 @@ own dataset, not estimated.
 | Algorithm | XGBoost, `multi:softprob` | XGBoost, `multi:softprob` |
 | Monotonic constraints | None | Enforced on 13 of 14 features |
 | Health handling | Additive score term (weight 0.10) | ACSM clearance gate |
-| Trail demand | Z-scored difficulty gap | NPS Shenandoah rating and bands |
+| Trail demand | Z-scored difficulty gap | NPS Shenandoah rating; displayed as PinoyMountaineer-calibrated bands |
 | Post-prediction safety check | None | ACSM gate, may only lower a label |
+
+### Terrain class composition (v2, n = 6,000)
+
+| Class | Share | Rows |
+|---|---|---|
+| 1 — Walking | 39.9% | 2,396 |
+| 2 — Hiking | 36.0% | 2,159 |
+| 3 — Scrambling | 17.9% | 1,075 |
+| 4 — Simple Climbing | 6.2% | 370 |
+
+Class 4 is genuinely rare among organized hiking events, so it's drawn at a
+correspondingly low rate (`p=0.06` in `generate_synthetic_dataset.py`) rather
+than being oversampled to match the other classes - 370 examples is enough
+for the model to learn from without distorting the overall distribution the
+model sees in production.
 
 ---
 
 ## Performance
 
+Retrained to include Trail Class 4 (see "Terrain class composition" above);
+figures below are from that retrain, not the original v2 build. Every v2
+figure on this page - this table, the confusion matrix, the safety-critical-
+errors table, the Confidence/Saturation/Calibration section, the Safety
+behaviour table, and all four gate-override rows - has been re-measured
+against the retrained model.
+
 | Metric | v1 | v2 |
 |---|---|---|
-| Accuracy | 0.8050 | **0.9175** |
-| Weighted F1 | 0.8100 | **0.9178** |
-| Borderline — precision / recall | 0.68 / 0.74 | **0.84 / 0.90** |
-| Good Match — precision / recall | 0.85 / 0.83 | **0.95 / 0.96** |
-| Not Recommended — precision / recall | 0.90 / 0.84 | **0.96 / 0.86** |
-| Fidelity to the rule engine | 80.50% | **95.12%** |
+| Accuracy | 0.8050 | **0.9142** |
+| Weighted F1 | 0.8100 | **0.9151** |
+| Borderline — precision / recall | 0.68 / 0.74 | **0.83 / 0.92** |
+| Good Match — precision / recall | 0.85 / 0.83 | **0.95 / 0.94** |
+| Not Recommended — precision / recall | 0.90 / 0.84 | **0.97 / 0.87** |
+| Fidelity to the rule engine | 80.50% | **95.22%** |
 
 ### Confusion matrices (rows = actual)
 
@@ -47,23 +69,23 @@ own dataset, not estimated.
 
 | | Borderline | Good Match | Not Recommended |
 |---|---|---|---|
-| Borderline | 331 | 24 | 12 |
-| Good Match | 20 | 508 | 0 |
-| Not Recommended | 42 | 1 | 262 |
+| Borderline | 339 | 21 | 10 |
+| Good Match | 29 | 462 | 0 |
+| Not Recommended | 42 | 1 | 296 |
 
 ### Safety-critical errors, normalised per 1,000 test rows
 
 | Error | v1 | v2 (model alone) | v2 (with gate) |
 |---|---|---|---|
 | Not Recommended shown as Good Match | **0.00** | 0.83 | **0.00** |
-| Borderline shown as Good Match | 50.00 | **20.00** | 20.00 |
+| Borderline shown as Good Match | 50.00 | **17.50** | 15.83 |
 
 **v1 is better than v2 on one metric.** The v1 model never predicted
 Good Match for a participant the rules called Not Recommended; the v2 model
 does so once in 1,200. This is a real regression in the model taken alone,
 and it is why the ACSM gate is applied as an independent post-prediction
 check rather than trusted to the model. Across the full 6,000-row dataset
-the v2 model alone produces 2 such cases; with the gate applied, 0.
+the v2 model alone produces 3 such cases; with the gate applied, 0.
 
 ---
 
@@ -77,13 +99,22 @@ the v2 model alone produces 2 such cases; with the gate applied, 0.
 | Label changes when all gear is removed | 17.70% | 5.45% |
 | Participants shown a feature that never affected the label | 47.40% | **0.00%** |
 | Share of SHAP magnitude held by such features | 5.20% | **0.00%** |
-| Monotonicity violations | 0 (unconstrained, incidental) | 0 (enforced) |
-| Gate override rate | n/a | 0.20% |
+| Monotonicity violations | 0 (unconstrained, incidental) | PASS WITH NOTE (1 of 6,000, 0.017%) |
+| Gate override rate | n/a | 0.20% (confirmed unchanged post-retrain) |
+| Label changes: same trail, Class 1 vs Class 4 | not measured | **38.17%** |
 
 In v1, health conditions influenced the outcome less than age, which was
 never used to generate a label. Gear influenced it roughly twelve times more
 than all four health conditions combined. In v2 the ordering is inverted:
 health is the strongest signal in the system.
+
+Trail class alone had never been isolated as its own sensitivity check before
+- earlier rows vary a participant's own inputs, not the trail. Holding a
+participant's fitness, experience, gear, and health flags fixed and moving
+only the trail from Class 1 (Walking) to Class 4 (Simple Climbing) changes
+the label 38.17% of the time. That's a large effect for a single feature, and
+expected given the multiplier now spans 1.00 to 1.60: at fixed participant
+readiness, that alone can push a borderline case across a decision boundary.
 
 ---
 
@@ -93,15 +124,36 @@ Confidence is the maximum class probability, displayed raw. An earlier
 version capped it at 99.9% in six locations; the cap concealed a measured
 characteristic of the model and has been removed.
 
+Recomputed against the Trail Class 4 retrain (see "Performance" above); the
+figures below were previously measured on the pre-Class-4 model. Before ->
+after for each:
+
+- Predictions above 99%: 27.3% -> **24.0%**
+- Predictions above 99.9%: 11.2% -> **8.0%**
+- Predictions rounding to exactly 100.0%: 7.8% -> **5.6%**
+- Mean confidence: 87.0% -> **84.5%**
+- Median confidence: 92.3% -> **89.1%**
+- Calibration, Below 70%: 195 cases / 64.1% agreement -> **245 cases / 68.6%**
+- Calibration, 70–90%: 335 cases / 91.3% agreement -> **376 cases / 93.9%**
+- Calibration, 90–99%: 342 cases / 100.0% agreement -> **291 cases / 99.0%**
+- Calibration, Above 99%: 328 cases / 100.0% agreement -> **288 cases / 100.0%**
+
+Saturation dropped across the board and the low-confidence band grew (195 ->
+245 cases): Class 4 introduces more genuinely hard, high-demand cases near
+the model's decision boundaries, so it has less to be near-certain about than
+the 3-class model did. The 90–99% band's agreement also slipped from 100.0%
+to 99.0% - a small number of cases now disagree with the rule engine at high
+(but not saturated) confidence; not measured further here.
+
 ### Saturation (v2 test split, n = 1,200)
 
 | | v1 | v2 |
 |---|---|---|
-| Predictions above 99% | 24.2% | 27.3% |
-| Predictions above 99.9% | 9.2% | 11.2% |
-| Predictions rounding to exactly 100.0% | — | 7.8% |
-| Mean confidence | — | 87.0% |
-| Median confidence | — | 92.3% |
+| Predictions above 99% | 24.2% | 24.0% |
+| Predictions above 99.9% | 9.2% | 8.0% |
+| Predictions rounding to exactly 100.0% | — | 5.6% |
+| Mean confidence | — | 84.5% |
+| Median confidence | — | 89.1% |
 
 Saturation is expected: the training labels are near-deterministic functions
 of the features, so the model can reach near-certainty on clear-cut cases.
@@ -112,10 +164,10 @@ classifier.
 
 | Confidence band | Cases | Agreement with the rule engine |
 |---|---|---|
-| Below 70% | 195 | 64.1% |
-| 70–90% | 335 | 91.3% |
-| 90–99% | 342 | 100.0% |
-| Above 99% | 328 | 100.0% |
+| Below 70% | 245 | 68.6% |
+| 70–90% | 376 | 93.9% |
+| 90–99% | 291 | 99.0% |
+| Above 99% | 288 | 100.0% |
 
 Confidence is informative, but about a narrower thing than it appears.
 It predicts whether the model reproduces the rule engine — not whether the
@@ -131,16 +183,69 @@ recommendation's real-world accuracy.
 
 ### Gate override rate by rule (full dataset, n = 6,000)
 
-| Rule | Cases | Model correct alone | Gate overrode |
-|---|---|---|---|
-| Signs or symptoms present | 410 | 100.0% | 0.0% |
-| Known CVD, vigorous-intensity trail | 22 | 100.0% | 0.0% |
-| Known CVD, physically inactive | 202 | 98.0% | 2.0% |
-| Joint or knee injury on steep or technical terrain | 25 | 68.0% | **32.0%** |
+This table measures the gate as applied at **training-label generation
+time** in `generate_synthetic_dataset.py`'s `build()` - i.e. against the
+deterministic score-based label (`label_before_gate`, the demand/capacity
+ratio comparison), not a trained model's live prediction. Reproduced by
+`evaluate_gate_breakdown.py`, which reconstructs the same rule sequence
+`acsm_gate.apply_acsm_gate` runs and cross-checks itself against the
+dataset's own `suitability_label`/`gate_reason` columns (100.00% match on
+both the before and after runs below).
 
-The joint-injury rule is the only one without a clinical source and the only
-one the model fails to learn reliably. It is marked
-`PENDING EXPERT ELICITATION` in `generate_synthetic_dataset.py`.
+| Column | Meaning |
+|---|---|
+| Cases matched | Rows the rule's own condition applies to |
+| Gate lowered | Of those, rows where this rule actually changed the label (`gate_reason` recorded for it) |
+| Already at ceiling | Of those, rows the score-based path had already placed at or below the rule's cap, independently |
+
+"Already at ceiling" is informative on its own - it's how often the plain
+demand/capacity comparison reaches the same conclusion as the ACSM safety
+rule without needing it.
+
+**A previous version of this table conflated two different things.** The
+original pre-retrain figures (410 / 202 / 22 / 25) were each "Gate lowered"
+counts, not "Cases matched" counts. When this table was first updated for
+the Trail Class 4 retrain, the new "Cases matched" numbers (493 / 289 / 42 /
+217) were reported against those old "Gate lowered" numbers as if they were
+the same metric - e.g. "410 → 493" was presented as if the case count for
+Signs/symptoms had grown by 20%, when 410 was never a case count in the
+first place. All four rows are restated below using the current
+methodology on **both** sides of the comparison, so before and after are
+finally measuring the same thing.
+
+| Rule | Cases matched (before → after) | Gate lowered (before → after) | Already at ceiling (before → after) |
+|---|---|---|---|
+| Signs or symptoms present | 493 → 493 | 410 → 392 | 83 → 101 |
+| Known CVD, physically inactive | 289 → 289 | 202 → 189 | 87 → 100 |
+| Known CVD, vigorous-intensity trail | 41 → 42 | 22 → 20 | 19 → 22 |
+| Joint or knee injury on steep or technical terrain | 189 → 218 | 25 → 30 | 164 → 188 |
+
+The joint-injury rule is the only one without a clinical source. It is
+marked `PENDING EXPERT ELICITATION` in `generate_synthetic_dataset.py`.
+
+**Signs or symptoms present** and **known CVD, physically inactive** have
+identical "Cases matched" before and after (493 and 289), confirming they
+really are terrain-independent - both trigger purely on health flags
+(`has_cvd_symptoms`, `has_cvd` + inactivity), computed before trail terrain
+is even assigned in `generate_participants()`. Yet "Already at ceiling" rose
+for both (83→101, 87→100) and "Gate lowered" fell by the same amount. The
+cause is not these rules themselves: the higher, data-fitted terrain
+multipliers (1.00/1.15/1.35/1.60) raise `demand` on average across the whole
+dataset, which lowers the plain demand/capacity ratio-based label on its own
+for more participants - independent of which specific ACSM rule they'd also
+trip. More rows arrive at these rules already at "Not Recommended" from the
+score alone, so there's less left for the rule itself to lower.
+
+**Known CVD, vigorous-intensity trail** and **joint/knee injury** both gained
+a few cases (41→42, 189→218) because their own trigger conditions include a
+`demand` threshold directly (`vigorous = demand >= 100`; `demand >= 150 OR
+terrain >= 3`) - so, unlike the first two rules, some of their case-count
+growth is a direct, mechanical consequence of the higher multipliers. For
+joint injury, the 189→218 increase (+29) splits roughly in half: holding the
+rule at `==3` and only changing the dataset (higher multipliers, Class 4
+present) accounts for 189→206 (+17); widening `==3` to `>=3` on top of that
+accounts for the remaining 206→218 (+12). Neither change dominates the
+other.
 
 ---
 
@@ -183,6 +288,42 @@ the Recommendations panel. They are a checklist, not a model input.
 
 ---
 
+## Difficulty: PinoyMountaineer tiers over the NPS rating
+
+`trail_shenandoah_score` (the NPS Shenandoah formula) is the only difficulty
+input to the model itself. The band shown to users - on the event, trail,
+report, and organizer pages, and as `SuitabilityResult.NpsBand` /
+`PredictionResponse.nps_band` - is a separate, deterministic step applied on
+top of it: the NPS rating is multiplied by the trail's TrailClass multiplier
+(see limitation 3) to get an adjusted rating, which is then mapped onto one
+of four PinoyMountaineer-derived tiers.
+
+| Adjusted rating | Band | PinoyMountaineer level |
+|---|---|---|
+| < 81 | Easy | 1–2/9 |
+| 81–354 | Minor Climb | 3–4/9 |
+| 354–411 | Major Climb | 5–6/9 |
+| ≥ 411 | Major Climb — Difficult | 7–9/9 |
+
+These boundaries replace the published NPS bands (50/100/150/200), which are
+calibrated for Shenandoah National Park - 68% of the 28 Philippine mountains
+used to fit the boundaries above exceed the NPS bands' top threshold, so the
+NPS bands alone cannot distinguish, e.g., Mt. Amuyao from Mt. Halcon.
+
+**This is not the PinoyMountaineer scale.** The system computes the NPS
+Shenandoah rating and maps it onto PinoyMountaineer difficulty tiers using
+boundaries calibrated on 28 Philippine mountains, achieving 82% exact-tier
+agreement and 100% agreement within one tier (Spearman rho 0.859). Applying
+PM's own written rule (duration + trail class) directly against the same 28
+mountains reproduced their published ratings only 50% of the time, because
+multi-day status in the Philippines often reflects logistics rather than
+difficulty - Mt. Pulag via Ambangeg is two days because you camp for the
+sunrise, and is rated PM 3/9. See limitation 7 below for the caveat that the
+82%/100% figures were measured on the same sample the boundaries were fitted
+to.
+
+---
+
 ## Known limitations
 
 1. **Labels remain synthetic.** Both versions learn from labels produced by
@@ -192,21 +333,37 @@ the Recommendations panel. They are a checklist, not a model input.
    be made about real-world suitability.
 
 2. **Several constants are unsourced.** The readiness component weights, the
-   terrain multipliers, the capacity range, the decision thresholds, and the
-   joint-injury rule are marked `PENDING EXPERT ELICITATION` in
-   `generate_synthetic_dataset.py`. They are placeholders.
+   capacity range, the decision thresholds, and the joint-injury rule are
+   marked `PENDING EXPERT ELICITATION` in `generate_synthetic_dataset.py`.
+   They are placeholders. (The terrain multiplier itself is no longer one of
+   these - see item 3.)
 
-3. **The terrain multiplier is a local adaptation.** The NPS Shenandoah
-   formula has no terrain term. The multipliers applied for Moderate,
-   Difficult, and Technical terrain are our addition for Philippine trails
-   and are not part of the cited source.
+3. **The terrain multiplier is a local adaptation, now data-fitted.** The NPS
+   Shenandoah formula has no terrain term. TERRAIN_MULTIPLIER (Walking 1.00,
+   Hiking 1.15, Scrambling 1.35, Simple Climbing 1.60) is our addition for
+   Philippine trails and is not part of the cited NPS source; it was fitted
+   against 28 Philippine mountains with published PinoyMountaineer difficulty
+   ratings (Spearman rho 0.859 between the resulting adjusted rating and the
+   published PM rating). It replaces an earlier, un-sourced 1.00/1.10/1.25
+   guess. See item 7 for the calibration caveat that applies to this fit.
 
 4. **Training is not bit-reproducible.** XGBoost histogram construction is
    multi-threaded, so retraining on a different machine yields small
    variation (observed: accuracy identical at 0.9175, rule fidelity 95.07%
    to 95.12%, monotonicity violations 0 to 1 in 6,000, predictions rounding
    to 100.0% between 7.83% and 7.92%). Set `n_jobs=1` for exact
-   reproducibility.
+   reproducibility. On the current Trail Class 4 retrain, `evaluate_safety.py`
+   measured 1 violation in 6,000 (0.017%) on `exercise_frequency_score`, all
+   other features at exactly 0. This is the same class of artifact: monotonic
+   constraints are enforced per-class logit, and argmax across three
+   separately-constrained logits can flip a near-tie even when each logit
+   individually respects its constraint. `evaluate_safety.py`'s Test 3 reports
+   this as **PASS WITH NOTE** rather than a bare pass/fail - a worst-feature
+   rate of exactly 0% is PASS, above 0% but below 0.1% is PASS WITH NOTE
+   (naming the feature and rate), and 0.1% or above is FAIL. The 0.1%
+   threshold is a judgment call, not a sourced figure: chosen to separate a
+   single-row argmax artifact from a violation large enough to indicate the
+   constraint isn't holding.
 
 5. **Scope is limited to ages 18–60.** This is a scope decision, not a model
    limitation — `age` is not a model input. Participants over 60 are the
@@ -216,6 +373,22 @@ the Recommendations panel. They are a checklist, not a model input.
 6. **Self-report is unverified.** Every health and fitness input is taken at
    face value. The system has no way to detect a participant who understates
    a condition to gain acceptance.
+
+7. **The PinoyMountaineer difficulty band boundaries are fitted and tested on
+   the same 28-mountain sample.** The reported 82% exact-tier agreement and
+   100% agreement-within-one-tier (Spearman rho 0.859) describe how well the
+   boundaries reproduce the sample they were calibrated on, not performance
+   on a held-out sample of Philippine mountains. This is the same caveat as
+   item 1 applied to a second, smaller calibration - independent validation
+   against mountains outside the 28 is required before the agreement figures
+   can be cited as generalization performance. The system computes the NPS
+   Shenandoah rating and maps it onto PinoyMountaineer difficulty tiers using
+   these boundaries; it does not implement the PinoyMountaineer scale itself.
+   Applying PM's own written rule (duration + trail class) against the same
+   28 mountains reproduced their published ratings only 50% of the time,
+   because multi-day status in the Philippines often reflects logistics
+   (e.g. Mt. Pulag via Ambangeg is two days because you camp for the
+   sunrise, and is rated PM 3/9) rather than difficulty.
 
 ---
 
@@ -228,3 +401,6 @@ the Recommendations panel. They are a checklist, not a model input.
 - National Park Service, Shenandoah National Park. *How to Determine Hiking
   Difficulty.*
 - World Health Organization. *BMI classification for adults.*
+- PinoyMountaineer. Trail Class scale and published difficulty ratings
+  (1–9) for 28 Philippine mountains, used to calibrate the terrain
+  multiplier and the difficulty band boundaries.

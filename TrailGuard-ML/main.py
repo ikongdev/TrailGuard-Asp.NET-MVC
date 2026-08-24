@@ -117,7 +117,6 @@ def predict(request: PredictionRequest):
     # raw trail geometry, never the derived score, so C# can't drift from it.
     rating = float(acsm_gate.shenandoah_rating(
         request.trail_distance_km, request.trail_elevation_gain_m))
-    band = str(acsm_gate.nps_band(np.array([rating]))[0])
 
     feature_values = request.model_dump()
     feature_values["trail_shenandoah_score"] = rating
@@ -130,8 +129,11 @@ def predict(request: PredictionRequest):
 
     # Same terrain-adjusted demand the gate was validated against in
     # generate_synthetic_dataset.build() - the raw NPS rating alone is not
-    # what apply_acsm_gate's thresholds were calibrated on.
+    # what apply_acsm_gate's thresholds were calibrated on. This is also the
+    # value nps_band() tiers against (see acsm_gate.py's [PM] reference) -
+    # one adjusted number feeds both the gate and the displayed band.
     adjusted_demand = np.array([rating * TERRAIN_MULTIPLIER[request.trail_terrain_type]])
+    band = str(acsm_gate.nps_band(adjusted_demand)[0])
 
     gated_labels, clearance, reasons = acsm_gate.apply_acsm_gate(
         np.array([model_label]), input_row, adjusted_demand)

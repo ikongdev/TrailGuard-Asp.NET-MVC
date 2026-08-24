@@ -68,11 +68,10 @@
             <div class="relative">
                 <select id="difficultyFilter" class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors w-full">
                     <option value="All" class="bg-surface-card">All Difficulties</option>
-                    <option value="Easiest" class="bg-surface-card">Easiest</option>
-                    <option value="Moderate" class="bg-surface-card">Moderate</option>
-                    <option value="Moderately Strenuous" class="bg-surface-card">Moderately Strenuous</option>
-                    <option value="Strenuous" class="bg-surface-card">Strenuous</option>
-                    <option value="Very Strenuous" class="bg-surface-card">Very Strenuous</option>
+                    <option value="Easy" class="bg-surface-card">Easy (PM 1–2/9)</option>
+                    <option value="Minor Climb" class="bg-surface-card">Minor Climb (PM 3–4/9)</option>
+                    <option value="Major Climb" class="bg-surface-card">Major Climb (PM 5–6/9)</option>
+                    <option value="Major Climb — Difficult" class="bg-surface-card">Major Climb — Difficult (PM 7–9/9)</option>
                 </select>
                 <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
                     <i class="fa-solid fa-chevron-down text-xs"></i>
@@ -226,7 +225,7 @@
                     return (b.dataset.title || '').localeCompare(a.dataset.title || '');
                 case 'difficulty_asc':
                     // Sort on the precise NPS rating, not the band name - two trails in
-                    // the same band (e.g. both "Moderate") still have different ratings,
+                    // the same band (e.g. both "Minor Climb") still have different ratings,
                     // and ranking by band alone left same-band pairs in arbitrary order.
                     return (parseFloat(a.dataset.npsRating) || 0) - (parseFloat(b.dataset.npsRating) || 0);
                 case 'difficulty_desc':

@@ -76,11 +76,10 @@
             <div class="relative inline-block">
                 <select id="difficultyFilter" class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-orange-500 focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors w-full">
                     <option value="All" class="bg-[#0b1329] text-white py-2">All Difficulties</option>
-                    <option value="Easiest" class="bg-[#0b1329] text-white py-2">Easiest</option>
-                    <option value="Moderate" class="bg-[#0b1329] text-white py-2">Moderate</option>
-                    <option value="Moderately Strenuous" class="bg-[#0b1329] text-white py-2">Moderately Strenuous</option>
-                    <option value="Strenuous" class="bg-[#0b1329] text-white py-2">Strenuous</option>
-                    <option value="Very Strenuous" class="bg-[#0b1329] text-white py-2">Very Strenuous</option>
+                    <option value="Easy" class="bg-[#0b1329] text-white py-2">Easy (PM 1–2/9)</option>
+                    <option value="Minor Climb" class="bg-[#0b1329] text-white py-2">Minor Climb (PM 3–4/9)</option>
+                    <option value="Major Climb" class="bg-[#0b1329] text-white py-2">Major Climb (PM 5–6/9)</option>
+                    <option value="Major Climb — Difficult" class="bg-[#0b1329] text-white py-2">Major Climb — Difficult (PM 7–9/9)</option>
                 </select>
                 <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
                     <i class="fa-solid fa-chevron-down text-xs"></i>
@@ -308,7 +307,7 @@
                             <p id="previewTerrain" class="text-white font-semibold">-</p>
                         </div>
                         <div class="bg-[#111A2E] rounded-lg p-3 border border-gray-700">
-                            <p class="text-gray-500 text-xs uppercase tracking-wider">Terrain Type</p>
+                            <p class="text-gray-500 text-xs uppercase tracking-wider">Trail Class</p>
                             <p id="previewTerrainType" class="text-white font-semibold">-</p>
                         </div>
                     </div>
@@ -510,7 +509,7 @@
                             <p id="editPreviewTerrain" class="text-white font-semibold">-</p>
                         </div>
                         <div class="bg-[#111A2E] rounded-lg p-3 border border-gray-700">
-                            <p class="text-gray-500 text-xs uppercase tracking-wider">Terrain Type</p>
+                            <p class="text-gray-500 text-xs uppercase tracking-wider">Trail Class</p>
                             <p id="editPreviewTerrainType" class="text-white font-semibold">-</p>
                         </div>
                     </div>
@@ -983,7 +982,7 @@
                 document.getElementById('previewElevation').textContent = data.elevationGainMeters + ' m';
                 document.getElementById('previewLocation').textContent = data.location;
                 document.getElementById('previewTerrain').textContent = data.terrain;
-                document.getElementById('previewTerrainType').textContent = data.terrainTypeLabel;
+                document.getElementById('previewTerrainType').textContent = data.trailClassLabel;
 
                 const diffResponse = await fetch(`/Event/GetCalculatedDifficulty?trailId=${trailId}`);
                 const diffData = await diffResponse.json();
@@ -1286,7 +1285,7 @@
                 document.getElementById('editPreviewElevation').textContent = data.elevationGainMeters + ' m';
                 document.getElementById('editPreviewLocation').textContent = data.location;
                 document.getElementById('editPreviewTerrain').textContent = data.terrain;
-                document.getElementById('editPreviewTerrainType').textContent = data.terrainTypeLabel;
+                document.getElementById('editPreviewTerrainType').textContent = data.trailClassLabel;
 
                 const diffResponse = await fetch(`/Event/GetCalculatedDifficulty?trailId=${trailId}`);
                 const diffData = await diffResponse.json();
