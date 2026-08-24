@@ -275,12 +275,15 @@ namespace TrailGuard.Controllers
                 // Event.Difficulty is a band name ("Easy", "Minor Climb", ...),
                 // not a rank - an alphabetical OrderBy on the string only happened to match
                 // severity order for today's exact band names and would silently break the
-                // moment a label changed. Sorting on the underlying NPS rating can't drift
-                // that way, and it's the only way to order two trails that share a band.
+                // moment a label changed. Sorting on the underlying adjusted rating (the
+                // same value the band is derived from) can't drift that way, and it's the
+                // only way to order two trails that share a band. The plain rating must not
+                // be used here - it ignores Trail Class entirely, so a short Class 4 trail
+                // would sort as though it were an easy walk.
                 eventsList = await events.ToListAsync();
                 eventsList = sortOrder == "difficulty_asc"
-                    ? eventsList.OrderBy(e => e.Trail != null ? DifficultyCalculator.ComputeRating(e.Trail) : 0).ToList()
-                    : eventsList.OrderByDescending(e => e.Trail != null ? DifficultyCalculator.ComputeRating(e.Trail) : 0).ToList();
+                    ? eventsList.OrderBy(e => e.Trail != null ? DifficultyCalculator.ComputeAdjustedRating(e.Trail) : 0).ToList()
+                    : eventsList.OrderByDescending(e => e.Trail != null ? DifficultyCalculator.ComputeAdjustedRating(e.Trail) : 0).ToList();
             }
             else
             {

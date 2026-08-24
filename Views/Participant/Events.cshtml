@@ -102,7 +102,7 @@
                 var eventItem = card.Event;
                 var diffBadge = DifficultyCalculator.BadgeClass(eventItem.Difficulty);
                 var slotsLeft = eventItem.Capacity - eventItem.RegisteredCount;
-                var npsRating = eventItem.Trail != null ? DifficultyCalculator.ComputeRating(eventItem.Trail) : 0;
+                var adjustedRating = eventItem.Trail != null ? DifficultyCalculator.ComputeAdjustedRating(eventItem.Trail) : 0;
                 var buttonState = RegistrationButtonHelper.GetState(card.RegistrationStatus, slotsLeft <= 0);
 
                 var buttonClasses = buttonState.Style switch
@@ -116,7 +116,7 @@
                      data-title="@eventItem.EventTitle.ToLower()"
                      data-location="@eventItem.Location.ToLower()"
                      data-difficulty="@eventItem.Difficulty"
-                     data-nps-rating="@npsRating.ToString("0.0")"
+                     data-adjusted-rating="@adjustedRating.ToString("0.0")"
                      data-date="@eventItem.EventDate.ToString("yyyy-MM-dd")"
                      data-trail-id="@eventItem.TrailId">
 
@@ -224,12 +224,16 @@
                 case 'title_desc':
                     return (b.dataset.title || '').localeCompare(a.dataset.title || '');
                 case 'difficulty_asc':
-                    // Sort on the precise NPS rating, not the band name - two trails in
-                    // the same band (e.g. both "Minor Climb") still have different ratings,
-                    // and ranking by band alone left same-band pairs in arbitrary order.
-                    return (parseFloat(a.dataset.npsRating) || 0) - (parseFloat(b.dataset.npsRating) || 0);
+                    // Sort on the precise adjusted rating (NPS rating x Trail Class
+                    // multiplier) - the same value the difficulty badge is derived from, not
+                    // the plain NPS rating, which ignores Trail Class entirely and would sort
+                    // a short Class 4 trail as though it were an easy walk. Two trails in the
+                    // same band (e.g. both "Minor Climb") still have different adjusted
+                    // ratings, and ranking by band alone left same-band pairs in arbitrary
+                    // order.
+                    return (parseFloat(a.dataset.adjustedRating) || 0) - (parseFloat(b.dataset.adjustedRating) || 0);
                 case 'difficulty_desc':
-                    return (parseFloat(b.dataset.npsRating) || 0) - (parseFloat(a.dataset.npsRating) || 0);
+                    return (parseFloat(b.dataset.adjustedRating) || 0) - (parseFloat(a.dataset.adjustedRating) || 0);
                 default:
                     return new Date(a.dataset.date) - new Date(b.dataset.date);
             }

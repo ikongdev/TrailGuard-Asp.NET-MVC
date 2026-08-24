@@ -6,8 +6,10 @@ namespace TrailGuard.Services
     // shenandoah_rating()/nps_band()/nps_pace_mph(). These two files must be changed
     // together. ComputeRating is the PLAIN, un-terrain-adjusted value - a property of
     // the trail's geometry alone, matching what main.py returns as nps_score and used
-    // for pace/duration and for ordering trails against each other. Band labelling
-    // multiplies this by the trail's own TrailClass multiplier before applying the
+    // for pace/duration only. Ordering and display must use ComputeAdjustedRating - the
+    // same value the difficulty band is derived from - or a short Class 4 trail sorts
+    // as though it were an easy walk. Band labelling multiplies this by the trail's own
+    // TrailClass multiplier before applying the
     // PinoyMountaineer-derived boundaries below - that's still a trail-level number
     // (TrailClass doesn't vary per participant, only Trail does), it's just a more
     // realistic one for Philippine trails, most of which sit at or above the top of
