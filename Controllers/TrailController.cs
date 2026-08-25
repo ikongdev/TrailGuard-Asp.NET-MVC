@@ -49,6 +49,7 @@ namespace TrailGuard.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> AddTrail(Trail model)
         {
             if (ModelState.IsValid)

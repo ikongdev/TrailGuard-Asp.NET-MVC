@@ -79,6 +79,7 @@ namespace TrailGuard.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Form(
             int eventId,
             int? age,
@@ -271,28 +272,9 @@ namespace TrailGuard.Controllers
                 .Include(s => s.ShapValues)
                 .FirstOrDefaultAsync(s => s.AssessmentId == assessmentId);
 
-            var shapFactors = new List<ShapDisplayItem>();
-            if (suitabilityResult != null && suitabilityResult.ShapValues.Any())
-            {
-                var topShapValues = suitabilityResult.ShapValues
-                    .OrderByDescending(s => Math.Abs(s.ImpactValue))
-                    .Take(6)
-                    .ToList();
-
-                var totalAbsImpact = topShapValues.Sum(s => Math.Abs(s.ImpactValue));
-                if (totalAbsImpact == 0) totalAbsImpact = 1;
-
-                shapFactors = topShapValues
-                    .Select(s => new ShapDisplayItem
-                    {
-                        FeatureName = s.FeatureName,
-                        FriendlyName = GetFriendlyFeatureName(s.FeatureName),
-                        RawValue = s.RawValue ?? "",
-                        Impact = s.ImpactValue,
-                        BarWidth = Math.Round(Math.Abs(s.ImpactValue) / totalAbsImpact * 100, 1)
-                    })
-                    .ToList();
-            }
+            var shapFactors = suitabilityResult != null
+                ? ShapHelper.BuildDisplayItems(suitabilityResult.ShapValues, 6)
+                : new List<ShapDisplayItem>();
 
             var recommendations = ComputeRecommendations(assessment.Result ?? "", shapFactors, suitabilityResult != null);
 
@@ -574,30 +556,6 @@ namespace TrailGuard.Controllers
 
             return score;
         }
-
-        // Exactly the 14 v2 SHAP feature names. Throws rather than falling through
-        // to the raw snake_case string - a name we don't recognize means the
-        // Python feature contract moved and this mapping wasn't updated with it,
-        // and a raw "has_cvd_symptoms" shown to a participant is worse than a
-        // crash caught in development.
-        private string GetFriendlyFeatureName(string featureName) => featureName switch
-        {
-            "bmi" => "Body Mass Index",
-            "exercise_frequency_score" => "Exercise frequency",
-            "continuous_cardio_duration_score" => "Cardio endurance",
-            "exercise_consistency_score" => "How long you've been exercising",
-            "hiking_experience_score" => "Hiking experience",
-            "last_hike_recency_score" => "Recency of last hike",
-            "hardest_trail_completed_score" => "Hardest trail completed",
-            "gear_score" => "Gear preparedness",
-            "has_asthma" => "Asthma or lung condition",
-            "has_cvd" => "Hypertension or heart condition",
-            "has_joint_knee_injury" => "Joint or knee injury",
-            "has_cvd_symptoms" => "Reported symptoms",
-            "trail_shenandoah_score" => "Trail difficulty rating",
-            "trail_terrain_type" => "Trail class",
-            _ => throw new ArgumentException($"Unrecognized SHAP feature name: '{featureName}'")
-        };
 
         private static readonly HashSet<string> TrailSideFeatures = new HashSet<string>
         {

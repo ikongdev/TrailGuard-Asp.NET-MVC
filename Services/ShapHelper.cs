@@ -4,56 +4,59 @@ namespace TrailGuard.Services
 {
     public static class ShapHelper
     {
+        // Exactly the 14 v2 SHAP feature names — kept in sync with
+        // AssessmentController's participant-facing report by being the only
+        // copy of this mapping (see CLAUDE.md, Explainability). Throws rather
+        // than falling through to the raw snake_case string - a name we don't
+        // recognize means the Python feature contract moved and this mapping
+        // wasn't updated with it, and a raw "has_cvd_symptoms" shown to an
+        // organizer deciding whether to approve someone is worse than a crash
+        // caught in development.
         public static string GetFriendlyFeatureName(string featureName) => featureName switch
         {
-            "age" => "Age",
-            "height_cm" => "Height",
-            "weight_kg" => "Weight",
             "bmi" => "Body Mass Index",
-            "has_asthma" => "Asthma condition",
-            "has_hypertension_heart_condition" => "Hypertension / heart condition",
-            "has_joint_knee_injury" => "Joint or knee injury",
-            "has_vertigo" => "Vertigo",
             "exercise_frequency_score" => "Exercise frequency",
-            "exercise_type_category" => "Type of exercise",
             "continuous_cardio_duration_score" => "Cardio endurance",
+            "exercise_consistency_score" => "How long you've been exercising",
             "hiking_experience_score" => "Hiking experience",
             "last_hike_recency_score" => "Recency of last hike",
             "hardest_trail_completed_score" => "Hardest trail completed",
-            "gear_water" => "Water supply",
-            "gear_trail_food" => "Trail food",
-            "gear_first_aid_medicine" => "First aid kit",
-            "gear_flashlight_headlamp" => "Flashlight / headlamp",
-            "gear_whistle" => "Whistle",
-            "gear_raincoat_poncho" => "Raincoat / poncho",
-            "gear_navigation" => "Navigation tool",
-            "gear_proper_shoes" => "Proper hiking shoes",
-            "gear_score" => "Overall gear preparedness",
-            "trail_distance_km" => "Trail distance",
-            "trail_elevation_gain_m" => "Trail elevation gain",
+            "gear_score" => "Gear preparedness",
+            "has_asthma" => "Asthma or lung condition",
+            "has_cvd" => "Hypertension or heart condition",
+            "has_joint_knee_injury" => "Joint or knee injury",
+            "has_cvd_symptoms" => "Reported symptoms",
+            "trail_shenandoah_score" => "Trail difficulty rating",
             "trail_terrain_type" => "Trail class",
-            "trail_estimated_duration_hr" => "Estimated hike duration",
-            _ => featureName
+            _ => throw new ArgumentException($"Unrecognized SHAP feature name: '{featureName}'")
         };
 
+        // BarWidth is each factor's share of the TOTAL impact among the displayed
+        // (post-take) items, not a share of the single largest one - matching
+        // CLAUDE.md's documented "share of total displayed impact." A max-relative
+        // bar always stretches the largest factor to 100% regardless of how much
+        // of the outcome it actually explains, which overstates it.
         public static List<ShapDisplayItem> BuildDisplayItems(ICollection<ShapValue> shapValues, int take = 6)
         {
             if (shapValues == null || !shapValues.Any())
                 return new List<ShapDisplayItem>();
 
-            var maxAbsImpact = shapValues.Max(s => Math.Abs(s.ImpactValue));
-            if (maxAbsImpact == 0) maxAbsImpact = 1;
-
-            return shapValues
+            var topShapValues = shapValues
                 .OrderByDescending(s => Math.Abs(s.ImpactValue))
                 .Take(take)
+                .ToList();
+
+            var totalAbsImpact = topShapValues.Sum(s => Math.Abs(s.ImpactValue));
+            if (totalAbsImpact == 0) totalAbsImpact = 1;
+
+            return topShapValues
                 .Select(s => new ShapDisplayItem
                 {
                     FeatureName = s.FeatureName,
                     FriendlyName = GetFriendlyFeatureName(s.FeatureName),
                     RawValue = s.RawValue ?? "",
                     Impact = s.ImpactValue,
-                    BarWidth = Math.Round(Math.Abs(s.ImpactValue) / maxAbsImpact * 100, 1)
+                    BarWidth = Math.Round(Math.Abs(s.ImpactValue) / totalAbsImpact * 100, 1)
                 })
                 .ToList();
         }

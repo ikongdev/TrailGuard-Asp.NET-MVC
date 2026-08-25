@@ -2,7 +2,7 @@
 
 Capstone project: **TrailGuard — A Web-Based Hiking Event Management System with Machine Learning-Based Participant-to-Trail Suitability Assessment**
 
-PUP College of Computer and Information Sciences. This repo started as an App Dev project (rule-based scoring) and is being extended into the capstone version (ML-based prediction with explainability).
+PUP College of Computer and Information Sciences. This repository started as an App Dev project using rule-based suitability scoring and has been extended into the capstone version with ML-based participant-to-trail suitability prediction and explainability. The rule-based path has since been removed outright, not just superseded — see "ML Failure — No Fallback" below.
 
 ---
 
@@ -12,27 +12,47 @@ PUP College of Computer and Information Sciences. This repo started as an App De
 |---|---|
 | Web framework | ASP.NET Core MVC, .NET 10 (C#) |
 | ORM | Entity Framework Core 10.0.10 |
-| Database | PostgreSQL 18 (via Npgsql provider) — **migrated from MySQL** |
-| Auth | ASP.NET Core Identity (roles: Admin, Organizer, Participant) |
-| Frontend | Razor views + Tailwind CSS (glassmorphism dark theme) |
-| ML service | Python 3.14 + FastAPI + XGBoost + SHAP (separate process) |
-| Local dev | PostgreSQL local install, no Docker |
-| Planned cloud DB | Aiven (PostgreSQL free tier) — not yet deployed |
+| Database | PostgreSQL 18 via Npgsql — migrated from MySQL |
+| Authentication | ASP.NET Core Identity |
+| Roles | Admin, Organizer, Participant |
+| Frontend | Razor Views + Tailwind CSS v4 |
+| UI style | Dark glassmorphism with TrailGuard brand gradient |
+| ML service | Python 3.14 + FastAPI + XGBoost + SHAP |
+| ML architecture | Separate Python process accessed through HTTP/JSON |
+| Weather | Open-Meteo (geocoding + forecast) |
+| Local development | PostgreSQL local install, no Docker |
+| Planned cloud DB | Aiven PostgreSQL free tier — not yet deployed |
 
-### Running the project
+---
 
-Two processes must run simultaneously:
+## Running the Project
+
+Three processes, two of them required.
+
+### Terminal 1 — ML service (required)
 
 ```bash
-# Terminal 1 — ML service
 cd TrailGuard-ML
 python -m uvicorn main:app --reload --port 8000
+```
 
-# Terminal 2 — Web app
+Must be run from inside `TrailGuard-ML/` — `main.py` loads the model files (`trailguard_xgboost_model_v2.json`, `label_encoder_v2.pkl`, `trailguard_synthetic_dataset_v2.csv`) from the current directory.
+
+### Terminal 2 — Web application (required)
+
+```bash
 dotnet run
 ```
 
-DB credentials live in **User Secrets**, not `appsettings.json` (which holds a `SET_IN_USER_SECRETS` placeholder).
+### Terminal 3 — Tailwind watcher (optional but recommended)
+
+```bash
+npm run dev
+```
+
+**Tailwind only generates classes it finds in source.** A new colour, radius, or utility won't render until `npm run build` runs. If a style isn't appearing, check whether the class exists in `wwwroot/css/output.css` before assuming the markup is wrong — this has caused hours of confusion here.
+
+Database credentials live in **User Secrets**, not `appsettings.json`.
 
 ---
 
@@ -40,14 +60,34 @@ DB credentials live in **User Secrets**, not `appsettings.json` (which holds a `
 
 ```
 ASP.NET Core MVC (C#)  ──HTTP/JSON──▶  Python FastAPI (XGBoost + SHAP)
-        │                                    localhost:8000/predict
+        │                                  localhost:8000/predict
         ▼
    PostgreSQL
 ```
 
-The ML model cannot run in-process because XGBoost/SHAP are Python-only. `SuitabilityApiClient.cs` bridges the two via `HttpClient`, configured in `Program.cs` with a 10-second timeout and base URL from `appsettings.json` (`MlApi:BaseUrl`).
+The ML model can't run in-process because XGBoost and SHAP are Python-only. `SuitabilityApiClient.cs` bridges the two through `HttpClient`, configured in `Program.cs` with a timeout and a base URL from `MlApi:BaseUrl`.
 
-**Fallback behavior:** if the ML API is unreachable or times out, `AssessmentController` falls back to the legacy rule-based `GetResult()`. This is intentional and should be preserved — it's a defensible resilience feature.
+---
+
+## ML Failure — No Fallback
+
+**This section reverses earlier guidance in this file that said to preserve a rule-based fallback. That guidance was wrong and has been acted on in the opposite direction: the fallback was deleted (commit `287c1a4`, "Remove the rule-based fallback; reject submissions when ML is unavailable"). Do not reintroduce it.**
+
+The ML service is the **only** suitability mechanism. If it's unreachable or times out, `AssessmentController` shows an error and returns the participant to the form — no result is produced, nothing is saved, and the participant can retry once the service is back.
+
+```
+Primary:         ML prediction + SHAP explanation
+If unreachable:  No result. Participant returns to the form and can retry.
+Final decision:  Organizer
+```
+
+The legacy `GetResult()` heuristic no longer exists in `AssessmentController`. In its place is a code comment explaining why:
+
+> No rule-based fallback: `GetResult()` was a v1 heuristic with its own notion of trail demand, agreeing with neither the model nor the ACSM/NPS-based ground truth in `generate_synthetic_dataset.py`. Producing a result from it would be a third, unvalidated answer to the same question. If the model can't answer, neither do we.
+
+Concretely: `GetResult()`'s trail-demand formula was never reconciled with the NPS Shenandoah formula the model is now trained against, so the two could disagree — in testing, the same assessment returned Good-Match from the model and Borderline from the fallback. Silently falling back to it would mean a participant — including one reporting chest pain or another ACSM-gated condition — could receive a confident-looking result that bypassed the ACSM gate entirely, produced by a path nobody has validated the way the model and gate have been. Producing no result and asking the participant to retry is safer than producing a second, disagreeing one.
+
+**Never reintroduce a rule-based fallback in the assessment flow, and never display legacy rule-based category scores beside an ML result** — the old category-score breakdown was removed from all participant-facing pages for exactly this reason, and that removal is unrelated to (and unaffected by) the fallback deletion above.
 
 ---
 
@@ -55,83 +95,440 @@ The ML model cannot run in-process because XGBoost/SHAP are Python-only. `Suitab
 
 | File | Purpose |
 |---|---|
-| `generate_synthetic_dataset.py` | Generates 2,000-row rule-derived synthetic dataset |
-| `train_model.py` | Trains XGBoost with default hyperparameters |
-| `tune_model.py` | Grid search tuning; overwrites the saved model |
-| `test_shap.py` | Verifies SHAP explainer setup |
-| `main.py` | FastAPI service exposing `POST /predict` |
-| `trailguard_xgboost_model.json` | Trained model (committed to repo) |
-| `label_encoder.pkl` | Class index → label mapping (committed) |
+| `acsm_gate.py` | Single source of truth for the NPS Shenandoah rating, the difficulty-band tiering, and the ACSM preparticipation gate. Imported by both `generate_synthetic_dataset.py` and `main.py` so training-time and serving-time logic can't diverge |
+| `generate_synthetic_dataset.py` | Generates the 6,000-row v2 synthetic training dataset; defines `FEATURE_COLUMNS` (the 14-feature contract) and `TERRAIN_MULTIPLIER` |
+| `train_model.py` | Trains the v2 XGBoost model with monotonic constraints on 13 of 14 features |
+| `evaluate_safety.py` | Sensitivity, monotonicity, and safety-regression checks; source of the safety tables in `MODEL.md` |
+| `evaluate_gate_breakdown.py` | Reproduces the ACSM gate's rule-by-rule override statistics for `MODEL.md`, cross-checked against the dataset's own stored `suitability_label`/`gate_reason` columns |
+| `main.py` | FastAPI service exposing `POST /predict` and `GET /model-info` |
+| `trailguard_xgboost_model_v2.json` | Trained v2 model (committed; loaded by `main.py`) |
+| `label_encoder_v2.pkl` | v2 class index → label mapping (committed; loaded by `main.py`) |
+| `trailguard_synthetic_dataset_v2.csv` | v2 training data, 6,000 rows; also reloaded by `main.py` at startup to compute a live test-accuracy figure for `/model-info` |
 
-**Current performance:** 80.50% accuracy, F1 (weighted) 0.8072, model version `v1-synthetic`.
+`tune_model.py` and `test_shap.py` no longer exist.
 
-### Synthetic dataset basis (cite these in the manuscript)
+The v1 files — `trailguard_xgboost_model.json`, `label_encoder.pkl`, `trailguard_synthetic_dataset.csv` — are still present on disk but are **not loaded by anything**. They exist only as the "before" side of the v1-vs-v2 comparisons in `MODEL.md`. Don't treat their presence as meaning v1 is still in use.
 
-- **Trail demand** — Shenandoah National Park trail difficulty formula: `sqrt(elevation_gain_ft × 2 × distance_miles)`, with a terrain multiplier (1.00 paved / 1.10 rocky / 1.25 technical)
-- **Fitness scoring** — ACSM Physical Activity Guidelines (150 min/week moderate, or 3×20 min vigorous)
-- **BMI** — WHO BMI classification
-- **Gear** — "Ten Essentials Systems" (The Mountaineers)
-- **Health flags** — binary risk indicators; weights pending expert validation
+### Current model performance
 
-Labels are assigned by z-score standardizing trail demand and participant readiness separately, then thresholding the gap. Small Gaussian noise is added so the task isn't perfectly separable.
+```
+Version:                  v2-acsm   (superseded: v1-synthetic)
+Accuracy:                  91.42%   (v1: 80.50%)
+Weighted F1:               0.9151   (v1: 0.8100)
+Fidelity to the rule engine: 95.22% (v1: 80.50%)
+Dataset:            6,000 rows, 14 features   (v1: 2,000 rows, 27 features)
+```
 
-**Weather is deliberately excluded from ML features** — it isn't available at registration time (forecasts only exist near the event date), and there's no historical weather-incident data to build synthetic rules from. Weather remains a separate day-of advisory feature.
+These are the figures after the model was retrained to include Trail Class 4 (Simple Climbing) — every table in `MODEL.md` has been re-measured against that retrain; an earlier v2 build reported 91.75%/95.12%, which is superseded and appears only in `MODEL_EXPLAINED_EN.md`'s narrative.
 
-### Feature mapping (C# → Python)
+These figures describe performance on **synthetic** data, measured against the project's own rule engine. They must not be presented as accuracy on real hikers — see "Known limitations" in `MODEL.md` for what independent validation exists and doesn't.
 
-`AssessmentController` has `MapExerciseFrequency`, `MapMountainsClimbed`, `MapTerrainType`, etc. — these convert raw form string answers into the 0–3 ordinal scores the model expects. The legacy `ComputeFitnessScore`/`ComputeExperienceScore`/etc. (3–12 scale) are **still used** for the old category-score display, so don't delete them.
+### Synthetic dataset basis
 
-### Label format gotcha
+Cite these in the manuscript:
 
-The ML API returns `"Good Match"` (space). The existing codebase uses `"Good-Match"` (hyphen) throughout `ComputeRecommendations`, `GetAlternativeEvents`, and views. `NormalizeLabel()` in `AssessmentController` converts ML output to the hyphenated form. **Keep this** — changing every usage site is riskier.
+- **Trail demand** — NPS Shenandoah difficulty formula: `sqrt(elevation_gain_ft × 2 × distance_mi)`. Fed to the model directly as a feature (`trail_shenandoah_score`), not merely used to derive labels — this is the principal cause of the accuracy gain over v1
+- **Terrain multiplier** — 1.00 / 1.15 / 1.35 / 1.60 across the four PinoyMountaineer Trail Classes (Walking / Hiking / Scrambling / Simple Climbing). Fitted against 28 Philippine mountains with published PinoyMountaineer difficulty ratings (Spearman rho 0.859; see "Difficulty Bands" below)
+- **Fitness/health screening** — 2015 ACSM preparticipation screening algorithm: Riebe D, Franklin BA, Thompson PD, Garber CE, Whitfield GP, Magal M, Pescatello LS. *Updating ACSM's Recommendations for Exercise Preparticipation Health Screening.* Med Sci Sports Exerc. 2015;47(11):2473–2479
+- **BMI** — WHO BMI classification for adults
+- **Gear** — Ten Essentials Systems (The Mountaineers). The eight individual gear items remain on the participant checklist and drive the Recommendations panel; for the model they're collapsed into a single `gear_score` feature
+- **Health** — an ACSM preparticipation clearance **gate**, not weighted binary flags (see "ML Labels and the ACSM Gate" below)
+
+Labels come from a **demand-to-capacity ratio**, not z-score thresholding: `demand = trail_shenandoah_score × TERRAIN_MULTIPLIER[trail_class]`, compared against a participant readiness/capacity score and thresholded into Good Match / Borderline / Not Recommended. The ACSM gate is then applied on top of that label and can only lower it, never raise it.
+
+Several constants feeding this remain `PENDING EXPERT ELICITATION` in `generate_synthetic_dataset.py`: the readiness component weights, the capacity range, the exact ratio thresholds, and the joint-injury gate rule (the one gate rule with no ACSM basis).
 
 ---
 
-## Key Domain Rules
+## Weather and ML
 
-**Suitability labels:** `Good-Match`, `Borderline`, `Not Recommended`
+**Weather is deliberately excluded from the ML features.**
 
-**Registration statuses:** `Pending` → `Awaiting Payment` → `For Payment Verification` → `Accepted`, plus `Rejected`, `Cancelled`, `Voided`
+1. Reliable forecasts only exist close to the event date, not at registration
+2. Conditions change after registration
+3. There's no historical weather-incident dataset to build defensible synthetic rules from
 
-**Explainability is required, not optional.** SHAP breakdowns appear on both the participant assessment report ("Why This Result?", orange accent, "Helped"/"Reduced" wording) and the organizer registration review ("Assessment Explanation", blue accent, "Supported"/"Weakened" wording, plus a disclaimer that ML output is decision support only). `ShapHelper.cs` holds the shared display logic and friendly feature-name mapping.
+```
+Suitability ML  =  Participant + Trail characteristics
+Weather         =  Separate event advisory
+```
 
-**The system never auto-approves or auto-rejects.** The ML result is decision support; the organizer always makes the final call. This is stated explicitly in the manuscript's Limitations section.
+Weather provides forecast details, a rule-based risk level, and an organizer-editable reminder. It must not be described as an ML feature unless the architecture changes.
+
+### Weather implementation notes
+
+- Fetched **live** on the participant dashboard (`ParticipantController.GetEventWeather`) and event detail page, then **written back** to the Event — a forecast saved at event creation is stale by the event date
+- An organizer-edited `WeatherReminder` is preserved across refreshes unless the risk level changes
+- `Trail.Location` is stored as `"City, Province"`, which Open-Meteo's geocoder can't parse. `WeatherService` splits on the comma, searches the city with `countryCode=PH`, and matches the province against **both** `admin1` (region) and `admin2` (province)
+- An out-of-range date returns **HTTP 400**, not null data — that's the `TooFarAhead` case, and it's a normal outcome (~16-day forecast horizon), not an error
+- Failure reasons are distinct: `NoLocation`, `LocationNotFound`, `TooFarAhead`, `ServiceDown`, `Error`
+
+---
+
+## Assessment Input Contract
+
+The form is not a set of independent questions — several answers map into the ML feature space and have dependencies.
+
+### Age
+
+Restricted to **18–60**, matching the synthetic training range (`age` is not itself a model input, but the scope of who the system will assess at all). Predicting outside it returns a confident-looking score with no basis. Documented as a limitation in `MODEL.md` to revisit at retraining, when real participant data covers a wider demographic.
+
+Note: the BMI thresholds are the adult WHO ranges. Widening the age range later isn't just an input change — BMI handling would need revisiting, since children are assessed against percentile charts.
+
+### First-timer dependency
+
+Q8 (mountains climbed) drives Q9 (recency) and Q10 (hardest trail):
+
+- **First-timer** → Q9 auto-selects "Never climbed", Q10 auto-selects "None", others disabled
+- **Anything else** → "Never climbed" and "None" are disabled, and cleared if previously selected
+
+Changing Q8 re-applies the rule. Nothing previously stopped a participant from answering "First-timer" plus "hiked 1–3 months ago".
+
+### Medical conditions
+
+"None of the above" is mutually exclusive with **six** listed conditions: Asthma, Hypertension/heart condition, Joint or knee injury, Vertigo/dizziness, Chest pain, and Shortness of breath. The last two were added specifically for the v2/ACSM migration — ACSM screens on all three cardiovascular signs and symptoms (dizziness, chest pain, shortness of breath), and v1 only asked about the first. In the ML feature space, all four cardiac-symptom checkboxes (vertigo, chest pain, shortness of breath — asthma is separate) collapse into a single `has_cvd_symptoms` flag.
+
+### Exercise consistency
+
+A question asking how long the participant has sustained their stated exercise frequency (Less than 1 month / 1 to 2 months / 3 months or more) feeds `exercise_consistency_score`. It exists because ACSM's "physically active" criterion requires at least 3 months of consistency at the stated frequency, which v1 had no way to know.
+
+### Cardio duration boundary
+
+The cardio-endurance options are "Less than 15 minutes / 15 to 29 minutes / 30 to 60 minutes / More than 60 minutes". The "15 to 29" / "30 to 60" split is deliberate — it lines up exactly with ACSM's 30-minute threshold instead of straddling it the way v1's "15 to 30 minutes" option did.
+
+### Physical measurements
+
+Age, height, and weight are range-validated **in JavaScript**. Native HTML `min`/`max` doesn't fire reliably inside hidden wizard steps — the same reason native `required` was dropped from the feedback wizard.
+
+---
+
+## Feature Mapping
+
+`AssessmentController.BuildMlRequest` maps raw form answers into the 14 values the Python model expects. It uses a generic `MapScore(dictionary, value, fieldName)` helper against named lookup dictionaries (`ExerciseFrequencyMap`, `CardioEnduranceMap`, `ExerciseConsistencyMap`, `MountainsClimbedMap`, `RecencyOfHikeMap`, `TrailDifficultyCompletedMap`) — an answer that doesn't match a dictionary entry **throws** rather than silently defaulting to 0, since a silent default could make an unfit participant look fit, or vice versa. `trail.TrailClass` is sent straight through as `trail_terrain_type`; no separate mapping method is needed since `TrailClass` is already the 1–4 the model expects (and `BuildMlRequest` throws if it isn't).
+
+The legacy `ComputeFitnessScore` / `ComputeExperienceScore` / `ComputeHealthScore` / `ComputeMlGearScore` methods still run and still populate `Assessment.FitnessScore` / `ExperienceScore` / `HealthScore` / `GearScore` / `TotalScore` — **but they no longer feed the ML request.** `BuildMlRequest` computes the model's features independently, from the same raw form values. These legacy fields are stored on `Assessment` and rendered nowhere in the current UI; see Known Cleanup.
+
+Don't alter `BuildMlRequest`'s field mapping without checking the Python `FEATURE_COLUMNS` contract on both sides (`generate_synthetic_dataset.py` / `acsm_gate.py`).
+
+---
+
+## ML Labels and the ACSM Gate
+
+The API returns `"Good Match"` (space). The application uses `"Good-Match"` (hyphen) throughout controllers and views. `NormalizeLabel()` converts between them.
+
+Keep this — changing every usage site is riskier than the conversion.
+
+`main.py`'s `/predict` applies an independent post-prediction safety check — the ACSM gate (`acsm_gate.apply_acsm_gate`) — after the model produces its label. **The gate can only lower a label, never raise one**, and runs four rules:
+
+1. Signs or symptoms present (`has_cvd_symptoms`) → capped at Not Recommended, medical clearance required, regardless of fitness or intensity
+2. Known CVD (`has_cvd`) and physically inactive → capped at Not Recommended, clearance required
+3. Known CVD, physically active, vigorous-intensity trail → capped at Borderline, clearance required
+4. Joint or knee injury on Trail Class ≥3 or a high-demand trail → capped at Borderline, no clearance flag (`PENDING EXPERT ELICITATION` — the one gate rule with no ACSM source)
+
+Asthma deliberately triggers no gate rule — ACSM treats pulmonary disease as not an automatic referral, unlike cardiovascular disease.
+
+The gate exists because the v2 model alone still occasionally predicts Good Match for a case the rules call Not Recommended (0.83 per 1,000 test rows, vs. 0 for v1). Applying the gate reduces that to 0. `SuitabilityResult.GateApplied` / `GateReason` record whether and why it fired for a given prediction, and `medical_clearance_required` in the API response drives `Assessment.MedicalClearanceRequired`.
+
+---
+
+## Difficulty Bands
+
+`trail_shenandoah_score` (the plain NPS rating) is the only difficulty input the model itself sees. The band **shown to users** — on event, trail, report, and organizer pages, and as `SuitabilityResult.NpsBand` / `PredictionResponse.nps_band` — is a separate, deterministic step: the NPS rating is multiplied by the trail's `TrailClass` multiplier to get an *adjusted rating*, which is then mapped onto one of four PinoyMountaineer-derived tiers.
+
+| Adjusted rating | Band | PinoyMountaineer level |
+|---|---|---|
+| < 81 | Easy | 1–2/9 |
+| 81–354 | Minor Climb | 3–4/9 |
+| 354–411 | Major Climb | 5–6/9 |
+| ≥ 411 | Major Climb — Difficult | 7–9/9 |
+
+These replace the published NPS bands (50/100/150/200), which are calibrated for Shenandoah National Park — 68% of the 28 Philippine mountains used to fit the boundaries above exceed the NPS bands' top threshold.
+
+**This is not the PinoyMountaineer scale itself.** The system computes the NPS Shenandoah rating and maps it onto PinoyMountaineer difficulty tiers using boundaries calibrated on 28 Philippine mountains (82% exact-tier agreement, 100% agreement within one tier, Spearman rho 0.859). Applying PM's own written rule (duration + trail class) directly reproduced the same mountains' published ratings only 50% of the time — multi-day status in the Philippines often reflects logistics (e.g. camping for sunrise) rather than difficulty. **The 82%/100%/0.859 figures were measured on the same 28-mountain sample the boundaries were fitted to** — independent validation on mountains outside that sample hasn't been done; this is documented as a limitation in `MODEL.md`.
+
+This logic is duplicated deliberately in two places that must be changed together:
+- Python: `acsm_gate.shenandoah_rating()` / `nps_band()` (training and serving)
+- C#: `Services/DifficultyCalculator.cs` — `ComputeRating`/`ComputeAdjustedRating`/`LabelFor` (event/trail/report pages)
+
+Sort and compare by the **adjusted** rating, not the plain one — ordering by the plain NPS score would rank a short Class 4 trail as easier than a long Class 1 walk.
+
+`Trail.Terrain` (a free-text string) and `Trail.TrailClass` (int, 1–4) are both still fields on `Trail` — `TrailClass` is the one that feeds difficulty and the ML request; `Terrain` predates it.
+
+---
+
+## Explainability
+
+Required, not optional. Every ML prediction is accompanied by an explanation when SHAP data exists.
+
+### Participant
+
+Assessment report shows: result → confidence → "Why This Result?" → SHAP factors → recommendations.
+
+SHAP factors use **Helped / Reduced** with a percentage representing that factor's share of total displayed impact.
+
+Recommendations are **derived from negative SHAP factors**, not score thresholds. Trail-side features (`trail_shenandoah_score`, `trail_terrain_type`) are excluded — the participant can't act on them.
+
+### Organizer
+
+Registration review shows an "Assessment Explanation" panel using **Supported / Weakened**, with a disclaimer that the ML result is decision support only.
+
+### Two divergent copies of the feature-name mapping — known bug, not yet fixed
+
+`Services/ShapHelper.cs` was meant to be the shared display logic and friendly feature-name mapping. It is **not** reused, and it is **stale**: it still holds the v1 27-feature name list (`age`, `height_cm`, `weight_kg`, `has_hypertension_heart_condition`, `has_vertigo`, `gear_water`, `trail_distance_km`, `trail_estimated_duration_hr`, etc.), silently falling through to the raw feature name (`_ => featureName`) for anything it doesn't recognize.
+
+`AssessmentController` has its own separate, private `GetFriendlyFeatureName`, which correctly covers all 14 v2 features and **throws** on an unrecognized name — but it's only used by the Assessment Report page, immediately after submission.
+
+`ShapHelper.BuildDisplayItems` is still called from two places that render **after** that first report:
+- `RegistrationController.cs` (the My Registrations SHAP modal, participant-facing)
+- `OrganizerController.cs` (the RegistrationDetails Assessment Explanation panel)
+
+Both currently render four of the fourteen v2 features as raw snake_case — `exercise_consistency_score`, `has_cvd`, `has_cvd_symptoms`, `trail_shenandoah_score` — because those names don't exist in `ShapHelper`'s v1 switch statement and fall through unrecognized. This is a live display bug, not a hypothetical one. Fixing it means updating `ShapHelper.GetFriendlyFeatureName` to the v2 feature list and then actually pointing `AssessmentController` at `ShapHelper` instead of its own copy, so there's one mapping instead of two that can drift again.
+
+---
+
+## Confidence Display
+
+Displayed to one decimal place, **raw — no cap**. It was previously capped at 99.9% in six locations; the cap hid a real, measured property of the model rather than fixing anything: a meaningful share of predictions saturate near 100% because the training labels are near-deterministic. That is documented as a known limitation in [`./MODEL.md`](./MODEL.md); capping the UI while documenting the saturation in the model card meant the two contradicted each other, and the model card is what gets read at defense. **The cap has been removed and must not be re-added** — it was already documented as deliberate once (commit `1939df0`) and the file you're reading is what would mislead a future session into restoring it.
+
+```
+MODEL.md               — model card, versions, metrics, limitations
+MODEL_EXPLAINED_EN.md  — narrative on why v1 was rebuilt into v2
+```
+
+Shown to participants in: the participant dashboard, the My Registrations modal, and the assessment report (both the main panel and the sidebar). Also shown to organizers in RegistrationDetails, without the context line below (organizers get the disclaimer that ML is decision support only, covered under Explainability instead).
+
+Wherever confidence is shown to a **participant**, it carries one line of context beneath it: "Confidence reflects how certain the model is that this result matches its trained rules. It does not measure whether the recommendation is right for you." Calibration measurement backs this precise a claim and no more — measured against the Trail Class 4 retrain: below 70% confidence the model agrees with the rule engine 68.6% of the time (245 cases), 70–90% agrees 93.9% (376 cases), 90–99% agrees 99.0% (291 cases), above 99% agrees 100.0% (288 cases). The number predicts agreement with the model's own training rules, not real-world correctness — don't word this line to imply the latter.
+
+When there's no `SuitabilityResult` — the ML service was unreachable and the assessment was rejected rather than falling back to a rule-based guess (see "ML Failure — No Fallback") — show the label without a confidence value. Don't leave an empty space and don't invent one.
+
+Only a single confidence figure (the winning class's probability) is stored per `SuitabilityResult`, not the full three-class distribution — see Known Cleanup re: the three-segment confidence donut.
+
+---
+
+## Decision-Making Rule
+
+The system **never automatically approves or rejects**.
+
+```
+Participant → Assessment → ML prediction → ACSM gate → SHAP explanation
+    → Registration → Organizer review → Organizer final decision
+```
+
+A `Not Recommended` result doesn't block registration. It triggers additional requirements and organizer review.
+
+This is stated explicitly in the manuscript's Limitations section, and the interface must not contradict it.
+
+---
+
+## Registration Domain Rules
+
+Suitability labels: `Good-Match`, `Borderline`, `Not Recommended`
+
+Statuses:
+
+```
+Pending → Awaiting Payment → For Payment Verification → Accepted
+```
+
+Plus `Rejected`, `Cancelled`, `Voided`, `Alternative Recommended`. `RegistrationButtonHelper.GetState` is the single source of truth for what the participant-facing register/continue button shows for each status.
+
+### Key decisions
+
+| Decision | Reasoning |
+|---|---|
+| Payment happens **after** approval | Participant has 3 days from approval, capped at 11:59 PM the day before the event so the organizer can still verify |
+| Expiry is a **lazy check**, not a background service | `RegistrationStatusHelper.ExpireOverdueRegistrations` runs at the top of every registration read path. Missing one reintroduces stale status |
+| Cancellation blocked after approval | Only `Pending` and `Awaiting Payment` can be cancelled. Logistics are committed by then; anything later goes through the organizer |
+| Post-event flows count only `Accepted` | A participant still in `For Payment Verification` isn't considered to have joined. Payment disputes at the trailhead are handled outside the system |
+| Capacity counts all active statuses | Not just `Accepted` — an approved registration holds its slot during the payment window |
+| Feedback requires `Accepted` + `Completed` | Feedback is an account of a hike the participant actually went on. See Feedback → Eligibility |
+| Resolve a registration by status, never `FirstOrDefault` alone | A participant can hold several rows for one event (cancel, then register again). An unordered, unfiltered lookup can return the cancelled row, and `UpsertFinalLabel` then silently writes no label at all |
+
+### Registration contact snapshot
+
+`ContactNumber` and `Email` are stored **on the registration**, not read from the profile. The profile may hold a newer or different number than the one given for a specific event, and this is safety-critical information the organizer needs.
+
+The organizer view reads the registration values first, falling back to account values only for rows predating this change.
+
+Phone inputs use a fixed `+63` prefix with the local number starting at 9. Existing profile values with `+63` or a leading `0` are normalised before display so the prefix isn't doubled.
+
+### Requirements by result
+
+| Result | Medical clearance | Preparation plan |
+|---|---|---|
+| Good-Match / Borderline, no conditions | Optional | Not required |
+| Good-Match / Borderline, with conditions | Required | Not required |
+| Not Recommended | Required | Required |
+
+`DecisionReason` is a free-text field on `EventRegistration`, persisted whenever the organizer approves, rejects, or otherwise decides — this is the "organizer decision reason" feature and it is fully implemented, not pending.
+
+---
+
+## Event Lifecycle
+
+Explicit actions, not a status dropdown:
+
+```
+Upcoming ──┬── Reschedule (new date, stays Upcoming)
+           ├── Cancel (reason required)
+           └── Complete → Completed
+```
+
+Completion is **manual, never automatic** — hiking events have travel time, delays, and multi-day trips, so only the organizer knows when it's actually done. `CompletedAt` records when the organizer confirmed, not when the hike ended.
+
+Completing an event **voids** all registrations still in `Pending`, `Awaiting Payment`, or `For Payment Verification`.
+
+`Event.NotesAndReminders` (organizer-authored, separate from the weather-derived `WeatherReminder`) and the weather fields (`WeatherForecastAdvisory`, `WeatherRiskLevel`, `WeatherReminder`) are all implemented, persisted fields on `Event`. `Event.MASL` does not exist — elevation lives on `Trail.ElevationGainMeters`, not on the event.
+
+### Final suitability labels
+
+`FinalSuitabilityLabel` persists the empirical outcome for retraining:
+
+- Both participant feedback and organizer assessment present → the **more conservative** label
+- One present → use it
+- Neither → **no record**, excluded from the retraining dataset
+
+`AssessmentId` on that table is what links a label back to its features. Without it there's a label with nothing attached.
+
+The upsert must handle edits — feedback arrives in either order and either side can be revised. `FinalLabelService.ComputeKappa` and `LabelOrder`/`LabelCategories` (`{ "Good-Match", "Borderline", "Not Recommended" }`, best-to-worst by array index) are the single source of truth for what "more conservative" and "accurate" mean; the Reports page (below) reuses the same service so the per-event and aggregate views can't define agreement differently.
+
+---
+
+## Reports: Aggregate Model Validation
+
+`ReportsController` (`Admin,Organizer` only) is the multi-event counterpart to `OrganizerController.EventComparison`. It reuses `FinalLabelService` for every label comparison so "accurate" and the ordinal category order can't drift between the per-event and aggregate views.
+
+It shows, over all resolved `FinalSuitabilityLabel` rows:
+
+- A sampling-bias funnel: total assessments → registrations with an assessment → accepted → resolved final labels (each stage narrows, and the narrowing itself is informative about who never gets an outcome recorded)
+- Accuracy breakdown (Accurate / Over-cautious / Missed risk / Unclassifiable) for both the pre-hike label shown to the participant and the model's label alone (pre-gate)
+- Confusion matrices for both
+- Cohen's kappa and weighted kappa (`FinalLabelService.ComputeKappa`), shown only once the sample is large enough (`ReportsController.MinSampleSize = 20`) — below that, only raw counts are shown
+- Breakdowns by NPS difficulty band and by Trail Class
+- A dedicated breakdown for the `Not Recommended` acknowledgement pathway — the only evidence the system has about whether its negative predictions were correct, since every other Not-Recommended participant either never registered or was rejected before an outcome could be observed
+- CSV export (`ReportsController.Export`) of the full row-level data behind the report
+
+This is new since the last time this file was accurate, and is **not yet in the UI/UX pass** (see below).
+
+---
+
+## Feedback
+
+Three-step wizard:
+
+1. **Hiking experience** — `DifficultyExperience` (this alone drives the final label)
+2. **Trail conditions** — condition, signage, water availability, hazards
+3. **Organizer evaluation** — rating, communication, safety, group management, comment
+
+Sections 2 and 3 **don't** affect the suitability label. Trail condition and organizer quality are different questions from whether this participant suited this trail.
+
+The wizard is one form with JS-toggled visibility, not real navigation — otherwise answers are lost going back.
+
+### Single submission
+
+Participant feedback is submitted **once and cannot be revised**. `DifficultyExperience` is empirical training data; if it were editable it could be edited after the participant has seen the outcome.
+
+This is not the same thing as `FinalLabelService` tolerating change. The upsert must recompute rather than assume a first write, because the **organizer's** post-event assessment can be revised and the two sides arrive in either order. That is a requirement on the service, not permission for the participant to edit.
+
+### Eligibility
+
+The feedback form — both the GET and the POST — requires all three:
+
+- the event exists
+- `Event.Status == "Completed"`
+- the current user holds an `EventRegistration` for that event with `Status == "Accepted"`
+
+`Participant/Details.cshtml` gates the *Give Feedback* link on exactly this. The controller now enforces the same rule, because a gate that only exists in a view is not a gate.
+
+All four failure modes return the **same generic message**. Don't distinguish "event not found" from "not yours" — see Security.
+
+---
+
+## Security
+
+Participant endpoints that take a registration ID **must** verify ownership before acting. `CancelRegistration`, `UpdatePaymentReceipt`, and `GetRegistrationDetails` all previously acted on any ID — any participant could cancel or attach a receipt to someone else's registration by incrementing a number.
+
+Return the **same generic message** whether the ID doesn't exist or belongs to someone else. Distinguishing them lets an attacker enumerate valid IDs.
+
+The same pattern was found and fixed in `ParticipantController.Feedback` and `SubmitFeedback`: both acted on any `eventId` without checking whether the caller had actually joined the event or whether the event had happened. The ML retraining set was never exposed — `FinalLabelService` refuses any registration that isn't `Accepted` — but `EventFeedbacks` is what the organizer reads for trail condition, hazards, and organizer ratings, and anyone could write to it.
+
+**Remaining controllers have not been audited for this pattern.**
+
+### Antiforgery
+
+**Corrected claim:** this file previously stated that `SubmitFeedback` carries `[ValidateAntiForgeryToken]`. It does not — checked directly against `ParticipantController.cs`, which has no antiforgery attribute anywhere in the file.
+
+There is **no global antiforgery filter** — `Program.cs` registers a bare `AddControllersWithViews()`. As of this check, `[ValidateAntiForgeryToken]` exists on exactly five actions, across three controllers: `AdminController` (2), `SettingsController` (2), `TrailController` (1). Every POST action in `AssessmentController`, `EventController`, `OrganizerController`, `ParticipantController` (including `SubmitFeedback`), and `RegistrationController` is unprotected. Several views still render `@Html.AntiForgeryToken()` into forms whose actions never validate it, which looks like protection and isn't.
+
+**Assume nothing is protected unless you check the controller directly** — the specific list above is a snapshot, not a guarantee it's still current by the time you read this.
 
 ---
 
 ## Conventions
 
-- Tailwind classes only — no custom CSS files. Cards use `bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl`
-- Organizer views use blue accents (`text-blue-400`); participant views use orange (`text-orange-400`)
-- Progress bars: `w-full h-2 bg-gray-700 rounded-full overflow-hidden` with an inner div sized by inline `style="width: X%"`
-- Controllers pass data via strongly-typed ViewModels where one exists, `ViewBag` otherwise
-- `DateTime.Now` (not UtcNow) is used throughout; `Program.cs` sets `Npgsql.EnableLegacyTimestampBehavior` to allow this with PostgreSQL
+- Tailwind classes only — no custom CSS without a documented reason
+- Use surface theme tokens, never raw hex (see `DESIGN.md`)
+- Strongly typed ViewModels where one exists; `ViewBag` otherwise
+- `DateTime.Now` throughout — `Program.cs` sets `Npgsql.EnableLegacyTimestampBehavior`
+- Keep C# feature mappings (`AssessmentController.BuildMlRequest`, `Services/DifficultyCalculator.cs`) synchronised with the Python model (`generate_synthetic_dataset.py` / `acsm_gate.py`)
+- Never display legacy rule-based category scores beside ML results
+- Never treat an ML prediction as an automatic organizer decision
+- Never reintroduce a rule-based fallback for a failed ML call — see "ML Failure — No Fallback"
+- Preserve ownership checks when touching registration endpoints
 
 ---
 
 ## Current State
 
-**Working end-to-end:**
-- Auth with three roles, trail CRUD, event CRUD, event browsing
-- Assessment form → ML prediction → result stored in `SuitabilityResults` + `ShapValues`
-- SHAP explanation panels on both participant and organizer sides
-- Registration submission, organizer approve/reject, alternative event recommendation
-- Post-event feedback (participant) and post-event assessment (organizer)
-- Records page with CSV export
-- Weather forecast via Open-Meteo API (in `EventController`)
+The pre-capstone App Dev feature set (result-based registration workflow, event completion with persisted final labels, organizer decision reason, notes & reminders, weather risk level as a separate field, three-section feedback) is complete and working end-to-end, along with trail/event CRUD, organizer approve/reject, alternative event recommendation, and post-event assessment. This is no longer usefully described as a gap list — see "Known Cleanup / Outstanding Work" below for what's actually unresolved.
 
-**Known gaps vs. the manuscript** (see `PLAN.md` for the active work):
-1. Result-based registration workflow — medical clearance, preparation plan, payment flow rework ← **in progress**
-2. Event completion confirmation + persisted final suitability labels
-3. Organizer decision reason isn't saved
-4. `Event` lacks `Notes` and `Reminders` fields
-5. Weather risk level + suggested reminder (rule-based) not implemented
+Since then, the ML pipeline has been migrated to v2 (ACSM gate, NPS-based difficulty, Trail Class), the rule-based fallback has been removed, and the Reports aggregate-validation page has been added.
+
+### UI/UX pass
+
+**Done — participant side complete:**
+landing, login, register, participant dashboard, browse trails, browse events, event detail, my registrations, assessment form, assessment report, registration form.
+
+**Remaining:**
+- Feedback page (functionally a wizard, not yet restyled)
+- **All organizer pages** — dashboard, events, registrations, registration details, post-event assessment, event comparison
+- **All admin pages** — dashboard, accounts, records
+- **Reports** (aggregate model validation) — new page, not yet styled
+- Shared: navbar partials, footer, error pages
+
+Note: `Organizer/RegistrationDetails.cshtml` has a SHAP panel added during earlier feature work, but has **not** been through the UI pass, and (see Explainability above) is currently rendering four SHAP feature names incorrectly regardless of styling.
 
 ---
 
-## Working Style
+## Known Cleanup / Outstanding Work
 
-- Commit per phase, not all at once — easier to review and revert
-- Run `dotnet build` after each set of edits before moving on
-- Migrations: `dotnet ef migrations add <Name>` then `dotnet ef database update`
-- When a migration warns about possible data loss, read the generated migration file before applying it
+- **Two divergent SHAP feature-name mappings** (`Services/ShapHelper.cs` vs. `AssessmentController`'s private copy) — `ShapHelper` is stale (v1 feature names) and is what actually renders in the My Registrations SHAP modal and the organizer's Assessment Explanation panel. See Explainability above. This is a live bug, not stale documentation, and is now the most concrete unfinished item in this file
+- **Antiforgery** — `AutoValidateAntiforgeryTokenAttribute` is the correct end state but would break every `fetch()` POST that sends no token. Only 5 of the state-changing POST actions across the whole app currently carry `[ValidateAntiForgeryToken]`; get an up-to-date per-controller count before scoping this rather than trusting a number written here
+- **`AssessmentResultViewModel`** (used by `Views/Registration/Register.cshtml`) still carries `FitnessScore`/`ExperienceScore`/`HealthScore`/`GearScore` fields. They're populated (by the still-running legacy `Compute*` methods) but not rendered anywhere — the model isn't clean even though the display already was
+- **Two modal show/hide mechanisms** — `Views/Trail/Index.cshtml` and `Views/Participant/Trails.cshtml` both use custom `.modal-hidden`/`.modal-visible` CSS; everything else uses Tailwind `hidden`/`flex`. Standardise on Tailwind
+- **Ownership checks** — fixed in `RegistrationController` and `ParticipantController`'s feedback endpoints; the rest are unaudited (see Security)
+- **Three-segment confidence donut** for the organizer view — needs the Python service to return all three class probabilities (only the winning class's confidence is stored today) plus a migration to persist them
+- **Seed data** should be regenerated once the system is finalised; registration seeding is currently commented out
+- **Expert validation** — a physician and a hiking expert have completed rounds 1 and 2 (100 profiles total), reporting a quadratic weighted kappa of 0.555. **`MODEL.md` and `MODEL_EXPLAINED_EN.md` do not yet reflect this** — both still describe the expert instrument as prepared but not yet returned ("Until that is returned, no claim about real-world accuracy is supportable"). Updating those two files with the actual result is outstanding, and until it's done, treat the model card's stated limitations as authoritative over this bullet, not the other way around
+- **The joint-injury ACSM gate rule** has no clinical source (`PENDING EXPERT ELICITATION` in `generate_synthetic_dataset.py`), as do the readiness component weights, the capacity range, and the decision thresholds
+- **Manuscript realignment** — the approved proposal specified Laravel/PHP/MySQL; the system is ASP.NET Core/C#/PostgreSQL. Chapter 3 needs updating, along with the documented age-range limitation and the v1→v2 model change
+
+---
+
+## Development Workflow
+
+- Commit per logical phase, not grouped unrelated changes
+- `dotnet build` after significant changes; `npm run build` after any new Tailwind class
+- Run the ML service when testing the assessment flow. There is no fallback path to test anymore — if the ML service is down, the only correct behavior is the form rejecting the submission with an error, not a rule-based result
+- Migrations:
+  ```bash
+  dotnet ef migrations add <Name>
+  dotnet ef database update
+  ```
+- **Inspect the generated migration before applying** when it warns about data loss. EF has produced a wrong rename here before, matching columns by position rather than name
+- For registration changes, test both participant ownership and organizer access
+- For ML changes, verify the C# mapping (`AssessmentController.BuildMlRequest`, `DifficultyCalculator`) and the Python `FEATURE_COLUMNS`/`acsm_gate.py` contract stay in sync
+
+### Working with the planning conversation
+
+Plans are discussed and written into `PLAN.md`, then implemented from that file. If an instruction in the plan looks wrong — a wrong assumption about an API, a change that would break something outside the stated scope — say so rather than implementing it literally. That has caught real problems here more than once.

@@ -295,7 +295,7 @@ input to the model itself. The band shown to users - on the event, trail,
 report, and organizer pages, and as `SuitabilityResult.NpsBand` /
 `PredictionResponse.nps_band` - is a separate, deterministic step applied on
 top of it: the NPS rating is multiplied by the trail's TrailClass multiplier
-(see limitation 3) to get an adjusted rating, which is then mapped onto one
+(see limitation 4) to get an adjusted rating, which is then mapped onto one
 of four PinoyMountaineer-derived tiers.
 
 | Adjusted rating | Band | PinoyMountaineer level |
@@ -318,9 +318,84 @@ PM's own written rule (duration + trail class) directly against the same 28
 mountains reproduced their published ratings only 50% of the time, because
 multi-day status in the Philippines often reflects logistics rather than
 difficulty - Mt. Pulag via Ambangeg is two days because you camp for the
-sunrise, and is rated PM 3/9. See limitation 7 below for the caveat that the
+sunrise, and is rated PM 3/9. See limitation 8 below for the caveat that the
 82%/100% figures were measured on the same sample the boundaries were fitted
 to.
+
+---
+
+## Expert validation
+
+Two blind rating rounds were completed with a practising hiking organizer.
+In each round the organizer received participant profiles and trail
+specifications with no system output attached, and classified each as Good
+Match, Borderline, or Not Recommended. The system's labels were withheld
+until the sheet was returned.
+
+| | Round 1 | Round 2 | Combined |
+|---|---|---|---|
+| Profiles | 60 | 40 | 100 |
+| Exact agreement | 55.0% | 57.5% | 56.0% |
+| Within one category | 88.3% | 97.5% | 92.0% |
+| Quadratic weighted kappa | 0.495 | 0.655 | **0.555** |
+| Disagreements two categories apart | 7 | 1 | 8 |
+
+The categories are ordinal, so the weighted figure is reported. An
+unweighted kappa cannot distinguish a Good Match / Borderline disagreement
+from a Good Match / Not Recommended one.
+
+**The two rounds do not show improvement.** The model configuration was
+identical for both; the round 2 profiles were held back from the same
+dataset before round 1 was sent. The difference between 0.495 and 0.655 is
+sampling variation at n = 40 to 60, not the effect of any change. The
+combined figure is the one to cite.
+
+### Where the system and the organizer disagree
+
+**The system over-uses Borderline.** Across all 100 profiles the organizer
+chose Borderline 13 times; the system chose it 35 times. This replicated
+independently in both rounds — 17% and 8% of the organizer's ratings
+against 35% of the system's. The largest cells in the combined confusion
+matrix are organizer Not Recommended against system Borderline (16 cases)
+and organizer Good Match against system Borderline (13 cases). The
+organizer commits; the system hedges.
+
+The likely cause is structural rather than a model error. Two parameters
+widen the Borderline band:
+
+- The decision thresholds are 0.75 and 1.30, a span of 0.55 in
+  demand-to-capacity ratio.
+- `CAPACITY_MAX` is 230, so a participant scoring the theoretical maximum
+  readiness of 1.0 has a capacity of 230. Six of eight seeded events exceed
+  a demand of 172, the point beyond which no participant can reach Good
+  Match at all.
+
+Both are marked `PENDING EXPERT ELICITATION` in the generator.
+
+**Direction of disagreement.** In round 1 the system was harsher than the
+organizer on 17 profiles and more lenient on 10. In round 2 it was balanced
+— harsher on 8, more lenient on 9.
+
+**Medical clearance.** The organizer required clearance in 9 cases the
+system did not flag, across both rounds, with no cases in the opposite
+direction. All six round 1 misses involved a declared joint or knee injury.
+The system's Rule 5 applies only when the trail is steep or technical and
+does not require clearance; the organizer treats a knee injury as more
+serious than that regardless of trail difficulty. Rule 5 is the only gate
+rule with no clinical source and is marked `PENDING EXPERT ELICITATION`.
+
+### Limitations of this validation
+
+- **One rater.** These figures measure agreement with a single practising
+  organizer, not agreement with the profession. They are calibration
+  evidence, not independent statistical validation.
+- **Synthetic profiles.** The organizer judged generated participants
+  against real trail specifications, not people they have taken up a
+  mountain.
+- **No correction was tested.** No parameters were adjusted between rounds,
+  so neither round measures whether a change improves agreement. A third
+  round is planned after expert elicitation, using hiker–trail scenarios
+  rather than individual profiles.
 
 ---
 
@@ -328,26 +403,36 @@ to.
 
 1. **Labels remain synthetic.** Both versions learn from labels produced by
    a rule the development team wrote. v2 improves the sourcing and the
-   structure of that rule; it does not remove the circularity. Validation
-   against an independent expert is required before any accuracy claim can
-   be made about real-world suitability.
+   structure of that rule; it does not remove the circularity. See item 2
+   for how far expert validation has gone toward closing that gap.
 
-2. **Several constants are unsourced.** The readiness component weights, the
+2. **Expert validation is preliminary, not independent statistical
+   validation.** Two blind rating rounds with a single practising hiking
+   organizer (100 synthetic profiles total) produced a combined quadratic
+   weighted kappa of 0.555 against the system's labels — see "Expert
+   validation" above for the full breakdown, including where the system and
+   the organizer disagree. This measures calibration against one rater's
+   judgment of generated profiles: no parameters were adjusted between the
+   two rounds, so agreement was measured, not improved, and no real hikers
+   were involved. A claim of real-world accuracy still requires validation
+   beyond this.
+
+3. **Several constants are unsourced.** The readiness component weights, the
    capacity range, the decision thresholds, and the joint-injury rule are
    marked `PENDING EXPERT ELICITATION` in `generate_synthetic_dataset.py`.
    They are placeholders. (The terrain multiplier itself is no longer one of
-   these - see item 3.)
+   these - see item 4.)
 
-3. **The terrain multiplier is a local adaptation, now data-fitted.** The NPS
+4. **The terrain multiplier is a local adaptation, now data-fitted.** The NPS
    Shenandoah formula has no terrain term. TERRAIN_MULTIPLIER (Walking 1.00,
    Hiking 1.15, Scrambling 1.35, Simple Climbing 1.60) is our addition for
    Philippine trails and is not part of the cited NPS source; it was fitted
    against 28 Philippine mountains with published PinoyMountaineer difficulty
    ratings (Spearman rho 0.859 between the resulting adjusted rating and the
    published PM rating). It replaces an earlier, un-sourced 1.00/1.10/1.25
-   guess. See item 7 for the calibration caveat that applies to this fit.
+   guess. See item 8 for the calibration caveat that applies to this fit.
 
-4. **Training is not bit-reproducible.** XGBoost histogram construction is
+5. **Training is not bit-reproducible.** XGBoost histogram construction is
    multi-threaded, so retraining on a different machine yields small
    variation (observed: accuracy identical at 0.9175, rule fidelity 95.07%
    to 95.12%, monotonicity violations 0 to 1 in 6,000, predictions rounding
@@ -365,16 +450,16 @@ to.
    single-row argmax artifact from a violation large enough to indicate the
    constraint isn't holding.
 
-5. **Scope is limited to ages 18–60.** This is a scope decision, not a model
+6. **Scope is limited to ages 18–60.** This is a scope decision, not a model
    limitation — `age` is not a model input. Participants over 60 are the
    group most likely to require clearance under ACSM and are currently
    excluded from the system entirely.
 
-6. **Self-report is unverified.** Every health and fitness input is taken at
+7. **Self-report is unverified.** Every health and fitness input is taken at
    face value. The system has no way to detect a participant who understates
    a condition to gain acceptance.
 
-7. **The PinoyMountaineer difficulty band boundaries are fitted and tested on
+8. **The PinoyMountaineer difficulty band boundaries are fitted and tested on
    the same 28-mountain sample.** The reported 82% exact-tier agreement and
    100% agreement-within-one-tier (Spearman rho 0.859) describe how well the
    boundaries reproduce the sample they were calibrated on, not performance

@@ -437,6 +437,7 @@ namespace TrailGuard.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> SubmitFeedback(
             int eventId,
             int Rating,

@@ -115,6 +115,7 @@ namespace TrailGuard.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Register(
             int eventId,
             int assessmentId,
