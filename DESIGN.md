@@ -121,27 +121,27 @@ bg-white/5 border border-white/5 rounded-xl
 
 ## Difficulty
 
-Trails carry a **9-point mountaineering difficulty rating**, standard in Philippine hiking. The badge shows both the label and the number — the label gives meaning to newcomers, the number gives precision to experienced hikers.
+Trails no longer carry a raw mountaineering number on their own — the badge shows a PinoyMountaineer-derived band name plus the PM level range it corresponds to, computed by `DifficultyCalculator` from the NPS-based adjusted rating. Four bands, not three:
 
-| Range | Label | Meaning |
+| Band (`DifficultyCalculator.Bands`) | PM level | Badge class |
 |---|---|---|
-| 1–3 | Easy | Minor walks and short nature trails |
-| 4–6 | Moderate | Day hikes with steep parts or longer hours |
-| 7–9 | Hard | Multi-day or technical climbs needing ropes and expertise |
-
-Badge format: `Hard 7/9`
+| Easy | 1–2/9 | `badge-easy` |
+| Minor Climb | 3–4/9 | `badge-lime` |
+| Major Climb | 5–6/9 | `badge-orange` |
+| Major Climb — Difficult | 7–9/9 | `badge-hard` |
 
 Badge colours — dark and near-solid, because an 18%-opacity badge disappears against a bright sky:
 
-| Level | Background | Text | Border |
+| Class | Background | Text | Border |
 |---|---|---|---|
-| Easy | `rgb(6 78 59 / 0.85)` | `rgb(110 231 183)` | `rgb(52 211 153 / 0.35)` |
-| Moderate | `rgb(69 39 8 / 0.85)` | `rgb(252 211 77)` | `rgb(251 191 36 / 0.35)` |
-| Hard / Difficult | `rgb(69 10 10 / 0.85)` | `rgb(252 165 165)` | `rgb(248 113 113 / 0.35)` |
+| `badge-easy` | `rgb(6 78 59 / 0.85)` | `rgb(110 231 183)` | `rgb(52 211 153 / 0.35)` |
+| `badge-lime` | `rgb(26 46 5 / 0.85)` | `rgb(190 242 100)` | `rgb(163 230 53 / 0.35)` |
+| `badge-orange` | `rgb(67 20 7 / 0.85)` | `rgb(253 186 116)` | `rgb(251 146 60 / 0.35)` |
+| `badge-hard` | `rgb(69 10 10 / 0.85)` | `rgb(252 165 165)` | `rgb(248 113 113 / 0.35)` |
 
-Defined as `.badge-easy`, `.badge-moderate`, `.badge-hard` in `input.css`.
+`DifficultyCalculator.BadgeClass` is the single source for this mapping — every page shows a difficulty badge through it. **Don't introduce a fifth band** without changing the calculator, `acsm_gate.py`'s matching Python-side bands, and this document together.
 
-`DifficultyCalculator` returns only Easy, Moderate, or Difficult. **Don't introduce a fourth level** without changing the calculator and this document together.
+`.badge-moderate` still exists in `input.css` but isn't part of this mapping — it's not orphaned, though: the landing page's static trail showcase (`Home/Index.cshtml`) hand-writes difficulty text like "Moderate 4/9" independent of `DifficultyCalculator`, and still uses it. Leave it until that showcase is rebuilt to pull real trail data.
 
 ---
 
@@ -158,6 +158,27 @@ Deliberately echoing the difficulty palette so the two read as related:
 Donut charts use the solid values: `#34d399`, `#fbbf24`, `#f87171`.
 
 The result should be recognisable at a glance, but must not visually imply an automatic approval or rejection. The organizer decides.
+
+### Gate reason
+
+When the ACSM gate has overridden the model's own label (`SuitabilityResult.GateApplied`), the reason is shown in an amber note, not folded silently into the result:
+
+```
+bg-amber-500/10 border border-amber-500/30 rounded-lg p-3
+text-amber-300 text-sm
+```
+
+`fa-shield-halved` icon. Used on the assessment report (`Assessment/Report.cshtml`) wherever `Model.GateApplied` is true.
+
+### Missed-risk highlight
+
+`Organizer/EventComparison.cshtml` marks a row where the final outcome was worse than what was predicted (`item.IsMissedRisk`) with a left-border accent rather than a full badge, since the row's other columns already carry the actual labels:
+
+```
+bg-red-500/5 border-l-2 border-l-red-500
+```
+
+This is the one place red marks a *comparison* result rather than the Not Recommended label itself — worth remembering before reusing red for something else on that page.
 
 ---
 
@@ -177,6 +198,16 @@ The result should be recognisable at a glance, but must not visually imply an au
 Amber means "something is waiting on you." Blue means "waiting on someone else." That consistency matters more than the specific hues.
 
 **Don't rely on colour alone.** States that need action — Awaiting Payment, For Payment Verification, Voided, Alternative Recommended — carry a supporting strip with explanatory text and, where relevant, the action itself.
+
+### Medical clearance badge
+
+On the organizer's registration list (`Organizer/Registrations.cshtml`), a small pill next to a registration that requires clearance:
+
+```
+inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium
+```
+
+Red (`bg-red-500/20 text-red-400`) reading "Clearance missing" when nothing's been uploaded yet; blue (`bg-blue-500/20 text-blue-400`) reading "Clearance required" once it has. `fa-file-medical` icon. Blue here means the same thing it means in the status table above — waiting on someone else, in this case the organizer's review, not the participant.
 
 ## Weather Risk
 
@@ -205,6 +236,27 @@ What does hold is the **wording** difference:
 | Positive | Helped | Supported |
 | Negative | Reduced | Weakened |
 | Extra | — | Decision-support disclaimer |
+
+---
+
+## Navbar
+
+Three zones in one floating capsule: logo (left), nav links (center, desktop only), profile/auth actions (right, desktop only) — plus a hamburger that replaces the whole center-and-right area below `lg`.
+
+```
+w-full lg:w-fit lg:max-w-full mx-auto
+rounded-full border border-white/15 bg-[#060B1A]/55 backdrop-blur-md
+```
+
+`w-full` on mobile, so the capsule spans the viewport with the page's own side margin (`px-4` on the outer `<nav>`) rather than looking like a shrunken pill on a small screen. `lg:w-fit` on desktop, so it hugs its content instead of stretching edge to edge — a full-width bar at desktop size would fight the "floating capsule" identity the rest of the app uses for cards and modals.
+
+**Profile dropdown and mobile menu share one pattern**, deliberately: the panel's own open/closed state is the single source of truth, driving the trigger's `aria-expanded`, the chevron rotation or icon morph, and the panel's own transition — rather than a separate click-counter that can desync once the menu closes via an outside click or `Escape`. Both close on outside click and `Escape`.
+
+Profile chevron: `rotate-180` toggled with `transition-transform duration-200`, driven by whether the dropdown panel is open.
+
+Mobile menu icon: the hamburger and the × cross-fade and rotate into each other (`transition-all duration-200`) rather than swapping instantly.
+
+Mobile panel itself animates height via CSS grid (`grid-template-rows: 0fr` → `1fr`) rather than a fixed max-height — `height` and `max-height` can't transition to `auto`, and a fixed pixel guess breaks the moment the menu's content changes.
 
 ---
 
@@ -254,7 +306,27 @@ with an inner div sized by inline `style="width: X%"`. All accent — see Color,
 
 ### Destructive
 
-Red text with a red border, not the brand gradient. Destructive actions must never look like the primary path.
+Two treatments exist, for two different contexts — neither is a mistake to converge on the other.
+
+**Compact / secondary destructive actions** — a delete icon-button in a list, or a status toggle next to other row actions. Quiet by default, solid red only on hover:
+
+```
+bg-red-500/20 hover:bg-red-500
+border border-red-500/30 hover:border-red-500
+text-red-400 hover:text-white
+```
+
+Used by the trail-delete button (`Trail/Index.cshtml`) and the admin account Disable/Enable toggle (`Admin/Accounts.cshtml`, green for Enable using the same recipe).
+
+**Decision-panel destructive actions** — where Reject sits alongside Approve and Recommend Alternative as one of several equally-weighted calls to action, not a lesser one:
+
+```
+bg-red-500 hover:bg-red-600 text-white
+```
+
+Solid from the start, matching the solid green Approve and solid blue Recommend Alternative buttons beside it (`Organizer/RegistrationDetails.cshtml`). Making Reject the only outlined button in that group would read as less serious than its siblings, not more careful.
+
+Either way: destructive actions must never use the brand gradient.
 
 ### Form submit buttons
 
@@ -331,6 +403,21 @@ Toggle visibility with Tailwind's `hidden` / `flex`. Don't introduce a second me
 
 ---
 
+## Banners and Alerts
+
+The shared formula: `bg-{hue}-500/10 border border-{hue}-500/30`, an icon, and a short message. Four variants in use today — a fifth should pick a hue by what it means (red still means "blocks you," amber still means "worth knowing"), not invent a new visual recipe.
+
+| Variant | Classes | Icon | Where |
+|---|---|---|---|
+| Red — required medical clearance | `bg-red-500/10 border border-red-500/30 rounded-xl p-4` | `fa-notes-medical` | `Assessment/Report.cshtml`, when clearance is required |
+| Red — form error | `bg-red-500/10 border border-red-500/30 rounded-xl p-4` | `fa-triangle-exclamation` | `Assessment/Form.cshtml`, from `TempData["Error"]` |
+| Amber — retake notice | `bg-amber-500/10 border border-amber-500/30`, pill not a full-width box | `fa-rotate` | `Assessment/Report.cshtml`, "Retake Assessment" |
+| Amber — gate reason | `bg-amber-500/10 border border-amber-500/30 rounded-lg p-3` | `fa-shield-halved` | `Assessment/Report.cshtml`, see Suitability → Gate reason |
+
+Red boxes use `rounded-xl p-4`; the amber gate-reason box uses the smaller `rounded-lg p-3` since it's a secondary note within a page that already has a headline result, not the first thing on the page. The retake notice is a pill-shaped link rather than a full banner — it's an action, not a warning.
+
+---
+
 ## Motion
 
 Hover feedback should be felt, not watched.
@@ -399,7 +486,7 @@ Required score threshold
 Risk Flags
 ```
 
-These were removed because they contradicted the ML result on the same screen — one showed Good-Match while the other said "below requirement." The underlying functions still run as the ML fallback; only the display went.
+These were removed because they contradicted the ML result on the same screen — one showed Good-Match while the other said "below requirement." There is no rule-based fallback left to reintroduce them from, either: `GetResult()` was deleted, not just hidden. If the ML service is unreachable, the assessment produces no result at all — see CLAUDE.md, "ML Failure — No Fallback."
 
 ### SHAP presentation
 
@@ -411,9 +498,9 @@ Recommendations derive from **negative** SHAP factors. Trail-side features (dist
 
 ### Confidence
 
-One decimal place, **capped at 99.9%**. A raw 0.9997 rounds to 100%, which claims certainty a model with 80.5% test accuracy doesn't have. The donut data uses the capped value too, so the chart and label agree.
+One decimal place, **raw — no cap**. A cap was tried and removed: it hid a real, measured property of the model (a meaningful share of predictions saturate near 100%) rather than fixing anything. **Do not re-add it.** See CLAUDE.md, "Confidence Display," for why — it documents this exact regression risk by name.
 
-With no `SuitabilityResult` — the rule-based fallback produced the result — show the label without a donut. Don't leave an empty space and don't invent a number.
+With no `SuitabilityResult` — the ML service was unreachable and the assessment was rejected, not answered by a fallback — show the label without a donut. Don't leave an empty space and don't invent a number.
 
 ### Disclaimer
 
@@ -455,20 +542,19 @@ Filling it in is not on its own enough. `_PrimaryButton` has only three call sit
 
 `_SecondaryButton` needs to render either an `<a>` or a `<button>`. `_PrimaryButton` renders only an `<a>`, which is why every form submit and every wizard nav button in the app is hand-rolled.
 
-**Two modal mechanisms.** `Trails.cshtml` uses custom `.modal-hidden`/`.modal-visible` CSS; everything else uses Tailwind `hidden`/`flex`. Standardise on Tailwind and drop the custom CSS.
-
-**Dead `"Technical"` difficulty references** in conditionals across controllers and views, though `DifficultyCalculator` never returns it.
+**Two modal mechanisms.** `Trail/Index.cshtml` and `Participant/Trails.cshtml` use custom `.modal-hidden`/`.modal-visible` CSS; everything else uses Tailwind `hidden`/`flex`. Standardise on Tailwind and drop the custom CSS.
 
 ---
 
 ## Progress
 
-**Done:** landing page, login, register, participant dashboard, browse trails, browse events, event detail, my registrations, assessment form, assessment report, registration form.
+**The participant flow is complete:** dashboard, browse trails, browse events, event details, assessment form, assessment report, registration form, and my registrations — plus landing page, login, and register.
 
 **Remaining:**
 - Feedback page — rebuilt as a three-step wizard functionally, but not restyled
 - **All organizer pages** — dashboard, events, registrations, registration details, post-event assessment, event comparison
 - **All admin pages** — dashboard, accounts, records
+- **Reports** (aggregate model validation) — new page, not yet styled
 - Shared: navbar partials, footer, error pages
 
 `Organizer/RegistrationDetails.cshtml` has a SHAP panel from earlier feature work but hasn't been through the UI pass.
