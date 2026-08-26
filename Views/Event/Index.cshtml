@@ -1073,6 +1073,15 @@
         }
     }
 
+    (function openRequestedAddEventModal() {
+        const url = new URL(window.location.href);
+        if (url.searchParams.get('openModal') !== 'add') return;
+
+        url.searchParams.delete('openModal');
+        history.replaceState(history.state, '', url.pathname + url.search + url.hash);
+        openAddEventModal();
+    })();
+
     function closeAddEventModal() {
         const modal = document.getElementById('addEventModal');
         if (modal) {

@@ -24,110 +24,98 @@ namespace TrailGuard.Controllers
         {
             await RegistrationStatusHelper.ExpireOverdueRegistrations(_context);
 
+            var now = DateTime.Now;
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             var user = await _userManager.FindByIdAsync(userId ?? "");
             var organizerName = user != null ? $"{user.FirstName} {user.LastName}" : "";
 
-            var totalEvents = await _context.Events
+            var ownedEvents = await _context.Events
+                .AsNoTracking()
                 .Where(e => e.OrganizedBy == userId || e.OrganizedBy == organizerName)
-                .CountAsync();
-
-            var eventIds = await _context.Events
-                .Where(e => e.OrganizedBy == userId || e.OrganizedBy == organizerName)
-                .Select(e => e.Id)
                 .ToListAsync();
 
-            var pendingRegistrations = await _context.EventRegistrations
+            var eventIds = ownedEvents.Select(e => e.Id).ToList();
+            var registrationStatusCounts = await _context.EventRegistrations.AsNoTracking()
+                .Where(r => eventIds.Contains(r.EventId))
+                .GroupBy(r => r.Status)
+                .Select(g => new { Status = g.Key, Count = g.Count() })
+                .ToListAsync();
+            var registrationCountsByStatus = registrationStatusCounts.ToDictionary(x => x.Status, x => x.Count);
+
+            var joinableEvents = ownedEvents
+                .Where(EventJoinabilityHelper.IsJoinable)
+                .OrderBy(e => e.EventDate).ThenBy(e => e.EventTime).ThenBy(e => e.Id)
+                .ToList();
+            var upcomingEvents = joinableEvents;
+
+            var currentMonthStart = new DateTime(now.Year, now.Month, 1);
+            var chartStart = currentMonthStart.AddMonths(-5);
+            var nextMonthStart = currentMonthStart.AddMonths(1);
+            var registrationsByMonth = await _context.EventRegistrations.AsNoTracking()
+                .Where(r => eventIds.Contains(r.EventId) && r.RegisteredAt >= chartStart && r.RegisteredAt < nextMonthStart)
+                .GroupBy(r => new { r.RegisteredAt.Year, r.RegisteredAt.Month })
+                .Select(g => new { g.Key.Year, g.Key.Month, Count = g.Count() })
+                .ToListAsync();
+            var monthCounts = registrationsByMonth.ToDictionary(x => (x.Year, x.Month), x => x.Count);
+            var trendData = Enumerable.Range(0, 6).Select(offset =>
+            {
+                var month = chartStart.AddMonths(offset);
+                return new MonthlyTrendData { Month = month.ToString("MMM"), Count = monthCounts.GetValueOrDefault((month.Year, month.Month)) };
+            }).ToList();
+
+            var suitabilityCounts = await (
+                from assessment in _context.Assessments.AsNoTracking()
+                join registration in _context.EventRegistrations.AsNoTracking() on assessment.Id equals registration.AssessmentId
+                where eventIds.Contains(registration.EventId) && assessment.IsActive &&
+                    (assessment.Result == "Good-Match" || assessment.Result == "Borderline" || assessment.Result == "Not Recommended")
+                group assessment by assessment.Result into grouped
+                select new { Result = grouped.Key!, Count = grouped.Count() }
+            ).ToListAsync();
+            var suitabilityCountsByResult = suitabilityCounts.ToDictionary(x => x.Result, x => x.Count);
+            var totalAssessments = suitabilityCounts.Sum(x => x.Count);
+            var suitabilityData = new[] { "Good-Match", "Borderline", "Not Recommended" }.Select(result =>
+            {
+                var count = suitabilityCountsByResult.GetValueOrDefault(result);
+                return new SuitabilityData { Result = result, Count = count, Percentage = totalAssessments > 0 ? (int)Math.Round((double)count / totalAssessments * 100) : 0 };
+            }).ToList();
+
+            var overdueEvents = ownedEvents.Where(EventJoinabilityHelper.RequiresManualClosure)
+                .OrderBy(e => e.EventDate).ThenBy(e => e.EventTime).ThenBy(e => e.Id)
+                .Select(e => new OrganizerAttentionItem
+                {
+                    Title = e.EventTitle,
+                    Detail = $"Event date passed on {e.EventDate:MMM dd}; mark it completed or reschedule it.",
+                    ActionLabel = "Manage event",
+                    Controller = "Event",
+                    Action = "Details",
+                    Id = e.Id
+                }).ToList();
+            var paymentAttention = await _context.EventRegistrations.AsNoTracking()
+                .Where(r => eventIds.Contains(r.EventId) && r.Status == "For Payment Verification")
+                .OrderBy(r => r.PaymentReceiptUploadedAt ?? r.RegisteredAt).ThenBy(r => r.Id)
+                .Select(r => new OrganizerAttentionItem { Title = r.ParticipantName, Detail = "Payment receipt is awaiting verification.", ActionLabel = "Verify payment", Controller = "Organizer", Action = "RegistrationDetails", Id = r.Id })
+                .ToListAsync();
+            var reviewAttention = await _context.EventRegistrations.AsNoTracking()
                 .Where(r => eventIds.Contains(r.EventId) && r.Status == "Pending")
-                .CountAsync();
-
-            var eventAlerts = await _context.Events
-                .Where(e => (e.OrganizedBy == userId || e.OrganizedBy == organizerName) &&
-                            e.EventDate < DateTime.Now && e.Status != "Completed")
-                .CountAsync();
-
-            var participantsInRole = await _userManager.GetUsersInRoleAsync("Participant");
-            var totalParticipants = participantsInRole.Count;
-
-            var trendData = new List<MonthlyTrendData>();
-            for (int i = 11; i >= 0; i--)
-            {
-                var monthStart = DateTime.Now.AddMonths(-i).AddDays(1 - DateTime.Now.Day);
-                var monthEnd = monthStart.AddMonths(1).AddDays(-1);
-                var monthName = monthStart.ToString("MMM");
-
-                var count = await _context.EventRegistrations
-                    .Where(r => eventIds.Contains(r.EventId) && r.Status == "Accepted" &&
-                                r.RegisteredAt >= monthStart && r.RegisteredAt <= monthEnd)
-                    .CountAsync();
-
-                trendData.Add(new MonthlyTrendData { Month = monthName, Count = count });
-            }
-
-            var topTrails = await _context.Events
-                .Where(e => e.Trail != null && (e.OrganizedBy == userId || e.OrganizedBy == organizerName))
-                .GroupBy(e => e.TrailId)
-                .Select(g => new TopTrailData
-                {
-                    TrailId = g.Key,
-                    TrailName = g.First().Trail!.Name,
-                    EventCount = g.Count()
-                })
-                .OrderByDescending(t => t.EventCount)
-                .Take(5)
-                .ToListAsync();
-
-            Console.WriteLine($"Top Trails Count: {topTrails.Count}");
-            foreach (var trail in topTrails)
-            {
-                Console.WriteLine($"Trail: {trail.TrailName}, Events: {trail.EventCount}");
-            }
-
-            var suitabilityData = await _context.Assessments
-                .Where(a => eventIds.Contains(a.EventId) && a.IsActive == true)
-                .GroupBy(a => a.Result)
-                .Select(g => new SuitabilityData
-                {
-                    Result = g.Key ?? "Not Recommended",
-                    Count = g.Count()
-                })
-                .ToListAsync();
-
-            var totalAssessments = suitabilityData.Sum(s => s.Count);
-            foreach (var item in suitabilityData)
-            {
-                item.Percentage = totalAssessments > 0 ? (int)Math.Round((double)item.Count / totalAssessments * 100) : 0;
-            }
-
-            var completedEventIds = await _context.Events
-                .Where(e => eventIds.Contains(e.Id) && e.Status == "Completed")
-                .Select(e => e.Id)
-                .ToListAsync();
-
-            var topHikers = await _context.EventRegistrations
-                .Where(r => completedEventIds.Contains(r.EventId) && r.Status == "Accepted")
-                .GroupBy(r => r.UserId)
-                .Select(g => new TopHikerData
-                {
-                    UserId = g.Key,
-                    UserName = g.First().User!.FirstName + " " + g.First().User!.LastName,
-                    CompletedEvents = g.Count()
-                })
-                .OrderByDescending(h => h.CompletedEvents)
-                .Take(5)
+                .OrderBy(r => r.RegisteredAt).ThenBy(r => r.Id)
+                .Select(r => new OrganizerAttentionItem { Title = r.ParticipantName, Detail = "Registration is awaiting your review.", ActionLabel = "Review registration", Controller = "Organizer", Action = "RegistrationDetails", Id = r.Id })
                 .ToListAsync();
 
             var viewModel = new OrganizerDashboardViewModel
             {
-                TotalEvents = totalEvents,
-                PendingRegistrations = pendingRegistrations,
-                EventAlerts = eventAlerts,
-                TotalParticipants = totalParticipants,
+                UpcomingEventsCount = joinableEvents.Count,
+                PendingReviewCount = registrationCountsByStatus.GetValueOrDefault("Pending"),
+                PaymentsToVerifyCount = registrationCountsByStatus.GetValueOrDefault("For Payment Verification"),
+                AcceptedRegistrationsCount = registrationCountsByStatus.GetValueOrDefault("Accepted"),
                 TrendData = trendData,
-                TopTrails = topTrails,
                 SuitabilityBreakdown = suitabilityData,
-                TopHikers = topHikers,
-                TotalAssessments = totalAssessments
+                TotalAssessments = totalAssessments,
+                AttentionItems = overdueEvents.Concat(paymentAttention).Concat(reviewAttention).ToList(),
+                UpcomingEvents = upcomingEvents.Select(e => new OrganizerUpcomingEventData
+                {
+                    EventId = e.Id, EventTitle = e.EventTitle, EventDate = e.EventDate, EventTime = e.EventTime,
+                    WeatherRiskLevel = e.WeatherRiskLevel
+                }).ToList()
             };
 
             return View(viewModel);

@@ -1,509 +1,213 @@
+@using System.Text.Json
 @using TrailGuard.Models
 @model OrganizerDashboardViewModel
 @{
     ViewData["Title"] = "Organizer Dashboard";
-}
-
-@if (TempData["Success"] != null)
-{
-    <div id="successMessage" class="fixed top-24 right-4 z-50 bg-green-500/90 text-white px-6 py-3 rounded-xl shadow-lg backdrop-blur-sm flex items-center gap-3">
-        <i class="fa-solid fa-check-circle"></i>
-        <span>@TempData["Success"]</span>
-        <button type="button" onclick="this.parentElement.remove()" class="hover:text-gray-200 transition-colors">
-            <i class="fa-solid fa-xmark text-lg"></i>
-        </button>
-    </div>
-}
-
-@if (TempData["Error"] != null)
-{
-    <div id="errorMessage" class="fixed top-24 right-4 z-50 bg-red-500/90 text-white px-6 py-3 rounded-xl shadow-lg backdrop-blur-sm flex items-center gap-3">
-        <i class="fa-solid fa-exclamation-triangle"></i>
-        <span>@TempData["Error"]</span>
-        <button type="button" onclick="this.parentElement.remove()" class="hover:text-gray-200 transition-colors">
-            <i class="fa-solid fa-xmark text-lg"></i>
-        </button>
-    </div>
+    var chartData = JsonSerializer.Serialize(Model.TrendData);
+    var suitabilityData = JsonSerializer.Serialize(Model.SuitabilityBreakdown);
+    var registrationsHaveActivity = Model.TrendData.Any(item => item.Count > 0);
 }
 
 <div class="pt-24 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
-    <!-- Header -->
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+    @if (TempData["Success"] != null)
+    {
+        <div role="status" class="mb-6 flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 text-emerald-200">
+            <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+            <span class="text-sm">@TempData["Success"]</span>
+            <button type="button" onclick="this.parentElement.remove()" aria-label="Dismiss success message" class="ml-auto text-emerald-200 hover:text-white focus:outline-none focus:ring-2 focus:ring-accent rounded">
+                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            </button>
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div role="alert" class="mb-6 flex items-center gap-3 bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-red-200">
+            <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+            <span class="text-sm">@TempData["Error"]</span>
+            <button type="button" onclick="this.parentElement.remove()" aria-label="Dismiss error message" class="ml-auto text-red-200 hover:text-white focus:outline-none focus:ring-2 focus:ring-accent rounded">
+                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            </button>
+        </div>
+    }
+    <header class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
         <div>
-            <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-linear-to-r from-blue-400 to-cyan-400">Organizer Dashboard</h1>
-            <p class="text-gray-400 mt-1 text-sm">Monitor registration, manage events, and track participant readiness.</p>
+            <h1 class="text-3xl font-bold text-white">Organizer Dashboard</h1>
+            <p class="text-gray-400 mt-1 text-sm">Keep registrations, payments, and upcoming events moving.</p>
         </div>
-        <div class="bg-white/5 border border-white/10 px-4 py-2 rounded-full flex items-center gap-2">
-            <i class="fa-regular fa-calendar text-blue-400"></i>
-            <span class="text-sm text-gray-300">@DateTime.Now.ToString("dddd, MMMM dd, yyyy")</span>
-        </div>
-    </div>
-
-    <!-- Summary Cards -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <!-- Total Events -->
-        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
-                    <i class="fa-solid fa-calendar text-blue-400 text-lg"></i>
-                </div>
-                <div>
-                    <p class="text-gray-400 text-xs">Total Events</p>
-                    <p class="text-2xl font-bold text-white">@Model.TotalEvents</p>
-                </div>
-            </div>
-            <p class="text-xs text-gray-500 mt-1">All events in the system</p>
-            <a asp-controller="Event" asp-action="Index" 
-               class="text-xs text-blue-400 hover:text-blue-300 transition-colors inline-flex items-center gap-1 mt-3">
-                View all <i class="fa-solid fa-arrow-right text-[10px]"></i>
+        <div class="flex flex-wrap items-center gap-2">
+            <span class="bg-white/5 border border-white/10 px-4 py-2 rounded-full text-sm text-gray-300">
+                <i class="fa-regular fa-calendar text-accent mr-2"></i>@DateTime.Now.ToString("dddd, MMMM dd, yyyy")
+            </span>
+            <a asp-controller="Event" asp-action="Index" asp-route-openModal="add" class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white bg-linear-to-r from-orange-500 via-pink-500 to-violet-500 hover:brightness-110 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-base transition duration-200 ease-out">
+                <i class="fa-solid fa-calendar-plus"></i>Add Event
+            </a>
+            <a asp-controller="Trail" asp-action="Index" asp-route-openModal="add" class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-base transition-colors">
+                <i class="fa-solid fa-mountain"></i>Add Trail
             </a>
         </div>
+    </header>
 
-        <!-- Pending Registrations -->
-        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
-                    <i class="fa-solid fa-clock text-yellow-400 text-lg"></i>
-                </div>
-                <div>
-                    <p class="text-gray-400 text-xs">Pending Registrations</p>
-                    <p class="text-2xl font-bold text-white">@Model.PendingRegistrations</p>
-                </div>
-            </div>
-            <p class="text-xs text-gray-500 mt-1">Registrations awaiting approval</p>
-            <a asp-controller="Organizer" asp-action="Registrations" 
-               class="text-xs text-blue-400 hover:text-blue-300 transition-colors inline-flex items-center gap-1 mt-3">
-                Review now <i class="fa-solid fa-arrow-right text-[10px]"></i>
-            </a>
-        </div>
+    <section aria-label="Organizer summary" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+        <a asp-controller="Event" asp-action="Index" class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-4 hover:border-white/20 focus:outline-none focus:ring-2 focus:ring-accent transition-colors">
+            <div class="flex items-center gap-3"><span class="w-10 h-10 rounded-full bg-accent/15 text-accent flex items-center justify-center"><i class="fa-regular fa-calendar"></i></span><div><p class="text-2xl font-bold">@Model.UpcomingEventsCount</p><p class="text-gray-300 text-sm">Upcoming Events</p></div></div>
+            <p class="text-gray-500 text-xs mt-3">Organizer-owned events scheduled for today or later.</p>
+        </a>
+        <a asp-controller="Organizer" asp-action="Registrations" asp-route-statusFilter="Pending" class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-4 hover:border-white/20 focus:outline-none focus:ring-2 focus:ring-accent transition-colors">
+            <div class="flex items-center gap-3"><span class="w-10 h-10 rounded-full bg-amber-500/15 text-amber-400 flex items-center justify-center"><i class="fa-regular fa-clipboard"></i></span><div><p class="text-2xl font-bold">@Model.PendingReviewCount</p><p class="text-gray-300 text-sm">Pending Review</p></div></div>
+            <p class="text-gray-500 text-xs mt-3">Organizer-owned registrations awaiting a decision.</p>
+        </a>
+        <a asp-controller="Organizer" asp-action="Registrations" asp-route-statusFilter="For Payment Verification" class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-4 hover:border-white/20 focus:outline-none focus:ring-2 focus:ring-accent transition-colors">
+            <div class="flex items-center gap-3"><span class="w-10 h-10 rounded-full bg-blue-500/15 text-blue-400 flex items-center justify-center"><i class="fa-solid fa-receipt"></i></span><div><p class="text-2xl font-bold">@Model.PaymentsToVerifyCount</p><p class="text-gray-300 text-sm">Payments to Verify</p></div></div>
+            <p class="text-gray-500 text-xs mt-3">Receipts awaiting verification for your events.</p>
+        </a>
+        <a asp-controller="Organizer" asp-action="Registrations" asp-route-statusFilter="Accepted" class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-4 hover:border-white/20 focus:outline-none focus:ring-2 focus:ring-accent transition-colors">
+            <div class="flex items-center gap-3"><span class="w-10 h-10 rounded-full bg-emerald-500/15 text-emerald-400 flex items-center justify-center"><i class="fa-solid fa-user-check"></i></span><div><p class="text-2xl font-bold">@Model.AcceptedRegistrationsCount</p><p class="text-gray-300 text-sm">Accepted Registrations</p></div></div>
+            <p class="text-gray-500 text-xs mt-3">Accepted registration records across your events.</p>
+        </a>
+    </section>
 
-        <!-- Event Alerts -->
-        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
-                    <i class="fa-solid fa-bell text-red-400 text-lg"></i>
-                </div>
-                <div>
-                    <p class="text-gray-400 text-xs">Event Alerts</p>
-                    <p class="text-2xl font-bold text-white">@Model.EventAlerts</p>
-                </div>
-            </div>
-            <p class="text-xs text-gray-500 mt-1">Events past their date but not completed</p>
-            <a asp-controller="Organizer" asp-action="Events" 
-               class="text-xs text-blue-400 hover:text-blue-300 transition-colors inline-flex items-center gap-1 mt-3">
-                View alerts <i class="fa-solid fa-arrow-right text-[10px]"></i>
-            </a>
-        </div>
-
-        <!-- Total Participants -->
-        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
-                    <i class="fa-solid fa-users text-green-400 text-lg"></i>
-                </div>
-                <div>
-                    <p class="text-gray-400 text-xs">Total Participants</p>
-                    <p class="text-2xl font-bold text-white">@Model.TotalParticipants.ToString("N0")</p>
-                </div>
-            </div>
-            <p class="text-xs text-gray-500 mt-1">Registered participant accounts</p>
-        </div>
-    </div>
-
-    <!-- Charts + Top Hikers - 2 columns -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <!-- Left Column: 3 Charts -->
-        <div class="lg:col-span-2 space-y-6">
-            <!-- Participants Chart -->
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4">
-                <h2 class="text-sm font-bold text-white mb-3"><i class="fa-solid fa-chart-line text-blue-400 mr-2"></i>Participants Trend</h2>
-                <div style="height: 180px;">
-                    <canvas id="participantsChart"></canvas>
-                </div>
-                <p class="text-xs text-gray-500 text-center mt-2">Monthly accepted registrations</p>
-            </div>
-
-            <!-- Top Trails Chart -->
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4">
-                <h2 class="text-sm font-bold text-white mb-3"><i class="fa-solid fa-mountain text-blue-400 mr-2"></i>Top Trails</h2>
-                <div style="height: 180px; position: relative;">
-                    <canvas id="topTrailsChart"></canvas>
-                </div>
-                <p class="text-xs text-gray-500 text-center mt-2">Trails with most events</p>
-            </div>
-
-            <!-- Suitability Chart -->
-            <!-- Suitability Chart -->
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-                <h2 class="text-sm font-bold text-white mb-4"><i class="fa-solid fa-chart-pie text-blue-400 mr-2"></i>Participant Suitability</h2>
-                <div class="flex flex-col items-center">
-                    <div style="height: 220px; width: 100%; max-width: 280px; position: relative; margin: 0 auto;">
-                        <canvas id="suitabilityChart"></canvas>
-                    </div>
-                    <div class="grid grid-cols-3 gap-4 mt-4 w-full max-w-xs">
-                        @if (Model.SuitabilityBreakdown != null && Model.SuitabilityBreakdown.Any())
-                        {
-                            @foreach (var item in Model.SuitabilityBreakdown)
-                            {
-                                var color = item.Result == "Good-Match" ? "text-green-400" : 
-                                            item.Result == "Borderline" ? "text-yellow-400" : "text-red-400";
-                                var dotColor = item.Result == "Good-Match" ? "bg-green-400" : 
-                                            item.Result == "Borderline" ? "bg-yellow-400" : "bg-red-400";
-                                <div class="text-center">
-                                    <div class="flex items-center justify-center gap-1.5 mb-0.5">
-                                        <span class="w-2.5 h-2.5 rounded-full @dotColor inline-block"></span>
-                                        <span class="text-gray-400 text-[10px] truncate">@item.Result</span>
-                                    </div>
-                                    <p class="text-white font-bold text-lg">@item.Count</p>
-                                    <p class="text-gray-500 text-[10px]">@item.Percentage%</p>
-                                </div>
-                            }
-                        }
-                        else
-                        {
-                            <div class="col-span-3 text-center text-gray-500 text-sm py-4">
-                                No data available
-                            </div>
-                        }
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Right Column: Top Hikers -->
-        <div class="lg:col-span-1">
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4 h-full">
-                <h2 class="text-sm font-bold text-white mb-4"><i class="fa-solid fa-crown text-yellow-400 mr-2"></i>Top Hikers</h2>
-                <p class="text-xs text-gray-500 mb-3">Participants with most completed events</p>
-                <div class="space-y-3 max-h-80 overflow-y-auto custom-scrollbar pr-1">
-                    @if (Model.TopHikers != null && Model.TopHikers.Any())
+    <section class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-5 mb-6" aria-labelledby="attention-heading">
+        <div class="flex items-center justify-between gap-3 mb-3"><h2 id="attention-heading" class="text-sm font-semibold"><i class="fa-solid fa-bell text-amber-400 mr-2"></i>Needs Attention</h2><span class="text-xs text-gray-500">@Model.AttentionItems.Count item@(Model.AttentionItems.Count == 1 ? "" : "s")</span></div>
+        @if (Model.AttentionItems.Any())
+        {
+            <div class="relative">
+                <div id="attentionScrollRegion" data-scroll-cue="attentionScrollCue" tabindex="0" aria-label="All items needing attention" class="dashboard-scroll-region max-h-64 overflow-y-auto divide-y divide-white/5 pr-2 focus:outline-none focus:ring-2 focus:ring-accent rounded">
+                    @foreach (var item in Model.AttentionItems)
                     {
-                        @foreach (var hiker in Model.TopHikers)
-                        {
-                            <div class="flex items-center justify-between p-2 hover:bg-white/5 rounded-lg transition-colors">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-8 h-8 rounded-full bg-linear-to-r from-blue-500 to-cyan-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                                        @{
-                                            var hikerInitials = string.IsNullOrEmpty(hiker.UserName) ? "U" : 
-                                                string.Join("", hiker.UserName.Split(' ').Select(s => s.FirstOrDefault()));
-                                        }
-                                        @hikerInitials
-                                    </div>
-                                    <div>
-                                        <p class="text-white text-sm font-medium truncate max-w-30" title="@hiker.UserName">@hiker.UserName</p>
-                                        <p class="text-gray-500 text-[10px]">@hiker.CompletedEvents completed events</p>
-                                    </div>
-                                </div>
-                                <span class="text-yellow-400 text-sm font-bold shrink-0">@hiker.CompletedEvents</span>
-                            </div>
-                        }
-                    }
-                    else
-                    {
-                        <div class="text-center text-gray-500 text-sm py-8">
-                            <i class="fa-solid fa-users-slash text-2xl block mb-2 opacity-50"></i>
-                            No hiker data available
+                        <div class="py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                            <div class="min-w-0"><p class="font-medium text-sm truncate">@item.Title</p><p class="text-gray-400 text-xs mt-1">@item.Detail</p></div>
+                            <a asp-controller="@item.Controller" asp-action="@item.Action" asp-route-id="@item.Id" class="shrink-0 text-sm font-medium text-accent hover:brightness-125 focus:outline-none focus:ring-2 focus:ring-accent rounded transition-colors">@item.ActionLabel <i class="fa-solid fa-arrow-right ml-1 text-xs"></i></a>
                         </div>
                     }
                 </div>
+                <div id="attentionScrollCue" class="dashboard-scroll-cue" aria-hidden="true"><span>Scroll for more <i class="fa-solid fa-chevron-down ml-1"></i></span></div>
             </div>
-        </div>
+        }
+        else
+        {
+            <div class="flex items-center gap-3 py-2 text-sm text-gray-300"><span class="w-9 h-9 rounded-full bg-emerald-500/15 text-emerald-400 flex items-center justify-center"><i class="fa-solid fa-check"></i></span><span>You’re all caught up.</span></div>
+        }
+    </section>
+
+    <div class="grid grid-cols-1 xl:grid-cols-5 gap-6 mb-6">
+        <section class="xl:col-span-3 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden" aria-labelledby="upcoming-heading">
+            <div class="px-5 py-4 border-b border-white/10 flex items-center justify-between"><h2 id="upcoming-heading" class="text-sm font-semibold"><i class="fa-regular fa-calendar text-accent mr-2"></i>Upcoming Events</h2><a asp-controller="Event" asp-action="Index" class="text-xs text-accent hover:brightness-125 focus:outline-none focus:ring-2 focus:ring-accent rounded">Manage events</a></div>
+            @if (Model.UpcomingEvents.Any())
+            {
+                <div class="relative">
+                    <div id="upcomingScrollRegion" data-scroll-cue="upcomingScrollCue" tabindex="0" aria-label="All upcoming events" class="dashboard-scroll-region max-h-64 overflow-y-auto divide-y divide-white/5 pr-2 focus:outline-none focus:ring-2 focus:ring-accent rounded">
+                        @foreach (var item in Model.UpcomingEvents)
+                        {
+                            var weatherBadgeClass = item.WeatherRiskLevel switch
+                            {
+                                "Low" => "text-emerald-400 bg-emerald-500/15",
+                                "Moderate" => "text-amber-400 bg-amber-500/15",
+                                "Moderate to High" => "text-orange-400 bg-orange-500/15",
+                                "High (Thunderstorm)" => "text-red-400 bg-red-500/15",
+                                _ => "text-slate-400 bg-slate-500/15"
+                            };
+                            <article class="p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3"><div class="min-w-0"><h3 class="font-medium text-sm truncate">@item.EventTitle</h3><p class="text-gray-400 text-xs mt-1"><i class="fa-regular fa-calendar mr-1"></i>@item.EventDate.ToString("MMM dd, yyyy") <span class="mx-1">•</span><i class="fa-regular fa-clock mr-1"></i>@item.FormattedEventTime</p>@if (!string.IsNullOrWhiteSpace(item.WeatherRiskLevel)){<span class="inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-full text-xs font-medium @weatherBadgeClass"><i class="fa-solid fa-cloud-sun" aria-hidden="true"></i>@item.WeatherRiskLevel</span>}</div><a asp-controller="Event" asp-action="Details" asp-route-id="@item.EventId" class="shrink-0 text-sm font-medium text-accent hover:brightness-125 focus:outline-none focus:ring-2 focus:ring-accent rounded">Manage <i class="fa-solid fa-arrow-right ml-1 text-xs"></i></a></article>
+                        }
+                    </div>
+                    <div id="upcomingScrollCue" class="dashboard-scroll-cue" aria-hidden="true"><span>Scroll for more <i class="fa-solid fa-chevron-down ml-1"></i></span></div>
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-10"><i class="fa-regular fa-calendar-plus text-3xl text-slate-600 mb-3"></i><p class="text-slate-400 text-sm">No upcoming events yet.</p><a asp-controller="Event" asp-action="Index" class="inline-block mt-2 text-accent text-sm font-medium hover:brightness-125 focus:outline-none focus:ring-2 focus:ring-accent rounded">Manage events <i class="fa-solid fa-arrow-right ml-1"></i></a></div>
+            }
+        </section>
+
+        <section class="xl:col-span-2 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-5" aria-labelledby="activity-heading">
+            <h2 id="activity-heading" class="text-sm font-semibold"><i class="fa-solid fa-chart-line text-accent mr-2"></i>Registrations Received — Last 6 Months</h2><p class="text-gray-500 text-xs mt-1">All organizer-owned registration records, grouped by received date.</p>
+            <div class="h-56 mt-4"><canvas id="registrationsChart" role="img" aria-label="Registration activity over the last six months" aria-describedby="registrationActivityData"></canvas></div>
+            <ul id="registrationActivityData" class="sr-only">
+                @foreach (var item in Model.TrendData)
+                {
+                    <li>@item.Month: @item.Count registration@(item.Count == 1 ? "" : "s") received</li>
+                }
+            </ul>
+            @if (!registrationsHaveActivity) { <p class="text-center text-gray-400 text-sm mt-3">No registrations received in this period.</p> }
+        </section>
     </div>
 
-    <!-- Quick Actions -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <a asp-controller="Event" asp-action="Index" 
-           class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4 hover:bg-white/10 transition-all group text-center">
-            <div class="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform">
-                <i class="fa-solid fa-plus text-blue-400 text-xl"></i>
-            </div>
-            <p class="text-white font-medium text-sm">Create Event</p>
-            <p class="text-gray-500 text-xs">Set up a new hiking event</p>
-        </a>
-        <a asp-controller="Trail" asp-action="Index" 
-           class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4 hover:bg-white/10 transition-all group text-center">
-            <div class="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform">
-                <i class="fa-solid fa-mountain text-blue-400 text-xl"></i>
-            </div>
-            <p class="text-white font-medium text-sm">Add Trail</p>
-            <p class="text-gray-500 text-xs">Add or update a trail</p>
-        </a>
-        <a asp-controller="Organizer" asp-action="Registrations" 
-           class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4 hover:bg-white/10 transition-all group text-center">
-            <div class="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform">
-                <i class="fa-solid fa-clipboard-list text-blue-400 text-xl"></i>
-            </div>
-            <p class="text-white font-medium text-sm">Review Registrations</p>
-            <p class="text-gray-500 text-xs">Approve or manage entries</p>
-        </a>
-    </div>
+    <section class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-5" aria-labelledby="suitability-heading">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4"><div><h2 id="suitability-heading" class="text-sm font-semibold"><i class="fa-solid fa-chart-pie text-accent mr-2"></i>Participant Suitability</h2><p class="text-gray-500 text-xs mt-1">Registered participants with an eligible assessment for one of your events.</p></div><span class="text-xs text-gray-400">@Model.TotalAssessments eligible assessment@(Model.TotalAssessments == 1 ? "" : "s")</span></div>
+        @if (Model.TotalAssessments > 0)
+        {
+            <div class="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-5 items-center"><div class="h-44"><canvas id="suitabilityChart" role="img" aria-label="Participant suitability breakdown" aria-describedby="suitabilityBreakdown"></canvas></div><ul id="suitabilityBreakdown" class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm" aria-label="Suitability breakdown details">@foreach (var item in Model.SuitabilityBreakdown){var color = item.Result == "Good-Match" ? "text-emerald-400" : item.Result == "Borderline" ? "text-amber-400" : "text-red-400";<li class="bg-white/5 border border-white/5 rounded-xl p-3"><p class="@color font-medium">@item.Result</p><p class="text-white text-xl font-bold mt-1">@item.Count <span class="text-gray-500 text-xs font-normal">(@item.Percentage%)</span></p></li>}</ul></div>
+        }
+        else
+        {
+            <div class="text-center py-8"><i class="fa-regular fa-chart-pie text-3xl text-slate-600 mb-3"></i><p class="text-slate-400 text-sm">No eligible registered assessment data yet.</p></div>
+        }
+    </section>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    // Participants Chart (Line Chart)
-    const participantsCtx = document.getElementById('participantsChart')?.getContext('2d');
-    if (participantsCtx) {
-        var trendData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.TrendData ?? new List<MonthlyTrendData>()));
-        new Chart(participantsCtx, {
-            type: 'line',
-            data: {
-                labels: trendData.map(function(t) { return t.Month; }),
-                datasets: [{
-                    label: 'Accepted Registrations',
-                    data: trendData.map(function(t) { return t.Count; }),
-                    borderColor: '#3b82f6',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    tension: 0.3,
-                    fill: true,
-                    pointRadius: 3,
-                    pointBackgroundColor: '#3b82f6',
-                    pointBorderColor: '#fff',
-                    borderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                },
-                scales: {
-                    y: { 
-                        grid: { color: '#374151' }, 
-                        ticks: { color: '#9ca3af', font: { size: 8 } } 
-                    },
-                    x: { 
-                        grid: { display: false }, 
-                        ticks: { color: '#9ca3af', font: { size: 8 } } 
-                    }
-                }
-            }
-        });
-    }
+    document.addEventListener('DOMContentLoaded', function () {
+        function initializeScrollCue(region) {
+            const cue = document.getElementById(region.dataset.scrollCue);
+            if (!cue) return;
 
-    // Top Trails Chart (Horizontal Bar)
-    document.addEventListener('DOMContentLoaded', function() {
-        const trailsCtx = document.getElementById('topTrailsChart')?.getContext('2d');
-        console.log('🔍 trailsCtx:', trailsCtx);
-        
-        if (!trailsCtx) {
-            console.error('❌ Canvas element with id "topTrailsChart" not found');
-            return;
+            const updateCue = function () {
+                const hasOverflow = region.scrollHeight > region.clientHeight + 1;
+                const isAtBottom = Math.ceil(region.scrollTop + region.clientHeight) >= region.scrollHeight - 1;
+                cue.classList.toggle('is-visible', hasOverflow && !isAtBottom);
+            };
+
+            region.addEventListener('scroll', updateCue, { passive: true });
+            window.addEventListener('resize', updateCue);
+            window.addEventListener('load', updateCue, { once: true });
+            requestAnimationFrame(updateCue);
         }
 
-        try {
-            // Kunin ang data mula sa Model
-            var trailData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.TopTrails ?? new List<TopTrailData>()));
-            console.log('📊 Raw trailData:', trailData);
-            
-            // ✅ I-check kung may data
-            if (!trailData || trailData.length === 0) {
-                console.warn('⚠️ No trail data available');
-                var container = document.getElementById('topTrailsChart')?.parentElement;
-                if (container) {
-                    container.innerHTML = `
-                        <div class="h-full flex items-center justify-center">
-                            <p class="text-gray-500 text-sm">No trail data available</p>
-                        </div>
-                    `;
-                }
-                return;
-            }
-            
-            // ✅ I-process ang data - tamang property names!
-            var validData = [];
-            for (var i = 0; i < trailData.length; i++) {
-                var item = trailData[i];
-                console.log('📊 Processing item:', item);
-                
-                if (item) {
-                    // ✅ CORRECT: Gamitin ang TrailName at EventCount (capitalized!)
-                    var trailName = item.TrailName || 'Unknown Trail';
-                    var eventCount = item.EventCount || 0;
-                    console.log('📊 trailName:', trailName, 'eventCount:', eventCount);
-                    validData.push({
-                        trailName: trailName,
-                        eventCount: eventCount
-                    });
-                }
-            }
-            
-            console.log('✅ validData:', validData);
-            
-            if (validData.length === 0) {
-                console.warn('⚠️ No valid trail data after processing');
-                var container = document.getElementById('topTrailsChart')?.parentElement;
-                if (container) {
-                    container.innerHTML = `
-                        <div class="h-full flex items-center justify-center">
-                            <p class="text-gray-500 text-sm">No trail data available</p>
-                        </div>
-                    `;
-                }
-                return;
-            }
-            
-            // ✅ I-extract ang labels at data
-            var labels = validData.map(function(t) { 
-                var name = t.trailName || 'Unknown Trail';
-                return name.length > 15 ? name.substring(0, 15) + '...' : name; 
-            });
-            var data = validData.map(function(t) { return t.eventCount || 0; });
-            console.log('📊 Final Labels:', labels);
-            console.log('📊 Final Data:', data);
-            
-            // ✅ I-create ang chart
-            new Chart(trailsCtx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Events',
-                        data: data,
-                        backgroundColor: ['#3b82f6', '#60a5fa', '#93bbfc', '#bfdbfe', '#1d4ed8'],
-                        borderRadius: 4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    indexAxis: 'y',
-                    plugins: {
-                        legend: { display: false }
-                    },
-                    scales: {
-                        y: { 
-                            grid: { display: false }, 
-                            ticks: { color: '#9ca3af', font: { size: 8 } } 
-                        },
-                        x: { 
-                            grid: { color: '#374151' }, 
-                            ticks: { color: '#9ca3af', font: { size: 8 }, stepSize: 1 } 
-                        }
-                    }
-                }
-            });
-            console.log('✅ Chart created successfully!');
-            
-        } catch (error) {
-            console.error('❌ Error creating chart:', error);
-            var container = document.getElementById('topTrailsChart')?.parentElement;
-            if (container) {
-                container.innerHTML = `
-                    <div class="h-full flex items-center justify-center">
-                        <p class="text-red-500 text-sm">Error: ${error.message}</p>
-                    </div>
-                `;
-            }
-        }
+        document.querySelectorAll('[data-scroll-cue]').forEach(initializeScrollCue);
+
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const trendData = @Html.Raw(chartData);
+        const registrationsCtx = document.getElementById('registrationsChart')?.getContext('2d');
+        if (registrationsCtx) new Chart(registrationsCtx, { type: 'line', data: { labels: trendData.map(x => x.Month), datasets: [{ label: 'Registrations received', data: trendData.map(x => x.Count), borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, .12)', fill: true, tension: .3, borderWidth: 2, pointRadius: 3, pointBackgroundColor: '#8b5cf6' }] }, options: { responsive: true, maintainAspectRatio: false, animation: reduceMotion ? false : undefined, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0, stepSize: 1, color: '#9ca3af' }, grid: { color: 'rgba(255,255,255,.08)' } }, x: { ticks: { color: '#9ca3af' }, grid: { display: false } } } } });
+        const suitabilityCtx = document.getElementById('suitabilityChart')?.getContext('2d');
+        const suitability = @Html.Raw(suitabilityData);
+        if (suitabilityCtx && suitability.some(x => x.Count > 0)) new Chart(suitabilityCtx, { type: 'doughnut', data: { labels: suitability.map(x => x.Result), datasets: [{ data: suitability.map(x => x.Count), backgroundColor: ['#34d399', '#fbbf24', '#f87171'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, animation: reduceMotion ? false : undefined, plugins: { legend: { display: false } } } });
     });
-
-    // Suitability Chart (Doughnut with total in center)
-    // Suitability Chart (Doughnut with total in center)
-    const suitCtx = document.getElementById('suitabilityChart')?.getContext('2d');
-    if (suitCtx) {
-        var suitData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.SuitabilityBreakdown ?? new List<SuitabilityData>()));
-        var totalAssessments = @Model.TotalAssessments;
-        
-        console.log('📊 Suitability Data:', suitData);
-        console.log('📊 Total Assessments:', totalAssessments);
-        
-        // Kung walang data, gumamit ng placeholder
-        var hasData = suitData && suitData.length > 0 && suitData.some(function(s) { return s.Count > 0; });
-        var labels = hasData ? suitData.map(function(s) { return s.Result; }) : ['No Data'];
-        var data = hasData ? suitData.map(function(s) { return s.Count; }) : [1];
-        var colors = hasData ? suitData.map(function(s) { 
-            return s.Result === 'Good-Match' ? '#10b981' : 
-                s.Result === 'Borderline' ? '#f59e0b' : '#ef4444';
-        }) : ['#374151'];
-        
-        new Chart(suitCtx, {
-            type: 'doughnut',
-            data: {
-                labels: labels,
-                datasets: [{
-                    data: data,
-                    backgroundColor: colors,
-                    borderWidth: 3,
-                    borderColor: '#0B1325',
-                    cutout: '72%',
-                    hoverOffset: 8
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { 
-                        display: false // Nasa labas na ang legend
-                    },
-                    tooltip: {
-                        backgroundColor: 'rgba(0,0,0,0.8)',
-                        titleColor: '#fff',
-                        bodyColor: '#e5e7eb',
-                        borderColor: 'rgba(255,255,255,0.1)',
-                        borderWidth: 1,
-                        cornerRadius: 8,
-                        padding: 10,
-                        callbacks: {
-                            label: function(context) {
-                                if (!hasData) return 'No data';
-                                var label = context.label || '';
-                                var value = context.parsed || 0;
-                                var percentage = totalAssessments > 0 ? Math.round((value / totalAssessments) * 100) : 0;
-                                return label + ': ' + value + ' (' + percentage + '%)';
-                            }
-                        }
-                    }
-                }
-            },
-            plugins: [{
-                id: 'centerText',
-                beforeDraw: function(chart) {
-                    var width = chart.width;
-                    var height = chart.height;
-                    var ctx = chart.ctx;
-                    ctx.restore();
-                    
-                    // ✅ I-center ang text
-                    var centerX = width / 2;
-                    var centerY = height / 2;
-                    
-                    // ✅ Total number (malaki)
-                    var fontSize = Math.min(width, height) / 8;
-                    ctx.font = 'bold ' + fontSize + 'px sans-serif';
-                    ctx.textBaseline = 'middle';
-                    ctx.textAlign = 'center';
-                    var text = hasData ? totalAssessments : '0';
-                    ctx.fillStyle = '#ffffff';
-                    ctx.fillText(text, centerX, centerY - 6);
-                    
-                    // ✅ "Total" label (maliit)
-                    ctx.font = (fontSize * 0.4) + 'px sans-serif';
-                    ctx.fillStyle = '#9ca3af';
-                    var labelText = hasData ? 'Total' : 'No Data';
-                    ctx.fillText(labelText, centerX, centerY + fontSize * 0.6);
-                    
-                    ctx.save();
-                }
-            }]
-        });
-    }
 </script>
 
 <style>
-    .custom-scrollbar::-webkit-scrollbar {
-        width: 4px;
+    .dashboard-scroll-region {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(139, 92, 246, .65) transparent;
     }
-    .custom-scrollbar::-webkit-scrollbar-track {
+
+    .dashboard-scroll-region::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .dashboard-scroll-region::-webkit-scrollbar-track {
         background: transparent;
     }
-    .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: rgba(59, 130, 246, 0.3);
-        border-radius: 10px;
+
+    .dashboard-scroll-region::-webkit-scrollbar-thumb {
+        background: rgba(139, 92, 246, .65);
+        border-radius: 9999px;
     }
-    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-        background: rgba(59, 130, 246, 0.6);
+
+    .dashboard-scroll-cue {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        display: none;
+        justify-content: center;
+        padding: 2rem .5rem .5rem;
+        pointer-events: none;
+        color: #9ca3af;
+        font-size: .75rem;
+        background: linear-gradient(to top, rgb(15 23 42), rgb(15 23 42 / .9), transparent);
+    }
+
+    .dashboard-scroll-cue.is-visible {
+        display: flex;
     }
 </style>
