@@ -99,18 +99,68 @@ presented as a safety finding.
 v1 z-scored the trail demand, which made an arbitrary quantity out of
 something that already has an official scale. The formula v1 used —
 `sqrt(elevation_ft × 2 × distance_mi)` — is the National Park Service's
-Shenandoah Hiking Difficulty rating, with published bands: under 50 Easiest,
-50–100 Moderate, 100–150 Moderately Strenuous, 150–200 Strenuous, above 200
-Very Strenuous.
+Shenandoah Hiking Difficulty rating. NPS publishes its own bands for it:
+under 50 Easiest, 50–100 Moderate, 100–150 Moderately Strenuous, 150–200
+Strenuous, above 200 Very Strenuous.
 
-v2 uses the raw rating and those bands. The output is now a statement a
-person can check: *this trail rates 160 on the NPS scale; your profile
-supports approximately 128; that is 1.25 times your estimated capacity.*
+v2 gives the model the raw rating directly as a feature, instead of making
+it approximate the square root from separate distance and elevation inputs.
+This is the principal cause of the accuracy improvement from 80.50% to
+91.42%.
 
-The rating was also given to the model directly as a feature. The model no
-longer has to approximate the square root from separate distance and
-elevation inputs. This is the principal cause of the accuracy improvement
-from 80.50% to 91.75%.
+But NPS's own bands were not carried over for what gets *shown* to a
+participant. They're calibrated for Shenandoah National Park, and Philippine
+trails run harder: of the 28 Philippine mountains checked against them, 68%
+already exceed NPS's own top threshold. A scale that can't tell most of the
+Philippines' own mountains apart from one another isn't a scale worth
+showing a Filipino hiker.
+
+### Validated against a scale hikers already trust — but not its rule
+
+Before replacing NPS's bands with something else, the rating needed
+checking against a scale Filipino hikers actually use: PinoyMountaineer's
+published 1–9 difficulty ratings for those same 28 well-known Philippine
+mountains. The NPS rating, adjusted by the trail's terrain class (below),
+correlates with PM's published rating at Spearman rho 0.859 — strong enough
+to build four PM-flavored tiers on top of it: Easy, Minor Climb, Major
+Climb, and Major Climb — Difficult, each cross-referenced to the PM level
+range a hiker would recognize (1–2/9 through 7–9/9).
+
+What wasn't adopted is PM's own written *rule* for reaching that rating —
+duration plus trail class. Applied directly against the same 28 mountains,
+it reproduced PM's own published ratings only half the time. The reason is
+specific: multi-day status in the Philippines often reflects logistics, not
+difficulty. Mt. Pulag via Ambangeg is a two-day itinerary because groups
+camp overnight for the sunrise, not because the trail is technically harder
+than a comparable one-day hike — PM rates it a mild 3/9. A rule that reads
+"two days" as "harder" would have gotten that one wrong. The NPS-based
+rating, calibrated against PM's *outcomes* rather than copying PM's
+*method*, doesn't make that mistake — though it's calibrated and tested on
+the same 28 mountains, which is its own limitation (see MODEL.md).
+
+### Terrain became its own dimension — Trail Class 1 to 4
+
+PinoyMountaineer's Trail Class scale runs 1 to 6; TrailGuard uses the first
+four — Walking, Hiking, Scrambling, and Simple Climbing. Classes 5 and 6 are
+technical and aid climbing, and no organized hiking event puts general
+participants on those.
+
+Class 4 wasn't in the model from the start. It was added in a later retrain,
+because a three-class scheme has no way to represent a trail like
+Mt. Guiting-Guiting or Mt. Mantalingajan — genuinely exposed routes with
+fixed ropes, where a fall is more than a bad afternoon. Excluding them
+wasn't a simplification; it was a gap in what the system could assess at
+all.
+
+The multiplier attached to each class was fitted, not chosen. An earlier
+build guessed 1.00 / 1.10 / 1.25 for three classes, with no source beyond a
+hunch. The current multipliers — 1.00 / 1.15 / 1.35 / 1.60, Walking through
+Simple Climbing — come from fitting the adjusted NPS rating against the same
+28 Philippine mountains' published PM ratings (the rho 0.859 above). Holding
+everything else about a participant fixed and moving only the trail from
+Class 1 to Class 4 changes the model's label 38.17% of the time — a large
+effect for one feature, and the expected result of a multiplier that now
+spans 1.00 to 1.60 rather than topping out at 1.25.
 
 ### Health became a gate rather than a weight
 
@@ -191,61 +241,110 @@ unconstrained, since both extremes reduce readiness.
 
 ### The dataset grew to 6,000 rows
 
-Not because more data is better. Because the gate rules are rare. At 2,000
-rows, two of the four rules would have had roughly one example each in the
-test split — unmeasurable. At 6,000, each rule has between 22 and 410 cases.
+Not because more data is better. Because the gate rules are rare, and adding
+Class 4 made the rarest terrain rarer still. At 2,000 rows, two of the four
+rules would have had roughly one example each in the test split —
+unmeasurable. At 6,000, each rule now matches between 42 and 493 rows.
 
 This is worth stating carefully: 6,000 synthetic rows do not contain three
 times more knowledge than 2,000. The labels come from the same formula. What
 the larger dataset buys is enough examples per rare subgroup to measure
 whether the model handles it, and nothing more.
 
+### The rule-based fallback was removed
+
+For a while, if the ML service was unreachable, the system fell back to a
+rule-based heuristic, `GetResult()`, so a participant always got some
+answer. That fallback no longer exists.
+
+`GetResult()` predates the NPS/ACSM work above — it had its own notion of
+trail demand, one that was never reconciled with the Shenandoah rating or
+the ACSM gate. In testing, the same assessment could come back Good-Match
+from the model and Borderline from the fallback. A fallback that disagrees
+with the primary system isn't resilience; it's a second, unvalidated opinion
+that happens to run when the first one can't be reached — and it bypasses
+the ACSM gate entirely, so a participant reporting a genuine cardiovascular
+symptom could get a confident-looking result that skipped the one check
+built specifically to catch that.
+
+If the ML service is down now, the system says so and asks the participant
+to try again. No result is produced. That's deliberate: producing no answer
+is safer than producing a second one that might disagree with the first.
+
 ---
 
 ## 5. Results
 
-| | v1 | v2 |
-|---|---|---|
-| Accuracy | 0.8050 | 0.9175 |
-| Fidelity to the rule engine | 80.50% | 95.12% |
-| Health conditions change the label | 1.40% | 76.60% |
-| Fabricated features in explanations | 47.40% | 0.00% |
-| Monotonicity | incidental | enforced |
-| Features | 27 | 14 |
+v1 reached 80.50% accuracy against its own rule; v2 reaches 91.42%, mostly
+on the strength of giving the model the NPS rating directly instead of
+making it approximate one. Fidelity to the rule engine — how often the
+model's prediction matches what the deterministic formula would have said —
+moved from 80.50% to 95.22%.
 
-**One metric regressed.** The v1 model never predicted Good Match for a
-participant the rules called Not Recommended. The v2 model does so once in
-1,200 test rows — 0.83 per thousand against v1's zero.
+The more consequential change doesn't show up in either number. In v1, all
+four health conditions turned on together changed the predicted label for
+1.40% of participants; in v2, the same test changes 76.60%. Health went from
+the weakest signal in the system to the strongest.
 
-This is why the ACSM gate is applied as an independent check after the model
-rather than trusted to the model. Across the full 6,000-row dataset the v2
-model alone produces two such cases; with the gate applied, zero.
+The fabricated-explanation problem also went to zero: no v2 feature is ever
+irrelevant to the label it's shown next to, so no participant is told a
+feature "reduced their result" when it never touched the outcome.
 
-The gate overrides the model on 0.20% of predictions overall. Broken down by
-rule, it never needs to intervene on signs and symptoms (the model learned
-that rule perfectly across all 410 cases), but intervenes on 32% of
-joint-injury cases. That rule is the only one with no clinical source, and
-it is the one the model fails to learn.
+**One metric regressed, and it's why the ACSM gate exists as an independent
+check.** The v1 model never predicted Good Match for a case the rules called
+Not Recommended. The v2 model, taken alone, does — 0.83 times per 1,000 test
+rows. That's a real regression in the model by itself, which is exactly why
+the gate runs as a separate step after the model rather than being trusted
+to have learned the rule: with the gate applied, the rate returns to zero.
+
+(Full tables — confusion matrices, per-rule gate statistics, monotonicity
+tests — are in `MODEL.md`. This section is the shape of the change, not the
+record of it.)
 
 ---
 
 ## 6. What is still unresolved
 
 **The labels are still synthetic.** v2 fixed the sourcing and the safety
-inversion. It did not remove the circularity. The model still learns from a
-rule the team wrote.
+inversion. It did not remove the circularity: the model still learns from a
+rule the development team wrote — a better-sourced rule than v1's, but still
+not an observation of a real outcome.
 
-What changed is the question a panel can ask. It is no longer *"why not just
-use the formula?"* — it is *"how accurate is the formula?"* That question is
-answerable, but only through independent expert validation.
+That circularity is what expert validation exists to test, and it's no
+longer hypothetical. Two blind rating rounds are complete. A practising
+hiking organizer rated 100 generated profiles — 60 in the first round, 40 in
+the second — against trail specifications alone, with no system output
+attached, and the system's own label was withheld until each round was
+returned. Combined agreement: quadratic weighted kappa 0.555. That is
+calibration evidence against one rater's judgment of synthetic profiles, not
+independent statistical validation, and it says nothing yet about real
+hikers.
 
-**Several constants remain unsourced.** The readiness weights, terrain
-multipliers, capacity range, decision thresholds, and joint-injury rule are
-marked `PENDING EXPERT ELICITATION` in the generator. They are placeholders
-carried over from v1, where they originated in a chat with an AI assistant
-and had no basis at all.
+**The finding that matters isn't the kappa — it's where the two disagree.**
+Across all 100 profiles, the organizer chose Borderline 13 times; the system
+chose it 35 times, independently in both rounds. The organizer commits to a
+call; the system hedges toward the middle category more than twice as
+often.
 
-An expert rating instrument has been prepared: 60 profiles for blind rating
-by a practising organizer, with 40 held back for a second round. Agreement
-will be reported as quadratic weighted kappa. Until that is returned, no
-claim about real-world accuracy is supportable.
+That points at two specific numbers, not at the model. The decision
+thresholds that separate Good Match, Borderline, and Not Recommended sit at
+0.75 and 1.30 — a 0.55-wide band of demand-to-capacity ratio that counts as
+Borderline before anything else is considered. And `CAPACITY_MAX` is set to
+230, meaning even a participant scoring the theoretical maximum on every
+readiness component tops out at a capacity of 230 — while six of the eight
+seeded events demand more than 172, the point past which no participant can
+reach Good Match on them at all, no matter how prepared they are. A wide
+Borderline band combined with a capacity ceiling most real events exceed is
+a plausible, structural explanation for why the system hedges where a human
+organizer commits — and it's a testable one, not a guess about the model's
+behavior.
+
+Both the thresholds and the capacity range are marked
+`PENDING EXPERT ELICITATION` in the generator, exactly as they were before
+this round of validation — alongside the readiness component weights and
+the joint-injury rule, which this round's findings didn't bear on directly.
+What's changed is that there is now a specific, measured symptom pointing at
+the thresholds and the capacity ceiling, rather than a general note that
+they're unsourced. A third validation round, using hiker–trail scenarios
+instead of individual profiles, is planned once those numbers have an
+actual source.
