@@ -227,6 +227,7 @@ namespace TrailGuard.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<JsonResult> DeleteTrailPhoto([FromBody] DeletePhotoRequest request)
         {
             try
@@ -258,6 +259,7 @@ namespace TrailGuard.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<JsonResult> DeleteTrail([FromBody] DeleteTrailRequest request)
         {
             try

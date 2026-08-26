@@ -162,6 +162,7 @@ namespace TrailGuard.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<JsonResult> AddEvent([FromBody] EventCreateModel model)
         {
             try
@@ -287,6 +288,7 @@ namespace TrailGuard.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<JsonResult> CompleteEvent([FromBody] CompleteEventRequest request)
         {
             try
@@ -337,6 +339,7 @@ namespace TrailGuard.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<JsonResult> CancelEvent([FromBody] CancelEventRequest request)
         {
             try
@@ -379,6 +382,7 @@ namespace TrailGuard.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<JsonResult> RescheduleEvent([FromBody] RescheduleEventRequest request)
         {
             try
@@ -416,6 +420,7 @@ namespace TrailGuard.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<JsonResult> EditEvent([FromBody] EventEditModel model)
         {
             try
@@ -463,6 +468,7 @@ namespace TrailGuard.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<JsonResult> DeleteEvent([FromBody] DeleteEventRequest request)
         {
             try

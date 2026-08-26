@@ -823,13 +823,7 @@
             photoDiv.style.opacity = '0.5';
             
             try {
-                const response = await fetch('/Trail/DeleteTrailPhoto', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ photoId: photoId })
-                });
+                const response = await postJson('/Trail/DeleteTrailPhoto', { photoId: photoId });
                 
                 const result = await response.json();
                 
@@ -862,13 +856,7 @@
             }
             
             try {
-                const response = await fetch('/Trail/DeleteTrail', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ id: id })
-                });
+                const response = await postJson('/Trail/DeleteTrail', { id: id });
                 
                 const result = await response.json();
                 

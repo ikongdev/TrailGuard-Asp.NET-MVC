@@ -352,18 +352,12 @@
             statusSpan.className = 'text-xs text-yellow-400 text-center block';
         }
 
-        fetch('/Organizer/SubmitPostEventAssessment', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
+        postJson('/Organizer/SubmitPostEventAssessment', {
                 eventId: eventId,
                 registrationId: currentRegistrationId,
                 difficultyExperience: difficultyExperience,
                 notes: notes
             })
-        })
         .then(function(response) {
             console.log('Response status:', response.status);
             return response.json();

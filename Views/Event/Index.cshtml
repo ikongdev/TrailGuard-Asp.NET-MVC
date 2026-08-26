@@ -1038,11 +1038,7 @@
         submitBtn.textContent = 'Saving...';
         
         try {
-            const response = await fetch('/Event/AddEvent', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(eventData)
-            });
+            const response = await postJson('/Event/AddEvent', eventData);
             
             const result = await response.json();
             
@@ -1427,11 +1423,7 @@
         submitBtn.textContent = 'Saving...';
         
         try {
-            const response = await fetch('/Event/EditEvent', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(eventData)
-            });
+            const response = await postJson('/Event/EditEvent', eventData);
             
             const result = await response.json();
             
@@ -1458,13 +1450,7 @@
         }
         
         try {
-            const response = await fetch('/Event/DeleteEvent', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ id: id })
-            });
+            const response = await postJson('/Event/DeleteEvent', { id: id });
             
             const result = await response.json();
             

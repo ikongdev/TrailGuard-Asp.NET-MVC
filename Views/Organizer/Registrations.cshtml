@@ -390,13 +390,7 @@
     function updateStatus(id, status) {
         if (!confirm(`Are you sure you want to change status to ${status}?`)) return;
 
-        fetch('/Organizer/UpdateRegistrationStatus', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ id: id, status: status })
-        })
+        postJson('/Organizer/UpdateRegistrationStatus', { id: id, status: status })
         .then(response => response.json())
         .then(data => {
             if (data.success) {

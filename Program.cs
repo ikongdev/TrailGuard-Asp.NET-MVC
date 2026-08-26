@@ -23,6 +23,10 @@ builder.Services.ConfigureApplicationCookie(options =>
 });
 
 builder.Services.AddControllersWithViews();
+// HeaderName lets fetch()-based POSTs (JSON or FormData, both use this - see
+// postJson/postForm in site.js) authenticate with a header instead of a form
+// field, since neither request shape carries the usual hidden form input.
+builder.Services.AddAntiforgery(options => options.HeaderName = "RequestVerificationToken");
 builder.Services.AddHttpClient<WeatherService>();
 builder.Services.AddHttpClient<SuitabilityApiClient>(client =>
 {

@@ -1,14 +1,26 @@
 ﻿@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Antiforgery
 @inject SignInManager<TrailGuard.Models.ApplicationUser> SignInManager
 @inject UserManager<TrailGuard.Models.ApplicationUser> UserManager
+@inject IAntiforgery Antiforgery
+
+@{
+    // Every fetch() POST in the app (postJson/postForm in site.js) reads this
+    // token and sends it back as the RequestVerificationToken header - see
+    // Program.cs's AddAntiforgery call. Rendered on every page, signed in or
+    // not, since public pages have no forms but authenticated fetch() calls
+    // can happen from any page in the authenticated layouts.
+    var antiforgeryTokens = Antiforgery.GetAndStoreTokens(Context);
+}
 
 <!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="request-verification-token" content="@antiforgeryTokens.RequestToken" />
     <title>@ViewData["Title"] - TrailGuard</title>
-    
+
     <link rel="icon" href="/images/logo.png" type="image/x-icon" />
     <link rel="stylesheet" href="~/css/output.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/lib/font-awesome/css/all.min.css" asp-append-version="true"/>
@@ -114,6 +126,8 @@
             });
         });
     </script>
+
+    <script src="~/js/site.js" asp-append-version="true"></script>
 
     @await RenderSectionAsync("Modals", required: false)
 

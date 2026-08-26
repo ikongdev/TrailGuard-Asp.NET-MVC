@@ -307,6 +307,7 @@ namespace TrailGuard.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> CancelRegistration([FromBody] CancelRegistrationRequest request)
         {
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
@@ -338,6 +339,7 @@ namespace TrailGuard.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdatePaymentReceipt(int id, IFormFile? paymentReceipt)
         {
             await RegistrationStatusHelper.ExpireOverdueRegistrations(_context);

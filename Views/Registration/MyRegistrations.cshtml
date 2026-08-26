@@ -420,7 +420,7 @@
         event.preventDefault();
         const formData = new FormData(event.target);
 
-        fetch('/Registration/UpdatePaymentReceipt?id=' + id, { method: 'POST', body: formData })
+        postForm('/Registration/UpdatePaymentReceipt?id=' + id, formData)
             .then(r => r.json())
             .then(result => {
                 showToast(result.message, result.success ? 'success' : 'error');
@@ -432,11 +432,7 @@
     function cancelRegistration(id) {
         if (!confirm('Are you sure you want to cancel this registration?')) return;
 
-        fetch('/Registration/CancelRegistration', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: id })
-        })
+        postJson('/Registration/CancelRegistration', { id: id })
         .then(r => r.json())
         .then(result => {
             showToast(result.message, result.success ? 'success' : 'error');

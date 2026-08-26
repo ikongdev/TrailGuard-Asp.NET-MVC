@@ -586,17 +586,11 @@
         
         if (!confirm(`Are you sure you want to ${status.toLowerCase()} this registration?`)) return;
 
-        fetch('/Organizer/UpdateRegistrationStatus', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ 
-                id: id, 
+        postJson('/Organizer/UpdateRegistrationStatus', {
+                id: id,
                 status: status,
-                reason: reason 
+                reason: reason
             })
-        })
         .then(response => response.json())
         .then(data => {
             console.log('📝 Response:', data);
@@ -619,16 +613,10 @@
 
         if (!confirm(`Are you sure you want to ${action} this payment?`)) return;
 
-        fetch('/Organizer/VerifyPayment', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
+        postJson('/Organizer/VerifyPayment', {
                 id: id,
                 approved: approved
             })
-        })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -658,17 +646,11 @@
 
         if (!confirm(`Recommend ${selected.length} alternative event(s) to this participant?`)) return;
 
-        fetch('/Organizer/RecommendAlternative', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ 
-                registrationId: id, 
+        postJson('/Organizer/RecommendAlternative', {
+                registrationId: id,
                 alternativeEventIds: alternativeIds,
-                reason: reason 
+                reason: reason
             })
-        })
         .then(response => response.json())
         .then(data => {
             if (data.success) {

@@ -325,6 +325,7 @@ namespace TrailGuard.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> RecommendAlternative([FromBody] RecommendAlternativeRequest request)
         {
             var registration = await _context.EventRegistrations
@@ -361,6 +362,7 @@ namespace TrailGuard.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdateRegistrationStatus([FromBody] UpdateRegistrationStatusRequest request)
         {
             var registration = await _context.EventRegistrations
@@ -412,6 +414,7 @@ namespace TrailGuard.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> VerifyPayment([FromBody] VerifyPaymentRequest request)
         {
             var registration = await _context.EventRegistrations
@@ -521,6 +524,7 @@ namespace TrailGuard.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> SubmitPostEventAssessment([FromBody] SubmitAssessmentRequest request)
         {
             Console.WriteLine($"Received: EventId={request.EventId}, RegistrationId={request.RegistrationId}, Difficulty={request.DifficultyExperience}");

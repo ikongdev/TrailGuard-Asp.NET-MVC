@@ -617,11 +617,7 @@
     function confirmCompleteEvent() {
         if (!confirm('Mark this event as completed?\n\nAny Pending, Awaiting Payment, or For Payment Verification registrations will be voided. This cannot be undone.')) return;
 
-        fetch('/Event/CompleteEvent', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: eventId })
-        })
+        postJson('/Event/CompleteEvent', { id: eventId })
         .then(response => response.json())
         .then(result => {
             if (result.success) {
@@ -658,11 +654,7 @@
             return;
         }
 
-        fetch('/Event/RescheduleEvent', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: eventId, newDate: date, newTime: time })
-        })
+        postJson('/Event/RescheduleEvent', { id: eventId, newDate: date, newTime: time })
         .then(response => response.json())
         .then(result => {
             if (result.success) {
@@ -701,11 +693,7 @@
 
         if (!confirm('Are you sure you want to cancel this event? This cannot be undone.')) return;
 
-        fetch('/Event/CancelEvent', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: eventId, reason: reason })
-        })
+        postJson('/Event/CancelEvent', { id: eventId, reason: reason })
         .then(response => response.json())
         .then(result => {
             if (result.success) {
