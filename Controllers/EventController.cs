@@ -21,6 +21,24 @@ namespace TrailGuard.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly WeatherService _weatherService;
 
+        public const string DefaultSortOrder = "date_asc";
+
+        // Soonest/Latest only - name-based sorting was removed (see the Event
+        // Management redesign). Anything unrecognized - missing, blank, or a stale
+        // bookmark from a removed option - normalizes to DefaultSortOrder rather
+        // than reaching the switch below unnormalized.
+        private static readonly HashSet<string> AllowedSortOrders = new(StringComparer.Ordinal)
+        {
+            "date_asc", "date_desc",
+        };
+
+        // Upcoming and Completed always lead, matching CLAUDE.md's Event Lifecycle
+        // model, regardless of whether either currently has any events. Everything
+        // else (Cancelled, or a stray value written through the free-text EditEvent
+        // Status field) is data-driven - it only ever appears if some event actually
+        // has it, so the listing never invents a status nobody has.
+        private static readonly string[] FixedStatusPriority = { "Upcoming", "Completed" };
+
         public EventController(ApplicationDbContext context, IWebHostEnvironment webHostEnvironment, UserManager<ApplicationUser> userManager, WeatherService weatherService)
         {
             _context = context;
@@ -29,58 +47,106 @@ namespace TrailGuard.Controllers
             _weatherService = weatherService;
         }
 
-        public async Task<IActionResult> Index(string searchString, string status, string sortOrder)
+        public async Task<IActionResult> Index(string searchString, string status, string trailId, string difficulty, string sortOrder)
         {
             await RegistrationStatusHelper.ExpireOverdueRegistrations(_context);
 
-            ViewData["CurrentFilter"] = searchString;
-            ViewData["CurrentStatus"] = status;
-            ViewData["CurrentSort"] = sortOrder;
+            var normalizedSearch = (searchString ?? string.Empty).Trim();
+            var normalizedStatus = string.IsNullOrWhiteSpace(status) ? "All" : status;
+            var normalizedTrailId = string.IsNullOrWhiteSpace(trailId) ? "All" : trailId;
+            var normalizedDifficulty = string.IsNullOrWhiteSpace(difficulty) ? "All" : difficulty;
+            var normalizedSort = AllowedSortOrders.Contains(sortOrder ?? string.Empty) ? sortOrder! : DefaultSortOrder;
+
+            ViewData["CurrentFilter"] = normalizedSearch;
+            ViewData["CurrentStatus"] = normalizedStatus;
+            ViewData["CurrentTrailId"] = normalizedTrailId;
+            ViewData["CurrentDifficulty"] = normalizedDifficulty;
+            ViewData["CurrentSort"] = normalizedSort;
 
             ViewBag.Trails = await _context.Trails.OrderBy(t => t.Name).ToListAsync();
-            
+
             var organizers = await _userManager.GetUsersInRoleAsync("Organizer");
             ViewBag.Organizers = organizers.ToList();
 
-            var events = _context.Events
-                .Include(e => e.Trail)
-                .AsQueryable();
+            var actualStatuses = await _context.Events.Select(e => e.Status).Distinct().ToListAsync();
+            var orderedStatuses = FixedStatusPriority
+                .Concat(actualStatuses.Except(FixedStatusPriority, StringComparer.Ordinal).OrderBy(s => s, StringComparer.Ordinal))
+                .ToList();
 
-            if (!string.IsNullOrEmpty(searchString))
+            // Independent of every filter below, by design - this is the same
+            // Status == "Upcoming" classifier the Upcoming section itself uses, just
+            // counted against the whole catalog instead of the filtered subset, so
+            // the header summary and an unfiltered Upcoming section always agree.
+            var upcomingEventsCount = await _context.Events.CountAsync(e => e.Status == "Upcoming");
+
+            IQueryable<Event> query = _context.Events.Include(e => e.Trail);
+
+            if (!string.IsNullOrEmpty(normalizedSearch))
             {
-                events = events.Where(e => e.EventTitle.Contains(searchString) || e.Location.Contains(searchString));
+                query = query.Where(e =>
+                    e.EventTitle.Contains(normalizedSearch) ||
+                    e.Location.Contains(normalizedSearch) ||
+                    (e.Trail != null && e.Trail.Name.Contains(normalizedSearch)));
             }
 
-            if (!string.IsNullOrEmpty(status) && status != "All")
+            if (normalizedStatus != "All")
             {
-                events = events.Where(e => e.Status == status);
+                query = query.Where(e => e.Status == normalizedStatus);
             }
 
-            var eventsList = await events.ToListAsync();
+            if (normalizedTrailId != "All" && int.TryParse(normalizedTrailId, out var trailIdValue))
+            {
+                query = query.Where(e => e.TrailId == trailIdValue);
+            }
 
-            var eventIds = eventsList.Select(e => e.Id).ToList();
+            if (normalizedDifficulty != "All")
+            {
+                query = query.Where(e => e.Difficulty == normalizedDifficulty);
+            }
+
+            // Soonest/Latest sort by the event's actual schedule - date, then start
+            // time - never by title or DateCreated, with Id as the final, deterministic
+            // tiebreaker so two events sharing a date and time still sort consistently.
+            query = normalizedSort switch
+            {
+                "date_desc" => query.OrderByDescending(e => e.EventDate).ThenByDescending(e => e.EventTime).ThenByDescending(e => e.Id),
+                _ => query.OrderBy(e => e.EventDate).ThenBy(e => e.EventTime).ThenBy(e => e.Id),
+            };
+
+            var filteredEvents = await query.ToListAsync();
+
+            var eventIds = filteredEvents.Select(e => e.Id).ToList();
             var capacityCounts = await _context.EventRegistrations
                 .Where(r => eventIds.Contains(r.EventId) && RegistrationStatusHelper.ActiveStatuses.Contains(r.Status))
                 .GroupBy(r => r.EventId)
                 .Select(g => new { EventId = g.Key, Count = g.Count() })
                 .ToDictionaryAsync(x => x.EventId, x => x.Count);
 
-            var groupedEvents = eventsList
-                .Where(e => e.Trail != null)
-                .GroupBy(e => e.TrailId)
-                .Select(g => new EventGroupViewModel
-                {
-                    TrailId = g.Key,
-                    TrailName = g.First().Trail?.Name ?? "Unknown Trail",
-                    TrailLocation = g.First().Location,
-                    Events = g.OrderBy(e => e.EventDate).Select(e => {
-                        e.RegisteredCount = capacityCounts.ContainsKey(e.Id) ? capacityCounts[e.Id] : 0;
-                        return e;
-                    }).ToList()
-                })
+            foreach (var eventItem in filteredEvents)
+            {
+                eventItem.RegisteredCount = capacityCounts.TryGetValue(eventItem.Id, out var count) ? count : 0;
+            }
+
+            // ToLookup over the already status-priority-known list preserves each
+            // status's internal Soonest/Latest order (LINQ-to-Objects grouping is
+            // stable) - this just arranges the groups in the fixed section order and
+            // drops any status with zero matches, per "do not render empty sections."
+            var eventsByStatus = filteredEvents.ToLookup(e => e.Status);
+            var statusGroups = orderedStatuses
+                .Where(s => normalizedStatus == "All" || s == normalizedStatus)
+                .Select(s => new EventStatusGroupViewModel { Status = s, Events = eventsByStatus[s].ToList() })
+                .Where(g => g.Events.Count > 0)
                 .ToList();
 
-            return View(groupedEvents);
+            var viewModel = new EventManagementViewModel
+            {
+                StatusGroups = statusGroups,
+                AvailableStatuses = orderedStatuses,
+                UpcomingEventsCount = upcomingEventsCount,
+                HasAnyResults = filteredEvents.Count > 0
+            };
+
+            return View(viewModel);
         }
 
         [HttpGet]

@@ -464,6 +464,9 @@
   .z-20 {
     z-index: 20;
   }
+  .z-40 {
+    z-index: 40;
+  }
   .z-50 {
     z-index: 50;
   }
@@ -1133,6 +1136,9 @@
   .origin-bottom {
     transform-origin: bottom;
   }
+  .origin-center {
+    transform-origin: center;
+  }
   .origin-top {
     transform-origin: top;
   }
@@ -1651,6 +1657,12 @@
   }
   .border-slate-100 {
     border-color: var(--color-slate-100);
+  }
+  .border-slate-500\/30 {
+    border-color: color-mix(in srgb, oklch(55.4% 0.046 257.417) 30%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      border-color: color-mix(in oklab, var(--color-slate-500) 30%, transparent);
+    }
   }
   .border-surface-card {
     border-color: var(--color-surface-card);
@@ -2938,6 +2950,12 @@
       color: color-mix(in oklab, var(--color-white) 80%, transparent);
     }
   }
+  .text-white\/90 {
+    color: color-mix(in srgb, #fff 90%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      color: color-mix(in oklab, var(--color-white) 90%, transparent);
+    }
+  }
   .text-yellow-300 {
     color: var(--color-yellow-300);
   }
@@ -3045,10 +3063,6 @@
   }
   .shadow-sm {
     --tw-shadow: 0 1px 3px 0 var(--tw-shadow-color, rgb(0 0 0 / 0.1)), 0 1px 2px -1px var(--tw-shadow-color, rgb(0 0 0 / 0.1));
-    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
-  }
-  .shadow-xl {
-    --tw-shadow: 0 20px 25px -5px var(--tw-shadow-color, rgb(0 0 0 / 0.1)), 0 8px 10px -6px var(--tw-shadow-color, rgb(0 0 0 / 0.1));
     box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
   }
   .ring-1 {
@@ -3224,6 +3238,9 @@
   .select-none {
     -webkit-user-select: none;
     user-select: none;
+  }
+  .\[transform-box\:fill-box\] {
+    transform-box: fill-box;
   }
   @media (hover: hover) {
     .group-hover\:-translate-x-1:is(:where(.group):hover *) {
@@ -3702,6 +3719,15 @@
     .sm\:h-80 {
       height: calc(var(--spacing) * 80);
     }
+    .sm\:w-40 {
+      width: calc(var(--spacing) * 40);
+    }
+    .sm\:w-44 {
+      width: calc(var(--spacing) * 44);
+    }
+    .sm\:w-48 {
+      width: calc(var(--spacing) * 48);
+    }
     .sm\:w-80 {
       width: calc(var(--spacing) * 80);
     }
@@ -4043,6 +4069,11 @@
   background: rgb(69 10 10 / 0.85);
   color: rgb(252 165 165);
   border: 1px solid rgb(248 113 113 / 0.35);
+}
+.custom-select-chevron-open {
+  transform: rotate(180deg);
+  transform-origin: center;
+  transform-box: fill-box;
 }
 .card-body {
   position: absolute;

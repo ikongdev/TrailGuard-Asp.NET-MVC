@@ -162,6 +162,19 @@
     border: 1px solid rgb(248 113 113 / 0.35);
 }
 
+/* wwwroot/js/custom-select.js's chevron toggles this instead of Tailwind's
+   rotate-180 - on the SVG chevron, rotate-180 alone was not producing a
+   visible rotation (transform-origin/transform-box behave differently for
+   SVG geometry than for HTML boxes without an explicit fill-box declaration).
+   Explicit, so the rotation and its pivot point are guaranteed regardless of
+   that. transition/duration/motion-reduce still come from the SVG's own
+   Tailwind classes - this only sets the target transform. */
+.custom-select-chevron-open {
+    transform: rotate(180deg);
+    transform-origin: center;
+    transform-box: fill-box;
+}
+
 .card-body {
     position: absolute;
     inset-inline: 0;

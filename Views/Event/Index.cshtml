@@ -1,6 +1,31 @@
-@model IEnumerable<TrailGuard.Models.EventGroupViewModel>
+@model TrailGuard.Models.EventManagementViewModel
 @{
     ViewData["Title"] = "Event Management";
+    var currentSearch = ViewData["CurrentFilter"] as string ?? string.Empty;
+    var currentStatus = ViewData["CurrentStatus"] as string ?? "All";
+    var currentTrailId = ViewData["CurrentTrailId"] as string ?? "All";
+    var currentDifficulty = ViewData["CurrentDifficulty"] as string ?? "All";
+    var currentSort = ViewData["CurrentSort"] as string ?? TrailGuard.Controllers.EventController.DefaultSortOrder;
+    var totalEventCount = Model.StatusGroups.Sum(g => g.Events.Count);
+
+    // Reuses the exact pill shell from Participant/Events.cshtml's Difficulty badge
+    // (dark tinted fill + thin semantic border, not a bright solid fill) - only the
+    // shell is borrowed, the meaning stays Event.Status. Upcoming/Cancelled reuse
+    // the same badge-easy/badge-hard classes that pill already relies on (green/red
+    // are shared DifficultyCalculator.BadgeClass tokens, not new colours); Completed
+    // reuses this page's own established neutral pill treatment (see the header
+    // summary and status-count badges below), with a thin border added so it
+    // carries the same three-part shell as the other three arms. The fallback
+    // is DifficultyCalculator.BadgeClass's own unrecognized-value arm plus that
+    // same thin border, for a stray status the free-text EditEvent Status field
+    // could still write.
+    string EventStatusBadgeClass(string s) => s switch
+    {
+        "Upcoming" => "badge-easy",
+        "Completed" => "bg-white/10 text-gray-300 border border-white/15",
+        "Cancelled" => "badge-hard",
+        _ => "text-slate-400 bg-slate-500/15 border border-slate-500/30"
+    };
 }
 
 @if (TempData["Success"] != null)
@@ -27,203 +52,231 @@
 
 @section PageHero {
     <div class="pt-24 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+        <header class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
             <div>
-                <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-linear-to-r from-orange-400 to-purple-400">Event Management</h1>
-                <p class="text-gray-400 mt-1 text-sm">Manage hiking events grouped by trail.</p>
+                <h1 class="text-3xl font-bold text-white">Event Management</h1>
+                <p class="text-gray-400 mt-1 text-sm">Manage upcoming, completed, and other hiking events.</p>
             </div>
-            
-            <div class="flex flex-wrap items-center gap-4">
-                <div class="bg-white/5 border border-white/10 px-4 py-2.5 rounded-full flex items-center gap-2 backdrop-blur-sm shadow-lg">
-                    <i class="fa-solid fa-calendar text-gray-400"></i>
-                    <span class="text-sm font-medium text-gray-300">Total Trails with Events: <strong class="text-white" id="totalTrailsCount">@Model.Count()</strong></span>
-                </div>
-                
-                <button onclick="openAddEventModal()" class="primary-btn group inline-flex items-center justify-center gap-2 px-7 py-3 text-sm rounded-full bg-linear-to-r from-orange-500 to-purple-600 text-white font-bold shadow-lg shadow-purple-500/30 hover:scale-105 hover:opacity-90 transform transition duration-300 ease-out">
-                    <span>Add Event</span>
-                    <i class="fa-solid fa-plus transition-transform duration-300 group-hover:translate-x-1"></i>
+
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="bg-white/5 border border-white/10 px-4 py-2 rounded-full text-sm text-gray-300">
+                    <i class="fa-solid fa-calendar-check text-accent mr-2" aria-hidden="true"></i>Upcoming Events: <strong class="text-white" id="upcomingEventsCount">@Model.UpcomingEventsCount</strong>
+                </span>
+
+                <button type="button" onclick="openAddEventModal()" class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white bg-linear-to-r from-orange-500 via-pink-500 to-violet-500 hover:brightness-110 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-base transition duration-200 ease-out">
+                    <i class="fa-solid fa-plus" aria-hidden="true"></i>Add Event
                 </button>
             </div>
-        </div>
+        </header>
 
-        <div class="flex flex-col lg:flex-row gap-4 mb-8 bg-white/5 backdrop-blur-xl p-5 rounded-3xl border border-gray-800 shadow-2xl">
-        <div class="relative grow">
-            <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-            <input type="text" id="searchInput" placeholder="Search events by title or location..." 
-                class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-11 pr-4 py-3 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 focus:outline-none transition-colors placeholder-gray-500">
-        </div>
+        <form method="get" asp-action="Index" id="filterForm" onsubmit="return false" class="mb-2">
+            <div class="flex flex-col lg:flex-row gap-3 mb-8 bg-white/5 backdrop-blur-xl p-5 rounded-xl border border-white/10">
 
-        <div class="flex flex-wrap sm:flex-nowrap gap-3">
-            <div class="relative inline-block">
-                <select id="trailFilter" class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-orange-500 focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors w-full">
-                    <option value="All" class="bg-[#0b1329] text-white py-2">All Trails</option>
-                    @{
-                        var distinctTrails = ViewBag.Trails as List<TrailGuard.Models.Trail>;
-                        if (distinctTrails != null)
-                        {
-                            foreach (var trail in distinctTrails)
-                            {
-                                <option value="@trail.Id" class="bg-[#0b1329] text-white py-2">@trail.Name</option>
+                <div class="relative grow">
+                    <label for="searchInput" class="sr-only">Search events by title, location, or trail</label>
+                    <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden="true"></i>
+                    <input type="search" name="searchString" id="searchInput" value="@currentSearch" placeholder="Search events by title, location, or trail..." autocomplete="off"
+                        class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-11 pr-4 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors placeholder-gray-500">
+                </div>
+
+                <div class="flex flex-wrap sm:flex-nowrap gap-3">
+                    <div class="relative shrink-0 w-full sm:w-44">
+                        <label for="trailFilter" class="sr-only">Filter by trail</label>
+                        <select id="trailFilter" name="trailId" data-custom-select data-custom-select-portal
+                                data-cs-decorative-chevron="trailFilterChevron"
+                                data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-4 py-3 rounded-full bg-black/20 border border-white/10 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                                onchange="document.getElementById('filterForm').submit()"
+                                class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors">
+                            <option value="All" selected="@(currentTrailId == "All" ? "selected" : null)" class="bg-surface-card text-white">All Trails</option>
+                            @{
+                                var distinctTrails = ViewBag.Trails as List<TrailGuard.Models.Trail>;
+                                if (distinctTrails != null)
+                                {
+                                    foreach (var trail in distinctTrails)
+                                    {
+                                        <option value="@trail.Id" selected="@(currentTrailId == trail.Id.ToString() ? "selected" : null)" class="bg-surface-card text-white">@trail.Name</option>
+                                    }
+                                }
                             }
-                        }
-                    }
-                </select>
-                <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
-                    <i class="fa-solid fa-chevron-down text-xs"></i>
-                </div>
-            </div>
+                        </select>
+                        <div id="trailFilterChevron" class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
+                            <i class="fa-solid fa-chevron-down text-xs" aria-hidden="true"></i>
+                        </div>
+                    </div>
 
-            <div class="relative inline-block">
-                <select id="difficultyFilter" class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-orange-500 focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors w-full">
-                    <option value="All" class="bg-[#0b1329] text-white py-2">All Difficulties</option>
-                    <option value="Easy" class="bg-[#0b1329] text-white py-2">Easy (PM 1–2/9)</option>
-                    <option value="Minor Climb" class="bg-[#0b1329] text-white py-2">Minor Climb (PM 3–4/9)</option>
-                    <option value="Major Climb" class="bg-[#0b1329] text-white py-2">Major Climb (PM 5–6/9)</option>
-                    <option value="Major Climb — Difficult" class="bg-[#0b1329] text-white py-2">Major Climb — Difficult (PM 7–9/9)</option>
-                </select>
-                <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
-                    <i class="fa-solid fa-chevron-down text-xs"></i>
-                </div>
-            </div>
+                    <div class="relative shrink-0 w-full sm:w-48">
+                        <label for="difficultyFilter" class="sr-only">Filter by difficulty</label>
+                        <select id="difficultyFilter" name="difficulty" data-custom-select data-custom-select-portal
+                                data-cs-decorative-chevron="difficultyFilterChevron"
+                                data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-4 py-3 rounded-full bg-black/20 border border-white/10 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                                onchange="document.getElementById('filterForm').submit()"
+                                class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors">
+                            <option value="All" selected="@(currentDifficulty == "All" ? "selected" : null)" class="bg-surface-card text-white">All Difficulties</option>
+                            @foreach (var band in TrailGuard.Services.DifficultyCalculator.Bands)
+                            {
+                                <option value="@band" selected="@(currentDifficulty == band ? "selected" : null)" class="bg-surface-card text-white">@band</option>
+                            }
+                        </select>
+                        <div id="difficultyFilterChevron" class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
+                            <i class="fa-solid fa-chevron-down text-xs" aria-hidden="true"></i>
+                        </div>
+                    </div>
 
-            <div class="relative inline-block">
-                <select id="statusFilter" class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-orange-500 focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors w-full">
-                    <option value="All" class="bg-[#0b1329] text-white py-2">All Status</option>
-                    <option value="Upcoming" class="bg-[#0b1329] text-white py-2">Upcoming</option>
-                    <option value="Cancelled" class="bg-[#0b1329] text-white py-2">Cancelled</option>
-                    <option value="Postponed" class="bg-[#0b1329] text-white py-2">Postponed</option>
-                    <option value="Completed" class="bg-[#0b1329] text-white py-2">Completed</option>
-                </select>
-                <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
-                    <i class="fa-solid fa-chevron-down text-xs"></i>
-                </div>
-            </div>
+                    <div class="relative shrink-0 w-full sm:w-40">
+                        <label for="statusFilter" class="sr-only">Filter by status</label>
+                        <select id="statusFilter" name="status" data-custom-select data-custom-select-portal
+                                data-cs-decorative-chevron="statusFilterChevron"
+                                data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-4 py-3 rounded-full bg-black/20 border border-white/10 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                                onchange="document.getElementById('filterForm').submit()"
+                                class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors">
+                            <option value="All" selected="@(currentStatus == "All" ? "selected" : null)" class="bg-surface-card text-white">All Status</option>
+                            @foreach (var s in Model.AvailableStatuses)
+                            {
+                                <option value="@s" selected="@(currentStatus == s ? "selected" : null)" class="bg-surface-card text-white">@s</option>
+                            }
+                        </select>
+                        <div id="statusFilterChevron" class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
+                            <i class="fa-solid fa-chevron-down text-xs" aria-hidden="true"></i>
+                        </div>
+                    </div>
 
-            <div class="relative inline-block">
-                <select id="sortFilter" class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-orange-500 focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors w-full">
-                    <option value="date_desc" class="bg-[#0b1329] text-white py-2">Sort by: Newest</option>
-                    <option value="date_asc" class="bg-[#0b1329] text-white py-2">Sort by: Oldest</option>
-                    <option value="title_asc" class="bg-[#0b1329] text-white py-2">Name (A-Z)</option>
-                    <option value="title_desc" class="bg-[#0b1329] text-white py-2">Name (Z-A)</option>
-                </select>
-                <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
-                    <i class="fa-solid fa-chevron-down text-xs"></i>
+                    <div class="relative shrink-0 w-full sm:w-48">
+                        <label for="sortFilter" class="sr-only">Sort events by</label>
+                        <select id="sortFilter" name="sortOrder" data-custom-select data-custom-select-portal
+                                data-cs-decorative-chevron="sortFilterChevron"
+                                data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-4 py-3 rounded-full bg-black/20 border border-white/10 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                                onchange="document.getElementById('filterForm').submit()"
+                                class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors">
+                            <option value="date_asc" selected="@(currentSort == "date_asc" ? "selected" : null)" class="bg-surface-card text-white">Sort by: Soonest</option>
+                            <option value="date_desc" selected="@(currentSort == "date_desc" ? "selected" : null)" class="bg-surface-card text-white">Sort by: Latest</option>
+                        </select>
+                        <div id="sortFilterChevron" class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
+                            <i class="fa-solid fa-chevron-down text-xs" aria-hidden="true"></i>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
-    </div>
+        </form>
+
+        <p id="resultCount" class="text-xs text-gray-500 mb-4">Showing @totalEventCount event@(totalEventCount == 1 ? "" : "s")</p>
+        <p id="resultCountAnnouncer" class="sr-only" role="status" aria-live="polite"></p>
 
         <div id="eventsContainer">
-            @if (!Model.Any())
+            @if (!Model.HasAnyResults)
             {
-                <div class="text-center py-20 bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl">
-                    <i class="fa-solid fa-calendar-plus text-5xl text-gray-500 mb-4"></i>
-                    <h3 class="text-xl font-bold text-gray-300">No events found</h3>
-                    <p class="text-gray-500 mt-2">Click "Add Event" to create your first hiking event.</p>
+                <div id="overallEmptyState" class="text-center py-20 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl">
+                    <i class="fa-solid fa-calendar-times text-4xl text-slate-600 mb-4" aria-hidden="true"></i>
+                    @if (currentStatus != "All")
+                    {
+                        <h3 class="text-xl font-bold text-gray-300">No @currentStatus events found</h3>
+                        <p class="text-gray-500 mt-2">No @currentStatus.ToLower() events match your search and filters.</p>
+                    }
+                    else
+                    {
+                        <h3 class="text-xl font-bold text-gray-300">No events found</h3>
+                        <p class="text-gray-500 mt-2">Try adjusting your search or filters, or click "Add Event" to create one.</p>
+                    }
                 </div>
             }
             else
             {
-                @foreach (var group in Model)
+                @foreach (var group in Model.StatusGroups)
                 {
-                    <div class="trail-group mb-10" data-trail-id="@group.TrailId" data-trail-name="@group.TrailName.ToLower()" data-trail-location="@group.TrailLocation.ToLower()">
+                    var headingId = "statusHeading-" + group.Status.Replace(" ", "-");
+                    <section class="status-section mb-10" data-status="@group.Status" aria-labelledby="@headingId">
                         <div class="flex items-center gap-3 mb-4 pb-3 border-b border-gray-700">
-                            <div class="w-10 h-10 rounded-full bg-linear-to-r from-orange-500 to-purple-500 flex items-center justify-center">
-                                <i class="fa-solid fa-mountain text-white text-sm"></i>
-                            </div>
-                            <div>
-                                <h2 class="text-xl font-bold text-white trail-name">@group.TrailName</h2>
-                                <p class="text-gray-400 text-sm"><i class="fa-solid fa-location-dot text-red-400 mr-1"></i> @group.TrailLocation</p>
-                            </div>
-                            <div class="ml-auto">
-                                <span class="text-xs px-3 py-1 bg-white/10 rounded-full text-gray-300">
-                                    <i class="fa-regular fa-calendar mr-1"></i> <span class="event-count">@group.Events.Count</span> event(s)
-                                </span>
-                            </div>
+                            <h2 id="@headingId" class="text-xl font-bold text-white">@group.Status</h2>
+                            <span class="text-xs px-3 py-1 bg-white/10 rounded-full text-gray-300">
+                                <span class="status-count">@group.Events.Count</span> event(s)
+                            </span>
                         </div>
 
                         <div class="events-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             @foreach (var eventItem in group.Events)
                             {
-                                <div class="event-card bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-xl hover:bg-white/10 transition-all duration-300"
-                                     data-event-title="@eventItem.EventTitle.ToLower()"
-                                     data-event-location="@eventItem.Location.ToLower()"
-                                     data-event-status="@eventItem.Status"
-                                     data-event-difficulty="@eventItem.Difficulty"
-                                     data-event-date="@eventItem.EventDate.ToString("yyyy-MM-dd")">
-                                    
-                                    <div class="relative h-40 overflow-hidden bg-gray-900">
+                                <div class="event-card group bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden hover:border-white/20 transition-colors flex flex-col"
+                                     data-search="@eventItem.EventTitle @eventItem.Location @(eventItem.Trail?.Name ?? "")">
+
+                                    <div class="relative h-48 overflow-hidden bg-black/30">
                                         @if (!string.IsNullOrEmpty(eventItem.Trail?.ThumbnailUrl))
                                         {
-                                            <img src="@eventItem.Trail.ThumbnailUrl" alt="@eventItem.Trail.Name" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
+                                            <img src="@eventItem.Trail.ThumbnailUrl" alt="@eventItem.Trail.Name" class="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105 motion-reduce:transform-none motion-reduce:transition-none" onerror="handleEventImageError(this)">
                                         }
                                         else
                                         {
-                                            <div class="w-full h-full flex items-center justify-center bg-gray-800">
-                                                <i class="fa-solid fa-mountain text-4xl text-gray-600"></i>
+                                            <div class="w-full h-full flex items-center justify-center">
+                                                <i class="fa-solid fa-image text-4xl text-slate-700" aria-hidden="true"></i>
                                             </div>
                                         }
-                                        <div class="absolute inset-0 bg-linear-to-t from-surface-card to-transparent opacity-80"></div>
-                                       <div class="absolute top-3 right-3">
-                                            <span class="text-xs px-2 py-1 rounded-full font-semibold 
-                                                @(eventItem.Status == "Upcoming" ? "bg-green-600 text-white" : 
-                                                eventItem.Status == "Cancelled" ? "bg-red-600 text-white" : 
-                                                eventItem.Status == "Postponed" ? "bg-yellow-600 text-white" : 
-                                                "bg-gray-600 text-white")">
-                                                @eventItem.Status
-                                            </span>
-                                        </div>
+                                        <div class="absolute inset-0 bg-linear-to-t from-surface-card to-transparent opacity-90"></div>
+
+                                        <span class="absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-medium @EventStatusBadgeClass(eventItem.Status)">
+                                            @eventItem.Status
+                                        </span>
                                         <div class="absolute bottom-3 left-3">
-                                            <span class="text-xs text-white/80 bg-black/50 px-2 py-1 rounded-full">
-                                                <i class="fa-regular fa-calendar mr-1"></i> @eventItem.EventDate.ToString("MMM dd, yyyy")
+                                            <span class="text-xs text-white/90 bg-black/50 px-2.5 py-1 rounded-full flex items-center gap-1.5">
+                                                <i class="fa-regular fa-calendar" aria-hidden="true"></i> @eventItem.EventDate.ToString("MMM dd, yyyy")
                                             </span>
                                         </div>
                                     </div>
-                                    
-                                    <div class="p-4">
-                                        <div class="flex justify-between items-start mb-2">
-                                            <h3 class="text-lg font-bold text-white">@eventItem.EventTitle</h3>
-                                        </div>
-                                        
-                                        <div class="flex items-center gap-2 text-sm text-gray-400 mb-3">
-                                            <i class="fa-solid fa-clock text-blue-400"></i>
-                                            <span>@($"{eventItem.EventTime.Hours:D2}:{eventItem.EventTime.Minutes:D2} {(eventItem.EventTime.Hours >= 12 ? "PM" : "AM")}")</span>
-                                            <span class="mx-1">•</span>
-                                            <span class="text-xs px-2 py-1 bg-orange-500/20 text-orange-300 rounded-full">
-                                                <i class="fa-solid fa-users"></i> 
-                                                @(eventItem.Capacity - eventItem.RegisteredCount) / @eventItem.Capacity slots
-                                            </span>
-                                        </div>
-                                        
-                                        <div class="flex flex-wrap gap-2 mb-4">
-                                            <span class="text-xs px-2 py-1 rounded-full @TrailGuard.Services.DifficultyCalculator.BadgeClass(eventItem.Difficulty)">
-                                                <i class="fa-solid fa-signal"></i> @eventItem.Difficulty
-                                            </span>
-                                            <span class="text-xs px-2 py-1 bg-blue-500/20 text-blue-300 rounded-full">
-                                                <i class="fa-regular fa-clock"></i> @eventItem.EstimatedDuration hrs
-                                            </span>
+
+                                    <div class="p-6 flex flex-col grow relative z-10 -mt-10">
+                                        <h3 class="text-xl font-bold text-white mb-1">@eventItem.EventTitle</h3>
+                                        <p class="text-gray-400 text-sm mb-5 flex items-center gap-1.5">
+                                            <i class="fa-solid fa-location-dot text-accent" aria-hidden="true"></i> @eventItem.Location
+                                        </p>
+
+                                        <div class="grid grid-cols-2 gap-4 mb-4">
+                                            <div>
+                                                <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Start Time</p>
+                                                <p class="text-gray-200 text-sm font-medium flex items-center gap-2">
+                                                    <i class="fa-regular fa-clock text-gray-400" aria-hidden="true"></i> @eventItem.FormattedEventTime
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Slots</p>
+                                                <p class="text-gray-200 text-sm font-medium flex items-center gap-2">
+                                                    <i class="fa-solid fa-users text-gray-400" aria-hidden="true"></i> @(eventItem.Capacity - eventItem.RegisteredCount) / @eventItem.Capacity
+                                                </p>
+                                            </div>
                                         </div>
 
-                                        <div class="flex gap-2">
-                                            <a asp-controller="Event" asp-action="Details" asp-route-id="@eventItem.Id" 
-                                               class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
-                                                <i class="fa-regular fa-eye"></i> View
+                                        <div class="flex flex-wrap gap-1.5 mb-6">
+                                            <span class="px-2.5 py-1 rounded-full text-xs font-medium @TrailGuard.Services.DifficultyCalculator.BadgeClass(eventItem.Difficulty)">@eventItem.Difficulty</span>
+                                            <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-white/5 border border-white/10 text-gray-300">@eventItem.EstimatedDuration hrs</span>
+                                        </div>
+
+                                        <div class="flex gap-2 mt-auto">
+                                            <a asp-controller="Event" asp-action="Details" asp-route-id="@eventItem.Id"
+                                               aria-label="View details for @eventItem.EventTitle"
+                                               class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+                                                <i class="fa-regular fa-eye" aria-hidden="true"></i> View
                                             </a>
-                                            <button type="button" onclick="openEditModal(@eventItem.Id)" 
-                                                    class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
-                                                <i class="fa-solid fa-pen"></i> Edit
+                                            <button type="button" onclick="openEditModal(@eventItem.Id)"
+                                                    aria-label="Edit @eventItem.EventTitle"
+                                                    class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+                                                <i class="fa-solid fa-pen" aria-hidden="true"></i> Edit
                                             </button>
-                                            <button type="button" onclick="deleteEvent(@eventItem.Id, '@eventItem.EventTitle.Replace("'", "\\'")')" 
-                                                    class="bg-red-500/20 hover:bg-red-500 border border-red-500/30 hover:border-red-500 text-red-400 hover:text-white py-2 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 w-12">
-                                                <i class="fa-solid fa-trash"></i>
+                                            <button type="button"
+                                                    data-event-id="@eventItem.Id"
+                                                    data-event-title="@eventItem.EventTitle"
+                                                    aria-label="Delete @eventItem.EventTitle"
+                                                    class="delete-event-btn bg-red-500/20 hover:bg-red-500 border border-red-500/30 hover:border-red-500 text-red-400 hover:text-white py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center w-12 focus:outline-none focus:ring-2 focus:ring-accent">
+                                                <i class="fa-solid fa-trash" aria-hidden="true"></i>
                                             </button>
                                         </div>
                                     </div>
                                 </div>
                             }
                         </div>
-                    </div>
+                    </section>
                 }
+
+                <div id="noSearchResults" hidden class="text-center py-20 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl">
+                    <i class="fa-solid fa-magnifying-glass text-4xl text-slate-600 mb-4" aria-hidden="true"></i>
+                    <h3 class="text-xl font-bold text-gray-300">No events found</h3>
+                    <p class="text-gray-500 mt-2">No events match your search. Try a different title, location, or trail.</p>
+                </div>
             }
         </div>
     </div>
@@ -677,99 +730,121 @@
     let currentStep = 1;
     const totalSteps = 3;
 
-    function filterAndSortEvents() {
-        const searchTerm = document.getElementById('searchInput')?.value.toLowerCase() || '';
-        const trailFilter = document.getElementById('trailFilter')?.value || 'All';
-        const difficultyFilter = document.getElementById('difficultyFilter')?.value || 'All';
-        const statusFilter = document.getElementById('statusFilter')?.value || 'All';
-        const sortFilter = document.getElementById('sortFilter')?.value || 'date_asc';
-        
-        const trailGroups = document.querySelectorAll('.trail-group');
-        let totalVisibleTrails = 0;
-        
-        trailGroups.forEach(group => {
-            const trailId = group.getAttribute('data-trail-id') || '';
-            const trailName = group.getAttribute('data-trail-name') || '';
-            const trailLocation = group.getAttribute('data-trail-location') || '';
-            
-            const trailMatchesSearch = trailName.includes(searchTerm) || trailLocation.includes(searchTerm);
-            const matchesTrailFilter = trailFilter === 'All' || trailId === trailFilter;
-            
-            const eventCards = group.querySelectorAll('.event-card');
-            let visibleEvents = [];
-            
-            eventCards.forEach(card => {
-                const eventTitle = card.getAttribute('data-event-title') || '';
-                const eventLocation = card.getAttribute('data-event-location') || '';
-                const eventStatus = card.getAttribute('data-event-status') || '';
-                const eventDifficulty = card.getAttribute('data-event-difficulty') || '';
-                const eventDate = card.getAttribute('data-event-date') || '';
-                
-                const matchesSearch = trailMatchesSearch || eventTitle.includes(searchTerm) || eventLocation.includes(searchTerm);
-                const matchesDifficulty = difficultyFilter === 'All' || eventDifficulty === difficultyFilter;
-                const matchesStatus = statusFilter === 'All' || eventStatus === statusFilter;
-                
-                if (matchesSearch && matchesTrailFilter && matchesDifficulty && matchesStatus) {
-                    visibleEvents.push(card);
-                } else {
-                    card.classList.add('hidden');
-                }
-            });
-            
-            visibleEvents.forEach(card => card.classList.remove('hidden'));
-            
-            visibleEvents.sort((a, b) => {
-                if (sortFilter === 'date_asc') {
-                    return new Date(a.getAttribute('data-event-date')) - new Date(b.getAttribute('data-event-date'));
-                } else if (sortFilter === 'date_desc') {
-                    return new Date(b.getAttribute('data-event-date')) - new Date(a.getAttribute('data-event-date'));
-                } else if (sortFilter === 'title_asc') {
-                    return (a.getAttribute('data-event-title') || '').localeCompare(b.getAttribute('data-event-title') || '');
-                } else if (sortFilter === 'title_desc') {
-                    return (b.getAttribute('data-event-title') || '').localeCompare(a.getAttribute('data-event-title') || '');
-                }
-                return 0;
-            });
-            
-            const container = group.querySelector('.events-grid');
-            if (container && visibleEvents.length > 0 && matchesTrailFilter) {
-                visibleEvents.forEach(card => container.appendChild(card));
-                group.classList.remove('hidden');
-                const eventCountSpan = group.querySelector('.event-count');
-                if (eventCountSpan) eventCountSpan.textContent = visibleEvents.length;
-                totalVisibleTrails++;
-            } else {
-                group.classList.add('hidden');
-            }
-        });
-        
-        const totalTrailsSpan = document.getElementById('totalTrailsCount');
-        if (totalTrailsSpan) totalTrailsSpan.textContent = totalVisibleTrails;
-        
-        const noResultsDiv = document.getElementById('noResultsMessage');
-        if (totalVisibleTrails === 0) {
-            if (!noResultsDiv) {
-                const container = document.getElementById('eventsContainer');
-                const noResult = document.createElement('div');
-                noResult.id = 'noResultsMessage';
-                noResult.className = 'text-center py-20 bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl';
-                noResult.innerHTML = `
-                    <i class="fa-solid fa-calendar-times text-5xl text-gray-500 mb-4"></i>
-                    <h3 class="text-xl font-bold text-gray-300">No events found</h3>
-                    <p class="text-gray-500 mt-2">Try adjusting your search or filter criteria.</p>
-                `;
-                container.appendChild(noResult);
-            }
-        } else {
-            if (noResultsDiv) noResultsDiv.remove();
+    // Trail/Difficulty/Status/Sort are real <select name="..."> fields inside
+    // #filterForm and submit a normal GET on change (see the custom-select-enhanced
+    // markup above) - EventController.Index applies them server-side, including the
+    // status grouping and Soonest/Latest ordering. Only free-text search stays
+    // client-side here, mirroring Trail Management's finalized search behavior:
+    // realtime, debounced, no reload, and it scans every card already loaded for the
+    // current Trail/Difficulty/Status selection (never a stale, previously-searched
+    // subset), with the URL kept in sync via replaceState so it never navigates.
+    (function initEventSearch() {
+        const searchInput = document.getElementById('searchInput');
+        const eventsContainer = document.getElementById('eventsContainer');
+        const resultCountEl = document.getElementById('resultCount');
+        const announcerEl = document.getElementById('resultCountAnnouncer');
+        const noMatchEl = document.getElementById('noSearchResults');
+        if (!searchInput || !eventsContainer) return;
+
+        const totalEventCount = @totalEventCount;
+        let debounceTimer = null;
+
+        function getSections() {
+            return Array.from(eventsContainer.querySelectorAll('.status-section'));
         }
+
+        function buildResultText(term, visibleCount) {
+            if (term) {
+                return 'Showing ' + visibleCount + ' of ' + totalEventCount +
+                    ' event' + (totalEventCount === 1 ? '' : 's') + ' for “' + term + '”';
+            }
+            return 'Showing ' + totalEventCount + ' event' + (totalEventCount === 1 ? '' : 's');
+        }
+
+        // Runs on every keystroke - hides/shows cards, collapses a status section
+        // to nothing if none of its cards match, and updates the visible count.
+        // The URL and the screen-reader announcement are handled separately
+        // (debounced) by the caller so this stays cheap.
+        function applySearchFilter() {
+            const rawTerm = searchInput.value;
+            const term = rawTerm.trim();
+            const normalizedTerm = term.toLowerCase();
+            let visibleCount = 0;
+
+            getSections().forEach(function (section) {
+                const cards = Array.from(section.querySelectorAll('.event-card'));
+                let visibleInSection = 0;
+
+                cards.forEach(function (card) {
+                    const haystack = (card.getAttribute('data-search') || '').toLowerCase();
+                    const matches = !normalizedTerm || haystack.includes(normalizedTerm);
+                    card.hidden = !matches;
+                    if (matches) { visibleInSection++; visibleCount++; }
+                });
+
+                const countEl = section.querySelector('.status-count');
+                if (countEl) countEl.textContent = visibleInSection;
+                section.hidden = visibleInSection === 0;
+            });
+
+            const text = buildResultText(term, visibleCount);
+            if (resultCountEl) resultCountEl.textContent = text;
+            if (noMatchEl) noMatchEl.hidden = !(totalEventCount > 0 && visibleCount === 0);
+
+            return { term: term, text: text };
+        }
+
+        function updateUrlSearchParam(term) {
+            const url = new URL(window.location.href);
+            if (term) {
+                url.searchParams.set('searchString', term);
+            } else {
+                url.searchParams.delete('searchString');
+            }
+            history.replaceState(history.state, '', url.pathname + url.search + url.hash);
+        }
+
+        function handleSearchInput() {
+            const result = applySearchFilter();
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(function () {
+                updateUrlSearchParam(result.term);
+                if (announcerEl) announcerEl.textContent = result.text;
+            }, 400);
+        }
+
+        function syncSearchFromUrl() {
+            const url = new URL(window.location.href);
+            searchInput.value = url.searchParams.get('searchString') || '';
+            const result = applySearchFilter();
+            if (announcerEl) announcerEl.textContent = result.text;
+        }
+
+        searchInput.addEventListener('input', handleSearchInput);
+        window.addEventListener('popstate', syncSearchFromUrl);
+
+        // Restores the filtered view immediately on load (including after a
+        // Trail/Difficulty/Status/Sort navigation that carried the search text
+        // along) and sets the initial announcer text without waiting on the debounce.
+        const initialResult = applySearchFilter();
+        if (announcerEl) announcerEl.textContent = initialResult.text;
+    })();
+
+    // Same approved fallback as the Trail Management card (Views/Trail/Index.cshtml)
+    // for a missing/failed thumbnail - kept as its own copy here since this view has
+    // no shared script include with that page (see AGENTS.md on not touching
+    // unrelated pages). A missing ThumbnailUrl and a failed image request render
+    // identically; the fallback carries no group-hover scale class, so it never zooms.
+    function handleEventImageError(img) {
+        img.onerror = null;
+        const fallback = document.createElement('div');
+        fallback.className = 'w-full h-full flex items-center justify-center';
+        const icon = document.createElement('i');
+        icon.className = 'fa-solid fa-image text-4xl text-slate-700';
+        icon.setAttribute('aria-hidden', 'true');
+        fallback.appendChild(icon);
+        img.replaceWith(fallback);
     }
-    
-    document.getElementById('searchInput')?.addEventListener('input', filterAndSortEvents);
-    document.getElementById('trailFilter')?.addEventListener('change', filterAndSortEvents);
-    document.getElementById('difficultyFilter')?.addEventListener('change', filterAndSortEvents);
-    document.getElementById('statusFilter')?.addEventListener('change', filterAndSortEvents);
-    document.getElementById('sortFilter')?.addEventListener('change', filterAndSortEvents);
 
     function validateStep(step) {
         if (step === 1) {
@@ -1488,6 +1563,22 @@
             showToast('Error deleting event', 'error');
         }
     }
+
+    // Event ID and title travel as data-* attributes (Razor-encoded on render,
+    // read back as plain text via getAttribute) rather than as literal arguments in
+    // an inline onclick - a title containing an apostrophe, backslash, or line break
+    // could otherwise break the generated JavaScript outright. Mirrors the delete
+    // binding on Views/Trail/Index.cshtml's trail cards.
+    document.addEventListener('click', function (e) {
+        const deleteEventBtn = e.target.closest('.delete-event-btn');
+        if (deleteEventBtn) {
+            const eventId = Number(deleteEventBtn.getAttribute('data-event-id'));
+            const eventTitle = deleteEventBtn.getAttribute('data-event-title') || '';
+            if (Number.isInteger(eventId) && eventId > 0) {
+                deleteEvent(eventId, eventTitle);
+            }
+        }
+    });
 
     function showToast(message, type) {
         const existingToast = document.querySelector('.toast-message');

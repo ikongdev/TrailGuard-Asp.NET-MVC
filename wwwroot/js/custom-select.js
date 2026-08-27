@@ -32,6 +32,38 @@
         return (optionEl.textContent || '').trim();
     }
 
+    var SVG_NS = 'http://www.w3.org/2000/svg';
+
+    // Component-owned chevron, built with createElementNS (never innerHTML).
+    // Replaces the previous fa-solid fa-chevron-down <i> - combining that Font
+    // Awesome glyph with the rotate-180 CSS transform used to open/close it
+    // rendered as a crossed x/bowtie in some environments instead of a clean
+    // flip. A plain stroked SVG path has no such font-glyph/transform conflict.
+    // Points down at rest; openMenu/closeMenu rotate it via
+    // .custom-select-chevron-open (input.css) rather than Tailwind's
+    // rotate-180 utility, which was not producing a visible rotation on this
+    // SVG - origin-center and the explicit transform-box:fill-box in that
+    // class guarantee the pivot point regardless. The transition itself still
+    // comes from this element's own Tailwind classes below.
+    function buildChevron() {
+        var svg = document.createElementNS(SVG_NS, 'svg');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        svg.setAttribute('fill', 'none');
+        svg.setAttribute('stroke', 'currentColor');
+        svg.setAttribute('stroke-width', '2');
+        svg.setAttribute('stroke-linecap', 'round');
+        svg.setAttribute('stroke-linejoin', 'round');
+        svg.setAttribute('aria-hidden', 'true');
+        svg.setAttribute('focusable', 'false');
+        svg.classList.add('w-4', 'h-4', 'text-gray-400', 'shrink-0', 'origin-center', '[transform-box:fill-box]', 'transition-transform', 'duration-200', 'motion-reduce:transition-none');
+
+        var path = document.createElementNS(SVG_NS, 'path');
+        path.setAttribute('d', 'M6 9l6 6 6-6');
+        svg.appendChild(path);
+
+        return svg;
+    }
+
     // ---- building --------------------------------------------------------
 
     // Enhancement is transactional: nothing observable outside the detached
@@ -42,7 +74,14 @@
     // so one broken select can't leave the user without a usable control
     // and can't stop the rest of the page's selects from initializing.
     function enhance(select) {
-        if (registry.has(select) || select.multiple) {
+        // registry.has() is the normal in-memory guard within one evaluation of
+        // this script. data-cs-enhanced is a second, DOM-level guard: if this
+        // script were ever accidentally included twice, each evaluation gets
+        // its own fresh, empty `registry` WeakMap (module state doesn't survive
+        // a re-run), so the in-memory guard alone wouldn't stop a second script
+        // instance from re-enhancing an already-enhanced select - a DOM
+        // attribute persists regardless of which script instance checks it.
+        if (registry.has(select) || select.multiple || select.hasAttribute('data-cs-enhanced')) {
             // True multi-selects aren't this component's listbox pattern -
             // leave them as native controls untouched (see task audit).
             return;
@@ -68,21 +107,52 @@
             trigger.setAttribute('aria-haspopup', 'listbox');
             trigger.setAttribute('aria-expanded', 'false');
             trigger.setAttribute('aria-controls', menuId);
-            trigger.className = 'flex w-full items-center justify-between gap-2 px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed';
+            // Every enhanced select gets this same solid dark trigger surface by
+            // default. A select that needs to sit on a lighter/translucent field
+            // (currently only Event Management's filter bar, which must match its
+            // own Search input) opts in via data-cs-trigger-class rather than this
+            // becoming a second, divergent trigger style baked into the default -
+            // Add/Edit Trail and Add/Edit Event modal selects are untouched by this.
+            var triggerClassOverride = select.getAttribute('data-cs-trigger-class');
+            trigger.className = triggerClassOverride ||
+                'flex w-full items-center justify-between gap-2 px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed';
 
             var labelSpan = document.createElement('span');
             labelSpan.className = 'truncate';
             trigger.appendChild(labelSpan);
 
-            var chevron = document.createElement('i');
-            chevron.className = 'fa-solid fa-chevron-down text-gray-400 text-xs shrink-0 transition-transform duration-200 motion-reduce:transition-none';
-            chevron.setAttribute('aria-hidden', 'true');
+            var chevron = buildChevron();
             trigger.appendChild(chevron);
+
+            // Opt-in portal mode: a select whose ancestors include a
+            // backdrop-filter/transform/perspective/will-change element (Event
+            // Management's filter bar uses backdrop-blur-xl for its glass panel)
+            // would otherwise have its position:fixed menu positioned relative to
+            // that ancestor instead of the viewport, per the CSS containing-block
+            // spec - the same getBoundingClientRect() coordinates in positionMenu()
+            // then land in the wrong coordinate space, displacing the menu and
+            // trapping it inside that ancestor's stacking context (so it can paint
+            // behind later, unrelated page content). Appending straight to
+            // document.body - the same top-level target this app's toasts already
+            // use - sidesteps both problems without changing positionMenu() at all.
+            // ARIA relationships (aria-controls/aria-activedescendant) and outside-
+            // click detection are id/reference-based, not DOM-proximity-based, so
+            // nothing else needs to change to support this.
+            var usePortal = select.hasAttribute('data-custom-select-portal');
+
+            // A non-portalled menu stays trapped inside its ancestor's own local
+            // stacking context regardless of its z-index value, so z-70 there only
+            // ever competes with siblings inside that same trapped context (e.g. a
+            // modal's own content) - safe as the established default. A portalled
+            // menu escapes to the root stacking context, where z-70 would wrongly
+            // outrank the navbar (z-50) and modal overlays (z-60); z-40 keeps it
+            // above normal page content while staying below both.
+            var menuZClass = usePortal ? 'z-40' : 'z-70';
 
             var menu = document.createElement('div');
             menu.id = menuId;
             menu.setAttribute('role', 'listbox');
-            menu.className = 'fixed z-70 w-56 max-h-80 overflow-y-auto custom-scrollbar bg-surface-card border border-gray-800 rounded-2xl shadow-2xl p-1.5 origin-top ' +
+            menu.className = 'fixed ' + menuZClass + ' w-56 max-h-80 overflow-y-auto custom-scrollbar bg-surface-card border border-gray-800 rounded-2xl shadow-2xl p-1.5 origin-top ' +
                 // Only the open/close visual properties are transitionable -
                 // transition-all also animated the top/left/width/max-height
                 // positionMenu() sets on first open, producing a spurious
@@ -91,7 +161,12 @@
             CLOSED_CLASSES.forEach(function (c) { menu.classList.add(c); });
 
             wrapper.insertBefore(trigger, select.nextSibling);
-            wrapper.insertBefore(menu, trigger.nextSibling);
+
+            if (usePortal) {
+                document.body.appendChild(menu);
+            } else {
+                wrapper.insertBefore(menu, trigger.nextSibling);
+            }
 
             var describedBy = select.getAttribute('data-cs-describedby');
             if (describedBy) {
@@ -154,10 +229,22 @@
             select.classList.add('sr-only');
             select.setAttribute('tabindex', '-1');
             select.setAttribute('aria-hidden', 'true');
+            select.setAttribute('data-cs-enhanced', 'true');
+
+            // A select styled with appearance-none for its pre-JS/no-JS native
+            // appearance may render its own static decorative chevron icon next
+            // to it (see data-cs-decorative-chevron below) - once the trigger
+            // above has fully taken over that same visual role, that icon is
+            // redundant and, left in place, visually doubles the chevron. It's
+            // removed only now, at the same point the select itself is hidden,
+            // and restored by rollback if enhancement had failed instead.
+            if (original.decorativeChevron) {
+                original.decorativeChevron.remove();
+            }
 
             registry.set(select, instance);
         } catch (err) {
-            rollbackEnhancement(select, original, wrapper, controller);
+            rollbackEnhancement(select, original, wrapper, menu, controller);
             if (window.console && console.warn) {
                 console.warn('custom-select: enhancement failed for select' +
                     (select.id ? ' #' + select.id : ' (no id)') + ' - left as a native control.',
@@ -175,6 +262,15 @@
     // anything, so a failed enhancement can be undone exactly.
     function captureOriginalState(select) {
         var label = select.id ? document.querySelector('label[for="' + cssEscape(select.id) + '"]') : null;
+
+        // Opt-in: a select can name the id of its own static decorative
+        // chevron icon (the markup a native appearance-none select needs
+        // before/without JS) via data-cs-decorative-chevron, so enhance() can
+        // remove that now-redundant icon once its own trigger chevron takes
+        // over, and rollback can put it back exactly where it was.
+        var decorativeChevronId = select.getAttribute('data-cs-decorative-chevron');
+        var decorativeChevron = decorativeChevronId ? document.getElementById(decorativeChevronId) : null;
+
         return {
             parent: select.parentNode,
             nextSibling: select.nextSibling,
@@ -186,17 +282,26 @@
             label: label,
             labelHadId: label ? label.hasAttribute('id') : false,
             labelId: label ? label.getAttribute('id') : null,
-            labelFor: label ? label.getAttribute('for') : null
+            labelFor: label ? label.getAttribute('for') : null,
+            decorativeChevron: decorativeChevron,
+            decorativeChevronParent: decorativeChevron ? decorativeChevron.parentNode : null,
+            decorativeChevronNextSibling: decorativeChevron ? decorativeChevron.nextSibling : null
         };
     }
 
     // Undoes enhance() back to captureOriginalState's snapshot: removes the
-    // generated wrapper/trigger/listbox, restores the select's class/
-    // tabindex/aria-hidden and the label's for/id, and aborts every listener
-    // wireEvents attached (including the ones on select/document/form, which
-    // outlive the wrapper and would otherwise leak pointing at removed DOM).
-    function rollbackEnhancement(select, original, wrapper, controller) {
+    // generated wrapper/trigger/listbox (plus a portalled menu, which lives
+    // under document.body rather than inside the wrapper - see the portal note
+    // in enhance()), restores the select's class/tabindex/aria-hidden and the
+    // label's for/id, and aborts every listener wireEvents attached (including
+    // the ones on select/document/form, which outlive the wrapper and would
+    // otherwise leak pointing at removed DOM).
+    function rollbackEnhancement(select, original, wrapper, menu, controller) {
         if (controller) controller.abort();
+
+        if (menu && menu.parentNode === document.body) {
+            menu.remove();
+        }
 
         if (wrapper && wrapper.parentNode) {
             if (original.parent) {
@@ -230,6 +335,14 @@
             } else {
                 original.label.removeAttribute('id');
             }
+        }
+
+        select.removeAttribute('data-cs-enhanced');
+
+        // Only re-insert if enhance() actually removed it (a throw before that
+        // point never touched it, so it never left original.decorativeChevronParent).
+        if (original.decorativeChevron && !original.decorativeChevron.parentNode && original.decorativeChevronParent) {
+            original.decorativeChevronParent.insertBefore(original.decorativeChevron, original.decorativeChevronNextSibling);
         }
     }
 
@@ -384,7 +497,7 @@
         CLOSED_CLASSES.forEach(function (c) { instance.menu.classList.remove(c); });
         OPEN_CLASSES.forEach(function (c) { instance.menu.classList.add(c); });
         instance.trigger.setAttribute('aria-expanded', 'true');
-        instance.chevron.classList.add('rotate-180');
+        instance.chevron.classList.add('custom-select-chevron-open');
         setActiveDescendant(instance, instance.activeIndex >= 0 ? instance.activeIndex : 0);
         openInstance = instance;
 
@@ -398,7 +511,7 @@
         CLOSED_CLASSES.forEach(function (c) { instance.menu.classList.add(c); });
         instance.trigger.setAttribute('aria-expanded', 'false');
         instance.trigger.removeAttribute('aria-activedescendant');
-        instance.chevron.classList.remove('rotate-180');
+        instance.chevron.classList.remove('custom-select-chevron-open');
         if (openInstance === instance) {
             openInstance = null;
             window.removeEventListener('scroll', handleDismissScroll, true);
