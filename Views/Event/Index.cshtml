@@ -269,8 +269,8 @@
                 <!-- Step 1 -->
                 <div id="step1" class="step-content">
                     <div class="mb-6">
-                        <label class="block text-sm font-medium text-gray-300 mb-2">Select Trail <span class="text-red-400">*</span></label>
-                        <select id="eventTrailId" name="TrailId" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none">
+                        <label for="eventTrailId" class="block text-sm font-medium text-gray-300 mb-2">Select Trail <span class="text-red-400">*</span></label>
+                        <select id="eventTrailId" name="TrailId" required data-custom-select class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none">
                             <option value="">-- Select a trail --</option>
                             @{
                                 var trails = ViewBag.Trails as List<TrailGuard.Models.Trail>;
@@ -376,8 +376,8 @@
                     </div>
 
                     <div class="mb-6">
-                        <label class="block text-sm font-medium text-gray-300 mb-2">Organizer <span class="text-red-400">*</span></label>
-                        <select id="eventOrganizer" name="OrganizedBy" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none">
+                        <label for="eventOrganizer" class="block text-sm font-medium text-gray-300 mb-2">Organizer <span class="text-red-400">*</span></label>
+                        <select id="eventOrganizer" name="OrganizedBy" required data-custom-select class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none">
                             <option value="">-- Select organizer --</option>
                             @{
                                 var organizers = ViewBag.Organizers as List<TrailGuard.Models.ApplicationUser>;
@@ -471,8 +471,8 @@
                 <!-- Edit Step 1 -->
                 <div id="editStep1" class="edit-step-content">
                     <div class="mb-6">
-                        <label class="block text-sm font-medium text-gray-300 mb-2">Select Trail <span class="text-red-400">*</span></label>
-                        <select id="editEventTrailId" name="TrailId" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none">
+                        <label for="editEventTrailId" class="block text-sm font-medium text-gray-300 mb-2">Select Trail <span class="text-red-400">*</span></label>
+                        <select id="editEventTrailId" name="TrailId" required data-custom-select class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none">
                             <option value="">-- Select a trail --</option>
                             @{
                                 var editTrails = ViewBag.Trails as List<TrailGuard.Models.Trail>;
@@ -578,8 +578,8 @@
                     </div>
 
                     <div class="mb-6">
-                        <label class="block text-sm font-medium text-gray-300 mb-2">Organizer <span class="text-red-400">*</span></label>
-                        <select id="editEventOrganizer" name="OrganizedBy" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none">
+                        <label for="editEventOrganizer" class="block text-sm font-medium text-gray-300 mb-2">Organizer <span class="text-red-400">*</span></label>
+                        <select id="editEventOrganizer" name="OrganizedBy" required data-custom-select class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none">
                             <option value="">-- Select organizer --</option>
                             @{
                                 var editOrganizers = ViewBag.Organizers as List<TrailGuard.Models.ApplicationUser>;
@@ -594,8 +594,8 @@
                         </select>
                     </div>
                     <div class="mb-6">
-                        <label class="block text-sm font-medium text-gray-300 mb-2">Status</label>
-                        <select id="editEventStatus" name="Status" class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none">
+                        <label for="editEventStatus" class="block text-sm font-medium text-gray-300 mb-2">Status</label>
+                        <select id="editEventStatus" name="Status" data-custom-select class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-orange-500 focus:outline-none">
                             <option value="Upcoming">Upcoming</option>
                             <option value="Cancelled">Cancelled</option>
                             <option value="Postponed">Postponed</option>
@@ -1085,6 +1085,7 @@
     function closeAddEventModal() {
         const modal = document.getElementById('addEventModal');
         if (modal) {
+            if (window.CustomSelect) window.CustomSelect.closeAll();
             modal.classList.add('hidden');
             document.body.style.overflow = 'auto';
             const form = document.getElementById('addEventForm');
@@ -1356,6 +1357,11 @@
                     organizerSelect.appendChild(newOption);
                     organizerSelect.value = event.organizedBy;
                 }
+                // Neither selectedIndex nor .value above fires a native change
+                // event, and an option may have just been appended - refresh
+                // rebuilds the custom listbox from the select's current
+                // options and resyncs the trigger label in one call.
+                CustomSelect.refresh(organizerSelect);
             }
             document.getElementById('editEventWeather').value = event.weatherForecastAdvisory || '';
             document.getElementById('editEventWeatherReminder').value = event.weatherReminder || '';
@@ -1372,11 +1378,16 @@
             document.getElementById('editEventAnnouncements').value = event.announcements || '';
             document.getElementById('editEventPaymentDetails').value = event.paymentDetails || '';
             document.getElementById('editEventPickupPoints').value = event.pickupPoints || '';
-            document.getElementById('editEventStatus').value = event.status || 'Upcoming';
-            
+            const editStatusSelect = document.getElementById('editEventStatus');
+            editStatusSelect.value = event.status || 'Upcoming';
+            CustomSelect.refresh(editStatusSelect);
+
             const trailSelect = document.getElementById('editEventTrailId');
             const changeEvent = new Event('change');
             trailSelect.dispatchEvent(changeEvent);
+            // trailSelect's own change listener (registered by custom-select.js
+            // on every enhanced select) resyncs its trigger from this dispatch -
+            // no separate refresh() call needed here.
             
             editCurrentStep = 1;
             editUpdateStepUI();
@@ -1398,6 +1409,7 @@
     function closeEditEventModal() {
         const modal = document.getElementById('editEventModal');
         if (modal) {
+            if (window.CustomSelect) window.CustomSelect.closeAll();
             modal.classList.add('hidden');
             document.body.style.overflow = 'auto';
             const form = document.getElementById('editEventForm');

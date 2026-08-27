@@ -1,0 +1,22 @@
+@model string
+@{
+    // Model is the id prefix ("add" or "edit") so checkbox ids stay unique when
+    // both the Add and Edit modals exist in the DOM at the same time. Every
+    // checkbox starts unchecked here - Add stays that way; Edit's JS checks the
+    // right ones (and injects an extra chip for any legacy value) when it opens
+    // for a specific trail. Rendering from TrailTerrainOptions.AllowedValues keeps
+    // this the one place the option list is spelled out.
+    var idPrefix = Model;
+}
+<div id="@(idPrefix)TerrainChips" role="group" aria-labelledby="@(idPrefix)TerrainLabel" aria-describedby="@(idPrefix)TerrainError" aria-invalid="false" class="flex flex-wrap gap-2">
+    @for (var i = 0; i < TrailGuard.Services.TrailTerrainOptions.AllowedValues.Length; i++)
+    {
+        var terrain = TrailGuard.Services.TrailTerrainOptions.AllowedValues[i];
+        var inputId = $"{idPrefix}Terrain-{i}";
+        <label for="@inputId" class="group relative inline-flex items-center gap-1.5 cursor-pointer select-none px-3 py-1.5 rounded-full text-xs font-medium bg-surface-card border border-gray-700 text-gray-300 has-checked:bg-accent/15 has-checked:border-accent has-checked:text-white hover:border-gray-500 transition-colors focus-within:ring-2 focus-within:ring-accent">
+            <input type="checkbox" id="@inputId" name="TerrainValues" value="@terrain" class="sr-only">
+            <i class="fa-solid fa-check text-[10px] hidden group-has-checked:inline-block" aria-hidden="true"></i>
+            <span>@terrain</span>
+        </label>
+    }
+</div>

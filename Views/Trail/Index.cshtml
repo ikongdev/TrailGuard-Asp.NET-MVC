@@ -1,6 +1,9 @@
 @model IEnumerable<TrailGuard.Models.Trail>
 @{
     ViewData["Title"] = "Trail Management";
+    var currentFilter = ViewData["CurrentFilter"] as string ?? string.Empty;
+    var currentSort = ViewData["CurrentSort"] as string ?? TrailGuard.Controllers.TrailController.DefaultSortOrder;
+    var totalTrailCount = Model.Count();
 }
 
 @if (TempData["Success"] != null)
@@ -27,102 +30,120 @@
 
 @section PageHero {
     <div class="pt-24 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+        <header class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
             <div>
-                <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-linear-to-r from-orange-400 to-purple-400">Trail Management</h1>
+                <h1 class="text-3xl font-bold text-white">Trail Management</h1>
                 <p class="text-gray-400 mt-1 text-sm">Manage trail listings, review trail details, and keep your hiking catalog up to date.</p>
             </div>
-            
-            <div class="flex flex-wrap items-center gap-4">
-                <div class="bg-white/5 border border-white/10 px-4 py-2.5 rounded-full flex items-center gap-2 backdrop-blur-sm shadow-lg">
-                    <i class="fa-solid fa-mountain text-gray-400"></i>
-                    <span class="text-sm font-medium text-gray-300">Total Trails: <strong class="text-white">@Model.Count()</strong></span>
-                </div>
-                
-                <button onclick="openAddTrailModal()" class="group inline-flex items-center justify-center gap-2 px-7 py-3 text-sm rounded-full bg-linear-to-r from-orange-400 via-pink-500 to-violet-500 text-white font-bold shadow-lg shadow-violet-500/30 hover:scale-105 hover:opacity-90 transform transition duration-300 ease-out">
-                    <span>Add Trail</span>
-                    <i class="fa-solid fa-plus transition-transform duration-300 group-hover:translate-x-1"></i>
+
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="bg-white/5 border border-white/10 px-4 py-2 rounded-full text-sm text-gray-300">
+                    <i class="fa-solid fa-mountain text-accent mr-2" aria-hidden="true"></i>Total Trails: <strong class="text-white">@totalTrailCount</strong>
+                </span>
+
+                <button type="button" onclick="openAddTrailModal()" class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white bg-linear-to-r from-orange-500 via-pink-500 to-violet-500 hover:brightness-110 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-base transition duration-200 ease-out">
+                    <i class="fa-solid fa-plus" aria-hidden="true"></i>Add Trail
                 </button>
             </div>
-        </div>
+        </header>
 
-        <form method="get" asp-action="Index" id="filterForm">
-            <div class="flex flex-col lg:flex-row gap-4 mb-8 bg-white/5 backdrop-blur-xl p-5 rounded-3xl border border-white/10 shadow-2xl">
-                
+        <form method="get" asp-action="Index" id="filterForm" onsubmit="return false" class="mb-2">
+            <div class="flex flex-col lg:flex-row gap-3 mb-8 bg-white/5 backdrop-blur-xl p-5 rounded-xl border border-white/10">
+
                 <div class="relative grow">
-                    <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                    <input type="text" name="searchString" id="searchInput" value="@ViewData["CurrentFilter"]" placeholder="Search trails by name or location..." 
-                        class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-11 pr-4 py-3 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 focus:outline-none transition-colors placeholder-gray-500">
+                    <label for="searchInput" class="sr-only">Search trails by name or location</label>
+                    <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden="true"></i>
+                    <input type="search" name="searchString" id="searchInput" value="@currentFilter" placeholder="Search trails by name or location..." autocomplete="off"
+                        class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-11 pr-4 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors placeholder-gray-500">
                 </div>
 
-                <div class="flex flex-wrap sm:flex-nowrap gap-3">
-                    <div class="relative inline-block">
-                        <select id="sortOrder" name="sortOrder" class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-orange-500 focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors w-full">
-                            <option value="newest" selected="@(ViewData["CurrentSort"]?.ToString() == "newest")" class="bg-[#0b1329] text-white py-2">Sort by: Newest</option>
-                            <option value="oldest" selected="@(ViewData["CurrentSort"]?.ToString() == "oldest")" class="bg-[#0b1329] text-white py-2">Sort by: Oldest</option>
-                            <option value="name_asc" selected="@(ViewData["CurrentSort"]?.ToString() == "name_asc")" class="bg-[#0b1329] text-white py-2">Name (A-Z)</option>
-                            <option value="name_desc" selected="@(ViewData["CurrentSort"]?.ToString() == "name_desc")" class="bg-[#0b1329] text-white py-2">Name (Z-A)</option>
-                            <option value="distance_asc" selected="@(ViewData["CurrentSort"]?.ToString() == "distance_asc")" class="bg-[#0b1329] text-white py-2">Distance (Low to High)</option>
-                            <option value="distance_desc" selected="@(ViewData["CurrentSort"]?.ToString() == "distance_desc")" class="bg-[#0b1329] text-white py-2">Distance (High to Low)</option>
-                            <option value="elevation_asc" selected="@(ViewData["CurrentSort"]?.ToString() == "elevation_asc")" class="bg-[#0b1329] text-white py-2">Elevation (Low to High)</option>
-                            <option value="elevation_desc" selected="@(ViewData["CurrentSort"]?.ToString() == "elevation_desc")" class="bg-[#0b1329] text-white py-2">Elevation (High to Low)</option>
-                        </select>
-                        <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
-                            <i class="fa-solid fa-chevron-down text-xs"></i>
-                        </div>
+                <div class="relative shrink-0 w-full lg:w-64">
+                    <label for="sortOrder" class="sr-only">Sort trails by</label>
+                    <select id="sortOrder" name="sortOrder" onchange="document.getElementById('filterForm').submit()"
+                            class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors">
+                        <option value="newest" selected="@(currentSort == "newest" ? "selected" : null)" class="bg-surface-card text-white">Sort by: Newest</option>
+                        <option value="oldest" selected="@(currentSort == "oldest" ? "selected" : null)" class="bg-surface-card text-white">Sort by: Oldest</option>
+                        <option value="name_asc" selected="@(currentSort == "name_asc" ? "selected" : null)" class="bg-surface-card text-white">Name (A-Z)</option>
+                        <option value="name_desc" selected="@(currentSort == "name_desc" ? "selected" : null)" class="bg-surface-card text-white">Name (Z-A)</option>
+                        <option value="distance_asc" selected="@(currentSort == "distance_asc" ? "selected" : null)" class="bg-surface-card text-white">Distance (Low to High)</option>
+                        <option value="distance_desc" selected="@(currentSort == "distance_desc" ? "selected" : null)" class="bg-surface-card text-white">Distance (High to Low)</option>
+                        <option value="elevation_asc" selected="@(currentSort == "elevation_asc" ? "selected" : null)" class="bg-surface-card text-white">Elevation (Low to High)</option>
+                        <option value="elevation_desc" selected="@(currentSort == "elevation_desc" ? "selected" : null)" class="bg-surface-card text-white">Elevation (High to Low)</option>
+                    </select>
+                    <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
+                        <i class="fa-solid fa-chevron-down text-xs" aria-hidden="true"></i>
                     </div>
                 </div>
             </div>
         </form>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <p id="resultCount" class="text-xs text-gray-500 mb-4">Showing @totalTrailCount trail@(totalTrailCount == 1 ? "" : "s")</p>
+        <p id="resultCountAnnouncer" class="sr-only" role="status" aria-live="polite"></p>
+
+        <div id="trailCardGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             @if (!Model.Any())
             {
-                <div class="col-span-full text-center py-20 bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl">
-                    <i class="fa-solid fa-mountain text-5xl text-gray-500 mb-4"></i>
-                    <h3 class="text-xl font-bold text-gray-300">No trails found</h3>
-                    <p class="text-gray-500 mt-2">Try searching a different name or clearing the filters.</p>
+                <div class="col-span-full text-center py-20 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl">
+                    <i class="fa-solid fa-mountain text-4xl text-slate-600 mb-4" aria-hidden="true"></i>
+                    <h3 class="text-xl font-bold text-gray-300">No trails yet</h3>
+                    <p class="text-gray-500 mt-2">Add your first trail to start building the catalog.</p>
+                    <button type="button" onclick="openAddTrailModal()" class="inline-block mt-4 text-accent text-sm font-medium hover:brightness-125 focus:outline-none focus:ring-2 focus:ring-accent rounded">
+                        Add Trail <i class="fa-solid fa-plus ml-1" aria-hidden="true"></i>
+                    </button>
                 </div>
             }
             else
             {
                 @foreach (var trail in Model)
                 {
-                    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden shadow-2xl hover:bg-white/10 transition-all duration-300 group flex flex-col">
-                        <div class="relative h-48 overflow-hidden bg-gray-900">
+                    <div class="trail-card group bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden hover:border-white/20 transition-colors flex flex-col"
+                         data-search="@trail.Name @trail.Location">
+                        <div class="relative h-48 overflow-hidden bg-black/30">
                             @if (!string.IsNullOrEmpty(trail.ThumbnailUrl))
                             {
-                                <img src="@trail.ThumbnailUrl" alt="@trail.Name" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
+                                <img src="@trail.ThumbnailUrl" alt="@trail.Name" class="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105 motion-reduce:transform-none motion-reduce:transition-none" onerror="handleTrailImageError(this)">
                             }
                             else
                             {
                                 <div class="w-full h-full flex items-center justify-center">
-                                    <i class="fa-solid fa-image text-4xl text-gray-600"></i>
+                                    <i class="fa-solid fa-image text-4xl text-slate-700" aria-hidden="true"></i>
                                 </div>
                             }
                             <div class="absolute inset-0 bg-linear-to-t from-surface-card to-transparent opacity-90"></div>
                         </div>
-                        
+
                         <div class="p-6 flex flex-col grow relative z-10 -mt-10">
                             <h3 class="text-xl font-bold text-white mb-1">@trail.Name</h3>
-                            <p class="text-gray-400 text-sm mb-5 flex items-center gap-1.5"><i class="fa-solid fa-location-dot text-red-400"></i> @trail.Location</p>
-                            
-                            <div class="grid grid-cols-3 gap-4 mb-6">
+                            <p class="text-gray-400 text-sm mb-5 flex items-center gap-1.5">
+                                <i class="fa-solid fa-location-dot text-accent" aria-hidden="true"></i> @trail.Location
+                            </p>
+
+                            <div class="grid grid-cols-2 gap-4 mb-4">
                                 <div>
                                     <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Distance</p>
-                                    <p class="text-gray-200 text-sm font-medium flex items-center gap-2"><i class="fa-solid fa-route text-gray-400"></i> @trail.DistanceKm km</p>
+                                    <p class="text-gray-200 text-sm font-medium flex items-center gap-2">
+                                        <i class="fa-solid fa-route text-gray-400" aria-hidden="true"></i> @trail.DistanceKm km
+                                    </p>
                                 </div>
                                 <div>
                                     <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Elev. Gain</p>
-                                    <p class="text-gray-200 text-sm font-medium flex items-center gap-2"><i class="fa-solid fa-arrow-trend-up text-gray-400"></i> @trail.ElevationGainMeters m</p>
-                                </div>
-                                <div>
-                                    <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Terrain</p>
-                                    <p class="text-gray-200 text-sm font-medium flex items-center gap-2 truncate" title="@trail.Terrain"><i class="fa-solid fa-tree text-emerald-400"></i> @trail.Terrain</p>
+                                    <p class="text-gray-200 text-sm font-medium flex items-center gap-2">
+                                        <i class="fa-solid fa-arrow-trend-up text-gray-400" aria-hidden="true"></i> @trail.ElevationGainMeters m
+                                    </p>
                                 </div>
                             </div>
 
-                            <div class="flex gap-3 mt-auto">
+                            <div class="mb-6">
+                                <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-1.5">Terrain</p>
+                                <div class="flex flex-wrap gap-1.5">
+                                    @foreach (var t in (trail.Terrain ?? "").Split(',').Select(x => x.Trim()).Where(x => x.Length > 0))
+                                    {
+                                        <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-white/5 border border-white/10 text-gray-300">@t</span>
+                                    }
+                                </div>
+                            </div>
+
+                            <div class="flex gap-2 mt-auto">
                                 <button type="button" onclick="openViewModal(this)"
                                         data-id="@trail.Id"
                                         data-name="@trail.Name"
@@ -134,8 +155,9 @@
                                         data-description="@trail.Description"
                                         data-image="@(string.IsNullOrEmpty(trail.ThumbnailUrl) ? "" : trail.ThumbnailUrl)"
                                         data-date-added="@trail.DateAdded.ToString("MMM dd, yyyy")"
-                                        class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
-                                    <i class="fa-regular fa-eye"></i> View
+                                        aria-label="View details for @trail.Name"
+                                        class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+                                    <i class="fa-regular fa-eye" aria-hidden="true"></i> View
                                 </button>
                                 <button type="button" onclick="openEditModal(this)"
                                         data-id="@trail.Id"
@@ -147,350 +169,356 @@
                                         data-terrain-type="@trail.TrailClass"
                                         data-description="@trail.Description"
                                         data-image="@(string.IsNullOrEmpty(trail.ThumbnailUrl) ? "" : trail.ThumbnailUrl)"
-                                        class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
-                                    <i class="fa-solid fa-pen"></i> Edit
+                                        aria-label="Edit @trail.Name"
+                                        class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-pen" aria-hidden="true"></i> Edit
                                 </button>
-                                <button type="button" onclick="deleteTrail(@trail.Id, '@trail.Name')" 
-                                        class="delete-trail-btn bg-red-500/20 hover:bg-red-500 border border-red-500/30 hover:border-red-500 text-red-400 hover:text-white py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 w-12">
-                                    <i class="fa-solid fa-trash"></i>
+                                <button type="button"
+                                        data-trail-id="@trail.Id"
+                                        data-trail-name="@trail.Name"
+                                        aria-label="Delete @trail.Name"
+                                        class="delete-trail-btn bg-red-500/20 hover:bg-red-500 border border-red-500/30 hover:border-red-500 text-red-400 hover:text-white py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center w-12">
+                                    <i class="fa-solid fa-trash" aria-hidden="true"></i>
                                 </button>
                             </div>
                         </div>
                     </div>
                 }
+
+                <div id="noSearchResults" hidden class="col-span-full text-center py-20 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl">
+                    <i class="fa-solid fa-magnifying-glass text-4xl text-slate-600 mb-4" aria-hidden="true"></i>
+                    <h3 class="text-xl font-bold text-gray-300">No trails found</h3>
+                    <p class="text-gray-500 mt-2">No trails match your search. Try a different name or location.</p>
+                    <button type="button" id="clearSearchBtn" class="inline-block mt-4 text-accent text-sm font-medium hover:brightness-125 focus:outline-none focus:ring-2 focus:ring-accent rounded">
+                        Clear search <i class="fa-solid fa-arrow-right ml-1" aria-hidden="true"></i>
+                    </button>
+                </div>
             }
         </div>
     </div>
 }
 
 @section Modals {
-    <div id="viewTrailModal" class="fixed inset-0 z-100 modal-hidden" style="padding-top: 30px;">
-        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="closeViewModal()"></div>
-        <div class="relative bg-surface-card border border-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col mx-auto my-auto" style="z-index: 10;">
-            
-            <div class="flex justify-between items-center px-6 py-4 border-b border-gray-800 shrink-0">
-                <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-full bg-linear-to-r from-blue-500 to-cyan-500 flex items-center justify-center">
-                        <i class="fa-solid fa-mountain text-white text-sm"></i>
-                    </div>
-                    <h2 class="text-xl font-bold text-white">Trail Details</h2>
-                </div>
-                <button onclick="closeViewModal()" class="text-gray-400 hover:text-white transition-colors">
-                    <i class="fa-solid fa-xmark text-2xl"></i>
+    <div id="viewTrailModal" class="fixed inset-0 z-60 hidden items-center justify-center p-4">
+        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm z-60" onclick="closeViewModal()" aria-hidden="true"></div>
+        <div role="dialog" aria-modal="true" aria-labelledby="viewTrailModalTitle"
+             class="relative bg-surface-card border border-white/10 rounded-xl shadow-2xl w-full max-w-4xl max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col z-60">
+
+            <div class="flex justify-between items-center px-5 py-3 border-b border-white/10 shrink-0">
+                <h2 id="viewTrailModalTitle" class="text-base font-semibold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-mountain text-accent" aria-hidden="true"></i>
+                    Trail Details
+                </h2>
+                <button type="button" onclick="closeViewModal()" aria-label="Close" class="text-gray-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded">
+                    <i class="fa-solid fa-xmark text-xl" aria-hidden="true"></i>
                 </button>
             </div>
 
-            <div class="overflow-y-auto p-6 custom-scrollbar">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="relative">
-                        <img id="viewImage" src="" alt="Trail" class="w-full h-64 object-cover rounded-xl border border-gray-700">
-                        <button onclick="closeViewModalAndOpenEdit()" class="absolute top-3 right-3 bg-gray-900/80 hover:bg-orange-500 text-white p-2.5 rounded-full transition-all shadow-lg">
-                            <i class="fa-solid fa-pen text-sm"></i>
-                        </button>
+            <div class="overflow-y-auto custom-scrollbar flex-1">
+                <div class="relative h-40 sm:h-56 overflow-hidden bg-black/30">
+                    <img id="viewImage" src="" alt="" class="w-full h-full object-cover">
+                    <div id="viewImagePlaceholder" class="hidden w-full h-full items-center justify-center">
+                        <i class="fa-solid fa-image text-4xl text-gray-600" aria-hidden="true"></i>
                     </div>
-                    
-                    <div>
-                        <h3 id="viewName" class="text-2xl font-bold text-white mb-1"></h3>
-                        <p class="text-gray-400 text-sm mb-4 flex items-center gap-2">
-                            <i class="fa-solid fa-location-dot text-red-400"></i>
+                    <div class="absolute inset-0 bg-linear-to-t from-surface-card via-surface-card/40 to-transparent"></div>
+                    <div class="absolute bottom-0 left-0 right-0 p-5">
+                        <h3 id="viewName" class="text-2xl font-bold text-white"></h3>
+                        <p class="text-gray-300 text-sm flex items-center gap-1.5 mt-1">
+                            <i class="fa-solid fa-location-dot text-red-400" aria-hidden="true"></i>
                             <span id="viewLocation"></span>
                         </p>
-                        
-                        <div class="grid grid-cols-2 gap-4 mb-4">
-                            <div class="bg-[#111A2E] rounded-lg p-3 border border-gray-700">
-                                <p class="text-gray-500 text-xs uppercase tracking-wider flex items-center gap-1"><i class="fa-solid fa-route"></i> Distance</p>
-                                <p class="text-white font-semibold text-lg"><span id="viewDistance"></span> <span class="text-xs text-gray-400">km</span></p>
-                            </div>
-                            <div class="bg-[#111A2E] rounded-lg p-3 border border-gray-700">
-                                <p class="text-gray-500 text-xs uppercase tracking-wider flex items-center gap-1"><i class="fa-solid fa-arrow-trend-up"></i> Elevation</p>
-                                <p class="text-white font-semibold text-lg"><span id="viewElevation"></span> <span class="text-xs text-gray-400">m</span></p>
-                            </div>
-                            <div class="bg-[#111A2E] rounded-lg p-3 border border-gray-700">
-                                <p class="text-gray-500 text-xs uppercase tracking-wider flex items-center gap-1"><i class="fa-solid fa-tree"></i> Terrain</p>
-                                <p class="text-white font-semibold text-lg"><span id="viewTerrainType"></span></p>
-                            </div>
-                            <div class="bg-[#111A2E] rounded-lg p-3 border border-gray-700">
-                                <p class="text-gray-500 text-xs uppercase tracking-wider flex items-center gap-1"><i class="fa-regular fa-calendar"></i> Date Added</p>
-                                <p class="text-white font-semibold text-sm"><span id="viewDateAdded"></span></p>
-                            </div>
-                        </div>
-                        
-                        <div class="bg-[#111A2E] rounded-xl p-4 border border-gray-700">
-                            <p class="text-gray-500 text-xs uppercase tracking-wider mb-2 flex items-center gap-1"><i class="fa-solid fa-file-lines"></i> Description</p>
-                            <p id="viewDescriptionText" class="text-gray-300 text-sm leading-relaxed"></p>
-                        </div>
                     </div>
                 </div>
-                
-                <div class="mt-6">
-                    <p class="text-gray-500 text-xs uppercase tracking-wider mb-3 flex items-center gap-2"><i class="fa-solid fa-images"></i> Additional Photos</p>
-                    <div id="viewAdditionalPhotos" class="grid grid-cols-3 gap-3"></div>
+
+                <div class="p-5">
+                    <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm mb-4">
+                        <span class="text-gray-300 flex items-center gap-2">
+                            <i class="fa-solid fa-route text-gray-500" aria-hidden="true"></i>
+                            <span id="viewDistance"></span> km
+                        </span>
+                        <span class="text-gray-300 flex items-center gap-2">
+                            <i class="fa-solid fa-arrow-trend-up text-gray-500" aria-hidden="true"></i>
+                            <span id="viewElevation"></span> m
+                        </span>
+                        <span class="text-gray-300 flex items-center gap-2">
+                            <i class="fa-solid fa-hand text-gray-500" aria-hidden="true"></i>
+                            Class <span id="viewTrailClass"></span>
+                        </span>
+                        <span class="text-gray-500 flex items-center gap-2 text-xs">
+                            <i class="fa-regular fa-calendar" aria-hidden="true"></i>
+                            Added <span id="viewDateAdded"></span>
+                        </span>
+                    </div>
+
+                    <div class="mb-4">
+                        <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-1.5">Terrain</p>
+                        <div id="viewTerrainChips" class="flex flex-wrap gap-1.5"></div>
+                    </div>
+
+                    <p id="viewDescriptionText" class="text-gray-400 text-sm leading-relaxed pb-5 border-b border-white/10"></p>
+
+                    <div class="mt-5">
+                        <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-3">Additional Photos</p>
+                        <div id="viewAdditionalPhotos" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3"></div>
+                    </div>
                 </div>
             </div>
 
-            <div class="px-6 py-4 border-t border-gray-800 shrink-0 flex justify-end gap-3">
-                <button onclick="closeViewModal()" class="px-5 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white bg-gray-800 hover:bg-gray-700 transition-colors">
+            <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10 shrink-0">
+                <button type="button" onclick="closeViewModal()" class="px-5 py-2.5 rounded-full text-sm font-semibold text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-accent">
                     Close
                 </button>
-                <button onclick="closeViewModalAndOpenEdit()" class="px-5 py-2 rounded-lg text-sm font-medium text-white bg-linear-to-r from-orange-500 to-purple-600 hover:opacity-90 transition-all flex items-center gap-2">
-                    <i class="fa-solid fa-pen"></i> Edit Trail
+                <button type="button" onclick="closeViewModalAndOpenEdit()" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold text-white bg-linear-to-r from-orange-500 via-pink-500 to-violet-500 hover:brightness-110 hover:scale-[1.02] transition duration-200 ease-out focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-base">
+                    <i class="fa-solid fa-pen" aria-hidden="true"></i> Edit Trail
                 </button>
             </div>
         </div>
     </div>
 
-    <div id="addTrailModal" class="fixed inset-0 z-100 modal-hidden" style="padding-top: 30px;">
-        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="closeAddTrailModal()"></div>
-        <div class="relative bg-surface-card border border-gray-800 rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col mx-auto my-auto" style="z-index: 10;">
-            
-            <div class="flex justify-between items-center px-8 py-5 border-b border-gray-800 shrink-0">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-linear-to-r from-orange-500 to-purple-500 flex items-center justify-center">
+    <div id="addTrailModal" class="fixed inset-0 z-60 hidden items-center justify-center p-4">
+        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm z-60" onclick="closeAddTrailModal()" aria-hidden="true"></div>
+        <div role="dialog" aria-modal="true" aria-labelledby="addTrailModalTitle"
+             class="relative bg-surface-card border border-white/10 rounded-xl shadow-2xl w-full max-w-5xl max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col z-60">
+
+            <div class="flex items-start justify-between gap-4 px-6 py-4 border-b border-white/10 shrink-0">
+                <div class="flex items-center gap-3 min-w-0">
+                    <span class="w-9 h-9 rounded-full bg-linear-to-r from-orange-500 to-violet-500 flex items-center justify-center shrink-0" aria-hidden="true">
                         <i class="fa-solid fa-plus text-white text-sm"></i>
-                    </div>
-                    <div>
-                        <h3 class="text-xl font-bold text-white">Add Trail</h3>
+                    </span>
+                    <div class="min-w-0">
+                        <h2 id="addTrailModalTitle" class="text-lg font-bold text-white">Add Trail</h2>
                         <p class="text-xs text-gray-400">Create a new trail listing for hikers and organizers.</p>
                     </div>
                 </div>
-                <button type="button" onclick="closeAddTrailModal()" class="text-gray-400 hover:text-white transition-colors">
-                    <i class="fa-solid fa-xmark text-xl"></i>
+                <button type="button" onclick="closeAddTrailModal()" aria-label="Close" class="shrink-0 text-gray-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded">
+                    <i class="fa-solid fa-xmark text-xl" aria-hidden="true"></i>
                 </button>
             </div>
 
             <form id="addTrailForm" asp-controller="Trail" asp-action="AddTrail" method="post" enctype="multipart/form-data" class="flex flex-col flex-1 overflow-hidden">
-                <div class="p-8 overflow-y-auto custom-scrollbar">
-                    <div class="grid grid-cols-1 lg:grid-cols-5 gap-10">
-                        <div class="lg:col-span-3 flex flex-col gap-5">
+                <div class="overflow-y-auto custom-scrollbar flex-1 p-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div class="flex flex-col gap-5">
                             <div>
-                                <label class="block text-sm font-medium text-gray-300 mb-1.5"><i class="fa-solid fa-mountain text-purple-400 mr-1.5"></i> Trail Name</label>
-                                <input name="Name" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-purple-500 focus:outline-none transition-all placeholder-gray-500 text-sm" placeholder="e.g., Mount Pulag" />
-                            </div>
-                            
-                            <div class="grid grid-cols-2 gap-5">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-300 mb-1.5"><i class="fa-solid fa-route text-purple-400 mr-1.5"></i> Trail Distance (km)</label>
-                                    <input name="DistanceKm" type="number" step="0.1" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-purple-500 focus:outline-none transition-all placeholder-gray-500 text-sm" placeholder="e.g., 12" />
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-300 mb-1.5"><i class="fa-solid fa-arrow-trend-up text-purple-400 mr-1.5"></i> Elevation Gain (m)</label>
-                                    <input name="ElevationGainMeters" type="number" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-purple-500 focus:outline-none transition-all placeholder-gray-500 text-sm" placeholder="e.g., 850" />
-                                </div>
+                                <label for="addName" class="block text-sm font-medium text-gray-300 mb-2">Trail Name <span class="text-red-400">*</span></label>
+                                <input id="addName" name="Name" required class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm" placeholder="e.g., Mount Pulag" />
                             </div>
 
-                            <div class="grid grid-cols-3 gap-5">
+                            <div>
+                                <label for="addLocation" class="block text-sm font-medium text-gray-300 mb-2">Location <span class="text-red-400">*</span></label>
+                                <input id="addLocation" name="Location" required class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm" placeholder="e.g., Kabayan, Benguet" />
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-300 mb-1.5"><i class="fa-solid fa-layer-group text-purple-400 mr-1.5"></i> Terrain</label>
-                                    <select name="Terrain" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-purple-500 focus:outline-none appearance-none text-sm cursor-pointer"
-                                            style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;">
-                                        <option value="" disabled selected class="text-gray-500">Select Terrain</option>
-                                        <option value="Grassland" class="bg-surface-card">Grassland</option>
-                                        <option value="Mossy Forest" class="bg-surface-card">Mossy Forest</option>
-                                        <option value="Pine Forest" class="bg-surface-card">Pine Forest</option>
-                                        <option value="River Trek" class="bg-surface-card">River Trek</option>
-                                        <option value="Rocky" class="bg-surface-card">Rocky</option>
-                                        <option value="Rocky / Boulders" class="bg-surface-card">Rocky / Boulders</option>
-                                        <option value="Volcanic" class="bg-surface-card">Volcanic</option>
-                                        <option value="Muddy Trail" class="bg-surface-card">Muddy Trail</option>
-                                        <option value="Mixed Terrain" class="bg-surface-card">Mixed Terrain</option>
-                                    </select>
+                                    <label for="addDistance" class="block text-sm font-medium text-gray-300 mb-2">Distance (km) <span class="text-red-400">*</span></label>
+                                    <input id="addDistance" name="DistanceKm" type="number" step="0.1" min="0" required class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm" placeholder="e.g., 12" />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-300 mb-1.5"><i class="fa-solid fa-hand text-purple-400 mr-1.5"></i> Trail Class</label>
-                                    <select name="TrailClass" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-purple-500 focus:outline-none appearance-none text-sm cursor-pointer"
-                                            style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;">
-                                        <option value="" disabled selected class="text-gray-500">Select Trail Class</option>
-                                        <option value="1" class="bg-surface-card">1 — Walking (flat, clear, often paved or packed earth. No fall risk, no need to use your hands for balance.)</option>
-                                        <option value="2" class="bg-surface-card">2 — Hiking (rugged or rocky trails with some ascent. You may hold onto roots or branches for balance, but it stays safe.)</option>
-                                        <option value="3" class="bg-surface-card">3 — Scrambling (steep sections where you genuinely need hands and feet to climb over boulders or roots. Rope not strictly required, but real care is needed. e.g. Mt. Maculot Rockies, Mt. Pamitinan)</option>
-                                        <option value="4" class="bg-surface-card">4 — Simple Climbing (steeper and more dangerous, with exposure such as cliffs or drop-offs. Ropes are normally fixed for hiker safety, since a fall could be fatal. e.g. Mt. Guiting-Guiting, Mt. Mantalingajan)</option>
-                                    </select>
-                                    <p class="text-xs text-gray-500 mt-1.5">PinoyMountaineer Trail Class. Classes 5–6 (technical rock climbing, aid climbing) are excluded — no organized hiking event runs those for general participants.</p>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-300 mb-1.5"><i class="fa-solid fa-location-dot text-purple-400 mr-1.5"></i> Location</label>
-                                    <input name="Location" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-purple-500 focus:outline-none transition-all placeholder-gray-500 text-sm" placeholder="e.g., Kabayan, Benguet" />
+                                    <label for="addElevation" class="block text-sm font-medium text-gray-300 mb-2">Elevation Gain (m) <span class="text-red-400">*</span></label>
+                                    <input id="addElevation" name="ElevationGainMeters" type="number" min="0" required class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm" placeholder="e.g., 850" />
                                 </div>
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-300 mb-1.5"><i class="fa-solid fa-file-lines text-purple-400 mr-1.5"></i> Trail Description</label>
-                                <textarea name="Description" required rows="4" class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-3 focus:border-purple-500 focus:outline-none transition-all placeholder-gray-500 text-sm resize-none" placeholder="Write a brief overview..."></textarea>
+                                <p id="addTerrainLabel" class="block text-sm font-medium text-gray-300 mb-2">Terrain <span class="text-red-400">*</span></p>
+                                @await Html.PartialAsync("_TerrainChips", "add")
+                                <p class="text-xs text-gray-500 mt-2">Select every terrain type that applies.</p>
+                                <p id="addTerrainError" hidden class="text-xs text-red-400 mt-1.5 flex items-center gap-1.5" role="alert">
+                                    <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+                                    <span>Select at least one terrain type.</span>
+                                </p>
+                            </div>
+
+                            <div>
+                                <label for="addTrailClass" class="block text-sm font-medium text-gray-300 mb-2">Technical Trail Class <span class="text-red-400">*</span></label>
+                                <select id="addTrailClass" name="TrailClass" required data-custom-select data-cs-describedby="addTrailClassDescription" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm appearance-none cursor-pointer"
+                                        style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;">
+                                    <option value="" disabled selected class="text-gray-500">Select Technical Trail Class</option>
+                                    <option value="1" class="bg-surface-card">1 — Walking</option>
+                                    <option value="2" class="bg-surface-card">2 — Hiking</option>
+                                    <option value="3" class="bg-surface-card">3 — Scrambling</option>
+                                    <option value="4" class="bg-surface-card">4 — Simple Climbing</option>
+                                </select>
+                                <p class="text-xs text-gray-500 mt-2">Technical characteristics of the trail used when calculating difficulty for linked events. This is not the event's difficulty rating.</p>
+                                <p id="addTrailClassDescription" class="text-xs text-gray-400 mt-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2" aria-live="polite">Select a class above to see its full description.</p>
+                            </div>
+
+                            <div>
+                                <label for="addDescription" class="block text-sm font-medium text-gray-300 mb-2">Description <span class="text-red-400">*</span></label>
+                                <textarea id="addDescription" name="Description" required rows="6" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm resize-none" placeholder="Write a brief overview..."></textarea>
                                 <p class="text-xs text-gray-500 mt-2">Provide details about the trail, highlights, and what hikers can expect.</p>
                             </div>
                         </div>
 
-                        <div class="lg:col-span-2 flex flex-col gap-6">
-                            <div class="flex flex-col">
-                                <label class="block text-sm font-medium text-gray-300 mb-2"><i class="fa-solid fa-cloud-arrow-up text-purple-400 mr-1.5"></i> Upload Trail Photo <span class="text-red-500">*</span></label>
-                                <div id="thumbnailBox" class="relative bg-[#111A2E] border border-dashed border-gray-600 rounded-xl flex flex-col items-center justify-center text-center hover:bg-slate-800/50 transition-all cursor-pointer group h-44 px-4 py-6">
-                                    <i class="fa-solid fa-cloud-arrow-up text-4xl text-purple-500 mb-3 group-hover:text-purple-400 transition-colors"></i>
-                                    <p class="text-sm text-gray-300 mb-1">Drag & drop image here or <span class="font-semibold text-purple-400">click to browse</span></p>
-                                    <p class="text-xs text-gray-500">JPG, PNG up to 5MB</p>
+                        <div class="flex flex-col gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-1">Cover Photo <span class="text-red-400">*</span></label>
+                                <p class="text-xs text-gray-500 mb-2">The main image shown on trail cards and listings.</p>
+                                <div id="thumbnailBox" class="relative bg-surface-card border border-dashed border-gray-600 rounded-xl flex flex-col items-center justify-center text-center hover:border-accent transition-colors cursor-pointer group h-32 px-4">
+                                    <i class="fa-solid fa-cloud-arrow-up text-2xl text-purple-400 mb-1.5 group-hover:text-purple-300 transition-colors" aria-hidden="true"></i>
+                                    <p class="text-sm text-gray-300">Drag &amp; drop or <span class="font-semibold text-purple-400">click to browse</span></p>
+                                    <p class="text-xs text-gray-500 mt-0.5">JPG or PNG, up to 5MB</p>
                                     <input type="file" id="thumbnailInput" name="ThumbnailImage" accept="image/png, image/jpeg" required class="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" onchange="handleAddThumbnailPreview(this)" />
                                 </div>
-                                <div id="thumbnailPreviewContainer" class="relative hidden h-45 w-full rounded-xl overflow-hidden border border-gray-700 mt-2 group">
-                                    <img id="thumbnailPreviewImage" class="w-full h-full object-cover" alt="Thumbnail Preview" />
-                                    <button type="button" onclick="removeAddThumbnail()" class="absolute top-2 right-2 w-8 h-8 bg-gray-900/80 hover:bg-gray-700 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg z-20">
-                                        <i class="fa-solid fa-xmark"></i>
+                                <div id="thumbnailPreviewContainer" class="relative hidden h-32 w-full rounded-xl overflow-hidden border border-gray-700 mt-2 group">
+                                    <img id="thumbnailPreviewImage" class="w-full h-full object-cover" alt="Cover photo preview" />
+                                    <button type="button" onclick="removeAddThumbnail()" aria-label="Remove cover photo" class="absolute top-2 right-2 w-8 h-8 bg-gray-900/80 hover:bg-gray-700 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity shadow-lg z-20 focus:outline-none focus:ring-2 focus:ring-accent">
+                                        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
                                     </button>
                                 </div>
-                                <p class="text-xs text-gray-500 mt-2">This image will represent your trail on listings and search results.</p>
                             </div>
 
-                            <div class="flex flex-col mt-4">
-                                <label class="block text-sm font-medium text-gray-300 mb-2"><i class="fa-solid fa-image text-purple-400 mr-1.5"></i> Upload Additional Photos</label>
-                                <div class="relative bg-[#111A2E] border border-dashed border-gray-600 rounded-xl flex flex-col items-center justify-center text-center hover:bg-slate-800/50 transition-all cursor-pointer group h-44 px-4 py-6">
-                                    <i class="fa-solid fa-images text-3xl text-purple-500 mb-2 group-hover:text-purple-400 transition-colors"></i>
-                                    <p class="text-sm text-gray-300 mb-1">Drag & drop images here or <span class="font-semibold text-purple-400">click to browse</span></p>
-                                    <p class="text-xs text-gray-500">JPG, PNG up to 5MB each</p>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-1">Additional Photos</label>
+                                <p class="text-xs text-gray-500 mb-2">Optional. Up to 8 more photos to showcase the trail.</p>
+                                <div class="relative bg-surface-card border border-dashed border-gray-600 rounded-xl flex flex-col items-center justify-center text-center hover:border-accent transition-colors cursor-pointer group h-28 px-4">
+                                    <i class="fa-solid fa-images text-xl text-purple-400 mb-1.5 group-hover:text-purple-300 transition-colors" aria-hidden="true"></i>
+                                    <p class="text-sm text-gray-300">Drag &amp; drop or <span class="font-semibold text-purple-400">click to browse</span></p>
+                                    <p class="text-xs text-gray-500 mt-0.5">JPG or PNG, up to 5MB each</p>
                                     <input type="file" id="additionalInput" name="AdditionalImages" accept="image/png, image/jpeg" multiple class="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" onchange="handleAdditionalPhotos(this)" />
                                 </div>
-                                <div id="additionalPhotosGrid" class="grid grid-cols-3 gap-3 mt-4 empty:hidden"></div>
-                                <p class="text-xs text-gray-500 mt-2">Add up to 8 photos to showcase the trail. JPG or PNG, up to 5MB each.</p>
+                                <div id="additionalPhotosGrid" class="grid grid-cols-4 gap-2 mt-3 empty:hidden"></div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="px-8 py-5 border-t border-gray-800 shrink-0 flex justify-end gap-3 bg-surface-card rounded-b-xl">
-                    <button type="button" onclick="closeAddTrailModal()" class="px-7 py-2.5 rounded-full text-sm font-bold text-gray-300 hover:text-white bg-transparent border border-gray-700 hover:bg-gray-800 transition-colors">
+                <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10 shrink-0">
+                    <button type="button" onclick="closeAddTrailModal()" class="px-5 py-2.5 rounded-full text-sm font-semibold text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-accent">
                         Cancel
                     </button>
-                    <button type="submit" class="group inline-flex items-center justify-center gap-2 px-7 py-2.5 text-sm rounded-full bg-linear-to-r from-orange-500 to-purple-600 text-white font-bold shadow-lg hover:opacity-90 transition-all">
-                        <i class="fa-regular fa-floppy-disk"></i>
-                        <span>Save Trail</span>
+                    <button type="submit" id="addSubmitBtn" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold text-white bg-linear-to-r from-orange-500 via-pink-500 to-violet-500 hover:brightness-110 hover:scale-[1.02] transition duration-200 ease-out focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-base disabled:opacity-60 disabled:pointer-events-none">
+                        <i class="fa-regular fa-floppy-disk" aria-hidden="true"></i>
+                        <span id="addSubmitBtnLabel">Save Trail</span>
                     </button>
                 </div>
             </form>
         </div>
     </div>
 
-    <div id="editTrailModal" class="fixed inset-0 z-100 modal-hidden" style="padding-top: 30px;">
-        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="closeEditTrailModal()"></div>
-        <div class="relative bg-surface-card border border-gray-800 rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col mx-auto my-auto" style="z-index: 10;">
-            
-            <div class="flex justify-between items-center px-8 py-5 border-b border-gray-800 shrink-0">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-linear-to-r from-orange-500 to-purple-500 flex items-center justify-center">
+    <div id="editTrailModal" class="fixed inset-0 z-60 hidden items-center justify-center p-4">
+        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm z-60" onclick="closeEditTrailModal()" aria-hidden="true"></div>
+        <div role="dialog" aria-modal="true" aria-labelledby="editTrailModalTitle"
+             class="relative bg-surface-card border border-white/10 rounded-xl shadow-2xl w-full max-w-5xl max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col z-60">
+
+            <div class="flex items-start justify-between gap-4 px-6 py-4 border-b border-white/10 shrink-0">
+                <div class="flex items-center gap-3 min-w-0">
+                    <span class="w-9 h-9 rounded-full bg-linear-to-r from-orange-500 to-violet-500 flex items-center justify-center shrink-0" aria-hidden="true">
                         <i class="fa-solid fa-pen text-white text-sm"></i>
-                    </div>
-                    <div>
-                        <h3 class="text-xl font-bold text-white">Edit Trail</h3>
+                    </span>
+                    <div class="min-w-0">
+                        <h2 id="editTrailModalTitle" class="text-lg font-bold text-white">Edit Trail</h2>
                         <p class="text-xs text-gray-400">Update trail details and manage photos.</p>
                     </div>
                 </div>
-                <button type="button" onclick="closeEditTrailModal()" class="text-gray-400 hover:text-white transition-colors">
-                    <i class="fa-solid fa-xmark text-xl"></i>
+                <button type="button" onclick="closeEditTrailModal()" aria-label="Close" class="shrink-0 text-gray-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded">
+                    <i class="fa-solid fa-xmark text-xl" aria-hidden="true"></i>
                 </button>
             </div>
 
             <form id="editTrailForm" asp-controller="Trail" asp-action="EditTrail" method="post" enctype="multipart/form-data" class="flex flex-col flex-1 overflow-hidden">
                 <input type="hidden" id="editTrailId" name="Id" />
-                <div class="p-8 overflow-y-auto custom-scrollbar">
-                    <div class="grid grid-cols-1 lg:grid-cols-5 gap-10">
-                        <div class="lg:col-span-3 flex flex-col gap-5">
+                <div class="overflow-y-auto custom-scrollbar flex-1 p-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div class="flex flex-col gap-5">
                             <div>
-                                <label class="block text-sm font-medium text-gray-300 mb-1.5"><i class="fa-solid fa-mountain text-purple-400 mr-1.5"></i> Trail Name</label>
-                                <input id="editName" name="Name" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-purple-500 focus:outline-none transition-all placeholder-gray-500 text-sm" placeholder="e.g., Mount Pulag" />
-                            </div>
-                            
-                            <div class="grid grid-cols-2 gap-5">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-300 mb-1.5"><i class="fa-solid fa-route text-purple-400 mr-1.5"></i> Trail Distance (km)</label>
-                                    <input id="editDistance" name="DistanceKm" type="number" step="0.1" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-purple-500 focus:outline-none transition-all placeholder-gray-500 text-sm" placeholder="e.g., 12" />
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-300 mb-1.5"><i class="fa-solid fa-arrow-trend-up text-purple-400 mr-1.5"></i> Elevation Gain (m)</label>
-                                    <input id="editElevation" name="ElevationGainMeters" type="number" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-purple-500 focus:outline-none transition-all placeholder-gray-500 text-sm" placeholder="e.g., 850" />
-                                </div>
+                                <label for="editName" class="block text-sm font-medium text-gray-300 mb-2">Trail Name <span class="text-red-400">*</span></label>
+                                <input id="editName" name="Name" required class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm" placeholder="e.g., Mount Pulag" />
                             </div>
 
-                            <div class="grid grid-cols-3 gap-5">
+                            <div>
+                                <label for="editLocation" class="block text-sm font-medium text-gray-300 mb-2">Location <span class="text-red-400">*</span></label>
+                                <input id="editLocation" name="Location" required class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm" placeholder="e.g., Kabayan, Benguet" />
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-300 mb-1.5"><i class="fa-solid fa-layer-group text-purple-400 mr-1.5"></i> Terrain</label>
-                                    <select id="editTerrain" name="Terrain" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-purple-500 focus:outline-none appearance-none text-sm cursor-pointer"
-                                            style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;">
-                                        <option value="" disabled selected class="text-gray-500">Select Terrain</option>
-                                        <option value="Grassland" class="bg-surface-card">Grassland</option>
-                                        <option value="Mossy Forest" class="bg-surface-card">Mossy Forest</option>
-                                        <option value="Pine Forest" class="bg-surface-card">Pine Forest</option>
-                                        <option value="River Trek" class="bg-surface-card">River Trek</option>
-                                        <option value="Rocky" class="bg-surface-card">Rocky</option>
-                                        <option value="Rocky / Boulders" class="bg-surface-card">Rocky / Boulders</option>
-                                        <option value="Volcanic" class="bg-surface-card">Volcanic</option>
-                                        <option value="Muddy Trail" class="bg-surface-card">Muddy Trail</option>
-                                        <option value="Mixed Terrain" class="bg-surface-card">Mixed Terrain</option>
-                                    </select>
+                                    <label for="editDistance" class="block text-sm font-medium text-gray-300 mb-2">Distance (km) <span class="text-red-400">*</span></label>
+                                    <input id="editDistance" name="DistanceKm" type="number" step="0.1" min="0" required class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm" placeholder="e.g., 12" />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-300 mb-1.5"><i class="fa-solid fa-hand text-purple-400 mr-1.5"></i> Trail Class</label>
-                                    <select id="editTerrainType" name="TrailClass" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-purple-500 focus:outline-none appearance-none text-sm cursor-pointer"
-                                            style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;">
-                                        <option value="" disabled class="text-gray-500">Select Trail Class</option>
-                                        <option value="1" class="bg-surface-card">1 — Walking (flat, clear, often paved or packed earth. No fall risk, no need to use your hands for balance.)</option>
-                                        <option value="2" class="bg-surface-card">2 — Hiking (rugged or rocky trails with some ascent. You may hold onto roots or branches for balance, but it stays safe.)</option>
-                                        <option value="3" class="bg-surface-card">3 — Scrambling (steep sections where you genuinely need hands and feet to climb over boulders or roots. Rope not strictly required, but real care is needed. e.g. Mt. Maculot Rockies, Mt. Pamitinan)</option>
-                                        <option value="4" class="bg-surface-card">4 — Simple Climbing (steeper and more dangerous, with exposure such as cliffs or drop-offs. Ropes are normally fixed for hiker safety, since a fall could be fatal. e.g. Mt. Guiting-Guiting, Mt. Mantalingajan)</option>
-                                    </select>
-                                    <p class="text-xs text-gray-500 mt-1.5">PinoyMountaineer Trail Class. Classes 5–6 (technical rock climbing, aid climbing) are excluded — no organized hiking event runs those for general participants.</p>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-300 mb-1.5"><i class="fa-solid fa-location-dot text-purple-400 mr-1.5"></i> Location</label>
-                                    <input id="editLocation" name="Location" required class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:border-purple-500 focus:outline-none transition-all placeholder-gray-500 text-sm" placeholder="e.g., Kabayan, Benguet" />
+                                    <label for="editElevation" class="block text-sm font-medium text-gray-300 mb-2">Elevation Gain (m) <span class="text-red-400">*</span></label>
+                                    <input id="editElevation" name="ElevationGainMeters" type="number" min="0" required class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm" placeholder="e.g., 850" />
                                 </div>
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-300 mb-1.5"><i class="fa-solid fa-file-lines text-purple-400 mr-1.5"></i> Trail Description</label>
-                                <textarea id="editDescription" name="Description" required rows="4" class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-3 focus:border-purple-500 focus:outline-none transition-all placeholder-gray-500 text-sm resize-none" placeholder="Write a brief overview..."></textarea>
+                                <p id="editTerrainLabel" class="block text-sm font-medium text-gray-300 mb-2">Terrain <span class="text-red-400">*</span></p>
+                                @await Html.PartialAsync("_TerrainChips", "edit")
+                                <p class="text-xs text-gray-500 mt-2">Select every terrain type that applies.</p>
+                                <p id="editTerrainError" hidden class="text-xs text-red-400 mt-1.5 flex items-center gap-1.5" role="alert">
+                                    <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+                                    <span>Select at least one terrain type.</span>
+                                </p>
+                            </div>
+
+                            <div>
+                                <label for="editTrailClass" class="block text-sm font-medium text-gray-300 mb-2">Technical Trail Class <span class="text-red-400">*</span></label>
+                                <select id="editTrailClass" name="TrailClass" required data-custom-select data-cs-describedby="editTrailClassDescription" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm appearance-none cursor-pointer"
+                                        style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;">
+                                    <option value="" disabled class="text-gray-500">Select Technical Trail Class</option>
+                                    <option value="1" class="bg-surface-card">1 — Walking</option>
+                                    <option value="2" class="bg-surface-card">2 — Hiking</option>
+                                    <option value="3" class="bg-surface-card">3 — Scrambling</option>
+                                    <option value="4" class="bg-surface-card">4 — Simple Climbing</option>
+                                </select>
+                                <p class="text-xs text-gray-500 mt-2">Technical characteristics of the trail used when calculating difficulty for linked events. This is not the event's difficulty rating.</p>
+                                <p id="editTrailClassDescription" class="text-xs text-gray-400 mt-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2" aria-live="polite">Select a class above to see its full description.</p>
+                            </div>
+
+                            <div>
+                                <label for="editDescription" class="block text-sm font-medium text-gray-300 mb-2">Description <span class="text-red-400">*</span></label>
+                                <textarea id="editDescription" name="Description" required rows="6" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm resize-none" placeholder="Write a brief overview..."></textarea>
                                 <p class="text-xs text-gray-500 mt-2">Provide details about the trail, highlights, and what hikers can expect.</p>
                             </div>
                         </div>
 
-                        <div class="lg:col-span-2 flex flex-col gap-6">
-                            <div class="flex flex-col">
-                                <label class="block text-sm font-medium text-gray-300 mb-2"><i class="fa-solid fa-cloud-arrow-up text-purple-400 mr-1.5"></i> Upload Trail Photo</label>
-                                <div id="editThumbnailBox" class="relative bg-[#111A2E] border border-dashed border-gray-600 rounded-xl flex flex-col items-center justify-center text-center hover:bg-gray-800 transition-all cursor-pointer group h-45">
-                                    <i class="fa-solid fa-cloud-arrow-up text-4xl text-purple-500 mb-3 group-hover:text-purple-400 transition-colors"></i>
-                                    <p class="text-sm text-gray-300 mb-1">Drag & drop image here or <span class="font-semibold text-purple-400">click to browse</span></p>
-                                    <p class="text-xs text-gray-500">JPG, PNG up to 5MB</p>
+                        <div class="flex flex-col gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-1">Cover Photo</label>
+                                <p class="text-xs text-gray-500 mb-2">Replace to change the image shown on trail cards and listings.</p>
+                                <div id="editThumbnailBox" class="relative bg-surface-card border border-dashed border-gray-600 rounded-xl flex flex-col items-center justify-center text-center hover:border-accent transition-colors cursor-pointer group h-32 px-4">
+                                    <i class="fa-solid fa-cloud-arrow-up text-2xl text-purple-400 mb-1.5 group-hover:text-purple-300 transition-colors" aria-hidden="true"></i>
+                                    <p class="text-sm text-gray-300">Drag &amp; drop or <span class="font-semibold text-purple-400">click to browse</span></p>
+                                    <p class="text-xs text-gray-500 mt-0.5">JPG or PNG, up to 5MB</p>
                                     <input type="file" id="editThumbnailInput" name="ThumbnailImage" accept="image/png, image/jpeg" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" onchange="handleEditThumbnailPreview(this)" />
                                 </div>
-                                <div id="editThumbnailPreviewContainer" class="relative h-45 w-full rounded-xl overflow-hidden border border-gray-700 mt-2 group hidden">
-                                    <img id="editThumbnailPreviewImage" class="w-full h-full object-cover" alt="Thumbnail Preview" />
-                                    <button type="button" onclick="removeEditThumbnail()" class="absolute top-2 right-2 w-8 h-8 bg-gray-900/80 hover:bg-gray-700 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg z-20">
-                                        <i class="fa-solid fa-xmark"></i>
+                                <div id="editThumbnailPreviewContainer" class="relative h-32 w-full rounded-xl overflow-hidden border border-gray-700 mt-2 group hidden">
+                                    <img id="editThumbnailPreviewImage" class="w-full h-full object-cover" alt="Current cover photo" />
+                                    <button type="button" onclick="removeEditThumbnail()" aria-label="Remove selected replacement photo" class="absolute top-2 right-2 w-8 h-8 bg-gray-900/80 hover:bg-gray-700 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity shadow-lg z-20 focus:outline-none focus:ring-2 focus:ring-accent">
+                                        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
                                     </button>
                                 </div>
                             </div>
 
-                            <div class="flex flex-col mt-4">
-                                <label class="block text-sm font-medium text-gray-300 mb-2"><i class="fa-solid fa-image text-purple-400 mr-1.5"></i> Existing Photos</label>
-                                <div id="existingPhotosGrid" class="grid grid-cols-3 gap-3 mb-4"></div>
-                                
-                                <label class="block text-sm font-medium text-gray-300 mb-2 mt-2"><i class="fa-solid fa-plus text-purple-400 mr-1.5"></i> Add New Photos</label>
-                                <div class="relative bg-[#111A2E] border border-dashed border-gray-600 rounded-xl flex flex-col items-center justify-center text-center hover:bg-slate-800/50 transition-all cursor-pointer group h-44 px-4 py-6">
-                                    <i class="fa-solid fa-images text-4xl text-purple-500 mb-3 group-hover:text-purple-400 transition-colors"></i>
-                                    <p class="text-sm text-gray-300 mb-1">
-                                        Drag & drop images here or <span class="font-semibold text-purple-400 hover:underline">click to browse</span>
-                                    </p>
-                                    <p class="text-xs text-gray-500">JPG, PNG up to 5MB each</p>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-1">Existing Photos</label>
+                                <p class="text-xs text-gray-500 mb-2">Hover a photo to remove it.</p>
+                                <div id="existingPhotosGrid" class="grid grid-cols-4 gap-2"></div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-1">Add New Photos</label>
+                                <p class="text-xs text-gray-500 mb-2">Optional. JPG or PNG, up to 5MB each.</p>
+                                <div class="relative bg-surface-card border border-dashed border-gray-600 rounded-xl flex flex-col items-center justify-center text-center hover:border-accent transition-colors cursor-pointer group h-28 px-4">
+                                    <i class="fa-solid fa-images text-xl text-purple-400 mb-1.5 group-hover:text-purple-300 transition-colors" aria-hidden="true"></i>
+                                    <p class="text-sm text-gray-300">Drag &amp; drop or <span class="font-semibold text-purple-400">click to browse</span></p>
                                     <input type="file" id="editAdditionalInput" name="AdditionalImages" accept="image/png, image/jpeg" multiple class="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" onchange="handleEditAdditionalPhotos(this)" />
                                 </div>
-                                <div id="editAdditionalPhotosGrid" class="grid grid-cols-3 gap-3 mt-4 empty:hidden"></div>
+                                <div id="editAdditionalPhotosGrid" class="grid grid-cols-4 gap-2 mt-3 empty:hidden"></div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="px-8 py-5 border-t border-gray-800 shrink-0 flex justify-end gap-3 bg-surface-card rounded-b-xl">
-                    <button type="button" onclick="closeEditTrailModal()" class="px-7 py-2.5 rounded-full text-sm font-bold text-gray-300 hover:text-white bg-transparent border border-gray-700 hover:bg-gray-800 transition-colors">
+                <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10 shrink-0">
+                    <button type="button" onclick="closeEditTrailModal()" class="px-5 py-2.5 rounded-full text-sm font-semibold text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-accent">
                         Cancel
                     </button>
-                    <button type="submit" class="group inline-flex items-center justify-center gap-2 px-7 py-2.5 text-sm rounded-full bg-linear-to-r from-orange-500 to-purple-600 text-white font-bold shadow-lg hover:opacity-90 transition-all">
-                        <i class="fa-regular fa-floppy-disk"></i>
-                        <span>Save Changes</span>
+                    <button type="submit" id="editSubmitBtn" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold text-white bg-linear-to-r from-orange-500 via-pink-500 to-violet-500 hover:brightness-110 hover:scale-[1.02] transition duration-200 ease-out focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-base disabled:opacity-60 disabled:pointer-events-none">
+                        <i class="fa-regular fa-floppy-disk" aria-hidden="true"></i>
+                        <span id="editSubmitBtnLabel">Save Changes</span>
                     </button>
                 </div>
             </form>
@@ -503,31 +531,23 @@
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
         
-        .modal-hidden {
-            display: none !important;
-        }
-        
-        .modal-visible {
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-        }
+        /* Modal visibility now uses Tailwind's own hidden/flex toggle (DESIGN.md's
+           documented modal pattern), not a bespoke .modal-hidden/.modal-visible
+           pair with hardcoded padding-top hacks to force the panel on screen -
+           the flex centering plus each panel's own max-h-[calc(100vh-2rem)] is
+           enough on its own. */
 
-        #addTrailModal.modal-visible,
-        #editTrailModal.modal-visible,
-        #viewTrailModal.modal-visible {
-            padding: 1rem;
-            padding-top: 80px;
-        }
-        
-        .modal-visible .relative {
-            margin: auto;
-            max-height: 85vh;
-        }
-        
         @@keyframes fadeOut {
             from { opacity: 1; transform: scale(1); }
             to { opacity: 0; transform: scale(0.95); }
+        }
+
+        /* The card grid uses Tailwind's .flex utility (display: flex), which has the
+           same specificity as the browser's default [hidden] rule and would otherwise
+           win by source order. !important guarantees a hidden card actually disappears
+           instead of silently staying flex-displayed. */
+        .trail-card[hidden] {
+            display: none !important;
         }
     </style>
 
@@ -539,8 +559,434 @@
             if (errorMsg) errorMsg.remove();
         }, 3000);
 
+        // Single reusable implementation of dialog open/close mechanics for all
+        // three modals on this page - focus trapping, focus restoration, Escape,
+        // background inert + scroll lock - so each modal's own open/close function
+        // only has to handle what's actually specific to it (populating fields,
+        // resetting a form). Only one of the three modals is ever open at a time in
+        // this page's flow (Trail Details closes itself before Edit opens), so this
+        // deliberately doesn't track a stack of concurrently-open modals.
+        const TrailModal = (function () {
+            let activeModal = null;
+            let lastFocusedElement = null;
+            let inertedElements = [];
+            let bodyOverflowBeforeModal = null;
+
+            function getFocusableElements(container) {
+                return Array.from(container.querySelectorAll(
+                    'a[href], button:not([disabled]), textarea:not([disabled]), ' +
+                    'input:not([disabled]):not([type="hidden"]), select:not([disabled]), ' +
+                    '[tabindex]:not([tabindex="-1"])'
+                )).filter(function (el) { return el.offsetParent !== null; });
+            }
+
+            // Walks upward from the modal root rather than assuming it's a direct
+            // child of <body> - at each ancestor level it inerts only that
+            // element's siblings, never the modal or any of its own ancestors, and
+            // stops once it reaches body. Skips (and never tracks) anything that
+            // was already inert for some other reason, so close only ever undoes
+            // what this function itself added.
+            function makeBackgroundInert(modalRoot) {
+                inertedElements = [];
+                let current = modalRoot;
+
+                while (current && current !== document.body) {
+                    const parent = current.parentElement;
+                    if (!parent) break;
+
+                    Array.from(parent.children).forEach(function (sibling) {
+                        if (sibling === current || sibling.hasAttribute('inert')) return;
+                        sibling.setAttribute('inert', '');
+                        inertedElements.push(sibling);
+                    });
+
+                    current = parent;
+                }
+            }
+
+            function restoreBackgroundInert() {
+                inertedElements.forEach(function (element) {
+                    element.removeAttribute('inert');
+                });
+                inertedElements = [];
+            }
+
+            function handleKeydown(event) {
+                if (!activeModal) return;
+
+                if (event.key === 'Escape') {
+                    closeModal(activeModal.id);
+                    return;
+                }
+
+                if (event.key === 'Tab') {
+                    const focusable = getFocusableElements(activeModal);
+                    if (focusable.length === 0) {
+                        event.preventDefault();
+                        return;
+                    }
+                    const first = focusable[0];
+                    const last = focusable[focusable.length - 1];
+                    if (event.shiftKey && document.activeElement === first) {
+                        event.preventDefault();
+                        last.focus();
+                    } else if (!event.shiftKey && document.activeElement === last) {
+                        event.preventDefault();
+                        first.focus();
+                    }
+                }
+            }
+
+            function openModal(id) {
+                const modal = document.getElementById(id);
+                if (!modal) return;
+
+                lastFocusedElement = document.activeElement;
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                activeModal = modal;
+                makeBackgroundInert(modal);
+                bodyOverflowBeforeModal = document.body.style.overflow;
+                document.body.style.overflow = 'hidden';
+                document.addEventListener('keydown', handleKeydown);
+
+                const focusable = getFocusableElements(modal);
+                const target = focusable[0] || modal;
+                if (target && typeof target.focus === 'function') {
+                    target.focus();
+                }
+            }
+
+            function closeModal(id) {
+                const modal = document.getElementById(id);
+                if (!modal) return;
+
+                // Any open custom-select dropdown belonging to this modal must
+                // close before the modal itself does, so it can't be left
+                // floating (position: fixed, so it isn't hidden just by an
+                // ancestor's overflow) once its trigger is no longer visible.
+                if (window.CustomSelect) window.CustomSelect.closeAll();
+
+                if (activeModal !== modal) {
+                    // Not the active modal - just hide it. None of the tracked
+                    // teardown (focus restore, inert, scroll lock, keydown
+                    // listener) belongs to this modal right now, so leave it alone.
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                    return;
+                }
+
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                activeModal = null;
+                restoreBackgroundInert();
+                document.body.style.overflow = bodyOverflowBeforeModal || '';
+                bodyOverflowBeforeModal = null;
+                document.removeEventListener('keydown', handleKeydown);
+
+                if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+                    lastFocusedElement.focus();
+                }
+                lastFocusedElement = null;
+            }
+
+            // Switches the active modal (Trail Details -> Edit) without running
+            // the intermediate close/open teardown: lastFocusedElement, the body
+            // scroll lock, bodyOverflowBeforeModal, and the keydown listener all
+            // stay exactly as they are for the whole transition, so the eventual
+            // close still restores focus to whichever control opened the *first*
+            // modal in the chain - not to the now-hidden modal that started it,
+            // and not even briefly to the background trigger. No timeout is
+            // needed since there's no close/open animation to wait out.
+            //
+            // Background inert state is fully recomputed rather than patched:
+            // restoreBackgroundInert() undoes only what was tracked for fromModal
+            // (never anything pre-existing), then makeBackgroundInert(toModal)
+            // walks toModal's own ancestor chain from scratch. Patching just
+            // toModal's own inert attribute (the previous implementation) only
+            // worked because both modals happen to be direct siblings under
+            // <body> today - if either were ever nested under its own wrapper,
+            // an inert ancestor of toModal would survive the transition and
+            // leave the "active" modal non-interactive.
+            function replaceModal(fromId, toId) {
+                const fromModal = document.getElementById(fromId);
+                const toModal = document.getElementById(toId);
+                if (!fromModal || !toModal || activeModal !== fromModal) return;
+
+                if (window.CustomSelect) window.CustomSelect.closeAll();
+
+                fromModal.classList.add('hidden');
+                fromModal.classList.remove('flex');
+
+                restoreBackgroundInert();
+
+                toModal.classList.remove('hidden');
+                toModal.classList.add('flex');
+                activeModal = toModal;
+
+                makeBackgroundInert(toModal);
+
+                const focusable = getFocusableElements(toModal);
+                const target = focusable[0] || toModal;
+                if (target && typeof target.focus === 'function') {
+                    target.focus();
+                }
+            }
+
+            return { open: openModal, close: closeModal, replace: replaceModal };
+        })();
+
+        // Realtime, client-side trail search. Every trail for the current Sort By
+        // order is already in the DOM (the controller no longer filters), so this
+        // only ever hides/shows what's already rendered - it never reorders cards
+        // and never touches the server.
+        (function initTrailSearch() {
+            const searchInput = document.getElementById('searchInput');
+            const cardGrid = document.getElementById('trailCardGrid');
+            const resultCountEl = document.getElementById('resultCount');
+            const announcerEl = document.getElementById('resultCountAnnouncer');
+            const noMatchEl = document.getElementById('noSearchResults');
+            const clearSearchBtn = document.getElementById('clearSearchBtn');
+            if (!searchInput || !cardGrid) return;
+
+            const totalTrailCount = @totalTrailCount;
+            let debounceTimer = null;
+
+            function getTrailCards() {
+                return Array.from(cardGrid.querySelectorAll('.trail-card'));
+            }
+
+            function buildResultText(term, visibleCount) {
+                if (term) {
+                    return 'Showing ' + visibleCount + ' of ' + totalTrailCount +
+                        ' trail' + (totalTrailCount === 1 ? '' : 's') + ' for “' + term + '”';
+                }
+                return 'Showing ' + totalTrailCount + ' trail' + (totalTrailCount === 1 ? '' : 's');
+            }
+
+            // Runs on every keystroke - hides/shows cards and updates the visible
+            // count text immediately. The URL and the screen-reader announcement are
+            // handled separately (debounced) by the caller so this stays cheap.
+            function applySearchFilter() {
+                const rawTerm = searchInput.value;
+                const term = rawTerm.trim();
+                const normalizedTerm = term.toLowerCase();
+                const cards = getTrailCards();
+                let visibleCount = 0;
+
+                cards.forEach(function (card) {
+                    const haystack = (card.getAttribute('data-search') || '').toLowerCase();
+                    const matches = !normalizedTerm || haystack.includes(normalizedTerm);
+                    card.hidden = !matches;
+                    if (matches) visibleCount++;
+                });
+
+                const text = buildResultText(term, visibleCount);
+                if (resultCountEl) resultCountEl.textContent = text;
+                if (noMatchEl) noMatchEl.hidden = !(cards.length > 0 && visibleCount === 0);
+
+                return { term: term, text: text };
+            }
+
+            function updateUrlSearchParam(term) {
+                const url = new URL(window.location.href);
+                if (term) {
+                    url.searchParams.set('searchString', term);
+                } else {
+                    url.searchParams.delete('searchString');
+                }
+                history.replaceState(history.state, '', url.pathname + url.search + url.hash);
+            }
+
+            function handleSearchInput() {
+                const result = applySearchFilter();
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(function () {
+                    updateUrlSearchParam(result.term);
+                    if (announcerEl) announcerEl.textContent = result.text;
+                }, 400);
+            }
+
+            function syncSearchFromUrl() {
+                const url = new URL(window.location.href);
+                searchInput.value = url.searchParams.get('searchString') || '';
+                const result = applySearchFilter();
+                if (announcerEl) announcerEl.textContent = result.text;
+            }
+
+            searchInput.addEventListener('input', handleSearchInput);
+            window.addEventListener('popstate', syncSearchFromUrl);
+
+            if (clearSearchBtn) {
+                clearSearchBtn.addEventListener('click', function () {
+                    searchInput.value = '';
+                    clearTimeout(debounceTimer);
+                    const result = applySearchFilter();
+                    updateUrlSearchParam('');
+                    if (announcerEl) announcerEl.textContent = result.text;
+                    searchInput.focus();
+                });
+            }
+
+            // Restores the filtered view immediately on load (including after a Sort
+            // By navigation that carried the search text along) and sets the initial
+            // announcer text without waiting for the debounce.
+            const initialResult = applySearchFilter();
+            if (announcerEl) announcerEl.textContent = initialResult.text;
+        })();
+
         let currentEditTrailId = null;
         let currentEditTerrainType = null;
+        let currentTrailImage = null;
+        let currentTrailTerrain = null;
+
+        // Card thumbnails render once and never reopen, so replacing the failed <img>
+        // outright is fine. Reused across every broken/missing "no photo" case in this
+        // page - no external placeholder service, per the project's asset policy.
+        function handleTrailImageError(img) {
+            img.onerror = null;
+            // Same markup as the server-rendered "no ThumbnailUrl" fallback below,
+            // so a broken image URL and a missing one look identical - no separate
+            // background/icon treatment for what is the same user-visible state.
+            const fallback = document.createElement('div');
+            fallback.className = 'w-full h-full flex items-center justify-center';
+            const icon = document.createElement('i');
+            icon.className = 'fa-solid fa-image text-4xl text-slate-700';
+            icon.setAttribute('aria-hidden', 'true');
+            fallback.appendChild(icon);
+            img.replaceWith(fallback);
+        }
+
+        // Same idea for the small photo-grid thumbnails inside the modals - those grids
+        // are rebuilt from scratch every time a modal opens, so replacing the <img> is
+        // safe there too.
+        function handleThumbGridImageError(img) {
+            img.onerror = null;
+            const fallback = document.createElement('div');
+            fallback.className = 'w-full h-full flex items-center justify-center bg-gray-900';
+            fallback.setAttribute('role', 'img');
+            fallback.setAttribute('aria-label', 'Photo unavailable');
+            fallback.innerHTML = '<i class="fa-solid fa-image text-lg text-gray-600" aria-hidden="true"></i>';
+            img.replaceWith(fallback);
+        }
+
+        // The view modal's hero image IS reused across opens (the modal markup stays in
+        // the DOM), so it toggles a sibling placeholder rather than replacing the <img>
+        // node - replacing it would leave #viewImage missing on the next open.
+        function setViewHeroImage(url, altText) {
+            const img = document.getElementById('viewImage');
+            const placeholder = document.getElementById('viewImagePlaceholder');
+            img.onerror = null;
+
+            if (url) {
+                img.src = url;
+                img.alt = altText;
+                img.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+                placeholder.classList.remove('flex');
+                img.onerror = function () {
+                    img.classList.add('hidden');
+                    placeholder.classList.remove('hidden');
+                    placeholder.classList.add('flex');
+                };
+            } else {
+                img.removeAttribute('src');
+                img.alt = '';
+                img.classList.add('hidden');
+                placeholder.classList.remove('hidden');
+                placeholder.classList.add('flex');
+            }
+        }
+
+        // Mirrors DifficultyCalculator.TrailClassLabel() in C# - this modal is
+        // populated from data-* attributes without a server round trip, so it
+        // can't call that method directly. Keep these two mappings in sync.
+        const TRAIL_CLASS_LABELS = { '1': 'Walking', '2': 'Hiking', '3': 'Scrambling', '4': 'Simple Climbing' };
+        function trailClassLabel(value) {
+            const label = TRAIL_CLASS_LABELS[value];
+            return label ? (value + ' — ' + label) : 'N/A';
+        }
+
+        // Single authoritative source for the Technical Trail Class
+        // description panel - shared by Add and Edit so neither drifts into a
+        // second, contradictory copy of the wording. The native <option> text
+        // is now the short "N — Label" form (see addTrailClass/editTrailClass
+        // markup); every technical detail the four long option strings used
+        // to carry inline still exists here, just moved into the panel shown
+        // below the dropdown instead of the menu itself.
+        const TRAIL_CLASS_DESCRIPTIONS = {
+            '1': 'Walking — flat, clear, often paved or packed earth. No fall risk, no need to use your hands for balance.',
+            '2': 'Hiking — rugged or rocky trails with some ascent. You may hold onto roots or branches for balance, but it stays safe.',
+            '3': 'Scrambling — steep sections where you genuinely need hands and feet to climb over boulders or roots. Rope not strictly required, but real care is needed. e.g. Mt. Maculot Rockies, Mt. Pamitinan.',
+            '4': 'Simple Climbing — steeper and more dangerous, with exposure such as cliffs or drop-offs. Ropes are normally fixed for hiker safety, since a fall could be fatal. e.g. Mt. Guiting-Guiting, Mt. Mantalingajan.'
+        };
+        const TRAIL_CLASS_DESCRIPTION_PLACEHOLDER = 'Select a class above to see its full description.';
+
+        function updateTrailClassDescription(panelId, value) {
+            const panel = document.getElementById(panelId);
+            if (!panel) return;
+            panel.textContent = TRAIL_CLASS_DESCRIPTIONS[value] || TRAIL_CLASS_DESCRIPTION_PLACEHOLDER;
+        }
+
+        document.getElementById('addTrailClass')?.addEventListener('change', function () {
+            updateTrailClassDescription('addTrailClassDescription', this.value);
+        });
+        document.getElementById('editTrailClass')?.addEventListener('change', function () {
+            updateTrailClassDescription('editTrailClassDescription', this.value);
+        });
+
+        // Same parsing convention used everywhere else on this page (the card,
+        // Participant/Trails.cshtml): split on comma, trim, drop empty pieces.
+        // Each chip is built as a real element with textContent - never innerHTML -
+        // since terrain text is organizer-entered and must never be parsed as markup.
+        function renderTerrainChips(container, terrainString) {
+            container.innerHTML = '';
+            (terrainString || '').split(',')
+                .map(function (t) { return t.trim(); })
+                .filter(function (t) { return t.length > 0; })
+                .forEach(function (value) {
+                    const chip = document.createElement('span');
+                    chip.className = 'px-2.5 py-1 rounded-full text-xs font-medium bg-white/5 border border-white/10 text-gray-300';
+                    chip.textContent = value;
+                    container.appendChild(chip);
+                });
+        }
+
+        // Builds one photo-grid thumbnail safely. The photo URL is assigned as a
+        // real property (img.src = url), never concatenated into an HTML string -
+        // the filename portion of a stored photo URL is organizer-controlled (it
+        // comes from the uploaded file's own name), so building markup by string
+        // interpolation around it would let a crafted filename break out of the
+        // src attribute.
+        function buildPhotoThumb(url, deletePhotoId) {
+            const wrapper = document.createElement('div');
+            wrapper.className = deletePhotoId
+                ? 'relative aspect-square rounded-lg overflow-hidden border border-gray-600 group'
+                : 'aspect-square rounded-lg overflow-hidden border border-gray-700';
+
+            const img = document.createElement('img');
+            img.src = url;
+            img.alt = '';
+            img.className = 'w-full h-full object-cover';
+            img.addEventListener('error', function () { handleThumbGridImageError(img); });
+            wrapper.appendChild(img);
+
+            if (deletePhotoId) {
+                const overlay = document.createElement('div');
+                overlay.className = 'absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity';
+                wrapper.appendChild(overlay);
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.type = 'button';
+                deleteBtn.className = 'delete-photo-btn absolute top-1 right-1 w-6 h-6 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity z-20 focus:outline-none focus:ring-2 focus:ring-white';
+                deleteBtn.setAttribute('data-photo-id', String(deletePhotoId));
+                deleteBtn.setAttribute('aria-label', 'Remove photo');
+                deleteBtn.innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
+                wrapper.appendChild(deleteBtn);
+            }
+
+            return wrapper;
+        }
 
         function openViewModal(button) {
             currentEditTrailId = button.getAttribute('data-id');
@@ -559,76 +1005,62 @@
             document.getElementById('viewLocation').textContent = location;
             document.getElementById('viewDistance').textContent = distance;
             document.getElementById('viewElevation').textContent = elevation;
-            document.getElementById('viewTerrainType').textContent = terrain;
+            document.getElementById('viewTrailClass').textContent = trailClassLabel(currentEditTerrainType);
             document.getElementById('viewDescriptionText').textContent = description || 'No description provided.';
             document.getElementById('viewDateAdded').textContent = dateAdded;
+            renderTerrainChips(document.getElementById('viewTerrainChips'), terrain);
 
-            const heroImg = document.getElementById('viewImage');
-            const fallbackImg = 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1000&q=80';
-            heroImg.src = image ? image : fallbackImg;
+            currentTrailImage = image;
+            currentTrailTerrain = terrain;
+            setViewHeroImage(image, name ? name + ' trail photo' : '');
 
-            const modal = document.getElementById('viewTrailModal');
             const additionalContainer = document.getElementById('viewAdditionalPhotos');
-            additionalContainer.innerHTML = '<div class="col-span-3 text-center text-gray-500 text-sm py-4">Loading photos...</div>';
-            
-            modal.classList.remove('modal-hidden');
-            modal.classList.add('modal-visible');
-            document.body.style.overflow = 'hidden';
+            additionalContainer.innerHTML = '<div class="col-span-full text-center text-gray-500 text-sm py-4">Loading photos...</div>';
+
+            TrailModal.open('viewTrailModal');
 
             fetch(`/Trail/GetTrailPhotos?trailId=${currentEditTrailId}`)
                 .then(response => response.json())
                 .then(data => {
                     additionalContainer.innerHTML = '';
-                    
+
                     if (data && data.length > 0) {
                         data.forEach(photo => {
-                            const imgDiv = document.createElement('div');
-                            imgDiv.className = 'aspect-square rounded-lg overflow-hidden border border-gray-700';
-                            imgDiv.innerHTML = `<img src="${photo.url}" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/400x400?text=Error'">`;
-                            additionalContainer.appendChild(imgDiv);
+                            additionalContainer.appendChild(buildPhotoThumb(photo.url, null));
                         });
                     } else {
-                        additionalContainer.innerHTML = '<div class="col-span-3 text-center text-gray-500 text-sm py-4">No additional photos</div>';
+                        additionalContainer.innerHTML = '<div class="col-span-full text-center text-gray-500 text-sm py-4">No additional photos</div>';
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    additionalContainer.innerHTML = '<div class="col-span-3 text-center text-red-500 text-sm py-4">Error loading photos</div>';
+                    additionalContainer.innerHTML = '<div class="col-span-full text-center text-red-500 text-sm py-4">Error loading photos</div>';
                 });
         }
 
         function closeViewModal() {
-            const modal = document.getElementById('viewTrailModal');
-            modal.classList.remove('modal-visible');
-            modal.classList.add('modal-hidden');
-            document.body.style.overflow = 'auto';
+            TrailModal.close('viewTrailModal');
         }
 
+        // Transitions Trail Details straight into Edit via TrailModal.replace -
+        // no setTimeout: there's no close/open animation to wait out, and View is
+        // still fully populated at this point, so every value below is read
+        // synchronously before anything is torn down.
         function closeViewModalAndOpenEdit() {
-            closeViewModal();
-            
-            setTimeout(() => {
-                if (currentEditTrailId) {
-                    const fakeButton = document.createElement('button');
-                    fakeButton.setAttribute('data-id', currentEditTrailId);
-                    fakeButton.setAttribute('data-name', document.getElementById('viewName').textContent);
-                    fakeButton.setAttribute('data-location', document.getElementById('viewLocation').textContent);
-                    fakeButton.setAttribute('data-distance', document.getElementById('viewDistance').textContent);
-                    fakeButton.setAttribute('data-elevation', document.getElementById('viewElevation').textContent);
-                    fakeButton.setAttribute('data-terrain', document.getElementById('viewTerrainType').textContent);
-                    fakeButton.setAttribute('data-terrain-type', currentEditTerrainType);
-                    fakeButton.setAttribute('data-description', document.getElementById('viewDescriptionText').textContent);
-                    
-                    const imageSrc = document.getElementById('viewImage').src;
-                    if (imageSrc && !imageSrc.includes('unsplash')) {
-                        fakeButton.setAttribute('data-image', imageSrc);
-                    } else {
-                        fakeButton.setAttribute('data-image', '');
-                    }
-                    
-                    openEditModal(fakeButton);
-                }
-            }, 300);
+            if (!currentEditTrailId) return;
+
+            const fakeButton = document.createElement('button');
+            fakeButton.setAttribute('data-id', currentEditTrailId);
+            fakeButton.setAttribute('data-name', document.getElementById('viewName').textContent);
+            fakeButton.setAttribute('data-location', document.getElementById('viewLocation').textContent);
+            fakeButton.setAttribute('data-distance', document.getElementById('viewDistance').textContent);
+            fakeButton.setAttribute('data-elevation', document.getElementById('viewElevation').textContent);
+            fakeButton.setAttribute('data-terrain', currentTrailTerrain || '');
+            fakeButton.setAttribute('data-terrain-type', currentEditTerrainType);
+            fakeButton.setAttribute('data-description', document.getElementById('viewDescriptionText').textContent);
+            fakeButton.setAttribute('data-image', currentTrailImage || '');
+
+            openEditModal(fakeButton, 'viewTrailModal');
         }
 
         function handleAddThumbnailPreview(input) {
@@ -683,8 +1115,8 @@
                     div.innerHTML = `
                         <img src="${e.target.result}" class="w-full h-full object-cover" />
                         <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                        <button type="button" onclick="removeAdditionalPhoto(${index})" class="absolute top-1 right-1 w-6 h-6 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                            <i class="fa-solid fa-xmark"></i>
+                        <button type="button" onclick="removeAdditionalPhoto(${index})" aria-label="Remove photo ${index + 1}" class="absolute top-2 right-2 w-8 h-8 bg-gray-900/80 hover:bg-gray-700 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity shadow-lg z-20 focus:outline-none focus:ring-2 focus:ring-accent">
+                            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
                         </button>
                     `;
                     grid.appendChild(div);
@@ -694,10 +1126,22 @@
             input.files = dataTransfer.files;
         }
 
+        // Unchecks every checkbox in a terrain chip group and removes any chip
+        // injected for a legacy value on a previous Edit open - shared by Add's
+        // reset-on-close and Edit's populate/reset, so both stay in sync.
+        function resetTerrainChips(idPrefix) {
+            const container = document.getElementById(idPrefix + 'TerrainChips');
+            if (!container) return;
+            container.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
+                cb.checked = false;
+            });
+            container.querySelectorAll('[data-injected-terrain="true"]').forEach(function (chip) {
+                chip.remove();
+            });
+        }
+
         function openAddTrailModal() {
-            const modal = document.getElementById('addTrailModal');
-            modal.classList.remove('modal-hidden');
-            modal.classList.add('modal-visible');
+            TrailModal.open('addTrailModal');
         }
 
         (function openRequestedAddTrailModal() {
@@ -710,16 +1154,79 @@
         })();
 
         function closeAddTrailModal() {
-            const modal = document.getElementById('addTrailModal');
-            modal.classList.remove('modal-visible');
-            modal.classList.add('modal-hidden');
+            TrailModal.close('addTrailModal');
             document.getElementById('addTrailForm').reset();
+            resetTerrainChips('add');
+            resetTerrainValidation('add');
+            resetSubmitButton('addSubmitBtn', 'addSubmitBtnLabel', 'Save Trail');
+            // form.reset() fires a native 'reset' event, which custom-select.js
+            // listens for on its own to resync the trigger label - only the
+            // Trail-Class-specific description panel needs resetting here.
+            updateTrailClassDescription('addTrailClassDescription', '');
             removeAddThumbnail();
             additionalFilesArray = [];
             updateAdditionalUIAndInput();
         }
 
-        async function openEditModal(button) {
+        // Checks every chip whose value matches a value from the trail's stored
+        // Terrain string, and injects an extra pre-checked chip for any stored
+        // value that isn't one of the checkbox options - mirroring the same
+        // preservation the old single-select injected an <option> for, so opening
+        // Edit and saving again (without touching Terrain) doesn't silently drop
+        // a legacy value. Matching is case-insensitive but the injected chip's
+        // label and submitted value keep the original stored casing.
+        function populateTerrainChips(idPrefix, terrainString) {
+            resetTerrainChips(idPrefix);
+            const container = document.getElementById(idPrefix + 'TerrainChips');
+            if (!container) return;
+
+            const values = (terrainString || '').split(',')
+                .map(function (t) { return t.trim(); })
+                .filter(function (t) { return t.length > 0; });
+            const checkboxes = Array.from(container.querySelectorAll('input[type="checkbox"]'));
+
+            values.forEach(function (value) {
+                const match = checkboxes.find(function (cb) {
+                    return cb.value.toLowerCase() === value.toLowerCase();
+                });
+                if (match) {
+                    match.checked = true;
+                    return;
+                }
+
+                const inputId = idPrefix + 'Terrain-legacy-' + Math.random().toString(36).slice(2);
+                const label = document.createElement('label');
+                label.setAttribute('for', inputId);
+                label.setAttribute('data-injected-terrain', 'true');
+                label.title = value + ' (not in the standard list - existing stored value)';
+                label.className = 'group relative inline-flex items-center gap-1.5 cursor-pointer select-none px-3 py-1.5 rounded-full text-xs font-medium bg-surface-card border border-gray-700 text-gray-300 has-checked:bg-accent/15 has-checked:border-accent has-checked:text-white hover:border-gray-500 transition-colors focus-within:ring-2 focus-within:ring-accent';
+
+                const input = document.createElement('input');
+                input.type = 'checkbox';
+                input.id = inputId;
+                input.name = 'TerrainValues';
+                input.value = value;
+                input.checked = true;
+                input.className = 'sr-only';
+
+                const icon = document.createElement('i');
+                icon.className = 'fa-solid fa-check text-[10px] hidden group-has-checked:inline-block';
+                icon.setAttribute('aria-hidden', 'true');
+
+                const text = document.createElement('span');
+                text.textContent = value;
+
+                label.appendChild(input);
+                label.appendChild(icon);
+                label.appendChild(text);
+                container.appendChild(label);
+            });
+        }
+
+        // replaceModalId is set when this is a Trail Details -> Edit transition
+        // (see closeViewModalAndOpenEdit) so TrailModal.replace can be used
+        // instead of open; omitted when Edit is opened directly from a card.
+        async function openEditModal(button, replaceModalId) {
             const id = button.getAttribute('data-id');
             const name = button.getAttribute('data-name');
             const location = button.getAttribute('data-location');
@@ -736,38 +1243,18 @@
             document.getElementById('editDistance').value = distance;
             document.getElementById('editElevation').value = elevation;
 
-            const terrainSelect = document.getElementById('editTerrain');
-            // Clear any option injected for a mismatched value on a previous open,
-            // so it doesn't linger in the list or accidentally match this trail.
-            const previouslyInjected = terrainSelect.querySelector('option[data-injected="true"]');
-            if (previouslyInjected) previouslyInjected.remove();
+            // Clear any leftover invalid state from a previous Edit session
+            // before applying this trail's actual saved selections.
+            resetTerrainValidation('edit');
+            resetSubmitButton('editSubmitBtn', 'editSubmitBtnLabel', 'Save Changes');
+            populateTerrainChips('edit', terrain);
 
-            let terrainMatched = false;
-            for (let i = 0; i < terrainSelect.options.length; i++) {
-                if (terrainSelect.options[i].value === terrain || terrainSelect.options[i].text === terrain) {
-                    terrainSelect.selectedIndex = i;
-                    terrainMatched = true;
-                    break;
-                }
-            }
-            if (!terrainMatched && terrain) {
-                // The stored value doesn't match any option (e.g. old free-text data).
-                // Show it as-is instead of silently falling through to whatever option
-                // the browser picks - that used to silently overwrite it with the
-                // wrong terrain on the next unrelated save.
-                const injectedOption = document.createElement('option');
-                injectedOption.value = terrain;
-                injectedOption.textContent = terrain + ' (not in list - stored value)';
-                injectedOption.dataset.injected = 'true';
-                injectedOption.className = 'bg-surface-card';
-                terrainSelect.appendChild(injectedOption);
-                terrainSelect.value = terrain;
-            } else if (!terrainMatched) {
-                terrainSelect.selectedIndex = 0;
-            }
-
-            document.getElementById('editTerrainType').value = terrainType;
-
+            const editTrailClassSelect = document.getElementById('editTrailClass');
+            editTrailClassSelect.value = terrainType;
+            // A raw .value assignment fires no change event, so the custom
+            // trigger and the description panel are resynced explicitly.
+            CustomSelect.refresh(editTrailClassSelect);
+            updateTrailClassDescription('editTrailClassDescription', terrainType);
             document.getElementById('editDescription').value = description;
 
             const box = document.getElementById('editThumbnailBox');
@@ -786,39 +1273,31 @@
             updateEditAdditionalUIAndInput();
 
             const existingGrid = document.getElementById('existingPhotosGrid');
-            existingGrid.innerHTML = '<div class="col-span-3 text-center text-gray-500 text-sm py-4">Loading existing photos...</div>';
+            existingGrid.innerHTML = '<div class="col-span-full text-center text-gray-500 text-sm py-4">Loading existing photos...</div>';
+
+            if (replaceModalId) {
+                TrailModal.replace(replaceModalId, 'editTrailModal');
+            } else {
+                TrailModal.open('editTrailModal');
+            }
 
             try {
                 const response = await fetch(`/Trail/GetTrailPhotos?trailId=${id}`);
                 const photos = await response.json();
-                
+
                 existingGrid.innerHTML = '';
-                
+
                 if (photos && photos.length > 0) {
-                    for (let i = 0; i < photos.length; i++) {
-                        const photo = photos[i];
-                        const div = document.createElement('div');
-                        div.className = 'relative aspect-square rounded-lg overflow-hidden border border-gray-600 group';
-                        div.innerHTML = `
-                            <img src="${photo.url}" class="w-full h-full object-cover" />
-                            <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                            <button type="button" class="delete-photo-btn absolute top-1 right-1 w-6 h-6 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity z-20" data-photo-id="${photo.id}">
-                                <i class="fa-solid fa-xmark"></i>
-                            </button>
-                        `;
-                        existingGrid.appendChild(div);
-                    }
+                    photos.forEach(function (photo) {
+                        existingGrid.appendChild(buildPhotoThumb(photo.url, photo.id));
+                    });
                 } else {
-                    existingGrid.innerHTML = '<div class="col-span-3 text-center text-gray-500 text-sm py-4">No additional photos yet</div>';
+                    existingGrid.innerHTML = '<div class="col-span-full text-center text-gray-500 text-sm py-4">No additional photos yet</div>';
                 }
             } catch (error) {
                 console.error('Error loading existing photos:', error);
-                existingGrid.innerHTML = '<div class="col-span-3 text-center text-red-500 text-sm py-4">Error loading photos</div>';
+                existingGrid.innerHTML = '<div class="col-span-full text-center text-red-500 text-sm py-4">Error loading photos</div>';
             }
-
-            const modal = document.getElementById('editTrailModal');
-            modal.classList.remove('modal-hidden');
-            modal.classList.add('modal-visible');
         }
 
         async function deleteExistingPhoto(buttonElement, event) {
@@ -837,15 +1316,19 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    photoDiv.style.animation = 'fadeOut 0.3s ease-out forwards';
+                    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                    const removeDelay = reduceMotion ? 0 : 300;
+                    if (!reduceMotion) {
+                        photoDiv.style.animation = 'fadeOut 0.3s ease-out forwards';
+                    }
                     setTimeout(() => {
                         photoDiv.remove();
                         const existingGrid = document.getElementById('existingPhotosGrid');
                         if (existingGrid && existingGrid.children.length === 0) {
-                            existingGrid.innerHTML = '<div class="col-span-3 text-center text-gray-500 text-sm py-4">No additional photos yet</div>';
+                            existingGrid.innerHTML = '<div class="col-span-full text-center text-gray-500 text-sm py-4">No additional photos yet</div>';
                         }
                         showToast('Photo deleted successfully', 'success');
-                    }, 300);
+                    }, removeDelay);
                 } else {
                     buttonElement.disabled = false;
                     photoDiv.style.opacity = '1';
@@ -904,19 +1387,33 @@
         }
         
         document.addEventListener('click', function(e) {
-            const deleteBtn = e.target.closest('.delete-photo-btn');
-            if (deleteBtn) {
+            const deletePhotoBtn = e.target.closest('.delete-photo-btn');
+            if (deletePhotoBtn) {
                 e.preventDefault();
                 e.stopPropagation();
-                deleteExistingPhoto(deleteBtn, e);
+                deleteExistingPhoto(deletePhotoBtn, e);
+                return;
+            }
+
+            // Trail ID and name travel as data-* attributes (Razor-encoded on render,
+            // read back as plain text via getAttribute) rather than as literal
+            // arguments in an inline onclick - a name containing an apostrophe used to
+            // break the generated JavaScript outright.
+            const deleteTrailBtn = e.target.closest('.delete-trail-btn');
+            if (deleteTrailBtn) {
+                const trailId = Number(deleteTrailBtn.getAttribute('data-trail-id'));
+                const trailName = deleteTrailBtn.getAttribute('data-trail-name') || '';
+                deleteTrail(trailId, trailName);
             }
         });
 
         function closeEditTrailModal() {
-            const modal = document.getElementById('editTrailModal');
-            modal.classList.remove('modal-visible');
-            modal.classList.add('modal-hidden');
+            TrailModal.close('editTrailModal');
             document.getElementById('editTrailForm').reset();
+            resetTerrainChips('edit');
+            resetTerrainValidation('edit');
+            resetSubmitButton('editSubmitBtn', 'editSubmitBtnLabel', 'Save Changes');
+            updateTrailClassDescription('editTrailClassDescription', '');
             removeEditThumbnail();
             editAdditionalFilesArray = [];
             updateEditAdditionalUIAndInput();
@@ -974,8 +1471,8 @@
                     div.innerHTML = `
                         <img src="${e.target.result}" class="w-full h-full object-cover" />
                         <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                        <button type="button" onclick="removeEditAdditionalPhoto(${index})" class="absolute top-1 right-1 w-6 h-6 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                            <i class="fa-solid fa-xmark"></i>
+                        <button type="button" onclick="removeEditAdditionalPhoto(${index})" aria-label="Remove photo ${index + 1}" class="absolute top-2 right-2 w-8 h-8 bg-gray-900/80 hover:bg-gray-700 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity shadow-lg z-20 focus:outline-none focus:ring-2 focus:ring-accent">
+                            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
                         </button>
                     `;
                     grid.appendChild(div);
@@ -985,118 +1482,89 @@
             input.files = dataTransfer.files;
         }
 
-        document.addEventListener('keydown', function(event) {
-            if (event.key === 'Escape') { 
-                closeAddTrailModal(); 
-                closeViewModal(); 
-                closeEditTrailModal();
+        // Escape, focus trapping, and focus restoration are handled once by
+        // TrailModal for whichever of the three modals is currently active - see
+        // its handleKeydown - so there's no separate blanket listener here.
+
+        // At least one Terrain chip must be checked - HTML's native `required`
+        // can't express that for a checkbox group. Reported as a visible inline
+        // error next to the group (role="alert", so it's announced the moment it
+        // appears) rather than a native validation bubble anchored to an sr-only
+        // checkbox - a bubble like that would point at an invisible element and
+        // isn't a reliable pattern across browsers/assistive tech. aria-invalid
+        // on the group and aria-describedby (set once, in _TerrainChips.cshtml)
+        // linking it to the error keep the two programmatically associated even
+        // while the error itself is hidden.
+        function setTerrainGroupInvalid(idPrefix, invalid) {
+            const group = document.getElementById(idPrefix + 'TerrainChips');
+            const error = document.getElementById(idPrefix + 'TerrainError');
+            if (group) group.setAttribute('aria-invalid', invalid ? 'true' : 'false');
+            if (error) error.hidden = !invalid;
+        }
+
+        function resetTerrainValidation(idPrefix) {
+            setTerrainGroupInvalid(idPrefix, false);
+        }
+
+        function validateTerrainSelection(idPrefix, form, focusOnInvalid) {
+            const checkboxes = Array.from(form.querySelectorAll('input[name="TerrainValues"]'));
+            const anyChecked = checkboxes.some(function (cb) { return cb.checked; });
+            setTerrainGroupInvalid(idPrefix, !anyChecked);
+            if (!anyChecked && focusOnInvalid && checkboxes[0]) {
+                checkboxes[0].focus();
             }
-        });
-
-        const searchInput = document.getElementById('searchInput');
-        const sortSelect = document.getElementById('sortOrder');
-        let trailCards = [];
-        let originalDisplay = [];
-
-        function refreshTrailCards() {
-            trailCards = Array.from(document.querySelectorAll('.grid > div[class*="bg-white/5"]'));
-            originalDisplay = trailCards.map(card => window.getComputedStyle(card).display);
+            return anyChecked;
         }
 
-        function filterTrails() {
-            refreshTrailCards();
-            const searchTerm = searchInput.value.toLowerCase();
-            const sortValue = sortSelect.value;
-            
-            let filteredTrails = trailCards.filter((card, index) => {
-                const name = card.querySelector('h3')?.textContent.toLowerCase() || '';
-                const location = card.querySelector('.text-gray-400.text-sm')?.textContent.toLowerCase() || '';
-                const matches = name.includes(searchTerm) || location.includes(searchTerm);
-                if (!matches) {
-                    card.style.display = 'none';
+        // Clears the error immediately once any chip (including one injected for
+        // a legacy value) is checked - delegated on the group container so it
+        // covers chips added dynamically by populateTerrainChips too.
+        function wireTerrainGroup(idPrefix) {
+            const container = document.getElementById(idPrefix + 'TerrainChips');
+            if (!container) return;
+            container.addEventListener('change', function (event) {
+                if (!event.target || event.target.name !== 'TerrainValues') return;
+                const anyChecked = Array.from(container.querySelectorAll('input[name="TerrainValues"]'))
+                    .some(function (cb) { return cb.checked; });
+                if (anyChecked) {
+                    setTerrainGroupInvalid(idPrefix, false);
                 }
-                return matches;
             });
+        }
 
-            trailCards.forEach((card, idx) => {
-                card.style.display = 'none';
-            });
+        wireTerrainGroup('add');
+        wireTerrainGroup('edit');
 
-            filteredTrails.sort((a, b) => {
-                if (sortValue === 'newest') {
-                    const dateA = a.getAttribute('data-date-added') || '';
-                    const dateB = b.getAttribute('data-date-added') || '';
-                    return new Date(dateB) - new Date(dateA);
-                } else if (sortValue === 'oldest') {
-                    const dateA = a.getAttribute('data-date-added') || '';
-                    const dateB = b.getAttribute('data-date-added') || '';
-                    return new Date(dateA) - new Date(dateB);
-                } else if (sortValue === 'name_asc') {
-                    const nameA = a.querySelector('h3')?.textContent || '';
-                    const nameB = b.querySelector('h3')?.textContent || '';
-                    return nameA.localeCompare(nameB);
-                } else if (sortValue === 'name_desc') {
-                    const nameA = a.querySelector('h3')?.textContent || '';
-                    const nameB = b.querySelector('h3')?.textContent || '';
-                    return nameB.localeCompare(nameA);
-                } else if (sortValue === 'distance_asc') {
-                    const distA = parseFloat(a.querySelector('.grid-cols-3 > div:first-child p:last-child')?.textContent) || 0;
-                    const distB = parseFloat(b.querySelector('.grid-cols-3 > div:first-child p:last-child')?.textContent) || 0;
-                    return distA - distB;
-                } else if (sortValue === 'distance_desc') {
-                    const distA = parseFloat(a.querySelector('.grid-cols-3 > div:first-child p:last-child')?.textContent) || 0;
-                    const distB = parseFloat(b.querySelector('.grid-cols-3 > div:first-child p:last-child')?.textContent) || 0;
-                    return distB - distA;
-                } else if (sortValue === 'elevation_asc') {
-                    const elevA = parseFloat(a.querySelector('.grid-cols-3 > div:nth-child(2) p:last-child')?.textContent) || 0;
-                    const elevB = parseFloat(b.querySelector('.grid-cols-3 > div:nth-child(2) p:last-child')?.textContent) || 0;
-                    return elevA - elevB;
-                } else if (sortValue === 'elevation_desc') {
-                    const elevA = parseFloat(a.querySelector('.grid-cols-3 > div:nth-child(2) p:last-child')?.textContent) || 0;
-                    const elevB = parseFloat(b.querySelector('.grid-cols-3 > div:nth-child(2) p:last-child')?.textContent) || 0;
-                    return elevB - elevA;
+        function resetSubmitButton(submitBtnId, submitLabelId, defaultText) {
+            const btn = document.getElementById(submitBtnId);
+            const label = document.getElementById(submitLabelId);
+            if (btn) btn.disabled = false;
+            if (label) label.textContent = defaultText;
+        }
+
+        // Guards a Trail form against duplicate submissions: disables the submit
+        // button and swaps its label only once Terrain validation has actually
+        // passed and submission will proceed - never on a failed validation, so
+        // the button stays usable for a retry. This is a full-page POST (not
+        // fetch), so the button doesn't need to be re-enabled on success; the
+        // page navigates away either way.
+        function guardTrailFormSubmit(idPrefix, formId, submitBtnId, submitLabelId, savingText) {
+            const form = document.getElementById(formId);
+            const submitBtn = document.getElementById(submitBtnId);
+            const submitLabel = document.getElementById(submitLabelId);
+            if (!form || !submitBtn) return;
+
+            form.addEventListener('submit', function (event) {
+                if (!validateTerrainSelection(idPrefix, form, true)) {
+                    event.preventDefault();
+                    return;
                 }
-                return 0;
+                submitBtn.disabled = true;
+                if (submitLabel) submitLabel.textContent = savingText;
             });
-
-            filteredTrails.forEach(card => {
-                card.style.display = 'flex';
-            });
-
-            const totalCountSpan = document.querySelector('.bg-white\\/5.border.border-white\\/10 .text-white strong');
-            if (totalCountSpan) {
-                totalCountSpan.textContent = filteredTrails.length;
-            }
-
-            const grid = document.querySelector('.grid');
-            let noResultsDiv = document.getElementById('noResultsMessage');
-            
-            if (filteredTrails.length === 0) {
-                if (!noResultsDiv) {
-                    noResultsDiv = document.createElement('div');
-                    noResultsDiv.id = 'noResultsMessage';
-                    noResultsDiv.className = 'col-span-full text-center py-20 bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl';
-                    noResultsDiv.innerHTML = `
-                        <i class="fa-solid fa-mountain text-5xl text-gray-500 mb-4"></i>
-                        <h3 class="text-xl font-bold text-gray-300">No trails found</h3>
-                        <p class="text-gray-500 mt-2">Try searching a different name or clearing the filters.</p>
-                    `;
-                    grid.appendChild(noResultsDiv);
-                }
-            } else {
-                if (noResultsDiv) noResultsDiv.remove();
-            }
         }
 
-        if (searchInput) {
-            searchInput.addEventListener('input', filterTrails);
-        }
-        if (sortSelect) {
-            sortSelect.addEventListener('change', filterTrails);
-        }
-
-        setTimeout(() => {
-            refreshTrailCards();
-        }, 500);
+        guardTrailFormSubmit('add', 'addTrailForm', 'addSubmitBtn', 'addSubmitBtnLabel', 'Saving...');
+        guardTrailFormSubmit('edit', 'editTrailForm', 'editSubmitBtn', 'editSubmitBtnLabel', 'Saving...');
     </script>
 }

@@ -14,44 +14,81 @@ namespace TrailGuard.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IWebHostEnvironment _webHostEnvironment;
+        private readonly ILogger<TrailController> _logger;
 
-        public TrailController(ApplicationDbContext context, IWebHostEnvironment webHostEnvironment)
+        // The single fallback sort - both the controller's default query and the
+        // view's default-selected <option> must agree on this value, or the visible
+        // control lies about what order the list is actually in.
+        public const string DefaultSortOrder = "newest";
+
+        // The only values the switch below knows how to honor. Anything else -
+        // missing, blank, or a value nobody generated (a hand-edited query string,
+        // a stale bookmark from a removed option) - must fall back to the default
+        // rather than let an unrecognized string silently reach the switch's own
+        // fallback arm with no normalization having happened first.
+        private static readonly HashSet<string> AllowedSortOrders = new(StringComparer.Ordinal)
+        {
+            "newest", "oldest", "name_asc", "name_desc",
+            "distance_asc", "distance_desc", "elevation_asc", "elevation_desc",
+        };
+
+        public TrailController(ApplicationDbContext context, IWebHostEnvironment webHostEnvironment, ILogger<TrailController> logger)
         {
             _context = context;
             _webHostEnvironment = webHostEnvironment;
+            _logger = logger;
         }
 
-        public IActionResult Index(string searchString, string sortOrder)
+        // Search is client-side (see Views/Trail/Index.cshtml) so every trail loads
+        // in the requested server-side order; searchString is only carried through
+        // to restore the search box after a Sort By navigation, never used to filter
+        // the query here.
+        public async Task<IActionResult> Index(string searchString, string sortOrder)
         {
-            ViewData["CurrentFilter"] = searchString;
-            ViewData["CurrentSort"] = sortOrder;
+            var normalizedSearch = (searchString ?? string.Empty).Trim();
+            var normalizedSort = AllowedSortOrders.Contains(sortOrder ?? string.Empty)
+                ? sortOrder!
+                : DefaultSortOrder;
 
-            var trails = from t in _context.Trails select t;
+            ViewData["CurrentFilter"] = normalizedSearch;
+            ViewData["CurrentSort"] = normalizedSort;
 
-            if (!string.IsNullOrEmpty(searchString))
+            IQueryable<Trail> trails = _context.Trails;
+
+            // Every branch ends in ThenBy(Id) - two trails can share a name, distance,
+            // elevation, or DateAdded, and without a tiebreaker their relative order is
+            // whatever Postgres feels like on a given query plan, not a fixed sequence.
+            trails = normalizedSort switch
             {
-                trails = trails.Where(t => t.Name.Contains(searchString) || t.Location.Contains(searchString));
-            }
-
-            trails = sortOrder switch
-            {
-                "name_desc" => trails.OrderByDescending(t => t.Name),
-                "distance_asc" => trails.OrderBy(t => t.DistanceKm),
-                "distance_desc" => trails.OrderByDescending(t => t.DistanceKm),
-                "elevation_asc" => trails.OrderBy(t => t.ElevationGainMeters),
-                "elevation_desc" => trails.OrderByDescending(t => t.ElevationGainMeters),
-                "newest" => trails.OrderByDescending(t => t.DateAdded),
-                "oldest" => trails.OrderBy(t => t.DateAdded),
-                _ => trails.OrderBy(t => t.Name),
+                "name_desc" => trails.OrderByDescending(t => t.Name).ThenBy(t => t.Id),
+                "name_asc" => trails.OrderBy(t => t.Name).ThenBy(t => t.Id),
+                "distance_asc" => trails.OrderBy(t => t.DistanceKm).ThenBy(t => t.Id),
+                "distance_desc" => trails.OrderByDescending(t => t.DistanceKm).ThenBy(t => t.Id),
+                "elevation_asc" => trails.OrderBy(t => t.ElevationGainMeters).ThenBy(t => t.Id),
+                "elevation_desc" => trails.OrderByDescending(t => t.ElevationGainMeters).ThenBy(t => t.Id),
+                "oldest" => trails.OrderBy(t => t.DateAdded).ThenBy(t => t.Id),
+                "newest" => trails.OrderByDescending(t => t.DateAdded).ThenBy(t => t.Id),
+                _ => trails.OrderByDescending(t => t.DateAdded).ThenBy(t => t.Id),
             };
 
-            return View(trails.ToList());
+            return View(await trails.ToListAsync());
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> AddTrail(Trail model)
+        public async Task<IActionResult> AddTrail(Trail model, List<string>? TerrainValues)
         {
+            // Terrain is now a checkbox group (name="TerrainValues"), not a field
+            // literally named "Terrain" - model.Terrain binds to nothing and fails
+            // [Required] on its own, so clear that error and revalidate manually
+            // once the normalized selection is in place.
+            model.Terrain = TrailTerrainOptions.Normalize(TerrainValues);
+            ModelState.Remove(nameof(Trail.Terrain));
+            if (string.IsNullOrEmpty(model.Terrain))
+            {
+                ModelState.AddModelError(nameof(Trail.Terrain), "Select at least one terrain type.");
+            }
+
             if (ModelState.IsValid)
             {
                 string uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "images", "trails");
@@ -115,14 +152,24 @@ namespace TrailGuard.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> EditTrail(int id, Trail model, IFormFile? ThumbnailImage, List<IFormFile>? AdditionalImages)
+        public async Task<IActionResult> EditTrail(int id, Trail model, List<string>? TerrainValues, IFormFile? ThumbnailImage, List<IFormFile>? AdditionalImages)
         {
             var existingTrail = await _context.Trails.FindAsync(id);
-            
+
             if (existingTrail == null)
             {
                 TempData["Error"] = "Trail not found.";
                 return RedirectToAction("Index");
+            }
+
+            // existingTrail.Terrain here is still the pre-edit stored value - read
+            // before anything below mutates it - so a legacy value already on this
+            // trail survives a resubmit even though it isn't one of the checkboxes.
+            model.Terrain = TrailTerrainOptions.Normalize(TerrainValues, existingTrail.Terrain);
+            ModelState.Remove(nameof(Trail.Terrain));
+            if (string.IsNullOrEmpty(model.Terrain))
+            {
+                ModelState.AddModelError(nameof(Trail.Terrain), "Select at least one terrain type.");
             }
 
             if (ModelState.IsValid)
@@ -262,52 +309,105 @@ namespace TrailGuard.Controllers
         [ValidateAntiForgeryToken]
         public async Task<JsonResult> DeleteTrail([FromBody] DeleteTrailRequest request)
         {
+            var trail = await _context.Trails
+                .Include(t => t.TrailPhotos)
+                .FirstOrDefaultAsync(t => t.Id == request.Id);
+
+            if (trail == null)
+            {
+                return Json(new { success = false, message = "Trail not found" });
+            }
+
+            var hasLinkedEvents = await _context.Events.AnyAsync(e => e.TrailId == trail.Id);
+            if (hasLinkedEvents)
+            {
+                return Json(new
+                {
+                    success = false,
+                    message = "This trail can't be deleted because it's linked to existing events. Remove or reassign those events first."
+                });
+            }
+
+            // Resolve and validate file paths before touching the database, but don't
+            // delete anything yet - if SaveChanges fails, the trail (and its images)
+            // must still exist afterward.
+            var thumbnailPath = ResolveUploadPath(trail.ThumbnailUrl);
+            var photoPaths = (trail.TrailPhotos ?? Enumerable.Empty<TrailPhoto>())
+                .Select(p => ResolveUploadPath(p.ImageUrl))
+                .Where(p => p != null)
+                .ToList();
+
+            if (trail.TrailPhotos != null && trail.TrailPhotos.Count > 0)
+            {
+                _context.TrailPhotos.RemoveRange(trail.TrailPhotos);
+            }
+            _context.Trails.Remove(trail);
+
             try
             {
-                var trail = await _context.Trails
-                    .Include(t => t.TrailPhotos)
-                    .FirstOrDefaultAsync(t => t.Id == request.Id);
-                
-                if (trail == null)
-                {
-                    return Json(new { success = false, message = "Trail not found" });
-                }
-
-                if (!string.IsNullOrEmpty(trail.ThumbnailUrl))
-                {
-                    string thumbnailPath = Path.Combine(_webHostEnvironment.WebRootPath,
-                        trail.ThumbnailUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
-                    if (System.IO.File.Exists(thumbnailPath))
-                    {
-                        System.IO.File.Delete(thumbnailPath);
-                    }
-                }
-
-                if (trail.TrailPhotos != null)
-                {
-                    foreach (var photo in trail.TrailPhotos)
-                    {
-                        string photoPath = Path.Combine(_webHostEnvironment.WebRootPath,
-                            photo.ImageUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
-                        if (System.IO.File.Exists(photoPath))
-                        {
-                            System.IO.File.Delete(photoPath);
-                        }
-                    }
-
-                    _context.TrailPhotos.RemoveRange(trail.TrailPhotos);
-                }
-
-                _context.Trails.Remove(trail);
                 await _context.SaveChangesAsync();
-                
-                return Json(new { success = true, message = "Trail deleted successfully" });
             }
-            catch (Exception ex)
+            catch (DbUpdateException ex)
             {
-                return Json(new { success = false, message = ex.Message });
+                // The application-level check above should have already caught this;
+                // this is the backstop for a race (an event created between the check
+                // and the save) or any other path that still points at this trail.
+                _logger.LogWarning(ex, "Blocked delete of Trail {TrailId} by a restrictive foreign key.", trail.Id);
+                return Json(new
+                {
+                    success = false,
+                    message = "This trail can't be deleted because it's still referenced by existing records."
+                });
             }
+
+            // Only now that the trail is actually gone from the database do we touch
+            // disk. A failure here is logged, not surfaced as a deletion failure - the
+            // database deletion already succeeded and must not be reported otherwise.
+            foreach (var path in photoPaths.Append(thumbnailPath))
+            {
+                if (path == null || !System.IO.File.Exists(path))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    System.IO.File.Delete(path);
+                }
+                catch (IOException ex)
+                {
+                    _logger.LogWarning(ex, "Trail {TrailId} was deleted, but its image file {Path} could not be removed.", request.Id, path);
+                }
+                catch (UnauthorizedAccessException ex)
+                {
+                    _logger.LogWarning(ex, "Trail {TrailId} was deleted, but its image file {Path} could not be removed.", request.Id, path);
+                }
+            }
+
+            return Json(new { success = true, message = "Trail deleted successfully" });
         }
+
+        // Resolves a stored "/images/trails/..." URL to an absolute path and confirms
+        // it actually lands inside the trail uploads folder before anything is allowed
+        // to delete it - a defensive check against a stored path containing ".." or an
+        // absolute path escaping the intended upload directory.
+        private string? ResolveUploadPath(string? relativeUrl)
+        {
+            if (string.IsNullOrEmpty(relativeUrl))
+            {
+                return null;
+            }
+
+            var uploadsFolder = Path.GetFullPath(Path.Combine(_webHostEnvironment.WebRootPath, "images", "trails"));
+            var candidate = Path.GetFullPath(Path.Combine(_webHostEnvironment.WebRootPath,
+                relativeUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar)));
+
+            var withinUploads = candidate.StartsWith(
+                uploadsFolder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+
+            return withinUploads ? candidate : null;
+        }
+
         public class DeleteTrailRequest
         {
             public int Id { get; set; }

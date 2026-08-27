@@ -39,6 +39,18 @@ namespace TrailGuard.Data
             builder.Entity<FinalSuitabilityLabel>()
                 .HasIndex(f => f.RegistrationId)
                 .IsUnique();
+
+            // Trail is a shared catalog entity, not owned by any single event - deleting
+            // an event must never take a trail's other events down with it, and (more to
+            // the point here) deleting a trail must never cascade into the events still
+            // referencing it. TrailId is a required int, so EF's convention default would
+            // otherwise be Cascade. The controller blocks the deletion first; this is the
+            // database-level backstop for a race or any other deletion path.
+            builder.Entity<Event>()
+                .HasOne(e => e.Trail)
+                .WithMany()
+                .HasForeignKey(e => e.TrailId)
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }
