@@ -51,27 +51,8 @@
 
 <div class="pt-24 px-4 max-w-6xl mx-auto min-h-screen text-white pb-12">
     
-    @if (TempData["Success"] != null)
-    {
-        <div class="mb-6 bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 px-6 py-4 rounded-xl flex items-center gap-3">
-            <i class="fa-solid fa-check-circle text-emerald-400"></i>
-            <span>@TempData["Success"]</span>
-            <button type="button" onclick="this.parentElement.remove()" class="ml-auto hover:text-white transition-colors">
-                <i class="fa-solid fa-xmark text-lg"></i>
-            </button>
-        </div>
-    }
-    
-    @if (TempData["Error"] != null)
-    {
-        <div class="mb-6 bg-red-500/15 border border-red-500/30 text-red-300 px-6 py-4 rounded-xl flex items-center gap-3">
-            <i class="fa-solid fa-exclamation-triangle text-red-400"></i>
-            <span>@TempData["Error"]</span>
-            <button type="button" onclick="this.parentElement.remove()" class="ml-auto hover:text-white transition-colors">
-                <i class="fa-solid fa-xmark text-lg"></i>
-            </button>
-        </div>
-    }
+    @* Success/Error feedback now goes through the canonical global toast host
+       in _Layout.cshtml instead of a page-local banner. *@
 
     <div class="mb-6">
         <a asp-action="Events" class="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors">

@@ -128,6 +128,7 @@
     </script>
 
     <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="~/js/toast.js" asp-append-version="true"></script>
     <script src="~/js/custom-select.js" asp-append-version="true"></script>
 
     @await RenderSectionAsync("Modals", required: false)
@@ -136,5 +137,26 @@
 
     <script src="~/js/shooting-stars.js" asp-append-version="true"></script>
     <script src="~/js/trail-carousel.js" asp-append-version="true"></script>
+
+    @* Canonical global toast host - the ONLY notification container in the app.
+       Direct child of <body>, sibling of <main>, the footer, and the Modals
+       section (never nested inside any of them), so it can never be caught by
+       a modal's own backdrop/blur stacking context and is never a descendant a
+       modal would need to inert. Rendered last so ViewData["SuppressErrorToast"]
+       (set by Assessment/Form.cshtml for its persistent, contextual ML/consent
+       error banner - see CLAUDE.md "ML Failure - No Fallback") is already set
+       by the time this reads it; TempData itself is populated before any view
+       runs, so read order doesn't affect the other three keys.
+       window.tgToastHostExempt (wwwroot/js/toast.js) is what keeps this out of
+       every modal's makeBackgroundInert() sweep - see Event/Index.cshtml and
+       Trail/Index.cshtml. Values below are Razor-attribute-encoded, never
+       interpolated into script text; toast.js only ever renders them via
+       textContent. *@
+    <div id="tg-toast-host" class="tg-toast-host" aria-label="Notifications"></div>
+    <div id="tg-toast-tempdata" hidden
+         data-success="@(TempData["Success"] as string ?? string.Empty)"
+         data-error="@(ViewData["SuppressErrorToast"] == null ? (TempData["Error"] as string ?? string.Empty) : string.Empty)"
+         data-warning="@(TempData["Warning"] as string ?? string.Empty)"
+         data-info="@(TempData["Info"] as string ?? string.Empty)"></div>
 </body>
 </html>

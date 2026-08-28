@@ -6,27 +6,10 @@
     var totalTrailCount = Model.Count();
 }
 
-@if (TempData["Success"] != null)
-{
-    <div id="successMessage" class="fixed top-24 right-4 z-50 bg-green-500/90 text-white px-6 py-3 rounded-xl shadow-lg backdrop-blur-sm flex items-center gap-3">
-        <i class="fa-solid fa-check-circle"></i>
-        <span>@TempData["Success"]</span>
-        <button type="button" onclick="this.parentElement.remove()" class="hover:text-gray-200 transition-colors">
-            <i class="fa-solid fa-xmark text-lg"></i>
-        </button>
-    </div>
-}
-
-@if (TempData["Error"] != null)
-{
-    <div id="errorMessage" class="fixed top-24 right-4 z-50 bg-red-500/90 text-white px-6 py-3 rounded-xl shadow-lg backdrop-blur-sm flex items-center gap-3">
-        <i class="fa-solid fa-exclamation-triangle"></i>
-        <span>@TempData["Error"]</span>
-        <button type="button" onclick="this.parentElement.remove()" class="hover:text-gray-200 transition-colors">
-            <i class="fa-solid fa-xmark text-lg"></i>
-        </button>
-    </div>
-}
+@* Success/Error feedback for this page now goes through the canonical global
+   toast host in _Layout.cshtml (window.showToast, fed by TempData via
+   #tg-toast-tempdata) instead of a page-local fixed banner - see the
+   notification centralization pass. *@
 
 @section PageHero {
     <div class="pt-24 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
@@ -552,13 +535,6 @@
     </style>
 
     <script>
-        setTimeout(function() {
-            const successMsg = document.getElementById('successMessage');
-            const errorMsg = document.getElementById('errorMessage');
-            if (successMsg) successMsg.remove();
-            if (errorMsg) errorMsg.remove();
-        }, 3000);
-
         // Single reusable implementation of dialog open/close mechanics for all
         // three modals on this page - focus trapping, focus restoration, Escape,
         // background inert + scroll lock - so each modal's own open/close function
@@ -596,6 +572,10 @@
 
                     Array.from(parent.children).forEach(function (sibling) {
                         if (sibling === current || sibling.hasAttribute('inert')) return;
+                        // The global toast host must stay interactive and in the
+                        // accessibility tree no matter which modal is open - see
+                        // wwwroot/js/toast.js.
+                        if (window.tgToastHostExempt && window.tgToastHostExempt(sibling)) return;
                         sibling.setAttribute('inert', '');
                         inertedElements.push(sibling);
                     });
@@ -620,7 +600,11 @@
                 }
 
                 if (event.key === 'Tab') {
-                    const focusable = getFocusableElements(activeModal);
+                    // A visible toast's dismiss button is a permitted extra stop in
+                    // this trap (see wwwroot/js/toast.js) - nothing else in the
+                    // background is ever included.
+                    const toastCloseButtons = window.tgGetToastCloseButtons ? window.tgGetToastCloseButtons() : [];
+                    const focusable = getFocusableElements(activeModal).concat(toastCloseButtons);
                     if (focusable.length === 0) {
                         event.preventDefault();
                         return;
@@ -1366,26 +1350,9 @@
             }
         }
 
-        function showToast(message, type) {
-            const existingToast = document.querySelector('.toast-message');
-            if (existingToast) existingToast.remove();
-            
-            const toast = document.createElement('div');
-            toast.className = `toast-message fixed top-24 right-4 z-50 ${type === 'success' ? 'bg-green-500/90' : 'bg-red-500/90'} text-white px-6 py-3 rounded-xl shadow-lg backdrop-blur-sm flex items-center gap-3`;
-            toast.innerHTML = `
-                <i class="fa-solid ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle'}"></i>
-                <span>${message}</span>
-                <button onclick="this.parentElement.remove()" class="hover:text-gray-200 transition-colors">
-                    <i class="fa-solid fa-xmark text-lg"></i>
-                </button>
-            `;
-            document.body.appendChild(toast);
-            
-            setTimeout(() => {
-                if (toast) toast.remove();
-            }, 3000);
-        }
-        
+        // showToast(message, type) is now the canonical implementation in
+        // wwwroot/js/toast.js, loaded globally from _Layout.cshtml.
+
         document.addEventListener('click', function(e) {
             const deletePhotoBtn = e.target.closest('.delete-photo-btn');
             if (deletePhotoBtn) {

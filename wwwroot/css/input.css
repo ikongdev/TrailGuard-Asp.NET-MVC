@@ -315,3 +315,180 @@
         transition: border-color 300ms ease-out;
     }
 }
+
+/* ==========================================================================
+   Toast system (wwwroot/js/toast.js)
+
+   Documented application z-index layers, so this doesn't become another
+   scattered arbitrary z-* escalation:
+     50    navbar, back-to-top button
+     60    standard modal backdrop/panel (see DESIGN.md > Modals)
+     100   legacy modal wrapper class (Settings/Event Details/Organizer
+           Registrations/Participant Trails - pre-existing, not part of
+           this pass)
+     9999  hover-preview tooltips (Organizer/RegistrationDetails.cshtml)
+     ----  toast layer: above every layer above, deliberately far above
+           the highest one in current use, while staying below browser-
+           native top-layer content (dialog::backdrop, fullscreen).
+   ========================================================================== */
+
+.tg-toast-host {
+    position: fixed;
+    top: max(1rem, env(safe-area-inset-top));
+    right: max(1rem, env(safe-area-inset-right));
+    z-index: 2147483000;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.75rem;
+    width: min(24rem, calc(100vw - 2rem));
+    max-height: calc(100vh - 2rem);
+    pointer-events: none;
+    overflow: visible;
+}
+
+@media (max-width: 640px) {
+    .tg-toast-host {
+        left: max(1rem, env(safe-area-inset-left));
+        right: max(1rem, env(safe-area-inset-right));
+        width: auto;
+        align-items: stretch;
+    }
+}
+
+.tg-toast {
+    position: relative;
+    pointer-events: auto;
+    width: 100%;
+    max-width: 100%;
+    border-radius: 0.75rem;
+    border-width: 1px;
+    border-style: solid;
+    box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.55);
+    backdrop-filter: blur(6px);
+    overflow: hidden;
+    opacity: 0;
+    transform: translateX(1.5rem) scale(0.97);
+    transition: opacity 220ms ease-out, transform 220ms ease-out;
+}
+
+.tg-toast.tg-toast-visible {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+}
+
+.tg-toast.tg-toast-exit {
+    opacity: 0;
+    transform: translateX(1.5rem) scale(0.97);
+    transition: opacity 190ms ease-in, transform 190ms ease-in;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tg-toast {
+        transform: none;
+        transition: opacity 150ms ease;
+    }
+
+    .tg-toast.tg-toast-visible,
+    .tg-toast.tg-toast-exit {
+        transform: none;
+    }
+}
+
+.tg-toast-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.9rem 1rem;
+}
+
+.tg-toast-icon {
+    flex-shrink: 0;
+    margin-top: 0.15rem;
+    font-size: 1rem;
+}
+
+.tg-toast-message {
+    flex: 1 1 auto;
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    color: rgb(248 250 252);
+    overflow-wrap: anywhere;
+}
+
+.tg-toast-close {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    margin: -0.5rem -0.5rem -0.5rem 0;
+    border-radius: 9999px;
+    border: none;
+    background: transparent;
+    color: rgb(226 232 240 / 0.8);
+    cursor: pointer;
+    transition: background-color 150ms ease, color 150ms ease;
+}
+
+.tg-toast-close:hover {
+    background: rgb(255 255 255 / 0.12);
+    color: rgb(255 255 255);
+}
+
+.tg-toast-close:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgb(11 19 37), 0 0 0 4px var(--color-accent);
+}
+
+.tg-toast-progress {
+    height: 3px;
+    width: 100%;
+    background: rgb(255 255 255 / 0.08);
+}
+
+.tg-toast-progress-bar {
+    height: 100%;
+    width: 100%;
+    transform: scaleX(1);
+    transform-origin: left;
+    animation-name: tg-toast-shrink;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+    animation-play-state: paused;
+}
+
+@keyframes tg-toast-shrink {
+    from { transform: scaleX(1); }
+    to { transform: scaleX(0); }
+}
+
+.tg-toast-success {
+    background: rgb(6 46 34 / 0.97);
+    border-color: rgb(52 211 153 / 0.4);
+}
+.tg-toast-success .tg-toast-icon { color: rgb(52 211 153); }
+.tg-toast-success .tg-toast-progress-bar { background: rgb(52 211 153); }
+
+.tg-toast-error {
+    background: rgb(59 7 22 / 0.97);
+    border-color: rgb(251 113 133 / 0.4);
+}
+.tg-toast-error .tg-toast-icon { color: rgb(251 113 133); }
+.tg-toast-error .tg-toast-progress-bar { background: rgb(251 113 133); }
+
+.tg-toast-warning {
+    background: rgb(53 26 4 / 0.97);
+    border-color: rgb(251 191 36 / 0.4);
+}
+.tg-toast-warning .tg-toast-icon { color: rgb(251 191 36); }
+.tg-toast-warning .tg-toast-progress-bar { background: rgb(251 191 36); }
+
+.tg-toast-info {
+    background: rgb(8 20 42 / 0.97);
+    border-color: rgb(56 189 248 / 0.4);
+}
+.tg-toast-info .tg-toast-icon { color: rgb(56 189 248); }
+.tg-toast-info .tg-toast-progress-bar { background: rgb(56 189 248); }

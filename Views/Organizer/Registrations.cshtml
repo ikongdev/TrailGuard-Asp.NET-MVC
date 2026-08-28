@@ -8,27 +8,8 @@
     var notRecommendedCount = Model.Count(r => r.AssessmentResult == "Not Recommended");
 }
 
-@if (TempData["Success"] != null)
-{
-    <div id="successMessage" class="fixed top-24 right-4 z-50 bg-green-500/90 text-white px-6 py-3 rounded-xl shadow-lg backdrop-blur-sm flex items-center gap-3">
-        <i class="fa-solid fa-check-circle"></i>
-        <span>@TempData["Success"]</span>
-        <button type="button" onclick="this.parentElement.remove()" class="hover:text-gray-200 transition-colors">
-            <i class="fa-solid fa-xmark text-lg"></i>
-        </button>
-    </div>
-}
-
-@if (TempData["Error"] != null)
-{
-    <div id="errorMessage" class="fixed top-24 right-4 z-50 bg-red-500/90 text-white px-6 py-3 rounded-xl shadow-lg backdrop-blur-sm flex items-center gap-3">
-        <i class="fa-solid fa-exclamation-triangle"></i>
-        <span>@TempData["Error"]</span>
-        <button type="button" onclick="this.parentElement.remove()" class="hover:text-gray-200 transition-colors">
-            <i class="fa-solid fa-xmark text-lg"></i>
-        </button>
-    </div>
-}
+@* Success/Error feedback now goes through the canonical global toast host
+   in _Layout.cshtml instead of a page-local banner. *@
 
 <div class="pt-24 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
     
@@ -426,25 +407,8 @@
     // ============================================================
     // TOAST MESSAGES
     // ============================================================
-    function showToast(message, type) {
-        const existingToast = document.querySelector('.toast-message');
-        if (existingToast) existingToast.remove();
-        
-        const toast = document.createElement('div');
-        toast.className = `toast-message fixed top-24 right-4 z-50 ${type === 'success' ? 'bg-green-500/90' : type === 'error' ? 'bg-red-500/90' : 'bg-blue-500/90'} text-white px-6 py-3 rounded-xl shadow-lg backdrop-blur-sm flex items-center gap-3`;
-        toast.innerHTML = `
-            <i class="fa-solid ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-triangle' : 'fa-info-circle'}"></i>
-            <span>${message}</span>
-            <button onclick="this.parentElement.remove()" class="hover:text-gray-200 transition-colors">
-                <i class="fa-solid fa-xmark text-lg"></i>
-            </button>
-        `;
-        document.body.appendChild(toast);
-        
-        setTimeout(() => {
-            if (toast) toast.remove();
-        }, 3000);
-    }
+    // showToast(message, type) is now the canonical implementation in
+    // wwwroot/js/toast.js, loaded globally from _Layout.cshtml.
 </script>
 
 <style>

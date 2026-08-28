@@ -19,27 +19,8 @@
         <p class="text-gray-400 mt-1 text-sm">Track your event registration requests and review each request status.</p>
     </div>
 
-    @if (TempData["Success"] != null)
-    {
-        <div class="mb-6 bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 px-6 py-4 rounded-xl flex items-center gap-3">
-            <i class="fa-solid fa-check-circle text-emerald-400"></i>
-            <span>@TempData["Success"]</span>
-            <button type="button" onclick="this.parentElement.remove()" class="ml-auto hover:text-white transition-colors">
-                <i class="fa-solid fa-xmark text-lg"></i>
-            </button>
-        </div>
-    }
-
-    @if (TempData["Error"] != null)
-    {
-        <div class="mb-6 bg-red-500/15 border border-red-500/30 text-red-300 px-6 py-4 rounded-xl flex items-center gap-3">
-            <i class="fa-solid fa-exclamation-triangle text-red-400"></i>
-            <span>@TempData["Error"]</span>
-            <button type="button" onclick="this.parentElement.remove()" class="ml-auto hover:text-white transition-colors">
-                <i class="fa-solid fa-xmark text-lg"></i>
-            </button>
-        </div>
-    }
+    @* Success/Error feedback now goes through the canonical global toast host
+       in _Layout.cshtml instead of a page-local banner. *@
 
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-4 text-center">
@@ -441,17 +422,7 @@
         .catch(() => showToast('Could not cancel the registration.', 'error'));
     }
 
-    function showToast(message, type) {
-        document.querySelector('.toast-message')?.remove();
-
-        const toast = document.createElement('div');
-        toast.className = 'toast-message fixed top-24 right-4 z-50 ' +
-            (type === 'success' ? 'bg-emerald-500/90' : 'bg-red-500/90') +
-            ' text-white px-6 py-3 rounded-xl shadow-lg backdrop-blur-sm flex items-center gap-3';
-        toast.innerHTML = '<i class="fa-solid ' + (type === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle') + '"></i><span>' + message + '</span><button onclick="this.parentElement.remove()" class="hover:text-gray-200 transition-colors"><i class="fa-solid fa-xmark text-lg"></i></button>';
-        document.body.appendChild(toast);
-
-        setTimeout(() => toast.remove(), 3000);
-    }
+    // showToast(message, type) is now the canonical implementation in
+    // wwwroot/js/toast.js, loaded globally from _Layout.cshtml.
 </script>
 }

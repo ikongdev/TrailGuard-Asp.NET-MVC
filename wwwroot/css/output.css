@@ -6,7 +6,6 @@
     --font-sans: 'Poppins', sans-serif;
     --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
       "Courier New", monospace;
-    --color-red-200: oklch(88.5% 0.062 18.334);
     --color-red-300: oklch(80.8% 0.114 19.571);
     --color-red-400: oklch(70.4% 0.191 22.216);
     --color-red-500: oklch(63.7% 0.237 25.331);
@@ -31,8 +30,6 @@
     --color-green-500: oklch(72.3% 0.219 149.579);
     --color-green-600: oklch(62.7% 0.194 149.214);
     --color-green-700: oklch(52.7% 0.154 150.069);
-    --color-emerald-200: oklch(90.5% 0.093 164.15);
-    --color-emerald-300: oklch(84.5% 0.143 164.978);
     --color-emerald-400: oklch(76.5% 0.177 163.223);
     --color-emerald-500: oklch(69.6% 0.17 162.48);
     --color-cyan-400: oklch(78.9% 0.154 211.53);
@@ -1618,12 +1615,6 @@
       border-color: color-mix(in oklab, var(--color-green-500) 40%, transparent);
     }
   }
-  .border-green-500\/50 {
-    border-color: color-mix(in srgb, oklch(72.3% 0.219 149.579) 50%, transparent);
-    @supports (color: color-mix(in lab, red, red)) {
-      border-color: color-mix(in oklab, var(--color-green-500) 50%, transparent);
-    }
-  }
   .border-orange-500\/20 {
     border-color: color-mix(in srgb, oklch(70.5% 0.213 47.604) 20%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
@@ -1837,12 +1828,6 @@
       background-color: color-mix(in oklab, var(--color-blue-500) 20%, transparent);
     }
   }
-  .bg-blue-500\/90 {
-    background-color: color-mix(in srgb, oklch(62.3% 0.214 259.815) 90%, transparent);
-    @supports (color: color-mix(in lab, red, red)) {
-      background-color: color-mix(in oklab, var(--color-blue-500) 90%, transparent);
-    }
-  }
   .bg-blue-600 {
     background-color: var(--color-blue-600);
   }
@@ -1865,12 +1850,6 @@
     background-color: color-mix(in srgb, oklch(69.6% 0.17 162.48) 20%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
       background-color: color-mix(in oklab, var(--color-emerald-500) 20%, transparent);
-    }
-  }
-  .bg-emerald-500\/90 {
-    background-color: color-mix(in srgb, oklch(69.6% 0.17 162.48) 90%, transparent);
-    @supports (color: color-mix(in lab, red, red)) {
-      background-color: color-mix(in oklab, var(--color-emerald-500) 90%, transparent);
     }
   }
   .bg-gray-400 {
@@ -1940,12 +1919,6 @@
     background-color: color-mix(in srgb, oklch(72.3% 0.219 149.579) 20%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
       background-color: color-mix(in oklab, var(--color-green-500) 20%, transparent);
-    }
-  }
-  .bg-green-500\/90 {
-    background-color: color-mix(in srgb, oklch(72.3% 0.219 149.579) 90%, transparent);
-    @supports (color: color-mix(in lab, red, red)) {
-      background-color: color-mix(in oklab, var(--color-green-500) 90%, transparent);
     }
   }
   .bg-green-600 {
@@ -2027,12 +2000,6 @@
     background-color: color-mix(in srgb, oklch(63.7% 0.237 25.331) 20%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
       background-color: color-mix(in oklab, var(--color-red-500) 20%, transparent);
-    }
-  }
-  .bg-red-500\/90 {
-    background-color: color-mix(in srgb, oklch(63.7% 0.237 25.331) 90%, transparent);
-    @supports (color: color-mix(in lab, red, red)) {
-      background-color: color-mix(in oklab, var(--color-red-500) 90%, transparent);
     }
   }
   .bg-red-600 {
@@ -2823,12 +2790,6 @@
       color: color-mix(in oklab, var(--color-blue-400) 70%, transparent);
     }
   }
-  .text-emerald-200 {
-    color: var(--color-emerald-200);
-  }
-  .text-emerald-300 {
-    color: var(--color-emerald-300);
-  }
   .text-emerald-400 {
     color: var(--color-emerald-400);
   }
@@ -2882,9 +2843,6 @@
   }
   .text-purple-400 {
     color: var(--color-purple-400);
-  }
-  .text-red-200 {
-    color: var(--color-red-200);
   }
   .text-red-300 {
     color: var(--color-red-300);
@@ -3584,9 +3542,6 @@
     .hover\:text-accent:hover {
       color: var(--color-accent);
     }
-    .hover\:text-gray-200:hover {
-      color: var(--color-gray-200);
-    }
     .hover\:text-gray-300:hover {
       color: var(--color-gray-300);
     }
@@ -4258,6 +4213,166 @@
     transform: none;
     transition: border-color 300ms ease-out;
   }
+}
+.tg-toast-host {
+  position: fixed;
+  top: max(1rem, env(safe-area-inset-top));
+  right: max(1rem, env(safe-area-inset-right));
+  z-index: 2147483000;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.75rem;
+  width: min(24rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  pointer-events: none;
+  overflow: visible;
+}
+@media (max-width: 640px) {
+  .tg-toast-host {
+    left: max(1rem, env(safe-area-inset-left));
+    right: max(1rem, env(safe-area-inset-right));
+    width: auto;
+    align-items: stretch;
+  }
+}
+.tg-toast {
+  position: relative;
+  pointer-events: auto;
+  width: 100%;
+  max-width: 100%;
+  border-radius: 0.75rem;
+  border-width: 1px;
+  border-style: solid;
+  box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.55);
+  backdrop-filter: blur(6px);
+  overflow: hidden;
+  opacity: 0;
+  transform: translateX(1.5rem) scale(0.97);
+  transition: opacity 220ms ease-out, transform 220ms ease-out;
+}
+.tg-toast.tg-toast-visible {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+.tg-toast.tg-toast-exit {
+  opacity: 0;
+  transform: translateX(1.5rem) scale(0.97);
+  transition: opacity 190ms ease-in, transform 190ms ease-in;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tg-toast {
+    transform: none;
+    transition: opacity 150ms ease;
+  }
+  .tg-toast.tg-toast-visible, .tg-toast.tg-toast-exit {
+    transform: none;
+  }
+}
+.tg-toast-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+}
+.tg-toast-icon {
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+  font-size: 1rem;
+}
+.tg-toast-message {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: rgb(248 250 252);
+  overflow-wrap: anywhere;
+}
+.tg-toast-close {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  margin: -0.5rem -0.5rem -0.5rem 0;
+  border-radius: 9999px;
+  border: none;
+  background: transparent;
+  color: rgb(226 232 240 / 0.8);
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.tg-toast-close:hover {
+  background: rgb(255 255 255 / 0.12);
+  color: rgb(255 255 255);
+}
+.tg-toast-close:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgb(11 19 37), 0 0 0 4px var(--color-accent);
+}
+.tg-toast-progress {
+  height: 3px;
+  width: 100%;
+  background: rgb(255 255 255 / 0.08);
+}
+.tg-toast-progress-bar {
+  height: 100%;
+  width: 100%;
+  transform: scaleX(1);
+  transform-origin: left;
+  animation-name: tg-toast-shrink;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+  animation-play-state: paused;
+}
+@keyframes tg-toast-shrink {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+.tg-toast-success {
+  background: rgb(6 46 34 / 0.97);
+  border-color: rgb(52 211 153 / 0.4);
+}
+.tg-toast-success .tg-toast-icon {
+  color: rgb(52 211 153);
+}
+.tg-toast-success .tg-toast-progress-bar {
+  background: rgb(52 211 153);
+}
+.tg-toast-error {
+  background: rgb(59 7 22 / 0.97);
+  border-color: rgb(251 113 133 / 0.4);
+}
+.tg-toast-error .tg-toast-icon {
+  color: rgb(251 113 133);
+}
+.tg-toast-error .tg-toast-progress-bar {
+  background: rgb(251 113 133);
+}
+.tg-toast-warning {
+  background: rgb(53 26 4 / 0.97);
+  border-color: rgb(251 191 36 / 0.4);
+}
+.tg-toast-warning .tg-toast-icon {
+  color: rgb(251 191 36);
+}
+.tg-toast-warning .tg-toast-progress-bar {
+  background: rgb(251 191 36);
+}
+.tg-toast-info {
+  background: rgb(8 20 42 / 0.97);
+  border-color: rgb(56 189 248 / 0.4);
+}
+.tg-toast-info .tg-toast-icon {
+  color: rgb(56 189 248);
+}
+.tg-toast-info .tg-toast-progress-bar {
+  background: rgb(56 189 248);
 }
 @property --tw-translate-x {
   syntax: "*";
