@@ -110,21 +110,38 @@ namespace TrailGuard.Services
                 }
 
                 var weatherDescription = GetWeatherDescription(weatherCode);
-                var rainChance = precipitation > 0 ? $"{Math.Min(100, (int)(precipitation * 10))}%" : "0%";
                 var riskLevel = GetRiskLevel(precipitation, weatherCode);
+                var windDescription = GetWindDescriptionLabel(windSpeed);
                 var windSpeedText = GetWindSpeedDescription(windSpeed);
 
+                // One timestamp, used for both the structured UpdatedAt and the
+                // legacy ForecastDetails text, so the two can't disagree by even
+                // a few milliseconds if this method is ever slow to return.
+                var updatedAt = DateTimeOffset.Now;
+
+                // precipitation_sum is Open-Meteo's expected rainfall amount in
+                // millimeters, not a probability - the previous "Chance of Rain: X%"
+                // line was actually just precipitation*10 relabeled as a percentage.
+                // Millimeters is what the number actually means.
                 var forecastDetails = $"Expected Weather: {weatherDescription}\n" +
                        $"Temperature: {tempMin:F0}°C ~ {tempMax:F0}°C\n" +
-                       $"Chance of Rain: {rainChance}\n" +
+                       $"Expected Rainfall: {FormatRainfall(precipitation)} mm\n" +
                        $"Wind Speed: {windSpeedText}\n" +
-                       $"Last Updated: {DateTime.Now:MMMM dd, yyyy, h:mm tt}";
+                       $"Last Updated: {updatedAt:MMMM dd, yyyy, h:mm tt}";
 
                 return new WeatherResult
                 {
                     ForecastDetails = forecastDetails,
                     RiskLevel = riskLevel,
-                    SuggestedReminder = GetSuggestedReminder(riskLevel)
+                    SuggestedReminder = GetSuggestedReminder(riskLevel),
+                    Condition = weatherDescription,
+                    WeatherCode = weatherCode,
+                    TemperatureMinC = tempMin,
+                    TemperatureMaxC = tempMax,
+                    ExpectedRainfallMm = precipitation,
+                    WindSpeedKmh = windSpeed,
+                    WindDescription = windDescription,
+                    UpdatedAt = updatedAt
                 };
             }
             catch (Exception ex)
@@ -233,21 +250,40 @@ namespace TrailGuard.Services
             return "Low";
         }
 
-        private string GetWindSpeedDescription(double windSpeedKmh)
+        // Thresholds unchanged from the original GetWindSpeedDescription - just
+        // split out so the structured WindDescription field and the legacy
+        // combined string can't drift into two different wordings for the same
+        // reading.
+        private string GetWindDescriptionLabel(double windSpeedKmh)
         {
             if (windSpeedKmh <= 0)
                 return "Check local forecast";
             if (windSpeedKmh <= 10)
-                return $"{windSpeedKmh:F0} km/h (Light air)";
+                return "Light air";
             if (windSpeedKmh <= 20)
-                return $"{windSpeedKmh:F0} km/h (Gentle breeze)";
+                return "Gentle breeze";
             if (windSpeedKmh <= 30)
-                return $"{windSpeedKmh:F0} km/h (Moderate breeze)";
+                return "Moderate breeze";
             if (windSpeedKmh <= 40)
-                return $"{windSpeedKmh:F0} km/h (Fresh breeze)";
+                return "Fresh breeze";
             if (windSpeedKmh <= 50)
-                return $"{windSpeedKmh:F0} km/h (Strong breeze)";
-            return $"{windSpeedKmh:F0} km/h (High wind)";
+                return "Strong breeze";
+            return "High wind";
+        }
+
+        private string GetWindSpeedDescription(double windSpeedKmh)
+        {
+            if (windSpeedKmh <= 0)
+                return GetWindDescriptionLabel(windSpeedKmh);
+            return $"{windSpeedKmh:F0} km/h ({GetWindDescriptionLabel(windSpeedKmh)})";
+        }
+
+        // "0.#" shows one decimal place only when it's non-zero (10 -> "10",
+        // 10.5 -> "10.5"), matching precipitation_sum's actual precision without
+        // padding a whole-number reading with a trailing ".0".
+        private static string FormatRainfall(double rainfallMm)
+        {
+            return rainfallMm.ToString("0.#");
         }
     }
 }

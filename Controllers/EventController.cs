@@ -20,6 +20,7 @@ namespace TrailGuard.Controllers
         private readonly IWebHostEnvironment _webHostEnvironment;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly WeatherService _weatherService;
+        private readonly ILogger<EventController> _logger;
 
         public const string DefaultSortOrder = "date_asc";
 
@@ -39,12 +40,13 @@ namespace TrailGuard.Controllers
         // has it, so the listing never invents a status nobody has.
         private static readonly string[] FixedStatusPriority = { "Upcoming", "Completed" };
 
-        public EventController(ApplicationDbContext context, IWebHostEnvironment webHostEnvironment, UserManager<ApplicationUser> userManager, WeatherService weatherService)
+        public EventController(ApplicationDbContext context, IWebHostEnvironment webHostEnvironment, UserManager<ApplicationUser> userManager, WeatherService weatherService, ILogger<EventController> logger)
         {
             _context = context;
             _webHostEnvironment = webHostEnvironment;
             _userManager = userManager;
             _weatherService = weatherService;
+            _logger = logger;
         }
 
         public async Task<IActionResult> Index(string searchString, string status, string trailId, string difficulty, string sortOrder)
@@ -218,12 +220,26 @@ namespace TrailGuard.Controllers
                     success = true,
                     forecastDetails = forecast.ForecastDetails,
                     riskLevel = forecast.RiskLevel,
-                    suggestedReminder = reminder
+                    suggestedReminder = reminder,
+                    // Structured fields for Add Event's forecast result card.
+                    // Edit Event's own weather JS predates these and simply
+                    // ignores them - forecastDetails/riskLevel/suggestedReminder
+                    // above are unchanged, so it keeps working as before.
+                    condition = forecast.Condition,
+                    weatherCode = forecast.WeatherCode,
+                    temperatureMinC = forecast.TemperatureMinC,
+                    temperatureMaxC = forecast.TemperatureMaxC,
+                    expectedRainfallMm = forecast.ExpectedRainfallMm,
+                    windSpeedKmh = forecast.WindSpeedKmh,
+                    windDescription = forecast.WindDescription,
+                    updatedAt = forecast.UpdatedAt,
+                    unavailableReason = forecast.UnavailableReason
                 });
             }
             catch (Exception ex)
             {
-                return Json(new { success = false, message = ex.Message });
+                _logger.LogError(ex, "Failed to fetch weather forecast for trail {TrailId} on {EventDate}.", trailId, eventDate);
+                return Json(new { success = false, message = "Weather forecast is temporarily unavailable. Please try again." });
             }
         }
 
@@ -239,8 +255,72 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "Trail not found" });
                 }
 
-                var organizer = await _userManager.FindByIdAsync(model.OrganizedBy ?? "");
-                var organizerName = organizer != null ? $"{organizer.FirstName} {organizer.LastName}" : model.OrganizedBy;
+                // Organizer assignment is resolved entirely server-side from the
+                // authenticated user's role - a client-submitted OrganizerId is
+                // only ever consulted for an Admin caller, and even then it must
+                // resolve to an account actually holding the Organizer role. See
+                // CLAUDE.md's Add Event modal task: the old endpoint trusted
+                // whatever OrganizedBy value the browser sent, which allowed
+                // organizer spoofing.
+                var currentUser = await _userManager.GetUserAsync(User);
+                if (currentUser == null)
+                {
+                    return Json(new { success = false, message = "Unable to verify your account. Please sign in again." });
+                }
+
+                ApplicationUser organizerAccount;
+                if (await _userManager.IsInRoleAsync(currentUser, "Admin"))
+                {
+                    if (string.IsNullOrWhiteSpace(model.OrganizerId))
+                    {
+                        return Json(new { success = false, message = "Please select an organizer." });
+                    }
+
+                    var selectedAccount = await _userManager.FindByIdAsync(model.OrganizerId);
+                    if (selectedAccount == null || !await _userManager.IsInRoleAsync(selectedAccount, "Organizer"))
+                    {
+                        return Json(new { success = false, message = "The selected organizer is not valid." });
+                    }
+
+                    organizerAccount = selectedAccount;
+                }
+                else
+                {
+                    // Not an Admin, so [Authorize(Roles = "Admin,Organizer")] on
+                    // this controller guarantees the caller holds the Organizer
+                    // role. Any OrganizerId the client sent is ignored.
+                    organizerAccount = currentUser;
+                }
+
+                var organizerName = $"{organizerAccount.FirstName} {organizerAccount.LastName}";
+
+                // Add Event submits structured schedules, never a raw
+                // PickupPoints string - the server (not the browser) is what
+                // turns validated schedules into the canonical stored lines.
+                var scheduleResult = PickupScheduleHelper.ValidateAndFormat(model.PickupSchedules);
+                if (!scheduleResult.Success)
+                {
+                    return Json(new { success = false, message = scheduleResult.Error });
+                }
+
+                // A structured weather snapshot is optional - Add Event only
+                // sends one when a successful forecast is currently in its
+                // state. It's never trusted as submitted: TryValidateForSubmission
+                // re-checks every field's shape/range and confirms the
+                // snapshot's own TrailId/ForecastDate actually match this
+                // same request's TrailId/EventDate, so a stale snapshot left
+                // over from a since-changed trail or date can't be saved as
+                // if it were current. No match or no submission at all both
+                // mean a null snapshot - never fabricated.
+                string? weatherSnapshotJson = null;
+                if (WeatherSnapshotHelper.TryValidateForSubmission(model.WeatherSnapshot, model.TrailId, model.EventDate, out var snapshotRejectReason))
+                {
+                    weatherSnapshotJson = WeatherSnapshotHelper.Serialize(model.WeatherSnapshot!);
+                }
+                else if (model.WeatherSnapshot != null)
+                {
+                    _logger.LogWarning("Discarded a submitted Add Event weather snapshot: {Reason}", snapshotRejectReason);
+                }
 
                 var newEvent = new Event
                 {
@@ -258,9 +338,10 @@ namespace TrailGuard.Controllers
                     WeatherForecastAdvisory = model.WeatherForecastAdvisory,
                     WeatherRiskLevel = model.WeatherRiskLevel,
                     WeatherReminder = model.WeatherReminder,
+                    WeatherSnapshotJson = weatherSnapshotJson,
                     NotesAndReminders = model.NotesAndReminders,
                     PaymentDetails = model.PaymentDetails,
-                    PickupPoints = model.PickupPoints
+                    PickupPoints = string.Join("\n", scheduleResult.CanonicalLines)
                 };
 
                 _context.Events.Add(newEvent);
@@ -270,43 +351,108 @@ namespace TrailGuard.Controllers
             }
             catch (Exception ex)
             {
-                return Json(new { success = false, message = ex.Message });
+                _logger.LogError(ex, "Failed to create event for trail {TrailId}.", model.TrailId);
+                return Json(new { success = false, message = "Something went wrong while creating the event. Please try again." });
             }
         }
 
         [HttpGet]
         public async Task<JsonResult> GetEvent(int id)
         {
-            var eventItem = await _context.Events
-                .Include(e => e.Trail)
-                .FirstOrDefaultAsync(e => e.Id == id);
-            
-            if (eventItem == null)
+            try
             {
-                return Json(new { success = false, message = "Event not found" });
-            }
+                var eventItem = await _context.Events
+                    .Include(e => e.Trail)
+                    .FirstOrDefaultAsync(e => e.Id == id);
 
-            return Json(new
+                if (eventItem == null)
+                {
+                    return Json(new { success = false, message = "Event not found" });
+                }
+
+                var trail = eventItem.Trail;
+
+                // Defensive read - malformed/unsupported stored JSON
+                // degrades to null (treated the same as a legacy event that
+                // never had one) rather than breaking this endpoint. Never
+                // returned as a raw string; only as this validated,
+                // explicitly-shaped object, with field names matching
+                // GetWeatherForecast's own response so the same client-side
+                // renderer can consume either one.
+                var weatherSnapshot = WeatherSnapshotHelper.TryDeserialize(eventItem.WeatherSnapshotJson, _logger);
+
+                return Json(new
+                {
+                    success = true,
+                    id = eventItem.Id,
+                    eventTitle = eventItem.EventTitle,
+                    description = eventItem.Description,
+                    eventDate = eventItem.EventDate.ToString("yyyy-MM-dd"),
+                    eventTime = eventItem.EventTime.ToString(),
+                    trailId = eventItem.TrailId,
+                    trailName = trail?.Name,
+                    // Trail preview fields the Edit Event modal's Step 1 cards
+                    // show on open - returned here so hydration never needs a
+                    // GetTrailDetails/GetCalculatedDifficulty round trip (which
+                    // would mean dispatching a synthetic 'change' event on the
+                    // trail select to trigger them, and that would also fire
+                    // the weather refetch that hydration must NOT trigger).
+                    trailLocation = trail?.Location,
+                    trailDistanceKm = trail?.DistanceKm,
+                    trailElevationGainMeters = trail?.ElevationGainMeters,
+                    trailTerrain = trail?.Terrain,
+                    trailClass = trail?.TrailClass,
+                    trailClassLabel = trail != null ? DifficultyCalculator.TrailClassLabel(trail.TrailClass) : null,
+                    trailDifficulty = trail != null ? DifficultyCalculator.ComputeDifficulty(trail) : eventItem.Difficulty,
+                    estimatedDuration = eventItem.EstimatedDuration,
+                    capacity = eventItem.Capacity,
+                    organizedBy = eventItem.OrganizedBy,
+                    weatherForecastAdvisory = eventItem.WeatherForecastAdvisory,
+                    weatherRiskLevel = eventItem.WeatherRiskLevel,
+                    weatherReminder = eventItem.WeatherReminder,
+                    announcements = eventItem.NotesAndReminders,
+                    paymentDetails = eventItem.PaymentDetails,
+                    pickupPoints = eventItem.PickupPoints,
+                    // Structured hydration for the Pickup Schedules builder -
+                    // legacy lines without a valid canonical time suffix come
+                    // back with time: null, requiresTime: true rather than
+                    // being dropped or given an invented time.
+                    pickupSchedules = PickupScheduleHelper.ParseForEditing(eventItem.PickupPoints).Select(s => new
+                    {
+                        location = s.Location,
+                        time = s.Time,
+                        requiresTime = s.RequiresTime
+                    }),
+                    // Structured hydration for the modern weather card - null
+                    // when the event has never had a successfully-validated
+                    // snapshot saved (legacy events, or one that failed
+                    // validation). trailId/forecastDate let the client decide
+                    // whether this snapshot still matches the event's current
+                    // trail/date (rendered as the live card) or belongs to a
+                    // previous context (rendered as a stale/previous notice) -
+                    // see the Edit Event weather hydration logic.
+                    weatherSnapshot = weatherSnapshot == null ? null : new
+                    {
+                        trailId = weatherSnapshot.TrailId,
+                        forecastDate = weatherSnapshot.ForecastDate.ToString("yyyy-MM-dd"),
+                        condition = weatherSnapshot.Condition,
+                        weatherCode = weatherSnapshot.WeatherCode,
+                        temperatureMinC = weatherSnapshot.TemperatureMinC,
+                        temperatureMaxC = weatherSnapshot.TemperatureMaxC,
+                        expectedRainfallMm = weatherSnapshot.ExpectedRainfallMm,
+                        windSpeedKmh = weatherSnapshot.WindSpeedKmh,
+                        windDescription = weatherSnapshot.WindDescription,
+                        riskLevel = weatherSnapshot.RiskLevel,
+                        updatedAt = weatherSnapshot.UpdatedAt
+                    },
+                    status = eventItem.Status
+                });
+            }
+            catch (Exception ex)
             {
-                success = true,
-                id = eventItem.Id,
-                eventTitle = eventItem.EventTitle,
-                description = eventItem.Description,
-                eventDate = eventItem.EventDate.ToString("yyyy-MM-dd"),
-                eventTime = eventItem.EventTime.ToString(),
-                trailId = eventItem.TrailId,
-                trailName = eventItem.Trail?.Name,
-                estimatedDuration = eventItem.EstimatedDuration,
-                capacity = eventItem.Capacity,
-                organizedBy = eventItem.OrganizedBy,
-                weatherForecastAdvisory = eventItem.WeatherForecastAdvisory,
-                weatherRiskLevel = eventItem.WeatherRiskLevel,
-                weatherReminder = eventItem.WeatherReminder,
-                announcements = eventItem.NotesAndReminders,
-                paymentDetails = eventItem.PaymentDetails,
-                pickupPoints = eventItem.PickupPoints,
-                status = eventItem.Status
-            });
+                _logger.LogError(ex, "Failed to load event {EventId} for editing.", id);
+                return Json(new { success = false, message = "Unable to load this event. Please try again." });
+            }
         }
 
         [HttpGet]
@@ -491,8 +637,10 @@ namespace TrailGuard.Controllers
         {
             try
             {
+                // Everything below is validation - existingEvent's properties
+                // are only ever touched once every check has passed, so a
+                // rejected request never leaves a partial mutation to save.
                 var existingEvent = await _context.Events.FindAsync(model.Id);
-                
                 if (existingEvent == null)
                 {
                     return Json(new { success = false, message = "Event not found" });
@@ -504,6 +652,76 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "Trail not found" });
                 }
 
+                // Organizer assignment is resolved the same way Add Event
+                // resolves it - see AddEvent's own comment for the full
+                // rationale. The one Edit-specific difference: a non-Admin
+                // (Organizer) caller does NOT get assigned as the organizer the
+                // way a new event's creator does - editing an existing event
+                // must never reassign it to whoever happens to be editing it,
+                // so the event's current OrganizedBy is preserved untouched
+                // instead.
+                var currentUser = await _userManager.GetUserAsync(User);
+                if (currentUser == null)
+                {
+                    return Json(new { success = false, message = "Unable to verify your account. Please sign in again." });
+                }
+
+                string organizerName;
+                if (await _userManager.IsInRoleAsync(currentUser, "Admin"))
+                {
+                    if (string.IsNullOrWhiteSpace(model.OrganizerId))
+                    {
+                        return Json(new { success = false, message = "Please select an organizer." });
+                    }
+
+                    var selectedAccount = await _userManager.FindByIdAsync(model.OrganizerId);
+                    if (selectedAccount == null || !await _userManager.IsInRoleAsync(selectedAccount, "Organizer"))
+                    {
+                        return Json(new { success = false, message = "The selected organizer is not valid." });
+                    }
+
+                    organizerName = $"{selectedAccount.FirstName} {selectedAccount.LastName}";
+                }
+                else
+                {
+                    // Not an Admin, so [Authorize(Roles = "Admin,Organizer")] on
+                    // this controller guarantees the caller holds the Organizer
+                    // role. Any OrganizerId the client sent is ignored, and the
+                    // event keeps its existing organizer assignment.
+                    organizerName = existingEvent.OrganizedBy ?? string.Empty;
+                }
+
+                var scheduleResult = PickupScheduleHelper.ValidateAndFormat(model.PickupSchedules);
+                if (!scheduleResult.Success)
+                {
+                    return Json(new { success = false, message = scheduleResult.Error });
+                }
+
+                // Weather snapshot: replace only when a valid new one is
+                // submitted for THIS event's TrailId/EventDate; otherwise
+                // preserve whatever the event already had. This covers every
+                // case the same way:
+                //   - no new snapshot submitted, trail/date unchanged -> the
+                //     organizer didn't touch weather this edit; keep the
+                //     existing snapshot as-is.
+                //   - trail/date changed but no successful matching refresh
+                //     was submitted -> the old snapshot (with its OWN,
+                //     original trail/date) is preserved rather than rewritten
+                //     to pretend it matches the new context.
+                //   - a valid snapshot matching the submitted trail/date IS
+                //     supplied -> it replaces the stored one.
+                // A failed/rejected submission never overwrites a valid
+                // stored snapshot with null.
+                var weatherSnapshotJson = existingEvent.WeatherSnapshotJson;
+                if (WeatherSnapshotHelper.TryValidateForSubmission(model.WeatherSnapshot, model.TrailId, model.EventDate, out var snapshotRejectReason))
+                {
+                    weatherSnapshotJson = WeatherSnapshotHelper.Serialize(model.WeatherSnapshot!);
+                }
+                else if (model.WeatherSnapshot != null)
+                {
+                    _logger.LogWarning("Discarded a submitted Edit Event weather snapshot for event {EventId}: {Reason}", model.Id, snapshotRejectReason);
+                }
+
                 existingEvent.EventTitle = model.EventTitle;
                 existingEvent.Description = model.Description;
                 existingEvent.EventDate = model.EventDate;
@@ -513,14 +731,15 @@ namespace TrailGuard.Controllers
                 existingEvent.Difficulty = DifficultyCalculator.ComputeDifficulty(trail);
                 existingEvent.EstimatedDuration = model.EstimatedDuration;
                 existingEvent.Capacity = model.Capacity;
-                existingEvent.OrganizedBy = model.OrganizedBy;
+                existingEvent.OrganizedBy = organizerName;
                 existingEvent.Status = model.Status ?? existingEvent.Status;
                 existingEvent.WeatherForecastAdvisory = model.WeatherForecastAdvisory;
                 existingEvent.WeatherRiskLevel = model.WeatherRiskLevel ?? existingEvent.WeatherRiskLevel;
                 existingEvent.WeatherReminder = model.WeatherReminder ?? existingEvent.WeatherReminder;
+                existingEvent.WeatherSnapshotJson = weatherSnapshotJson;
                 existingEvent.NotesAndReminders = model.NotesAndReminders;
                 existingEvent.PaymentDetails = model.PaymentDetails;
-                existingEvent.PickupPoints = model.PickupPoints;
+                existingEvent.PickupPoints = string.Join("\n", scheduleResult.CanonicalLines);
                 existingEvent.DateUpdated = DateTime.Now;
 
                 await _context.SaveChangesAsync();
@@ -529,7 +748,8 @@ namespace TrailGuard.Controllers
             }
             catch (Exception ex)
             {
-                return Json(new { success = false, message = ex.Message });
+                _logger.LogError(ex, "Failed to update event {EventId}.", model.Id);
+                return Json(new { success = false, message = "Something went wrong while updating the event. Please try again." });
             }
         }
 

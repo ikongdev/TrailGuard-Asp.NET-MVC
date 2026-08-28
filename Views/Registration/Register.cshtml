@@ -143,25 +143,27 @@
                             </div>
                         </div>
 
-                        <!-- Pickup Point -->
+                        <!-- Pickup Schedule -->
                         <div class="space-y-3">
                             <h3 class="text-sm font-semibold text-gray-300 border-b border-white/10 pb-2">
-                                <i class="fa-solid fa-bus text-accent mr-2"></i>Pickup Point
+                                <i class="fa-solid fa-bus text-accent mr-2"></i>Pickup Schedule
                             </h3>
                             <div>
-                                <label class="block text-xs font-medium text-gray-400 mb-1">Select Pickup Point <span class="text-red-400">*</span></label>
+                                <label class="block text-xs font-medium text-gray-400 mb-1">Select Pickup Schedule <span class="text-red-400">*</span></label>
                                 <select name="pickupPoint" required class="w-full bg-surface-card border border-gray-700 text-white rounded-xl px-4 py-2.5 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors text-sm">
-                                    <option value="">Select a pickup point...</option>
-                                    @if (!string.IsNullOrEmpty(eventItem?.PickupPoints))
+                                    <option value="">Select a pickup schedule...</option>
+                                    @{
+                                        // Each option's value is the complete, canonical stored entry
+                                        // ("Location — Time") - never split into separate fields here.
+                                        // The same parser both Add Event's server-side validation and
+                                        // RegistrationController's submission check use, so a legacy
+                                        // free-text event's lines and a new structured event's
+                                        // "Location — Time" lines are both handled identically.
+                                        var pickupSchedules = TrailGuard.Services.PickupScheduleHelper.ParseStoredEntries(eventItem?.PickupPoints);
+                                    }
+                                    @foreach (var schedule in pickupSchedules)
                                     {
-                                        var pickupList = eventItem.PickupPoints.Split('\n');
-                                        foreach (var point in pickupList)
-                                        {
-                                            if (!string.IsNullOrWhiteSpace(point))
-                                            {
-                                                <option value="@point.Trim()">@point.Trim()</option>
-                                            }
-                                        }
+                                        <option value="@schedule">@schedule</option>
                                     }
                                 </select>
                             </div>

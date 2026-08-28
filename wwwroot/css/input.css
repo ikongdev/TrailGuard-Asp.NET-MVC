@@ -40,6 +40,23 @@
     accent-color: var(--color-accent);
 }
 
+/* Add Event modal only (Views/Event/Index.cshtml) - a native date/time
+   input's calendar/clock picker icon renders as a near-black glyph by
+   default, invisible against this app's dark surfaces. color-scheme tells
+   the browser to draw the rest of the control's own chrome for a dark
+   background, and the inverted filter fixes the one part (the picker
+   glyph) some browsers don't reflect that through. Scoped to this one
+   class rather than every input[type=date/time] in the app, since Edit
+   Event's date/time fields are out of scope for this task. */
+.add-event-datetime {
+    color-scheme: dark;
+}
+
+.add-event-datetime::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    cursor: pointer;
+}
+
 @layer base {
     html {
         scroll-behavior: smooth;

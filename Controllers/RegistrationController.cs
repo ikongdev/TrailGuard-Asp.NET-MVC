@@ -195,6 +195,19 @@ namespace TrailGuard.Controllers
                 return RedirectToAction("Register", new { eventId, assessmentId });
             }
 
+            // The submitted pickupPoint is never trusted as-is - it must match
+            // one of this event's own PickupPoints lines. This rejects a
+            // fabricated DevTools/curl value, a schedule copied from another
+            // event, a blank submission, and a malformed value alike, and the
+            // *matched* stored entry (not the raw submission) is what actually
+            // gets saved below.
+            var canonicalPickupPoint = PickupScheduleHelper.FindCanonicalMatch(eventItem.PickupPoints, pickupPoint);
+            if (canonicalPickupPoint == null)
+            {
+                TempData["Error"] = "Please select a valid pickup schedule for this event.";
+                return RedirectToAction("Register", new { eventId, assessmentId });
+            }
+
             // ✅ I-check kung may cancelled registration, i-soft delete ang assessment nito
             var cancelledRegistration = await _context.EventRegistrations
                 .FirstOrDefaultAsync(r => r.EventId == eventId && r.UserId == userId && r.Status == "Cancelled");
@@ -243,7 +256,7 @@ namespace TrailGuard.Controllers
                 ParticipantName = participantName,
                 ContactNumber = contactNumber,
                 Email = email,
-                PickupPoint = pickupPoint,
+                PickupPoint = canonicalPickupPoint,
                 Status = "Pending",
                 AssessmentId = assessmentId,
                 EmergencyContactName = emergencyContactName,

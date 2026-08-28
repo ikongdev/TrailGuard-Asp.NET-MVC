@@ -70,6 +70,7 @@
     --container-sm: 24rem;
     --container-md: 28rem;
     --container-lg: 32rem;
+    --container-xl: 36rem;
     --container-2xl: 42rem;
     --container-3xl: 48rem;
     --container-4xl: 56rem;
@@ -118,6 +119,7 @@
     --ease-out: cubic-bezier(0, 0, 0.2, 1);
     --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
     --animate-spin: spin 1s linear infinite;
+    --animate-pulse: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
     --animate-bounce: bounce 1s infinite;
     --blur-sm: 8px;
     --blur-md: 12px;
@@ -842,6 +844,9 @@
   .h-0\.5 {
     height: calc(var(--spacing) * 0.5);
   }
+  .h-1 {
+    height: var(--spacing);
+  }
   .h-1\.5 {
     height: calc(var(--spacing) * 1.5);
   }
@@ -980,6 +985,9 @@
   .min-h-25 {
     min-height: calc(var(--spacing) * 25);
   }
+  .min-h-32 {
+    min-height: calc(var(--spacing) * 32);
+  }
   .min-h-70 {
     min-height: calc(var(--spacing) * 70);
   }
@@ -1076,6 +1084,12 @@
   .max-w-45 {
     max-width: calc(var(--spacing) * 45);
   }
+  .max-w-55 {
+    max-width: calc(var(--spacing) * 55);
+  }
+  .max-w-full {
+    max-width: 100%;
+  }
   .max-w-lg {
     max-width: var(--container-lg);
   }
@@ -1087,6 +1101,9 @@
   }
   .max-w-sm {
     max-width: var(--container-sm);
+  }
+  .max-w-xl {
+    max-width: var(--container-xl);
   }
   .min-w-0 {
     min-width: 0px;
@@ -1207,11 +1224,11 @@
   .animate-bounce {
     animation: var(--animate-bounce);
   }
+  .animate-pulse {
+    animation: var(--animate-pulse);
+  }
   .animate-spin {
     animation: var(--animate-spin);
-  }
-  .cursor-default {
-    cursor: default;
   }
   .cursor-not-allowed {
     cursor: not-allowed;
@@ -1607,9 +1624,6 @@
       border-color: color-mix(in oklab, var(--color-green-500) 50%, transparent);
     }
   }
-  .border-orange-500 {
-    border-color: var(--color-orange-500);
-  }
   .border-orange-500\/20 {
     border-color: color-mix(in srgb, oklch(70.5% 0.213 47.604) 20%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
@@ -1729,9 +1743,6 @@
   }
   .bg-\[\#111A2E\]\/50 {
     background-color: color-mix(in oklab, #111A2E 50%, transparent);
-  }
-  .bg-\[\#111A2E\]\/80 {
-    background-color: color-mix(in oklab, #111A2E 80%, transparent);
   }
   .bg-accent {
     background-color: var(--color-accent);
@@ -2064,6 +2075,12 @@
     background-color: color-mix(in srgb, #0B1325 80%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
       background-color: color-mix(in oklab, var(--color-surface-card) 80%, transparent);
+    }
+  }
+  .bg-surface-card\/90 {
+    background-color: color-mix(in srgb, #0B1325 90%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      background-color: color-mix(in oklab, var(--color-surface-card) 90%, transparent);
     }
   }
   .bg-surface-raised\/70 {
@@ -2746,6 +2763,9 @@
   .break-words {
     overflow-wrap: break-word;
   }
+  .wrap-break-word {
+    overflow-wrap: break-word;
+  }
   .break-all {
     word-break: break-all;
   }
@@ -2996,6 +3016,12 @@
   .underline {
     text-decoration-line: underline;
   }
+  .decoration-dotted {
+    text-decoration-style: dotted;
+  }
+  .underline-offset-2 {
+    text-underline-offset: 2px;
+  }
   .placeholder-gray-500::placeholder {
     color: var(--color-gray-500);
   }
@@ -3069,6 +3095,10 @@
     --tw-ring-shadow: var(--tw-ring-inset,) 0 0 0 calc(1px + var(--tw-ring-offset-width)) var(--tw-ring-color, currentcolor);
     box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
   }
+  .ring-2 {
+    --tw-ring-shadow: var(--tw-ring-inset,) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color, currentcolor);
+    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
   .shadow-black\/20 {
     --tw-shadow-color: color-mix(in srgb, #000 20%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
@@ -3123,6 +3153,9 @@
       --tw-shadow-color: color-mix(in oklab, color-mix(in oklab, var(--color-violet-500) 30%, transparent) var(--tw-shadow-alpha), transparent);
     }
   }
+  .ring-accent {
+    --tw-ring-color: var(--color-accent);
+  }
   .ring-red-500\/20 {
     --tw-ring-color: color-mix(in srgb, oklch(63.7% 0.237 25.331) 20%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
@@ -3134,6 +3167,13 @@
     @supports (color: color-mix(in lab, red, red)) {
       --tw-ring-color: color-mix(in oklab, var(--color-white) 30%, transparent);
     }
+  }
+  .ring-offset-2 {
+    --tw-ring-offset-width: 2px;
+    --tw-ring-offset-shadow: var(--tw-ring-inset,) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
+  }
+  .ring-offset-surface-card {
+    --tw-ring-offset-color: var(--color-surface-card);
   }
   .outline {
     outline-style: var(--tw-outline-style);
@@ -3318,6 +3358,9 @@
   }
   .file\:text-white::file-selector-button {
     color: var(--color-white);
+  }
+  .empty\:mt-0:empty {
+    margin-top: 0px;
   }
   .empty\:hidden:empty {
     display: none;
@@ -3643,6 +3686,9 @@
   .focus\:ring-offset-surface-base:focus {
     --tw-ring-offset-color: var(--color-surface-base);
   }
+  .focus\:ring-offset-surface-card:focus {
+    --tw-ring-offset-color: var(--color-surface-card);
+  }
   .focus\:outline-none:focus {
     --tw-outline-style: none;
     outline-style: none;
@@ -3702,6 +3748,9 @@
     .motion-reduce\:transform-none {
       transform: none;
     }
+    .motion-reduce\:animate-none {
+      animation: none;
+    }
     .motion-reduce\:transition-none {
       transition-property: none;
     }
@@ -3709,6 +3758,9 @@
   @media (width >= 40rem) {
     .sm\:col-span-2 {
       grid-column: span 2 / span 2;
+    }
+    .sm\:mx-2 {
+      margin-inline: calc(var(--spacing) * 2);
     }
     .sm\:block {
       display: block;
@@ -3718,6 +3770,9 @@
     }
     .sm\:h-80 {
       height: calc(var(--spacing) * 80);
+    }
+    .sm\:w-36 {
+      width: calc(var(--spacing) * 36);
     }
     .sm\:w-40 {
       width: calc(var(--spacing) * 40);
@@ -3730,6 +3785,9 @@
     }
     .sm\:w-80 {
       width: calc(var(--spacing) * 80);
+    }
+    .sm\:w-auto {
+      width: auto;
     }
     .sm\:grid-cols-2 {
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3763,6 +3821,10 @@
     }
     .sm\:px-8 {
       padding-inline: calc(var(--spacing) * 8);
+    }
+    .sm\:text-xs {
+      font-size: var(--text-xs);
+      line-height: var(--tw-leading, var(--text-xs--line-height));
     }
   }
   @media (width >= 48rem) {
@@ -3967,6 +4029,13 @@
   font-family: 'Poppins';
   src: url('/css/fonts/Poppins-Bold.ttf') format('truetype');
   font-weight: 700;
+}
+.add-event-datetime {
+  color-scheme: dark;
+}
+.add-event-datetime::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  cursor: pointer;
 }
 @layer base {
   html {
@@ -4504,6 +4573,11 @@
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.5;
   }
 }
 @keyframes bounce {

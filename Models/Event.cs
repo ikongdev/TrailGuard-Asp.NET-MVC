@@ -61,6 +61,15 @@ namespace TrailGuard.Models
         [Display(Name = "Weather Reminder")]
         public string? WeatherReminder { get; set; }
 
+        // Structured copy of a successful forecast (see Models/WeatherSnapshot.cs),
+        // serialized as JSON text - lets Edit Event rebuild the full modern
+        // weather card without re-fetching or parsing WeatherForecastAdvisory.
+        // Null for legacy events and for any event whose weather was never
+        // successfully looked up. Read/written only through
+        // Services/WeatherSnapshotHelper, never deserialized directly.
+        [Display(Name = "Weather Snapshot")]
+        public string? WeatherSnapshotJson { get; set; }
+
         [Display(Name = "Notes & Reminders")]
         public string? NotesAndReminders { get; set; }
 
