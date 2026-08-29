@@ -894,9 +894,6 @@
   .h-16 {
     height: calc(var(--spacing) * 16);
   }
-  .h-20 {
-    height: calc(var(--spacing) * 20);
-  }
   .h-24 {
     height: calc(var(--spacing) * 24);
   }
@@ -1002,6 +999,9 @@
   .w-1\.5 {
     width: calc(var(--spacing) * 1.5);
   }
+  .w-2\.5 {
+    width: calc(var(--spacing) * 2.5);
+  }
   .w-4 {
     width: calc(var(--spacing) * 4);
   }
@@ -1031,9 +1031,6 @@
   }
   .w-16 {
     width: calc(var(--spacing) * 16);
-  }
-  .w-20 {
-    width: calc(var(--spacing) * 20);
   }
   .w-24 {
     width: calc(var(--spacing) * 24);
@@ -1112,12 +1109,6 @@
   }
   .min-w-0 {
     min-width: 0px;
-  }
-  .min-w-25 {
-    min-width: calc(var(--spacing) * 25);
-  }
-  .min-w-30 {
-    min-width: calc(var(--spacing) * 30);
   }
   .flex-1 {
     flex: 1;
@@ -1387,6 +1378,9 @@
   .gap-y-2 {
     row-gap: calc(var(--spacing) * 2);
   }
+  .gap-y-3 {
+    row-gap: calc(var(--spacing) * 3);
+  }
   .gap-y-4 {
     row-gap: calc(var(--spacing) * 4);
   }
@@ -1401,6 +1395,12 @@
     border-color: color-mix(in srgb, #fff 5%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
       border-color: color-mix(in oklab, var(--color-white) 5%, transparent);
+    }
+  }
+  :where(.divide-white\/10 > :not(:last-child)) {
+    border-color: color-mix(in srgb, #fff 10%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      border-color: color-mix(in oklab, var(--color-white) 10%, transparent);
     }
   }
   .self-start {
@@ -1587,6 +1587,9 @@
     @supports (color: color-mix(in lab, red, red)) {
       border-color: color-mix(in oklab, var(--color-emerald-500) 50%, transparent);
     }
+  }
+  .border-gray-500 {
+    border-color: var(--color-gray-500);
   }
   .border-gray-500\/20 {
     border-color: color-mix(in srgb, oklch(55.1% 0.027 264.364) 20%, transparent);
@@ -1777,6 +1780,9 @@
       background-color: color-mix(in oklab, var(--color-accent) 15%, transparent);
     }
   }
+  .bg-amber-400 {
+    background-color: var(--color-amber-400);
+  }
   .bg-amber-500 {
     background-color: var(--color-amber-500);
   }
@@ -1860,6 +1866,9 @@
   }
   .bg-blue-950 {
     background-color: var(--color-blue-950);
+  }
+  .bg-emerald-400 {
+    background-color: var(--color-emerald-400);
   }
   .bg-emerald-500 {
     background-color: var(--color-emerald-500);
@@ -3491,14 +3500,6 @@
     .hover\:bg-emerald-500:hover {
       background-color: var(--color-emerald-500);
     }
-    .hover\:bg-gray-500\/20:hover {
-      background-color: color-mix(in srgb, oklch(55.1% 0.027 264.364) 20%, transparent);
-    }
-    @supports (color: color-mix(in lab, red, red)) {
-      .hover\:bg-gray-500\/20:hover {
-        background-color: color-mix(in oklab, var(--color-gray-500) 20%, transparent);
-      }
-    }
     .hover\:bg-gray-600:hover {
       background-color: var(--color-gray-600);
     }
@@ -3516,14 +3517,6 @@
     .hover\:bg-green-500:hover {
       background-color: var(--color-green-500);
     }
-    .hover\:bg-green-500\/20:hover {
-      background-color: color-mix(in srgb, oklch(72.3% 0.219 149.579) 20%, transparent);
-    }
-    @supports (color: color-mix(in lab, red, red)) {
-      .hover\:bg-green-500\/20:hover {
-        background-color: color-mix(in oklab, var(--color-green-500) 20%, transparent);
-      }
-    }
     .hover\:bg-green-600:hover {
       background-color: var(--color-green-600);
     }
@@ -3539,14 +3532,6 @@
     @supports (color: color-mix(in lab, red, red)) {
       .hover\:bg-red-500\/10:hover {
         background-color: color-mix(in oklab, var(--color-red-500) 10%, transparent);
-      }
-    }
-    .hover\:bg-red-500\/20:hover {
-      background-color: color-mix(in srgb, oklch(63.7% 0.237 25.331) 20%, transparent);
-    }
-    @supports (color: color-mix(in lab, red, red)) {
-      .hover\:bg-red-500\/20:hover {
-        background-color: color-mix(in oklab, var(--color-red-500) 20%, transparent);
       }
     }
     .hover\:bg-red-600:hover {
@@ -3591,14 +3576,6 @@
     @supports (color: color-mix(in lab, red, red)) {
       .hover\:bg-white\/20:hover {
         background-color: color-mix(in oklab, var(--color-white) 20%, transparent);
-      }
-    }
-    .hover\:bg-yellow-500\/20:hover {
-      background-color: color-mix(in srgb, oklch(79.5% 0.184 86.047) 20%, transparent);
-    }
-    @supports (color: color-mix(in lab, red, red)) {
-      .hover\:bg-yellow-500\/20:hover {
-        background-color: color-mix(in oklab, var(--color-yellow-500) 20%, transparent);
       }
     }
     .hover\:from-orange-400:hover {
@@ -3998,6 +3975,9 @@
     }
     .lg\:col-span-2 {
       grid-column: span 2 / span 2;
+    }
+    .lg\:block {
+      display: block;
     }
     .lg\:flex {
       display: flex;

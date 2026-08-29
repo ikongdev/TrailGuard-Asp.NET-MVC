@@ -759,7 +759,7 @@ namespace TrailGuard.Controllers
             foreach (var reg in registrations)
             {
                 var userId = reg.UserId;
-                var preHike = reg.Assessment?.Result ?? "N/A";
+                var preHike = reg.Assessment?.Result ?? "Not available";
 
                 var participantFeedback = participantFeedbacks.ContainsKey(userId)
                     ? participantFeedbacks[userId].DifficultyExperience ?? "No feedback"
@@ -783,8 +783,7 @@ namespace TrailGuard.Controllers
                     FinalResult = finalResult,
                     FinalLabel = finalLabels.ContainsKey(reg.Id) ? finalLabels[reg.Id] : null,
                     Comparison = comparison.Item1,
-                    ComparisonColor = comparison.Item2,
-                    ComparisonIcon = comparison.Item3,
+                    ComparisonTextClass = comparison.Item2,
                     IsMissedRisk = classification == "Missed risk"
                 });
             }
@@ -808,12 +807,14 @@ namespace TrailGuard.Controllers
         // Display mapping for FinalLabelService.ClassifyAccuracy's three outcomes, shared
         // in spirit with ReportsController — same classification, same names, so the
         // per-event and aggregate views can't independently invert this comparison again.
-        private static Tuple<string, string, string> ComparisonDisplay(string? classification) => classification switch
+        // Item2 is a plain semantic text-color class only - EventComparison.cshtml renders
+        // this as plain weighted text, not a badge, and is this method's only consumer.
+        private static Tuple<string, string> ComparisonDisplay(string? classification) => classification switch
         {
-            "Accurate" => Tuple.Create("✅ Accurate", "text-green-400", "fa-check-circle"),
-            "Over-cautious" => Tuple.Create("⚠️ Over-cautious", "text-yellow-400", "fa-triangle-exclamation"),
-            "Missed risk" => Tuple.Create("🚨 Missed risk", "text-red-400", "fa-shield-halved"),
-            _ => Tuple.Create("Insufficient Data", "text-gray-400", "fa-minus-circle")
+            "Accurate" => Tuple.Create("Accurate", "text-emerald-400"),
+            "Over-cautious" => Tuple.Create("Over-cautious", "text-amber-400"),
+            "Missed risk" => Tuple.Create("Missed risk", "text-red-400"),
+            _ => Tuple.Create("Insufficient data", "text-gray-400")
         };
 
     }

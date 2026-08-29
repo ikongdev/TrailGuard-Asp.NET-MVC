@@ -46,7 +46,6 @@
         _ => ("", "", "")
     };
 
-    var eventTimeText = $"{Model.EventTime.Hours:D2}:{Model.EventTime.Minutes:D2} {(Model.EventTime.Hours >= 12 ? "PM" : "AM")}";
 }
 
 <div class="pt-24 px-4 max-w-6xl mx-auto min-h-screen text-white pb-12">
@@ -93,7 +92,7 @@
             <h1 class="text-4xl font-bold text-white mb-2">@Model.EventTitle</h1>
             <div class="flex flex-wrap gap-4 text-sm text-gray-300">
                 <span><i class="fa-regular fa-calendar text-accent mr-2"></i>@Model.EventDate.ToString("MMMM dd, yyyy")</span>
-                <span><i class="fa-regular fa-clock text-accent mr-2"></i>@eventTimeText</span>
+                <span><i class="fa-regular fa-clock text-accent mr-2"></i>@Model.FormattedEventTime</span>
                 <span><i class="fa-solid fa-location-dot text-accent mr-2"></i>@Model.Location</span>
             </div>
         </div>
@@ -161,7 +160,7 @@
                     </div>
                     <div>
                         <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Time</p>
-                        <p class="text-white font-semibold text-sm">@eventTimeText</p>
+                        <p class="text-white font-semibold text-sm">@Model.FormattedEventTime</p>
                     </div>
                     <div>
                         <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Total Capacity</p>
@@ -247,7 +246,7 @@
                     </div>
                     <div class="flex justify-between gap-4">
                         <span class="text-gray-400">Date &amp; Time</span>
-                        <span class="text-white font-semibold text-right">@Model.EventDate.ToString("MMM dd, yyyy")<br />@eventTimeText</span>
+                        <span class="text-white font-semibold text-right">@Model.EventDate.ToString("MMM dd, yyyy")<br />@Model.FormattedEventTime</span>
                     </div>
                     <div class="flex justify-between gap-4">
                         <span class="text-gray-400">Duration</span>

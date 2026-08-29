@@ -112,7 +112,10 @@ namespace TrailGuard.Models
             {
                 try
                 {
-                    return $"{EventTime.Hours:D2}:{EventTime.Minutes:D2} {(EventTime.Hours >= 12 ? "PM" : "AM")}";
+                    // Non-padded hour, matching the system-wide 12-hour display convention
+                    // ("5:00 AM", not "05:00 AM") - same "h:mm tt" pattern already used by
+                    // OrganizerUpcomingEventData.FormattedEventTime.
+                    return DateTime.Today.Add(EventTime).ToString("h:mm tt");
                 }
                 catch
                 {

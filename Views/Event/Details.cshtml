@@ -114,7 +114,7 @@
             <h1 class="text-4xl font-bold text-white mb-2">@Model.EventTitle</h1>
             <div class="flex flex-wrap gap-4 text-gray-300">
                 <span><i class="fa-regular fa-calendar text-orange-400 mr-2"></i>@Model.EventDate.ToString("MMMM dd, yyyy")</span>
-                <span><i class="fa-regular fa-clock text-orange-400 mr-2"></i>@($"{Model.EventTime.Hours:D2}:{Model.EventTime.Minutes:D2} {(Model.EventTime.Hours >= 12 ? "PM" : "AM")}")</span>
+                <span><i class="fa-regular fa-clock text-orange-400 mr-2"></i>@Model.FormattedEventTime</span>
                 <span><i class="fa-solid fa-location-dot text-orange-400 mr-2"></i>@Model.Location</span>
             </div>
         </div>
@@ -262,7 +262,7 @@
                     </div>
                     <div>
                         <p class="text-gray-500 text-xs uppercase tracking-wider">Time</p>
-                        <p class="text-white font-semibold">@($"{Model.EventTime.Hours:D2}:{Model.EventTime.Minutes:D2} {(Model.EventTime.Hours >= 12 ? "PM" : "AM")}")</p>
+                        <p class="text-white font-semibold">@Model.FormattedEventTime</p>
                     </div>
                     <div>
                         <p class="text-gray-500 text-xs uppercase tracking-wider">Total Capacity</p>
