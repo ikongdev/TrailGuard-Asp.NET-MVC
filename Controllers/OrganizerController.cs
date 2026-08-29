@@ -187,6 +187,19 @@ namespace TrailGuard.Controllers
 
             var registrationsList = await registrations.ToListAsync();
 
+            // One bulk lookup for the whole page instead of a query per row -
+            // Assessment has no SuitabilityResult navigation property, so this
+            // can't be satisfied by an Include on the query above.
+            var assessmentIds = registrationsList
+                .Where(r => r.AssessmentId.HasValue)
+                .Select(r => r.AssessmentId!.Value)
+                .Distinct()
+                .ToList();
+
+            var confidenceByAssessmentId = await _context.SuitabilityResults
+                .Where(sr => assessmentIds.Contains(sr.AssessmentId))
+                .ToDictionaryAsync(sr => sr.AssessmentId, sr => sr.ConfidenceScore);
+
             var viewModel = registrationsList.Select(r => new RegistrationWithAssessmentViewModel
             {
                 RegistrationId = r.Id,
@@ -208,6 +221,9 @@ namespace TrailGuard.Controllers
                 AssessmentId = r.AssessmentId,
                 AssessmentResult = r.Assessment?.Result,
                 AssessmentTotalScore = r.Assessment?.TotalScore,
+                AssessmentConfidence = r.AssessmentId.HasValue && confidenceByAssessmentId.TryGetValue(r.AssessmentId.Value, out var confidence)
+                    ? confidence
+                    : (double?)null,
                 MedicalConditions = r.Assessment?.MedicalConditions,
                 FitnessLevel = r.Assessment?.ExerciseFrequency,
                 HikingExperience = r.Assessment?.MountainsClimbed,

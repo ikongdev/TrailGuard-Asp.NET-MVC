@@ -6,86 +6,123 @@
     var goodMatchCount = Model.Count(r => r.AssessmentResult == "Good-Match");
     var borderlineCount = Model.Count(r => r.AssessmentResult == "Borderline");
     var notRecommendedCount = Model.Count(r => r.AssessmentResult == "Not Recommended");
+    var registrationWord = totalRegistrations == 1 ? "registration" : "registrations";
+
+    // Plain semantic text, no pill shell - see DESIGN.md, Registration Status.
+    Func<string, string> statusTextClass = status => status switch
+    {
+        "Pending" => "text-amber-400",
+        "Awaiting Payment" => "text-amber-400",
+        "For Payment Verification" => "text-blue-400",
+        "Accepted" => "text-emerald-400",
+        "Alternative Recommended" => "text-blue-400",
+        "Rejected" => "text-red-400",
+        "Cancelled" => "text-slate-400",
+        "Voided" => "text-slate-400",
+        _ => "text-gray-300"
+    };
+
+    Func<string?, string> resultTextClass = value => value switch
+    {
+        "Good-Match" => "text-emerald-400",
+        "Borderline" => "text-amber-400",
+        "Not Recommended" => "text-red-400",
+        _ => "text-gray-400"
+    };
 }
 
 @* Success/Error feedback now goes through the canonical global toast host
    in _Layout.cshtml instead of a page-local banner. *@
 
 <div class="pt-24 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
-    
+
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
-            <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-linear-to-r from-blue-400 to-cyan-400">Registrations</h1>
+            <h1 class="text-3xl font-bold text-white">Registrations</h1>
             <p class="text-gray-400 mt-1 text-sm">Manage participant registrations and assessment results.</p>
         </div>
         <div class="bg-white/5 border border-white/10 px-4 py-2 rounded-full flex items-center gap-2">
-            <i class="fa-regular fa-clipboard text-blue-400"></i>
-            <span class="text-sm text-gray-300">@totalRegistrations registration(s)</span>
+            <i class="fa-regular fa-clipboard text-accent" aria-hidden="true"></i>
+            <span class="text-sm text-gray-300" id="registrationCountLabel">@totalRegistrations @registrationWord</span>
         </div>
     </div>
 
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4 text-center">
+        <div class="bg-white/5 border border-white/10 rounded-xl p-4 text-center flex flex-col justify-center">
             <p class="text-2xl font-bold text-white">@totalRegistrations</p>
-            <p class="text-gray-400 text-xs">Total Registrations</p>
+            <p class="text-gray-400 text-xs mt-1">Total Registrations</p>
         </div>
-        <div class="bg-green-500/10 border border-green-500/30 rounded-2xl p-4 text-center">
-            <p class="text-2xl font-bold text-green-400">@goodMatchCount</p>
-            <p class="text-gray-400 text-xs">Good-Match</p>
+        <div class="bg-white/5 border border-emerald-500/30 rounded-xl p-4 text-center flex flex-col justify-center">
+            <p class="text-2xl font-bold text-emerald-400">@goodMatchCount</p>
+            <p class="text-gray-400 text-xs mt-1">Good-Match</p>
         </div>
-        <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-4 text-center">
-            <p class="text-2xl font-bold text-yellow-400">@borderlineCount</p>
-            <p class="text-gray-400 text-xs">Borderline</p>
+        <div class="bg-white/5 border border-amber-500/30 rounded-xl p-4 text-center flex flex-col justify-center">
+            <p class="text-2xl font-bold text-amber-400">@borderlineCount</p>
+            <p class="text-gray-400 text-xs mt-1">Borderline</p>
         </div>
-        <div class="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 text-center">
+        <div class="bg-white/5 border border-red-500/30 rounded-xl p-4 text-center flex flex-col justify-center">
             <p class="text-2xl font-bold text-red-400">@notRecommendedCount</p>
-            <p class="text-gray-400 text-xs">Not Recommended</p>
+            <p class="text-gray-400 text-xs mt-1">Not Recommended</p>
         </div>
     </div>
 
-    <div class="flex flex-col lg:flex-row gap-4 mb-8 bg-white/5 backdrop-blur-xl p-5 rounded-3xl border border-white/10 shadow-2xl">
+    <div class="flex flex-col lg:flex-row gap-4 mb-8 bg-white/5 backdrop-blur-xl p-5 rounded-xl border border-white/10">
         <div class="relative grow">
-            <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-            <input type="text" id="searchInput" placeholder="Search by participant or event..." 
-                   class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-11 pr-4 py-3 focus:border-blue-500 focus:outline-none transition-colors placeholder-gray-500">
+            <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden="true"></i>
+            <input type="text" id="searchInput" placeholder="Search by participant or event..."
+                   class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-11 pr-4 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors placeholder-gray-500">
         </div>
 
         <div class="flex flex-wrap sm:flex-nowrap gap-3">
             <div class="relative inline-block">
-                <select id="statusFilter" class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-blue-500 focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors w-full">
-                    <option value="All" class="bg-[#0b1329] text-white">All Status</option>
-                    <option value="Pending" class="bg-[#0b1329] text-white">Pending</option>
-                    <option value="Accepted" class="bg-[#0b1329] text-white">Accepted</option>
-                    <option value="Rejected" class="bg-[#0b1329] text-white">Rejected</option>
-                    <option value="Cancelled" class="bg-[#0b1329] text-white">Cancelled</option>
+                <label for="statusFilter" class="sr-only">Registration status</label>
+                <select id="statusFilter" data-custom-select data-custom-select-portal
+                        data-cs-decorative-chevron="statusFilterChevron"
+                        data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-4 py-3 rounded-full bg-black/20 border border-white/10 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                        class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors w-full">
+                    <option value="All" class="bg-surface-card">All Status</option>
+                    <option value="Pending" class="bg-surface-card">Pending</option>
+                    <option value="Accepted" class="bg-surface-card">Accepted</option>
+                    <option value="Rejected" class="bg-surface-card">Rejected</option>
+                    <option value="Cancelled" class="bg-surface-card">Cancelled</option>
                 </select>
-                <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
-                    <i class="fa-solid fa-chevron-down text-xs"></i>
+                <div id="statusFilterChevron" class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
+                    <i class="fa-solid fa-chevron-down text-xs" aria-hidden="true"></i>
                 </div>
             </div>
 
             <div class="relative inline-block">
-                <select id="assessmentFilter" class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-blue-500 focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors w-full">
-                    <option value="All" class="bg-[#0b1329] text-white">All Results</option>
-                    <option value="Good-Match" class="bg-[#0b1329] text-white">Good-Match</option>
-                    <option value="Borderline" class="bg-[#0b1329] text-white">Borderline</option>
-                    <option value="Not Recommended" class="bg-[#0b1329] text-white">Not Recommended</option>
-                    <option value="N/A" class="bg-[#0b1329] text-white">No Assessment</option>
+                <label for="assessmentFilter" class="sr-only">Assessment result</label>
+                <select id="assessmentFilter" data-custom-select data-custom-select-portal
+                        data-cs-decorative-chevron="assessmentFilterChevron"
+                        data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-4 py-3 rounded-full bg-black/20 border border-white/10 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                        data-cs-menu-class="overflow-x-hidden"
+                        data-cs-menu-width-class="w-48"
+                        class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors w-full">
+                    <option value="All" class="bg-surface-card">All Results</option>
+                    <option value="Good-Match" class="bg-surface-card">Good-Match</option>
+                    <option value="Borderline" class="bg-surface-card">Borderline</option>
+                    <option value="Not Recommended" class="bg-surface-card">Not Recommended</option>
+                    <option value="N/A" class="bg-surface-card">No Assessment</option>
                 </select>
-                <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
-                    <i class="fa-solid fa-chevron-down text-xs"></i>
+                <div id="assessmentFilterChevron" class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
+                    <i class="fa-solid fa-chevron-down text-xs" aria-hidden="true"></i>
                 </div>
             </div>
 
             <div class="relative inline-block">
-                <select id="sortFilter" class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-blue-500 focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors w-full">
-                    <option value="date_desc" class="bg-[#0b1329] text-white">Sort by: Newest</option>
-                    <option value="date_asc" class="bg-[#0b1329] text-white">Sort by: Oldest</option>
-                    <option value="participant_asc" class="bg-[#0b1329] text-white">Participant (A-Z)</option>
-                    <option value="participant_desc" class="bg-[#0b1329] text-white">Participant (Z-A)</option>
+                <label for="sortFilter" class="sr-only">Sort registrations</label>
+                <select id="sortFilter" data-custom-select data-custom-select-portal
+                        data-cs-decorative-chevron="sortFilterChevron"
+                        data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-4 py-3 rounded-full bg-black/20 border border-white/10 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                        class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors w-full">
+                    <option value="date_desc" class="bg-surface-card">Sort by: Newest</option>
+                    <option value="date_asc" class="bg-surface-card">Sort by: Oldest</option>
+                    <option value="participant_asc" class="bg-surface-card">Participant (A-Z)</option>
+                    <option value="participant_desc" class="bg-surface-card">Participant (Z-A)</option>
                 </select>
-                <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
-                    <i class="fa-solid fa-chevron-down text-xs"></i>
+                <div id="sortFilterChevron" class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
+                    <i class="fa-solid fa-chevron-down text-xs" aria-hidden="true"></i>
                 </div>
             </div>
         </div>
@@ -93,134 +130,107 @@
 
     @if (Model.Any())
     {
-        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden h-125 flex flex-col">
-            <div class="overflow-x-auto flex-1">
-                <table class="w-full text-left">
-                    <thead class="border-b border-gray-700 sticky top-0 bg-surface-card z-10">
-                        <tr>
-                            <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase">Participant</th>
-                            <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase">Event</th>
-                            <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase">Pickup Point</th>
-                            <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase">Assessment</th>
-                            <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase">Status</th>
-                            <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase">Registered</th>
-                            <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var item in Model)
-                        {
-                            var statusColor = item.Status switch
-                            {
-                                "Pending" => "text-yellow-400 bg-yellow-500/20",
-                                "Accepted" => "text-green-400 bg-green-500/20",
-                                "Rejected" => "text-red-400 bg-red-500/20",
-                                "Cancelled" => "text-gray-400 bg-gray-500/20",
-                                "Awaiting Payment" => "text-amber-400 bg-amber-500/20",
-                                "For Payment Verification" => "text-blue-400 bg-blue-500/20",
-                                "Voided" => "text-gray-400 bg-gray-500/20",
-                                _ => "text-gray-400 bg-gray-500/20"
-                            };
+        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden">
+            <div class="hidden lg:grid lg:grid-cols-[minmax(0,2.2fr)_minmax(0,2fr)_minmax(0,1.3fr)_minmax(0,0.9fr)_minmax(0,1fr)] gap-4 px-5 py-3 border-b border-white/10 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                <span>Participant</span>
+                <span>Event</span>
+                <span>Assessment</span>
+                <span>Status</span>
+                <span>Registered</span>
+            </div>
 
-                            var resultColor = item.AssessmentResult switch
-                            {
-                                "Good-Match" => "text-green-400",
-                                "Borderline" => "text-yellow-400",
-                                "Not Recommended" => "text-red-400",
-                                _ => "text-gray-400"
-                            };
+            <div class="relative">
+                <ul id="registrationList" role="list" aria-label="Registration records" class="list-none m-0 p-0 divide-y divide-white/10 overflow-y-auto">
+                @foreach (var item in Model)
+                {
+                    var assessmentLabel = item.AssessmentResult ?? "Not assessed";
+                    string? confidenceLabel = item.AssessmentResult == null
+                        ? null
+                        : (item.AssessmentConfidence.HasValue
+                            ? $"Confidence: {(item.AssessmentConfidence.Value * 100).ToString("0.0")}%"
+                            : "Confidence unavailable");
 
-                            <tr class="border-b border-gray-800 hover:bg-white/5 transition-colors">
-                                <td class="px-6 py-4">
-                                    <div>
-                                        <p class="text-white font-medium">@item.ParticipantName</p>
-                                        <p class="text-gray-500 text-xs">@item.Email</p>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <div>
-                                        <p class="text-white font-medium">@item.EventTitle</p>
-                                        <p class="text-gray-500 text-xs">
-                                            <i class="fa-regular fa-calendar mr-1"></i>@item.EventDate
-                                            <span class="mx-1">•</span>
-                                            <i class="fa-regular fa-clock mr-1"></i>@item.EventTime
-                                        </p>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4 text-gray-300 text-sm">
-                                    @item.PickupPoint
-                                </td>
-                                <td class="px-6 py-4">
-                                    <div>
-                                        <span class="text-xs font-semibold @resultColor">@(item.AssessmentResult ?? "N/A")</span>
-                                        @if (item.AssessmentTotalScore.HasValue)
-                                        {
-                                            <span class="text-gray-500 text-xs ml-1">(@item.AssessmentTotalScore/44)</span>
-                                        }
-                                    </div>
-                                    @if (item.MedicalClearanceRequired)
-                                    {
-                                        var clearanceMissing = string.IsNullOrEmpty(item.MedicalClearanceUrl);
-                                        <div class="mt-1">
-                                            <span class="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium @(clearanceMissing ? "bg-red-500/20 text-red-400" : "bg-blue-500/20 text-blue-400")">
-                                                <i class="fa-solid fa-file-medical"></i>
-                                                @(clearanceMissing ? "Clearance missing" : "Clearance required")
-                                            </span>
-                                        </div>
-                                    }
-                                </td>
-                                <td class="px-6 py-4">
-                                    <span class="px-3 py-1 rounded-full text-xs font-semibold @statusColor">
-                                        @item.Status
+                    <li>
+                        <a asp-controller="Organizer" asp-action="RegistrationDetails" asp-route-id="@item.RegistrationId"
+                           data-participant="@item.ParticipantName.ToLowerInvariant()"
+                           data-email="@item.Email.ToLowerInvariant()"
+                           data-event="@item.EventTitle.ToLowerInvariant()"
+                           data-status="@item.Status"
+                           data-assessment="@(item.AssessmentResult ?? "")"
+                           data-registered-at="@item.RegisteredAt.ToString("o")"
+                           class="grid grid-cols-1 lg:grid-cols-[minmax(0,2.2fr)_minmax(0,2fr)_minmax(0,1.3fr)_minmax(0,0.9fr)_minmax(0,1fr)] gap-2 lg:gap-4 lg:items-center px-5 py-4 hover:bg-white/5 focus:outline-none focus-visible:bg-white/5 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset transition-colors cursor-pointer">
+
+                            <div>
+                                <p class="lg:sr-only text-[11px] uppercase tracking-wider text-gray-500 mb-1">Participant</p>
+                                <p class="text-white font-medium wrap-break-word">@item.ParticipantName</p>
+                                <p class="text-gray-400 text-sm wrap-break-word">@item.Email</p>
+                            </div>
+
+                            <div>
+                                <p class="lg:sr-only text-[11px] uppercase tracking-wider text-gray-500 mb-1">Event</p>
+                                <p class="text-white font-medium wrap-break-word">@item.EventTitle</p>
+                                <p class="text-gray-400 text-sm flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-0.5">
+                                    <span class="inline-flex items-center gap-1"><i class="fa-regular fa-calendar text-accent" aria-hidden="true"></i>@item.EventDate</span>
+                                    <span class="inline-flex items-center gap-1"><i class="fa-regular fa-clock text-accent" aria-hidden="true"></i>@item.EventTime</span>
+                                </p>
+                            </div>
+
+                            <div>
+                                <p class="lg:sr-only text-[11px] uppercase tracking-wider text-gray-500 mb-1">Assessment</p>
+                                <p class="font-semibold wrap-break-word @resultTextClass(item.AssessmentResult)">@assessmentLabel</p>
+                                @if (confidenceLabel != null)
+                                {
+                                    <p class="text-gray-400 text-sm mt-0.5">@confidenceLabel</p>
+                                }
+                                @if (item.MedicalClearanceRequired)
+                                {
+                                    var clearanceMissing = string.IsNullOrEmpty(item.MedicalClearanceUrl);
+                                    <span class="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium mt-1 @(clearanceMissing ? "bg-red-500/20 text-red-400" : "bg-blue-500/20 text-blue-400")">
+                                        <i class="fa-solid fa-file-medical" aria-hidden="true"></i>
+                                        @(clearanceMissing ? "Clearance missing" : "Clearance required")
                                     </span>
-                                </td>
-                                <td class="px-6 py-4 text-gray-400 text-sm">
-                                    @item.RegisteredAt.ToString("MMM dd, yyyy")
-                                </td>
-                                <td class="px-6 py-4 text-right">
-                                    <a asp-controller="Organizer" asp-action="RegistrationDetails" asp-route-id="@item.RegistrationId" 
-                                    class="px-4 py-2 rounded-lg text-xs font-medium text-white bg-blue-500 hover:bg-blue-600 transition-colors inline-block">
-                                        <i class="fa-regular fa-eye mr-1"></i> View
-                                    </a>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
+                                }
+                            </div>
+
+                            <div>
+                                <p class="lg:sr-only text-[11px] uppercase tracking-wider text-gray-500 mb-1">Status</p>
+                                <p class="font-semibold wrap-break-word @statusTextClass(item.Status)">@item.Status</p>
+                            </div>
+
+                            <div>
+                                <p class="lg:sr-only text-[11px] uppercase tracking-wider text-gray-500 mb-1">Registered</p>
+                                <p class="text-gray-400 text-sm whitespace-nowrap">@item.RegisteredAt.ToString("MMM dd, yyyy")</p>
+                            </div>
+                        </a>
+                    </li>
+                }
+                </ul>
+                <div id="registrationScrollCueTop" class="registrations-scroll-cue registrations-scroll-cue-top" aria-hidden="true">
+                    <span><i class="fa-solid fa-chevron-up mr-1"></i>Scroll for more</span>
+                </div>
+                <div id="registrationScrollCueBottom" class="registrations-scroll-cue registrations-scroll-cue-bottom" aria-hidden="true">
+                    <span>Scroll for more<i class="fa-solid fa-chevron-down ml-1"></i></span>
+                </div>
+            </div>
+
+            <div id="noResultsMessage" hidden class="text-center py-16 px-5">
+                <i class="fa-solid fa-magnifying-glass text-4xl text-slate-600 mb-4" aria-hidden="true"></i>
+                <h3 class="text-xl font-bold text-gray-300">No registrations found</h3>
+                <p class="text-gray-500 mt-2">No registrations match your search or filters.</p>
+                <button type="button" id="clearFiltersBtn" class="inline-block mt-4 text-accent text-sm font-medium hover:brightness-125 focus:outline-none focus:ring-2 focus:ring-accent rounded">
+                    Clear filters <i class="fa-solid fa-arrow-right ml-1" aria-hidden="true"></i>
+                </button>
             </div>
         </div>
     }
     else
     {
-        <div class="text-center py-20 bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl">
-            <i class="fa-regular fa-clipboard text-5xl text-gray-500 mb-4"></i>
+        <div class="text-center py-20 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl">
+            <i class="fa-regular fa-clipboard text-5xl text-gray-500 mb-4" aria-hidden="true"></i>
             <h3 class="text-xl font-bold text-gray-300">No registrations found</h3>
             <p class="text-gray-500 mt-2">Registrations will appear here once participants sign up for your events.</p>
         </div>
     }
-</div>
-
-<div id="registrationModal" class="fixed inset-0 z-100 hidden items-center justify-center p-4" style="padding-top: 80px;">
-    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeRegistrationModal()"></div>
-    <div class="relative bg-surface-card border border-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col" style="margin: auto; z-index: 10;">
-        <div class="flex justify-between items-center px-6 py-4 border-b border-gray-800 shrink-0">
-            <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-full bg-linear-to-r from-blue-500 to-cyan-500 flex items-center justify-center">
-                    <i class="fa-regular fa-clipboard text-white text-sm"></i>
-                </div>
-                <h2 class="text-xl font-bold text-white">Registration Details</h2>
-            </div>
-            <button onclick="closeRegistrationModal()" class="text-gray-400 hover:text-white transition-colors">
-                <i class="fa-solid fa-xmark text-2xl"></i>
-            </button>
-        </div>
-        <div class="overflow-y-auto p-6 custom-scrollbar" id="modalContent">
-            <div class="text-center py-8">
-                <div class="inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                <p class="text-gray-400 mt-2">Loading...</p>
-            </div>
-        </div>
-    </div>
 </div>
 
 <script>
@@ -229,200 +239,186 @@
         const statusFilter = document.getElementById('statusFilter');
         const assessmentFilter = document.getElementById('assessmentFilter');
         const sortFilter = document.getElementById('sortFilter');
-        
-        // ✅ I-refresh ang rows every time may filter
-        function filterAndSort() {
-            const tableBody = document.querySelector('table tbody');
-            if (!tableBody) return;
+        const list = document.getElementById('registrationList');
+        const noResults = document.getElementById('noResultsMessage');
+        const countLabel = document.getElementById('registrationCountLabel');
+        const clearFiltersBtn = document.getElementById('clearFiltersBtn');
 
-            let rows = Array.from(tableBody.querySelectorAll('tr'));
-            if (rows.length === 0) return;
+        if (!list) return;
+
+        // ------------------------------------------------------------------
+        // Five-record desktop scroll viewport + top/bottom scroll cues.
+        //
+        // Rows wrap and vary in height (long names, wrapped statuses, the
+        // confidence line appearing/not), so the viewport height can't be a
+        // fixed pixel guess - it's measured from the actual gap between the
+        // top of the first visible record and the top of the sixth, which
+        // equals the combined rendered height of the first five regardless
+        // of how tall each one is. Only ever applied at lg (1024px) and up;
+        // below that the list keeps natural height and normal page scroll.
+        //
+        // Cue visuals/toggle mirror Organizer/Index.cshtml's Dashboard
+        // scroll-cue pattern (single owner of visibility via the
+        // .is-visible class, never mixed with the native `hidden`
+        // attribute), extended with a second, top-edge cue - see
+        // wwwroot/css/input.css for why.
+        // ------------------------------------------------------------------
+        const cueTop = document.getElementById('registrationScrollCueTop');
+        const cueBottom = document.getElementById('registrationScrollCueBottom');
+        const desktopQuery = window.matchMedia('(min-width: 1024px)');
+        let recalcScheduled = false;
+
+        function updateScrollCues() {
+            if (!cueTop || !cueBottom) return;
+            const hasOverflow = list.scrollHeight > list.clientHeight + 1;
+            const atTop = list.scrollTop <= 1;
+            const atBottom = Math.ceil(list.scrollTop + list.clientHeight) >= list.scrollHeight - 1;
+            cueTop.classList.toggle('is-visible', hasOverflow && !atTop);
+            cueBottom.classList.toggle('is-visible', hasOverflow && !atBottom);
+        }
+
+        function applyFiveRecordViewport() {
+            const visibleItems = Array.from(list.children).filter(function (li) {
+                return li.style.display !== 'none';
+            });
+
+            if (!desktopQuery.matches || visibleItems.length <= 5) {
+                // Natural height below lg, or when everything already fits -
+                // no forced blank space, no scrollbar.
+                list.style.maxHeight = '';
+                updateScrollCues();
+                return;
+            }
+
+            const firstTop = visibleItems[0].getBoundingClientRect().top;
+            const sixthTop = visibleItems[5].getBoundingClientRect().top;
+            list.style.maxHeight = (sixthTop - firstTop) + 'px';
+            updateScrollCues();
+        }
+
+        // Coalesces any number of calls within one frame into a single
+        // measurement/update pass - resize fires far more often than once
+        // per frame, and this also means a resize handler and a filter
+        // change in the same tick never produce two recalculations.
+        function scheduleViewportRecalc() {
+            if (recalcScheduled) return;
+            recalcScheduled = true;
+            requestAnimationFrame(function () {
+                recalcScheduled = false;
+                applyFiveRecordViewport();
+            });
+        }
+
+        // Only ever called from a filter/sort/clear change, never from the
+        // scroll or resize listeners below - scrolling the list yourself
+        // must never yank you back to the top.
+        function resetListScrollAndRecalc() {
+            list.scrollTop = 0;
+            scheduleViewportRecalc();
+        }
+
+        list.addEventListener('scroll', updateScrollCues, { passive: true });
+        window.addEventListener('resize', scheduleViewportRecalc);
+        if (typeof desktopQuery.addEventListener === 'function') {
+            desktopQuery.addEventListener('change', scheduleViewportRecalc);
+        } else if (typeof desktopQuery.addListener === 'function') {
+            desktopQuery.addListener(scheduleViewportRecalc);
+        }
+
+        function filterAndSort() {
+            const items = Array.from(list.querySelectorAll(':scope > li'));
+            if (items.length === 0) return;
 
             const searchTerm = searchInput.value.toLowerCase().trim();
             const status = statusFilter.value;
             const assessment = assessmentFilter.value;
             const sort = sortFilter.value;
 
-            let visibleRows = rows.filter(row => {
-                // ✅ KUNIN ANG DATA PER COLUMN
-                const participantName = row.querySelector('td:nth-child(1) .text-white')?.textContent?.toLowerCase() || '';
-                const participantEmail = row.querySelector('td:nth-child(1) .text-gray-500')?.textContent?.toLowerCase() || '';
-                const eventTitle = row.querySelector('td:nth-child(2) .text-white')?.textContent?.toLowerCase() || '';
-                
-                // ✅ STATUS (column 5)
-                const statusSpan = row.querySelector('td:nth-child(5) .px-3');
-                const statusText = statusSpan?.textContent?.trim() || '';
-                
-                // ✅ ASSESSMENT RESULT (column 4)
-                const assessmentSpan = row.querySelector('td:nth-child(4) .text-xs');
-                let assessmentText = assessmentSpan?.textContent?.trim() || 'N/A';
-                // Remove the score part (e.g., "(22/44)")
-                assessmentText = assessmentText.replace(/\(.*\)/, '').trim();
-                
-                // ✅ SEARCH MATCH
-                const matchesSearch = participantName.includes(searchTerm) || 
-                                     participantEmail.includes(searchTerm) || 
+            let visibleItems = items.filter(function (li) {
+                const link = li.querySelector('a');
+                if (!link) return false;
+
+                const participant = link.dataset.participant || '';
+                const email = link.dataset.email || '';
+                const eventTitle = link.dataset.event || '';
+                const statusValue = link.dataset.status || '';
+                const assessmentValue = link.dataset.assessment || '';
+
+                const matchesSearch = participant.includes(searchTerm) ||
+                                     email.includes(searchTerm) ||
                                      eventTitle.includes(searchTerm);
-                
-                // ✅ STATUS MATCH
-                const matchesStatus = status === 'All' || statusText === status;
-                
-                // ✅ ASSESSMENT MATCH
-                let matchesAssessment = false;
-                if (assessment === 'All') {
-                    matchesAssessment = true;
-                } else if (assessment === 'N/A') {
-                    matchesAssessment = assessmentText === 'N/A' || assessmentText === '';
-                } else {
-                    matchesAssessment = assessmentText === assessment;
-                }
+
+                const matchesStatus = status === 'All' || statusValue === status;
+
+                const matchesAssessment = assessment === 'All' ||
+                    (assessment === 'N/A' ? assessmentValue === '' : assessmentValue === assessment);
 
                 const shouldShow = matchesSearch && matchesStatus && matchesAssessment;
-                row.style.display = shouldShow ? '' : 'none';
+                li.style.display = shouldShow ? '' : 'none';
                 return shouldShow;
             });
 
-            // ✅ SORT VISIBLE ROWS
-            visibleRows.sort((a, b) => {
-                const nameA = a.querySelector('td:nth-child(1) .text-white')?.textContent || '';
-                const nameB = b.querySelector('td:nth-child(1) .text-white')?.textContent || '';
-                const dateA = a.querySelector('td:nth-child(6)')?.textContent?.trim() || '';
-                const dateB = b.querySelector('td:nth-child(6)')?.textContent?.trim() || '';
+            visibleItems.sort(function (a, b) {
+                const linkA = a.querySelector('a');
+                const linkB = b.querySelector('a');
 
-                if (sort === 'participant_asc') return nameA.localeCompare(nameB);
-                if (sort === 'participant_desc') return nameB.localeCompare(nameA);
-                if (sort === 'date_asc') return new Date(dateA) - new Date(dateB);
-                if (sort === 'date_desc') return new Date(dateB) - new Date(dateA);
+                if (sort === 'participant_asc') return linkA.dataset.participant.localeCompare(linkB.dataset.participant);
+                if (sort === 'participant_desc') return linkB.dataset.participant.localeCompare(linkA.dataset.participant);
+                if (sort === 'date_asc') return new Date(linkA.dataset.registeredAt) - new Date(linkB.dataset.registeredAt);
+                if (sort === 'date_desc') return new Date(linkB.dataset.registeredAt) - new Date(linkA.dataset.registeredAt);
                 return 0;
             });
 
-            // ✅ RE-APPEND SORTED ROWS
-            visibleRows.forEach(row => tableBody.appendChild(row));
+            visibleItems.forEach(function (li) { list.appendChild(li); });
 
-            // ✅ UPDATE COUNTER
-            const totalSpan = document.querySelector('.bg-white\\/5 .text-gray-300');
-            if (totalSpan) {
-                const visibleCount = visibleRows.length;
-                totalSpan.textContent = visibleCount + ' registration(s)';
+            if (noResults) {
+                noResults.hidden = visibleItems.length !== 0;
             }
+
+            if (countLabel) {
+                const count = visibleItems.length;
+                countLabel.textContent = count + ' ' + (count === 1 ? 'registration' : 'registrations');
+            }
+
+            resetListScrollAndRecalc();
         }
 
-        // ✅ ATTACH EVENTS
         searchInput.addEventListener('input', filterAndSort);
         statusFilter.addEventListener('change', filterAndSort);
         assessmentFilter.addEventListener('change', filterAndSort);
         sortFilter.addEventListener('change', filterAndSort);
 
-        // ✅ INITIAL FILTER
-        setTimeout(filterAndSort, 100);
+        if (clearFiltersBtn) {
+            // statusFilter/assessmentFilter/sortFilter are enhanced by the
+            // shared custom-select component (wwwroot/js/custom-select.js,
+            // opt-in via data-custom-select on each <select>). The native
+            // <select> stays the source of truth - setting .value here does
+            // not dispatch 'change' (so filterAndSort() below still runs
+            // exactly once, not once per control), but it also leaves the
+            // component's own trigger label/aria-selected/active-option
+            // state pointing at the old value until something tells it to
+            // resync. window.CustomSelect.refresh(select) is that component's
+            // own public API for exactly this - it re-reads the native
+            // select and updates its presentation without dispatching
+            // 'change' or running any page logic itself, so calling it three
+            // times here still only ever produces one filtering pass.
+            clearFiltersBtn.addEventListener('click', function () {
+                searchInput.value = '';
+                statusFilter.value = 'All';
+                assessmentFilter.value = 'All';
+                sortFilter.value = 'date_desc';
+
+                if (window.CustomSelect && typeof window.CustomSelect.refresh === 'function') {
+                    window.CustomSelect.refresh(statusFilter);
+                    window.CustomSelect.refresh(assessmentFilter);
+                    window.CustomSelect.refresh(sortFilter);
+                }
+
+                filterAndSort();
+                searchInput.focus();
+            });
+        }
+
+        filterAndSort();
     });
-
-    // ============================================================
-    // VIEW REGISTRATION DETAILS
-    // ============================================================
-    function viewRegistration(id) {
-        const modal = document.getElementById('registrationModal');
-        modal.classList.remove('hidden');
-        modal.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
-        
-        document.getElementById('modalContent').innerHTML = `
-            <div class="text-center py-8">
-                <div class="inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                <p class="text-gray-400 mt-2">Loading...</p>
-            </div>
-        `;
-
-        // TODO: Implement full registration details
-        setTimeout(() => {
-            document.getElementById('modalContent').innerHTML = `
-                <div class="space-y-6">
-                    <div class="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
-                        <p class="text-blue-300 text-sm font-medium">Registration ID: ${id}</p>
-                        <p class="text-gray-400 text-sm">Loading registration details...</p>
-                    </div>
-                    
-                    <div class="flex flex-wrap gap-3">
-                        <button onclick="updateStatus(${id}, 'Accepted')" 
-                                class="px-6 py-2.5 rounded-xl text-white text-sm font-medium bg-green-500 hover:bg-green-600 transition-colors">
-                            <i class="fa-solid fa-check mr-2"></i> Accept
-                        </button>
-                        <button onclick="updateStatus(${id}, 'Rejected')" 
-                                class="px-6 py-2.5 rounded-xl text-white text-sm font-medium bg-red-500 hover:bg-red-600 transition-colors">
-                            <i class="fa-solid fa-xmark mr-2"></i> Decline
-                        </button>
-                        <button onclick="recommendAlternative(${id})" 
-                                class="px-6 py-2.5 rounded-xl text-white text-sm font-medium bg-blue-500 hover:bg-blue-600 transition-colors">
-                            <i class="fa-solid fa-arrows-rotate mr-2"></i> Recommend Alternative
-                        </button>
-                        <button onclick="closeRegistrationModal()" 
-                                class="px-6 py-2.5 rounded-xl text-gray-300 text-sm font-medium bg-gray-700 hover:bg-gray-600 transition-colors">
-                            Close
-                        </button>
-                    </div>
-                </div>
-            `;
-        }, 500);
-    }
-
-    // ============================================================
-    // UPDATE STATUS
-    // ============================================================
-    function updateStatus(id, status) {
-        if (!confirm(`Are you sure you want to change status to ${status}?`)) return;
-
-        postJson('/Organizer/UpdateRegistrationStatus', { id: id, status: status })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showToast(data.message, 'success');
-                setTimeout(() => location.reload(), 1000);
-            } else {
-                showToast(data.message, 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showToast('Error updating status', 'error');
-        });
-    }
-
-    // ============================================================
-    // RECOMMEND ALTERNATIVE
-    // ============================================================
-    function recommendAlternative(id) {
-        showToast('Recommend Alternative feature coming soon!', 'info');
-    }
-
-    // ============================================================
-    // CLOSE MODAL
-    // ============================================================
-    function closeRegistrationModal() {
-        const modal = document.getElementById('registrationModal');
-        modal.classList.add('hidden');
-        modal.style.display = 'none';
-        document.body.style.overflow = 'auto';
-    }
-
-    // ============================================================
-    // TOAST MESSAGES
-    // ============================================================
-    // showToast(message, type) is now the canonical implementation in
-    // wwwroot/js/toast.js, loaded globally from _Layout.cshtml.
 </script>
-
-<style>
-    .custom-scrollbar::-webkit-scrollbar {
-        width: 4px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-track {
-        background: transparent;
-    }
-    .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: rgba(59, 130, 246, 0.3);
-        border-radius: 10px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-        background: rgba(59, 130, 246, 0.6);
-    }
-</style>

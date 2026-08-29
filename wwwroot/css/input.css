@@ -521,3 +521,67 @@
     scrollbar-color: rgb(139 92 246 / 0.4) rgb(255 255 255 / 0.05);
 }
 .tg-toast-info .tg-toast-progress-bar { background: rgb(56 189 248); }
+
+/* ==========================================================================
+   Organizer Registrations - five-record desktop scroll viewport + cues
+   (Views/Organizer/Registrations.cshtml)
+
+   #registrationList's max-height is set inline by that page's own script,
+   computed from the actual rendered heights of the first five currently
+   visible records (they wrap and vary in height, so this can't be a fixed
+   pixel value) - this block only supplies the scrollbar look and the two
+   edge cues. Scoped by id rather than the shared, ad hoc "custom-scrollbar"
+   class name other pages define independently in their own local <style>
+   blocks - see the identical note on #postEventAssessmentRoot above.
+
+   The cue visuals mirror the Dashboard's .dashboard-scroll-region /
+   .dashboard-scroll-cue recipe (Views/Organizer/Index.cshtml) exactly
+   (same colors, same display:none/is-visible toggle owned entirely by
+   JS - never mixed with the native `hidden` attribute), extended with a
+   second, top-edge cue: the Dashboard's panels are only ever scrolled
+   downward from a resting top position, but this list can be scrolled
+   back up from the middle or bottom, so both edges need their own cue.
+   ========================================================================== */
+
+#registrationList {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(139 92 246 / 0.65) transparent;
+}
+#registrationList::-webkit-scrollbar {
+    width: 6px;
+}
+#registrationList::-webkit-scrollbar-track {
+    background: transparent;
+}
+#registrationList::-webkit-scrollbar-thumb {
+    background: rgb(139 92 246 / 0.65);
+    border-radius: 9999px;
+}
+
+.registrations-scroll-cue {
+    position: absolute;
+    right: 0;
+    left: 0;
+    display: none;
+    justify-content: center;
+    padding: 0.5rem;
+    pointer-events: none;
+    color: #9ca3af;
+    font-size: .75rem;
+    z-index: 10;
+}
+.registrations-scroll-cue.is-visible {
+    display: flex;
+}
+.registrations-scroll-cue-top {
+    top: 0;
+    padding-top: .5rem;
+    padding-bottom: 1.5rem;
+    background: linear-gradient(to bottom, rgb(15 23 42), rgb(15 23 42 / .9), transparent);
+}
+.registrations-scroll-cue-bottom {
+    bottom: 0;
+    padding-top: 1.5rem;
+    padding-bottom: .5rem;
+    background: linear-gradient(to top, rgb(15 23 42), rgb(15 23 42 / .9), transparent);
+}

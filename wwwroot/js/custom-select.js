@@ -152,13 +152,35 @@
             var menu = document.createElement('div');
             menu.id = menuId;
             menu.setAttribute('role', 'listbox');
-            menu.className = 'fixed ' + menuZClass + ' w-56 max-h-80 overflow-y-auto custom-scrollbar bg-surface-card border border-gray-800 rounded-2xl shadow-2xl p-1.5 origin-top ' +
+            // No width utility here by default - positionMenu() always sets
+            // menu.style.width itself (see the menuWidthOverride branch
+            // there), so a class-based width would only ever be dead CSS,
+            // immediately overwritten by that inline style on every open.
+            menu.className = 'fixed ' + menuZClass + ' max-h-80 overflow-y-auto custom-scrollbar bg-surface-card border border-gray-800 rounded-2xl shadow-2xl p-1.5 origin-top ' +
                 // Only the open/close visual properties are transitionable -
                 // transition-all also animated the top/left/width/max-height
                 // positionMenu() sets on first open, producing a spurious
                 // slide-in-from-the-side on the very first dropdown open.
                 'transition-[opacity,transform,visibility] duration-200 ease-out motion-reduce:transition-none';
             CLOSED_CLASSES.forEach(function (c) { menu.classList.add(c); });
+
+            // data-cs-menu-class: additive presentation classes only
+            // (overflow-x-hidden, etc.) - never affects width/sizing.
+            var menuClassExtra = select.getAttribute('data-cs-menu-class');
+            if (menuClassExtra) {
+                menuClassExtra.split(/\s+/).filter(Boolean).forEach(function (c) { menu.classList.add(c); });
+            }
+
+            // data-cs-menu-width-class: the only opt-out of exact
+            // trigger-width matching. Appends the given width utility and
+            // switches positionMenu() to floor at the trigger's width via
+            // min-width instead of forcing width === trigger width. Absent,
+            // behavior is pixel-identical to before for every select.
+            var menuWidthClass = select.getAttribute('data-cs-menu-width-class');
+            var menuWidthOverride = !!menuWidthClass;
+            if (menuWidthClass) {
+                menuWidthClass.split(/\s+/).filter(Boolean).forEach(function (c) { menu.classList.add(c); });
+            }
 
             wrapper.insertBefore(trigger, select.nextSibling);
 
@@ -180,6 +202,7 @@
                 labelSpan: labelSpan,
                 chevron: chevron,
                 menu: menu,
+                menuWidthOverride: menuWidthOverride,
                 activeIndex: -1,
                 signal: controller ? controller.signal : undefined
             };
@@ -468,8 +491,25 @@
 
         menu.style.left = '0px';
         menu.style.top = '0px';
-        menu.style.width = rect.width + 'px';
 
+        if (instance.menuWidthOverride) {
+            // data-cs-menu-width-class supplied its own width utility (e.g.
+            // w-48) - only floor it at the trigger's own width so the menu
+            // can never render narrower than the control that opens it.
+            menu.style.width = '';
+            menu.style.minWidth = rect.width + 'px';
+        } else {
+            // Default, unchanged behavior for every other enhanced select:
+            // the menu is always exactly as wide as its trigger.
+            menu.style.width = rect.width + 'px';
+            menu.style.minWidth = '';
+        }
+
+        // Read once, after width/min-width are applied, so every
+        // width-dependent calculation below uses the menu's real rendered
+        // width - identical to rect.width in the default case, but correct
+        // for an overridden (wider) menu too.
+        var menuWidth = menu.offsetWidth;
         var menuHeight = menu.offsetHeight;
         var spaceBelow = window.innerHeight - rect.bottom - MENU_GAP;
         var spaceAbove = rect.top - MENU_GAP;
@@ -479,7 +519,7 @@
         var maxHeight = openUpward ? Math.min(320, spaceAbove) : Math.min(320, window.innerHeight - rect.bottom - MENU_GAP - VIEWPORT_MARGIN);
 
         var left = rect.left;
-        var maxLeft = window.innerWidth - rect.width - VIEWPORT_MARGIN;
+        var maxLeft = window.innerWidth - menuWidth - VIEWPORT_MARGIN;
         if (left > maxLeft) left = Math.max(VIEWPORT_MARGIN, maxLeft);
 
         menu.style.top = Math.round(top) + 'px';
