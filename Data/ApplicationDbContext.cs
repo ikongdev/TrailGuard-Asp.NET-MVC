@@ -51,6 +51,25 @@ namespace TrailGuard.Data
                 .WithMany()
                 .HasForeignKey(e => e.TrailId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // Stable Organizer ownership (Event.OrganizerId) - a scalar FK to
+            // the Identity users table with deliberately no navigation
+            // property on either side (HasOne<ApplicationUser>() takes no
+            // navigation expression), so an Event can never accidentally pull
+            // an ApplicationUser - and its PasswordHash/SecurityStamp/etc. -
+            // into the change tracker or a careless Include(). Restrict, not
+            // Cascade: deleting an Organizer account must never take their
+            // past Events down with it; a null OrganizerId Event is simply
+            // "unresolved ownership," handled explicitly everywhere
+            // Organizer-only authorization is checked.
+            builder.Entity<Event>()
+                .HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(e => e.OrganizerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<Event>()
+                .HasIndex(e => e.OrganizerId);
         }
     }
 }

@@ -49,6 +49,23 @@ namespace TrailGuard.Models
         [Display(Name = "Organized By")]
         public string? OrganizedBy { get; set; }
 
+        // Stable Organizer ownership key - the actual authorization identity
+        // for Organizer-only Event actions (see EventController/OrganizerController).
+        // OrganizedBy above is a separate, unrelated display-name snapshot
+        // already rendered throughout the UI; a display name is never a safe
+        // ownership check (it can change, collide across accounts, or be
+        // formatted differently), so it must never be used to authorize
+        // anything. Null means "unresolved ownership" (every pre-existing
+        // Event, until an Admin explicitly assigns one through Edit Event) -
+        // never treated as owned by whichever Organizer happens to ask.
+        // Deliberately a plain scalar FK with no navigation property here -
+        // see the Fluent API configuration in ApplicationDbContext, which is
+        // what actually wires this to the Identity users table without ever
+        // giving an Event a path to pull in an ApplicationUser (and its
+        // PasswordHash/SecurityStamp/etc.) through the change tracker.
+        [Display(Name = "Organizer")]
+        public string? OrganizerId { get; set; }
+
         [Display(Name = "Status")]
         public string Status { get; set; } = "Upcoming";
 

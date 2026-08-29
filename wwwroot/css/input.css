@@ -491,4 +491,33 @@
     border-color: rgb(56 189 248 / 0.4);
 }
 .tg-toast-info .tg-toast-icon { color: rgb(56 189 248); }
+
+/* ==========================================================================
+   Post-Event Assessment (Views/Organizer/PostEventAssessment.cshtml)
+
+   Scoped under the page's own root id rather than the shared, ad hoc
+   "custom-scrollbar" class name several other pages define independently
+   (with different colors) in their own local <style> blocks - living here in
+   the shared stylesheet under that name would apply this exact color to all
+   of them instead of just this page.
+   ========================================================================== */
+
+#postEventAssessmentRoot .pea-scrollbar::-webkit-scrollbar {
+    width: 5px;
+}
+#postEventAssessmentRoot .pea-scrollbar::-webkit-scrollbar-track {
+    background: rgb(255 255 255 / 0.05);
+    border-radius: 10px;
+}
+#postEventAssessmentRoot .pea-scrollbar::-webkit-scrollbar-thumb {
+    background: rgb(139 92 246 / 0.4);
+    border-radius: 10px;
+}
+#postEventAssessmentRoot .pea-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgb(139 92 246 / 0.6);
+}
+#postEventAssessmentRoot .pea-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(139 92 246 / 0.4) rgb(255 255 255 / 0.05);
+}
 .tg-toast-info .tg-toast-progress-bar { background: rgb(56 189 248); }

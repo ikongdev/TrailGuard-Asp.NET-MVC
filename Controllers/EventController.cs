@@ -49,6 +49,20 @@ namespace TrailGuard.Controllers
             _logger = logger;
         }
 
+        // Single ownership rule for every Organizer-facing Event action in
+        // this controller: an Admin (and therefore a dual-role
+        // Admin+Organizer account, which always also holds the Admin role)
+        // retains full access; a pure Organizer may only act on an Event
+        // whose stable OrganizerId matches their own account. A null
+        // OrganizerId (an unresolved legacy Event - see CLAUDE.md) or a
+        // different Organizer's ID both deny access outright - ownership is
+        // never inferred from OrganizedBy, email, or display name.
+        private async Task<bool> CanManageEventAsync(Event eventItem, ApplicationUser currentUser)
+        {
+            if (await _userManager.IsInRoleAsync(currentUser, "Admin")) return true;
+            return eventItem.OrganizerId != null && eventItem.OrganizerId == currentUser.Id;
+        }
+
         public async Task<IActionResult> Index(string searchString, string status, string trailId, string difficulty, string sortOrder)
         {
             await RegistrationStatusHelper.ExpireOverdueRegistrations(_context);
@@ -334,6 +348,7 @@ namespace TrailGuard.Controllers
                     EstimatedDuration = model.EstimatedDuration,
                     Capacity = model.Capacity,
                     OrganizedBy = organizerName,
+                    OrganizerId = organizerAccount.Id,
                     Status = "Upcoming",
                     WeatherForecastAdvisory = model.WeatherForecastAdvisory,
                     WeatherRiskLevel = model.WeatherRiskLevel,
@@ -366,6 +381,12 @@ namespace TrailGuard.Controllers
                     .FirstOrDefaultAsync(e => e.Id == id);
 
                 if (eventItem == null)
+                {
+                    return Json(new { success = false, message = "Event not found" });
+                }
+
+                var currentUser = await _userManager.GetUserAsync(User);
+                if (currentUser == null || !await CanManageEventAsync(eventItem, currentUser))
                 {
                     return Json(new { success = false, message = "Event not found" });
                 }
@@ -470,6 +491,37 @@ namespace TrailGuard.Controllers
                 return RedirectToAction("Index");
             }
 
+            var currentUser = await _userManager.GetUserAsync(User);
+            if (currentUser == null || !await CanManageEventAsync(eventItem, currentUser))
+            {
+                TempData["Error"] = "Event not found";
+                return RedirectToAction("Index");
+            }
+
+            // Assess Participants is an Organizer-only feature - a dual-role
+            // Admin+Organizer account holds the Admin role too and follows
+            // the Admin branch everywhere else in this app, so it's excluded
+            // here as well, not just given access via CanManageEventAsync
+            // above. Ownership is re-derived explicitly (rather than assumed
+            // from the page-access check just passed) since this flag
+            // controls whether a sensitive action is even shown.
+            ViewBag.CanAssessParticipants = eventItem.Status == "Completed"
+                && await _userManager.IsInRoleAsync(currentUser, "Organizer")
+                && !await _userManager.IsInRoleAsync(currentUser, "Admin")
+                && eventItem.OrganizerId != null
+                && eventItem.OrganizerId == currentUser.Id;
+
+            // View Comparison's destination (OrganizerController.EventComparison)
+            // is Organizer-only and, unlike assessment, does NOT exclude a
+            // dual-role Admin+Organizer account - it only requires ownership.
+            // This flag mirrors that exact policy so the link is never shown
+            // to a viewer its destination would deny (including an Admin-only
+            // account, which lacks the Organizer role entirely).
+            ViewBag.CanViewComparison = eventItem.Status == "Completed"
+                && await _userManager.IsInRoleAsync(currentUser, "Organizer")
+                && eventItem.OrganizerId != null
+                && eventItem.OrganizerId == currentUser.Id;
+
             var capacityRegistrations = await _context.EventRegistrations
                 .Where(r => r.EventId == id && RegistrationStatusHelper.ActiveStatuses.Contains(r.Status))
                 .ToListAsync();
@@ -511,6 +563,12 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "Event not found" });
                 }
 
+                var currentUser = await _userManager.GetUserAsync(User);
+                if (currentUser == null || !await CanManageEventAsync(eventItem, currentUser))
+                {
+                    return Json(new { success = false, message = "Event not found" });
+                }
+
                 if (eventItem.Status != "Upcoming")
                 {
                     return Json(new { success = false, message = "Only upcoming events can be marked as completed" });
@@ -541,7 +599,8 @@ namespace TrailGuard.Controllers
             }
             catch (Exception ex)
             {
-                return Json(new { success = false, message = ex.Message });
+                _logger.LogError(ex, "Failed to complete event {EventId}.", request.Id);
+                return Json(new { success = false, message = "Unable to complete the event right now. Please try again." });
             }
         }
 
@@ -567,6 +626,12 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "Event not found" });
                 }
 
+                var currentUser = await _userManager.GetUserAsync(User);
+                if (currentUser == null || !await CanManageEventAsync(eventItem, currentUser))
+                {
+                    return Json(new { success = false, message = "Event not found" });
+                }
+
                 if (eventItem.Status != "Upcoming")
                 {
                     return Json(new { success = false, message = "Only upcoming events can be cancelled" });
@@ -583,7 +648,8 @@ namespace TrailGuard.Controllers
             }
             catch (Exception ex)
             {
-                return Json(new { success = false, message = ex.Message });
+                _logger.LogError(ex, "Failed to cancel event {EventId}.", request.Id);
+                return Json(new { success = false, message = "Unable to cancel the event right now. Please try again." });
             }
         }
 
@@ -601,6 +667,12 @@ namespace TrailGuard.Controllers
             {
                 var eventItem = await _context.Events.FindAsync(request.Id);
                 if (eventItem == null)
+                {
+                    return Json(new { success = false, message = "Event not found" });
+                }
+
+                var currentUser = await _userManager.GetUserAsync(User);
+                if (currentUser == null || !await CanManageEventAsync(eventItem, currentUser))
                 {
                     return Json(new { success = false, message = "Event not found" });
                 }
@@ -668,6 +740,7 @@ namespace TrailGuard.Controllers
                 }
 
                 string organizerName;
+                string? resolvedOrganizerId;
                 if (await _userManager.IsInRoleAsync(currentUser, "Admin"))
                 {
                     if (string.IsNullOrWhiteSpace(model.OrganizerId))
@@ -682,14 +755,26 @@ namespace TrailGuard.Controllers
                     }
 
                     organizerName = $"{selectedAccount.FirstName} {selectedAccount.LastName}";
+                    resolvedOrganizerId = selectedAccount.Id;
                 }
                 else
                 {
                     // Not an Admin, so [Authorize(Roles = "Admin,Organizer")] on
                     // this controller guarantees the caller holds the Organizer
-                    // role. Any OrganizerId the client sent is ignored, and the
-                    // event keeps its existing organizer assignment.
+                    // role. Ownership is checked against the stable
+                    // OrganizerId only - never OrganizedBy, a display-name
+                    // snapshot that is not a safe identity key - and a null
+                    // OrganizerId (an unresolved legacy Event) is never
+                    // treated as owned by whichever Organizer happens to ask.
+                    // Any OrganizerId the client sent is ignored either way;
+                    // the event keeps its existing organizer assignment.
+                    if (existingEvent.OrganizerId == null || existingEvent.OrganizerId != currentUser.Id)
+                    {
+                        return Json(new { success = false, message = "Event not found" });
+                    }
+
                     organizerName = existingEvent.OrganizedBy ?? string.Empty;
+                    resolvedOrganizerId = existingEvent.OrganizerId;
                 }
 
                 var scheduleResult = PickupScheduleHelper.ValidateAndFormat(model.PickupSchedules);
@@ -733,6 +818,7 @@ namespace TrailGuard.Controllers
                 existingEvent.EstimatedDuration = model.EstimatedDuration;
                 existingEvent.Capacity = model.Capacity;
                 existingEvent.OrganizedBy = organizerName;
+                existingEvent.OrganizerId = resolvedOrganizerId;
                 existingEvent.Status = model.Status ?? existingEvent.Status;
                 existingEvent.WeatherForecastAdvisory = model.WeatherForecastAdvisory;
                 existingEvent.WeatherRiskLevel = model.WeatherRiskLevel ?? existingEvent.WeatherRiskLevel;
@@ -761,8 +847,14 @@ namespace TrailGuard.Controllers
             try
             {
                 var eventItem = await _context.Events.FindAsync(request.Id);
-                
+
                 if (eventItem == null)
+                {
+                    return Json(new { success = false, message = "Event not found" });
+                }
+
+                var currentUser = await _userManager.GetUserAsync(User);
+                if (currentUser == null || !await CanManageEventAsync(eventItem, currentUser))
                 {
                     return Json(new { success = false, message = "Event not found" });
                 }
@@ -774,7 +866,8 @@ namespace TrailGuard.Controllers
             }
             catch (Exception ex)
             {
-                return Json(new { success = false, message = ex.Message });
+                _logger.LogError(ex, "Failed to delete event {EventId}.", request.Id);
+                return Json(new { success = false, message = "Unable to delete the event right now. Please try again." });
             }
         }
     }

@@ -13,11 +13,13 @@ namespace TrailGuard.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly ILogger<OrganizerController> _logger;
 
-        public OrganizerController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+        public OrganizerController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, ILogger<OrganizerController> logger)
         {
             _context = context;
             _userManager = userManager;
+            _logger = logger;
         }
 
         public async Task<IActionResult> Index()
@@ -25,13 +27,17 @@ namespace TrailGuard.Controllers
             await RegistrationStatusHelper.ExpireOverdueRegistrations(_context);
 
             var now = DateTime.Now;
-            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-            var user = await _userManager.FindByIdAsync(userId ?? "");
-            var organizerName = user != null ? $"{user.FirstName} {user.LastName}" : "";
+            var currentUser = await _userManager.GetUserAsync(User);
+            var currentUserId = currentUser?.Id ?? string.Empty;
 
+            // Scoped at the query level (stable OrganizerId, never the
+            // legacy OrganizedBy display name) so this never fetches every
+            // Organizer's Events and filters afterward - a null-owned
+            // legacy Event never matches and is never attributed to
+            // whichever Organizer happens to be viewing the dashboard.
             var ownedEvents = await _context.Events
                 .AsNoTracking()
-                .Where(e => e.OrganizedBy == userId || e.OrganizedBy == organizerName)
+                .Where(e => e.OrganizerId != null && e.OrganizerId == currentUserId)
                 .ToListAsync();
 
             var eventIds = ownedEvents.Select(e => e.Id).ToList();
@@ -121,42 +127,15 @@ namespace TrailGuard.Controllers
             return View(viewModel);
         }
 
-        public async Task<IActionResult> Events(string searchString, string status, string sortOrder)
+        // Event management itself lives on EventController.Index (shared by
+        // Admin and Organizer, with its own access rules) - this action only
+        // forwards there. It used to also build and immediately discard an
+        // Event query of its own (legacy OrganizedBy matching, never
+        // returned or rendered); removed rather than reworked into an
+        // OrganizerId-scoped query, since no Event data is actually needed
+        // for a redirect.
+        public IActionResult Events(string searchString, string status, string sortOrder)
         {
-            ViewData["CurrentFilter"] = searchString;
-            ViewData["CurrentStatus"] = status;
-            ViewData["CurrentSort"] = sortOrder;
-
-            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-            var user = await _userManager.FindByIdAsync(userId ?? "");
-            var organizerName = user != null ? $"{user.FirstName} {user.LastName}" : "";
-
-            var events = _context.Events
-                .Include(e => e.Trail)
-                .Where(e => e.OrganizedBy == userId || e.OrganizedBy == organizerName)
-                .AsQueryable();
-
-            if (!string.IsNullOrEmpty(searchString))
-            {
-                events = events.Where(e => e.EventTitle.Contains(searchString) || e.Location.Contains(searchString));
-            }
-
-            if (!string.IsNullOrEmpty(status) && status != "All")
-            {
-                events = events.Where(e => e.Status == status);
-            }
-
-            events = sortOrder switch
-            {
-                "date_desc" => events.OrderByDescending(e => e.EventDate),
-                "title_asc" => events.OrderBy(e => e.EventTitle),
-                "title_desc" => events.OrderByDescending(e => e.EventTitle),
-                "status_asc" => events.OrderBy(e => e.Status),
-                _ => events.OrderBy(e => e.EventDate),
-            };
-
-            var eventsList = await events.ToListAsync();
-
             return RedirectToAction("Index", "Event", new { searchString, status, sortOrder });
         }
 
@@ -168,12 +147,14 @@ namespace TrailGuard.Controllers
             ViewData["CurrentStatus"] = statusFilter;
             ViewData["CurrentSort"] = sortOrder;
 
-            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-            var user = await _userManager.FindByIdAsync(userId ?? "");
-            var organizerName = user != null ? $"{user.FirstName} {user.LastName}" : "";
+            var currentUser = await _userManager.GetUserAsync(User);
+            var currentUserId = currentUser?.Id ?? string.Empty;
 
+            // Scoped at the query level (stable OrganizerId, never the
+            // legacy OrganizedBy display name) - see the Index dashboard
+            // action's identical reasoning.
             var eventIds = await _context.Events
-                .Where(e => e.OrganizedBy == userId || e.OrganizedBy == organizerName)
+                .Where(e => e.OrganizerId != null && e.OrganizerId == currentUserId)
                 .Select(e => e.Id)
                 .ToListAsync();
 
@@ -242,6 +223,13 @@ namespace TrailGuard.Controllers
         {
             await RegistrationStatusHelper.ExpireOverdueRegistrations(_context);
 
+            var currentUser = await _userManager.GetUserAsync(User);
+            if (currentUser == null)
+            {
+                TempData["Error"] = "Registration not found";
+                return RedirectToAction("Registrations");
+            }
+
             var registration = await _context.EventRegistrations
                 .Include(r => r.Event)
                 .ThenInclude(e => e!.Trail)
@@ -249,7 +237,18 @@ namespace TrailGuard.Controllers
                 .Include(r => r.User)
                 .FirstOrDefaultAsync(r => r.Id == id);
 
-            if (registration != null && registration.Event != null && registration.Assessment != null)
+            // Ownership checked before anything about this registration -
+            // participant identity, medical/suitability data, ML
+            // explanation, alternative-event recommendations - is exposed.
+            // A missing registration and one belonging to another
+            // Organizer's Event return the exact same generic response.
+            if (registration == null || registration.Event == null || !OwnsEvent(registration.Event, currentUser))
+            {
+                TempData["Error"] = "Registration not found";
+                return RedirectToAction("Registrations");
+            }
+
+            if (registration.Assessment != null)
             {
                 ViewBag.AlternativeEvents = await GetAlternativeEvents(
                     registration.Event!.Id,
@@ -278,6 +277,9 @@ namespace TrailGuard.Controllers
             return View(registration);
         }
 
+        // Alternative recommendations intentionally include suitable public Events from all Organizers.
+        // Also the authoritative candidate rule for RecommendAlternative's
+        // server-side validation - do not duplicate this predicate elsewhere.
         private async Task<List<Event>> GetAlternativeEvents(int eventId, string currentDifficulty, string result)
         {
             var difficultyLevels = DifficultyCalculator.Bands;
@@ -294,6 +296,7 @@ namespace TrailGuard.Controllers
 
             var targetDifficulty = difficultyLevels[targetIndex];
 
+            // Mirrors EventJoinabilityHelper.IsJoinable (inlined for EF SQL translation).
             return await _context.Events
                 .Include(e => e.Trail)
                 .Where(e =>
@@ -316,10 +319,18 @@ namespace TrailGuard.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> RecommendAlternative([FromBody] RecommendAlternativeRequest request)
         {
+            var currentUser = await _userManager.GetUserAsync(User);
+            if (currentUser == null)
+            {
+                return Json(new { success = false, message = "Registration not found" });
+            }
+
             var registration = await _context.EventRegistrations
+                .Include(r => r.Event)
+                .Include(r => r.Assessment)
                 .FirstOrDefaultAsync(r => r.Id == request.RegistrationId);
 
-            if (registration == null)
+            if (registration == null || registration.Event == null || !OwnsEvent(registration.Event, currentUser))
             {
                 return Json(new { success = false, message = "Registration not found" });
             }
@@ -329,8 +340,25 @@ namespace TrailGuard.Controllers
                 return Json(new { success = false, message = "Pumili muna ng kahit isang alternative event." });
             }
 
+            var submittedAlternativeEventId = request.AlternativeEventIds.First();
+
+            // Re-derives the same candidate set GetAlternativeEvents already
+            // builds for this registration, so the UI's candidate list and
+            // this validation can never independently drift. A submitted ID
+            // outside that set (tampered, stale, or otherwise never offered)
+            // is rejected without distinguishing why.
+            var candidateEvents = await GetAlternativeEvents(
+                registration.Event.Id,
+                registration.Event.Difficulty ?? "",
+                registration.Assessment?.Result ?? "");
+
+            if (!candidateEvents.Any(e => e.Id == submittedAlternativeEventId))
+            {
+                return Json(new { success = false, message = "That event is not an available alternative for this participant." });
+            }
+
             registration.Status = "Alternative Recommended";
-            registration.AlternativeEventId = request.AlternativeEventIds.First();
+            registration.AlternativeEventId = submittedAlternativeEventId;
 
             if (!string.IsNullOrWhiteSpace(request.Reason))
             {
@@ -353,11 +381,17 @@ namespace TrailGuard.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdateRegistrationStatus([FromBody] UpdateRegistrationStatusRequest request)
         {
+            var currentUser = await _userManager.GetUserAsync(User);
+            if (currentUser == null)
+            {
+                return Json(new { success = false, message = "Registration not found" });
+            }
+
             var registration = await _context.EventRegistrations
                 .Include(r => r.Event)
                 .FirstOrDefaultAsync(r => r.Id == request.Id);
 
-            if (registration == null)
+            if (registration == null || registration.Event == null || !OwnsEvent(registration.Event, currentUser))
             {
                 return Json(new { success = false, message = "Registration not found" });
             }
@@ -405,10 +439,17 @@ namespace TrailGuard.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> VerifyPayment([FromBody] VerifyPaymentRequest request)
         {
+            var currentUser = await _userManager.GetUserAsync(User);
+            if (currentUser == null)
+            {
+                return Json(new { success = false, message = "Registration not found" });
+            }
+
             var registration = await _context.EventRegistrations
+                .Include(r => r.Event)
                 .FirstOrDefaultAsync(r => r.Id == request.Id);
 
-            if (registration == null)
+            if (registration == null || registration.Event == null || !OwnsEvent(registration.Event, currentUser))
             {
                 return Json(new { success = false, message = "Registration not found" });
             }
@@ -443,11 +484,18 @@ namespace TrailGuard.Controllers
         {
             await RegistrationStatusHelper.ExpireOverdueRegistrations(_context);
 
+            var currentUser = await _userManager.GetUserAsync(User);
+            if (currentUser == null)
+            {
+                TempData["Error"] = "Event not found";
+                return RedirectToAction("Events");
+            }
+
             var eventItem = await _context.Events
                 .Include(e => e.Trail)
                 .FirstOrDefaultAsync(e => e.Id == id);
 
-            if (eventItem == null)
+            if (eventItem == null || !OwnsEvent(eventItem, currentUser))
             {
                 TempData["Error"] = "Event not found";
                 return RedirectToAction("Events");
@@ -471,13 +519,49 @@ namespace TrailGuard.Controllers
             return View(eventItem);
         }
 
+        // Single ownership rule for every Organizer-facing Event/Registration
+        // action in this controller (dashboard, registration list/details,
+        // event details, comparison, and the registration-mutation actions
+        // below): the whole controller is already gated to the Organizer
+        // role by the class-level [Authorize], and unlike EventController
+        // (which grants an Admin full access regardless of ownership),
+        // nobody gets a free pass here - a dual-role Admin+Organizer account
+        // reaching one of these routes is still just "an Organizer here" and
+        // may only act on an Event whose stable OrganizerId matches their own
+        // account. A null OrganizerId (an unresolved legacy Event - see
+        // CLAUDE.md) or a different Organizer's ID are both denied
+        // identically - ownership is never inferred from OrganizedBy, email,
+        // or display name.
+        private static bool OwnsEvent(Event eventItem, ApplicationUser currentUser)
+        {
+            return eventItem.OrganizerId != null && eventItem.OrganizerId == currentUser.Id;
+        }
+
+        // Assess Participants carries one further, stricter rule on top of
+        // OwnsEvent: it is explicitly unavailable to Admin (and therefore to
+        // a dual-role Admin+Organizer account, which always also holds the
+        // Admin role and follows the Admin branch everywhere else in this
+        // app), even for an Event that account otherwise owns.
+        private async Task<bool> CanAssessEventAsync(Event eventItem, ApplicationUser currentUser)
+        {
+            if (await _userManager.IsInRoleAsync(currentUser, "Admin")) return false;
+            return OwnsEvent(eventItem, currentUser);
+        }
+
         public async Task<IActionResult> PostEventAssessment(int eventId)
         {
+            var currentUser = await _userManager.GetUserAsync(User);
+            if (currentUser == null)
+            {
+                TempData["Error"] = "Unable to verify your account. Please sign in again.";
+                return RedirectToAction("Events");
+            }
+
             var eventItem = await _context.Events
                 .Include(e => e.Trail)
                 .FirstOrDefaultAsync(e => e.Id == eventId);
 
-            if (eventItem == null)
+            if (eventItem == null || !await CanAssessEventAsync(eventItem, currentUser))
             {
                 TempData["Error"] = "Event not found";
                 return RedirectToAction("Events");
@@ -515,49 +599,107 @@ namespace TrailGuard.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> SubmitPostEventAssessment([FromBody] SubmitAssessmentRequest request)
         {
-            Console.WriteLine($"Received: EventId={request.EventId}, RegistrationId={request.RegistrationId}, Difficulty={request.DifficultyExperience}");
-
-            // 🔥 Hanapin ang registration
-            var registration = await _context.EventRegistrations
-                .Include(r => r.User)
-                .FirstOrDefaultAsync(r => r.Id == request.RegistrationId);
-
-            if (registration == null)
+            try
             {
-                Console.WriteLine($"Registration not found: {request.RegistrationId}");
-                return Json(new { success = false, message = "Registration not found" });
-            }
-
-            var userId = registration.UserId;
-            Console.WriteLine($"Found registration for user: {userId}");
-
-            var existingAssessment = await _context.PostEventAssessments
-                .FirstOrDefaultAsync(a => a.EventId == request.EventId && a.UserId == userId);
-
-            if (existingAssessment != null)
-            {
-                existingAssessment.DifficultyExperience = request.DifficultyExperience;
-                existingAssessment.Notes = request.Notes;
-                existingAssessment.CreatedAt = DateTime.Now;
-            }
-            else
-            {
-                var assessment = new PostEventAssessment
+                var currentUser = await _userManager.GetUserAsync(User);
+                if (currentUser == null)
                 {
-                    EventId = request.EventId,
-                    UserId = userId,
-                    DifficultyExperience = request.DifficultyExperience,
-                    Notes = request.Notes,
-                    CreatedAt = DateTime.Now
-                };
-                _context.PostEventAssessments.Add(assessment);
+                    return Json(new { success = false, message = "Unable to verify your account. Please sign in again." });
+                }
+
+                // Assess Participants is Organizer-only - a dual-role
+                // Admin+Organizer account is denied the same as an
+                // Admin-only account, before any registration/event data is
+                // looked up or revealed.
+                if (await _userManager.IsInRoleAsync(currentUser, "Admin"))
+                {
+                    return Json(new { success = false, message = "Registration not found." });
+                }
+
+                var registration = await _context.EventRegistrations
+                    .Include(r => r.User)
+                    .Include(r => r.Event)
+                    .FirstOrDefaultAsync(r => r.Id == request.RegistrationId);
+
+                if (registration == null || registration.Event == null)
+                {
+                    return Json(new { success = false, message = "Registration not found." });
+                }
+
+                // OwnsEvent is the same shared ownership check every other
+                // Organizer-facing action in this controller uses, checked
+                // before anything else about this registration/event is
+                // revealed - a null OrganizerId (an unresolved legacy Event)
+                // or a different Organizer's ID are both denied the same way
+                // as a registration that doesn't exist at all.
+                if (!OwnsEvent(registration.Event, currentUser))
+                {
+                    return Json(new { success = false, message = "Registration not found." });
+                }
+
+                // The registration's own, server-loaded EventId is what's actually
+                // used below - this only confirms the client's submitted EventId
+                // (and therefore the participant it thinks it's saving) actually
+                // belongs to it, rather than trusting request.EventId on its own.
+                if (registration.EventId != request.EventId)
+                {
+                    return Json(new { success = false, message = "This registration does not belong to the specified event." });
+                }
+
+                if (registration.Event.Status != "Completed")
+                {
+                    return Json(new { success = false, message = "This event is not yet completed." });
+                }
+
+                if (registration.Status != "Accepted")
+                {
+                    return Json(new { success = false, message = "This participant is not an accepted registrant for this event." });
+                }
+
+                // FinalLabelService.IsKnownOutcome is the existing canonical
+                // exact-membership check for this value - it is false for
+                // anything outside the seven outcome strings the form can
+                // submit (unknown, blank, differently cased, or fabricated).
+                if (!FinalLabelService.IsKnownOutcome(request.DifficultyExperience))
+                {
+                    return Json(new { success = false, message = "Please select a valid hike outcome." });
+                }
+
+                var userId = registration.UserId;
+
+                var existingAssessment = await _context.PostEventAssessments
+                    .FirstOrDefaultAsync(a => a.EventId == registration.EventId && a.UserId == userId);
+
+                if (existingAssessment != null)
+                {
+                    existingAssessment.DifficultyExperience = request.DifficultyExperience;
+                    existingAssessment.Notes = request.Notes;
+                    existingAssessment.CreatedAt = DateTime.Now;
+                }
+                else
+                {
+                    var assessment = new PostEventAssessment
+                    {
+                        EventId = registration.EventId,
+                        UserId = userId,
+                        DifficultyExperience = request.DifficultyExperience,
+                        Notes = request.Notes,
+                        CreatedAt = DateTime.Now
+                    };
+                    _context.PostEventAssessments.Add(assessment);
+                }
+
+                await _context.SaveChangesAsync();
+
+                await FinalLabelService.UpsertFinalLabel(_context, registration.Id);
+
+                return Json(new { success = true, message = "Assessment saved successfully!" });
             }
-
-            await _context.SaveChangesAsync();
-
-            await FinalLabelService.UpsertFinalLabel(_context, registration.Id);
-
-            return Json(new { success = true, message = "Assessment saved successfully!" });
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to save post-event assessment for registration {RegistrationId}.", request.RegistrationId);
+                return Json(new { success = false, message = "Unable to save the assessment right now. Please try again." });
+            }
         }
 
         // 🔥 I-add itong class sa loob ng OrganizerController
@@ -571,11 +713,24 @@ namespace TrailGuard.Controllers
 
         public async Task<IActionResult> EventComparison(int eventId)
         {
+            var currentUser = await _userManager.GetUserAsync(User);
+            if (currentUser == null)
+            {
+                TempData["Error"] = "Event not found";
+                return RedirectToAction("Events");
+            }
+
             var eventItem = await _context.Events
                 .Include(e => e.Trail)
                 .FirstOrDefaultAsync(e => e.Id == eventId);
 
-            if (eventItem == null)
+            // A pure Organizer and a dual-role Admin+Organizer account are
+            // treated identically here - OwnsEvent grants no Admin bypass,
+            // so entering this controller never yields cross-Organizer
+            // comparison data regardless of what other roles the account
+            // also holds. An Admin-only account never reaches this action at
+            // all, per the controller's own [Authorize(Roles = "Organizer")].
+            if (eventItem == null || !OwnsEvent(eventItem, currentUser))
             {
                 TempData["Error"] = "Event not found";
                 return RedirectToAction("Events");

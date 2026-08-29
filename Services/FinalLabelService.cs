@@ -133,6 +133,19 @@ namespace TrailGuard.Services
             };
         }
 
+        // Exact-membership check for the seven canonical hike-outcome/feedback
+        // strings the switch above maps - kept beside it so the two can never
+        // drift apart. The switch is an exact, case-sensitive, non-trimming
+        // string match with a single "_ => null" fallthrough for everything
+        // else, so a null result from MapFeedbackToClass is a genuine,
+        // reliable "not one of the seven" signal (never a coincidence of its
+        // own display-class fallback) - this wrapper exists purely so a
+        // caller doing validation (see OrganizerController.SubmitPostEventAssessment)
+        // doesn't have to reason about that itself, and so a second,
+        // independent list of the same seven strings never needs to exist
+        // anywhere else in the codebase.
+        public static bool IsKnownOutcome(string? feedback) => MapFeedbackToClass(feedback) != null;
+
         public static string? GetMoreConservativeFeedback(string? feedbackA, string? feedbackB)
         {
             var hasA = feedbackA != null && ConservativeOrder.ContainsKey(feedbackA);

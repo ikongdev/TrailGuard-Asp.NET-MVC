@@ -1,437 +1,864 @@
 @model TrailGuard.Models.Event
+@using System.Text.Json
 @{
     ViewData["Title"] = "Post-Event Assessment";
-    var registrations = ViewBag.Registrations as List<TrailGuard.Models.EventRegistration>;
-    var existingAssessments = ViewBag.ExistingAssessments as Dictionary<string, TrailGuard.Models.PostEventAssessment>;
+    var registrations = ViewBag.Registrations as List<TrailGuard.Models.EventRegistration> ?? new List<TrailGuard.Models.EventRegistration>();
+    var existingAssessments = ViewBag.ExistingAssessments as Dictionary<string, TrailGuard.Models.PostEventAssessment> ?? new Dictionary<string, TrailGuard.Models.PostEventAssessment>();
+
+    var totalCount = registrations.Count;
+    var assessedCount = registrations.Count(r => existingAssessments.ContainsKey(r.UserId));
+    var progressPercent = totalCount > 0 ? (int)Math.Round(100.0 * assessedCount / totalCount) : 0;
+    var participantWord = totalCount == 1 ? "participant" : "participants";
+
+    // Safe, minimal projection for the client - never the raw EventRegistration/
+    // ApplicationUser entity graph, which would ship IdentityUser fields like
+    // PasswordHash/SecurityStamp to the browser. Only what the page's own
+    // script actually reads. System.Text.Json's default encoder already
+    // escapes HTML-sensitive characters, and this is rendered into a
+    // type="application/json" tag (inert to the browser, read back via
+    // textContent + JSON.parse) rather than interpolated into executable
+    // script text.
+    var participantPayload = new List<object>();
+    foreach (var reg in registrations)
+    {
+        existingAssessments.TryGetValue(reg.UserId, out var assessment);
+        participantPayload.Add(new
+        {
+            registrationId = reg.Id,
+            userId = reg.UserId,
+            fullName = reg.User != null ? $"{reg.User.FirstName} {reg.User.LastName}".Trim() : reg.ParticipantName,
+            email = reg.User?.Email,
+            profilePictureUrl = reg.User?.ProfilePictureUrl,
+            preHikeResult = reg.Assessment?.Result,
+            savedOutcome = assessment?.DifficultyExperience,
+            savedNotes = assessment?.Notes
+        });
+    }
+    var participantPayloadJson = JsonSerializer.Serialize(participantPayload);
 }
 
 <div class="pt-24 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
-    
+
     <div class="mb-6">
-        <a asp-controller="Event" asp-action="Details" asp-route-id="@Model?.Id" class="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors group">
-            <i class="fa-solid fa-arrow-left group-hover:-translate-x-1 transition-transform"></i>
+        <a asp-controller="Event" asp-action="Details" asp-route-id="@Model?.Id" id="backToEventDetailsLink"
+           class="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors group focus:outline-none focus:ring-2 focus:ring-accent rounded">
+            <i class="fa-solid fa-arrow-left group-hover:-translate-x-1 transition-transform" aria-hidden="true"></i>
             Back to Event Details
         </a>
     </div>
 
-    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8">
-        <div class="flex items-center gap-4 mb-6">
-            <div class="w-14 h-14 rounded-full bg-linear-to-r from-blue-500 to-cyan-500 flex items-center justify-center">
-                <i class="fa-solid fa-clipboard-check text-white text-2xl"></i>
-            </div>
-            <div>
-                <h1 class="text-2xl font-bold text-white">Post-Event Assessment</h1>
-                <p class="text-gray-400 text-sm">Assess each participant's performance for @Model?.EventTitle</p>
+    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 mb-6">
+        <div class="flex items-center gap-4 mb-4">
+            <span class="w-12 h-12 rounded-full bg-accent/15 border border-accent/30 flex items-center justify-center shrink-0" aria-hidden="true">
+                <i class="fa-solid fa-clipboard-check text-accent text-lg"></i>
+            </span>
+            <div class="min-w-0">
+                <h1 class="text-xl font-bold text-white">Post-Event Assessment</h1>
+                <p class="text-gray-400 text-sm truncate">Assess each participant's hike outcome for <span class="text-gray-300 font-medium">@Model?.EventTitle</span></p>
             </div>
         </div>
+        <div class="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-400 border-t border-white/10 pt-4">
+            <span class="flex items-center gap-2"><i class="fa-regular fa-calendar text-accent" aria-hidden="true"></i>@Model?.EventDate.ToString("MMM dd, yyyy")</span>
+            <span class="flex items-center gap-2"><i class="fa-regular fa-clock text-accent" aria-hidden="true"></i>@Model?.FormattedEventTime</span>
+            <span class="flex items-center gap-2"><i class="fa-solid fa-users text-accent" aria-hidden="true"></i>@totalCount @participantWord</span>
+        </div>
+    </div>
 
-        <div class="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 mb-6">
-            <p class="text-blue-300 text-sm">
-                <i class="fa-solid fa-info-circle mr-2"></i>
-                <span class="font-semibold">Event:</span> @Model?.EventTitle
+    @if (totalCount > 0)
+    {
+        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 mb-6">
+            <div class="flex items-center justify-between mb-2">
+                <p class="text-sm font-medium text-gray-300">Assessment progress</p>
+                <p id="progressSummary" class="text-sm text-gray-400">@assessedCount of @totalCount assessed (@progressPercent%)</p>
+            </div>
+            <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+                <div id="progressBar" class="h-full bg-accent rounded-full transition-all duration-500 motion-reduce:transition-none" style="width: @progressPercent%"></div>
+            </div>
+            <p id="progressComplete" class="@(assessedCount == totalCount ? "" : "hidden") mt-3 text-sm text-emerald-400 flex items-center gap-2">
+                <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+                <span>All participants have been assessed.</span>
             </p>
-            <div class="flex flex-wrap gap-4 text-blue-300/70 text-sm mt-1">
-                <span><i class="fa-regular fa-calendar mr-2"></i>@Model?.EventDate.ToString("MMMM dd, yyyy")</span>
-                <span><i class="fa-regular fa-clock mr-2"></i>@Model?.FormattedEventTime</span>
-                <span><i class="fa-solid fa-users mr-2"></i>@(registrations?.Count ?? 0) participants</span>
-            </div>
         </div>
 
-        @if (registrations != null && registrations.Any())
-        {
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                
-                <div class="lg:col-span-2">
-                    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden h-150 flex flex-col">
-                        <div class="px-4 py-3 border-b border-white/10 shrink-0">
-                            <h2 class="text-sm font-semibold text-white">Participants</h2>
-                        </div>
-                        <div class="flex-1 overflow-y-auto custom-scrollbar">
-                            @foreach (var reg in registrations)
-                            {
-                                var assessment = existingAssessments != null && existingAssessments.ContainsKey(reg.UserId) 
-                                    ? existingAssessments[reg.UserId] 
-                                    : null;
-                                
-                                var user = reg.User;
-                                var fullName = user != null ? $"{user.FirstName} {user.LastName}" : reg.ParticipantName;
-                                
-                                var preHikeResult = reg.Assessment?.Result ?? "Not Assessed";
-                                var outcome = assessment?.DifficultyExperience ?? "Not Assessed";
-                                
-                                var resultColor = preHikeResult == "Good-Match" ? "text-green-400" : 
-                                                  preHikeResult == "Borderline" ? "text-yellow-400" : 
-                                                  preHikeResult == "Not Recommended" ? "text-red-400" : "text-gray-400";
-                                
-                                var outcomeColor = outcome == "Much easier than expected" || outcome == "Matched perfectly" ? "text-green-400" :
-                                                   outcome == "Matched but challenging" || outcome == "Harder than expected" ? "text-yellow-400" :
-                                                   outcome == "Much harder" || outcome == "Could not finish - turned back" || outcome == "Could not finish - injured" ? "text-red-400" :
-                                                   "text-gray-400";
+        <div id="postEventAssessmentRoot" data-event-id="@(Model?.Id ?? 0)" class="grid grid-cols-1 lg:grid-cols-[minmax(0,35%)_minmax(0,65%)] gap-6 items-start">
 
-                                <div class="participant-item flex items-center justify-between p-4 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer" 
-                                     onclick="selectParticipant('@reg.UserId')" data-user-id="@reg.UserId" data-registration-id="@reg.Id">
-                                    <div class="flex-1 min-w-0">
-                                        <div class="flex items-center gap-3">
-                                            <div class="w-8 h-8 rounded-full overflow-hidden shrink-0 bg-gray-700">
-                                                @if (!string.IsNullOrEmpty(user?.ProfilePictureUrl))
-                                                {
-                                                    <img src="@user.ProfilePictureUrl" alt="@fullName" class="w-full h-full object-cover" />
-                                                }
-                                                else
-                                                {
-                                                    <div class="w-full h-full flex items-center justify-center text-white text-xs font-bold bg-linear-to-r from-blue-500 to-cyan-500">
-                                                        @(string.IsNullOrEmpty(fullName) ? "?" : fullName.First().ToString().ToUpper())
-                                                    </div>
-                                                }
-                                            </div>
-                                            <div>
-                                                <p class="text-white font-medium text-sm truncate">@fullName</p>
-                                                <p class="text-gray-400 text-xs truncate">@user?.Email</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="flex items-center gap-3 ml-4 shrink-0">
-                                        <span class="px-2 py-1 rounded-full text-xs font-semibold @resultColor bg-white/5 whitespace-nowrap">
-                                            @preHikeResult
-                                        </span>
-                                        <span class="px-2 py-1 rounded-full text-xs font-semibold @outcomeColor bg-white/5 whitespace-nowrap">
-                                            @outcome
-                                        </span>
-                                        <i class="fa-solid fa-chevron-right text-gray-500 text-xs"></i>
-                                    </div>
-                                </div>
-                            }
-                        </div>
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
+                <div class="px-4 py-3 border-b border-white/10">
+                    <h2 class="text-sm font-semibold text-white mb-3">Participants</h2>
+                    <div class="flex gap-2">
+                        <button type="button" data-filter="all" aria-pressed="true"
+                                class="filter-btn px-3 py-1.5 rounded-full text-xs font-medium border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                            All <span data-count-all>0</span>
+                        </button>
+                        <button type="button" data-filter="pending" aria-pressed="false"
+                                class="filter-btn px-3 py-1.5 rounded-full text-xs font-medium border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                            Pending <span data-count-pending>0</span>
+                        </button>
+                        <button type="button" data-filter="assessed" aria-pressed="false"
+                                class="filter-btn px-3 py-1.5 rounded-full text-xs font-medium border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                            Assessed <span data-count-assessed>0</span>
+                        </button>
                     </div>
                 </div>
+                <ul id="participantQueue" aria-label="Participants" class="max-h-128 overflow-y-auto pea-scrollbar divide-y divide-white/5"></ul>
+                <p id="queueEmptyState" class="hidden px-4 py-8 text-center text-sm text-gray-500">No participants match this filter.</p>
+            </div>
 
-                <div class="lg:col-span-1">
-                    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 h-150 overflow-y-auto custom-scrollbar flex flex-col">
-                        <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2 shrink-0">
-                            <i class="fa-regular fa-pen-to-square text-blue-400"></i>
-                            Assessment Details
-                        </h2>
-                        
-                        <div id="assessmentDetails" class="flex-1">
-                            <div class="text-center text-gray-500 py-8">
-                                <i class="fa-regular fa-hand-pointer text-3xl block mb-3 opacity-50"></i>
-                                <p class="text-sm">Select a participant</p>
-                                <p class="text-xs text-gray-600">to assess their performance</p>
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+                <div id="workspaceEmpty" class="text-center text-gray-500 py-12">
+                    <i class="fa-regular fa-hand-pointer text-3xl block mb-3 opacity-50" aria-hidden="true"></i>
+                    <p class="text-sm">Select a participant to assess their performance.</p>
+                </div>
+
+                <div id="workspaceActive" class="hidden">
+                    <div class="flex items-start gap-4 pb-5 border-b border-white/10 mb-5">
+                        <div id="workspaceAvatar" class="w-14 h-14 rounded-full overflow-hidden shrink-0 bg-gray-700 flex items-center justify-center text-white font-bold"></div>
+                        <div class="min-w-0 flex-1">
+                            <p id="workspaceName" class="text-white font-semibold text-lg truncate"></p>
+                            <p id="workspaceEmail" class="text-gray-400 text-sm truncate"></p>
+                            <div class="flex flex-wrap gap-2 mt-2">
+                                <span id="workspacePreHikePill" class="px-2.5 py-1 rounded-full text-xs font-medium border"></span>
+                                <span id="workspaceOutcomePill" class="px-2.5 py-1 rounded-full text-xs font-medium border"></span>
                             </div>
                         </div>
                     </div>
+
+                    <form id="assessmentForm" novalidate>
+                        <fieldset>
+                            <legend class="block text-sm font-medium text-gray-300 mb-3">Hike Outcome <span class="text-red-400">*</span></legend>
+                            <div class="space-y-2">
+                                <label class="flex items-start gap-3 cursor-pointer px-4 py-3 rounded-xl border border-gray-700 hover:border-accent transition-colors has-checked:border-accent has-checked:bg-accent/10 focus-within:ring-2 focus-within:ring-accent">
+                                    <input type="radio" name="outcome" value="Much easier than expected" class="mt-0.5 w-4 h-4 accent-accent shrink-0" />
+                                    <span class="text-gray-200 text-sm wrap-break-word">Much easier than expected &mdash; Over-prepared</span>
+                                </label>
+                                <label class="flex items-start gap-3 cursor-pointer px-4 py-3 rounded-xl border border-gray-700 hover:border-accent transition-colors has-checked:border-accent has-checked:bg-accent/10 focus-within:ring-2 focus-within:ring-accent">
+                                    <input type="radio" name="outcome" value="Matched perfectly" class="mt-0.5 w-4 h-4 accent-accent shrink-0" />
+                                    <span class="text-gray-200 text-sm wrap-break-word">Matched perfectly &mdash; Finished comfortably</span>
+                                </label>
+                                <label class="flex items-start gap-3 cursor-pointer px-4 py-3 rounded-xl border border-gray-700 hover:border-accent transition-colors has-checked:border-accent has-checked:bg-accent/10 focus-within:ring-2 focus-within:ring-accent">
+                                    <input type="radio" name="outcome" value="Matched but challenging" class="mt-0.5 w-4 h-4 accent-accent shrink-0" />
+                                    <span class="text-gray-200 text-sm wrap-break-word">Matched &mdash; Finished but challenging</span>
+                                </label>
+                                <label class="flex items-start gap-3 cursor-pointer px-4 py-3 rounded-xl border border-gray-700 hover:border-accent transition-colors has-checked:border-accent has-checked:bg-accent/10 focus-within:ring-2 focus-within:ring-accent">
+                                    <input type="radio" name="outcome" value="Harder than expected" class="mt-0.5 w-4 h-4 accent-accent shrink-0" />
+                                    <span class="text-gray-200 text-sm wrap-break-word">Harder than expected &mdash; Finished but struggled</span>
+                                </label>
+                                <label class="flex items-start gap-3 cursor-pointer px-4 py-3 rounded-xl border border-gray-700 hover:border-accent transition-colors has-checked:border-accent has-checked:bg-accent/10 focus-within:ring-2 focus-within:ring-accent">
+                                    <input type="radio" name="outcome" value="Much harder" class="mt-0.5 w-4 h-4 accent-accent shrink-0" />
+                                    <span class="text-gray-200 text-sm wrap-break-word">Much harder &mdash; Needed assistance</span>
+                                </label>
+                                <label class="flex items-start gap-3 cursor-pointer px-4 py-3 rounded-xl border border-gray-700 hover:border-accent transition-colors has-checked:border-accent has-checked:bg-accent/10 focus-within:ring-2 focus-within:ring-accent">
+                                    <input type="radio" name="outcome" value="Could not finish - turned back" class="mt-0.5 w-4 h-4 accent-accent shrink-0" />
+                                    <span class="text-gray-200 text-sm wrap-break-word">Could not finish &mdash; Turned back early</span>
+                                </label>
+                                <label class="flex items-start gap-3 cursor-pointer px-4 py-3 rounded-xl border border-gray-700 hover:border-accent transition-colors has-checked:border-accent has-checked:bg-accent/10 focus-within:ring-2 focus-within:ring-accent">
+                                    <input type="radio" name="outcome" value="Could not finish - injured" class="mt-0.5 w-4 h-4 accent-accent shrink-0" />
+                                    <span class="text-gray-200 text-sm wrap-break-word">Could not finish &mdash; Injured or unsafe</span>
+                                </label>
+                            </div>
+                        </fieldset>
+
+                        <div class="mt-5">
+                            <label for="assessmentNotes" class="block text-sm font-medium text-gray-300 mb-2">Notes <span class="text-gray-500 font-normal">(Optional)</span></label>
+                            <textarea id="assessmentNotes" rows="3"
+                                      class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm resize-none"
+                                      placeholder="Add any relevant notes..."></textarea>
+                        </div>
+
+                        <div class="mt-6 flex flex-col sm:flex-row gap-3">
+                            <button type="button" id="saveAssessmentBtn"
+                                    class="flex-1 px-5 py-2.5 rounded-full text-sm font-semibold text-blue-300 hover:text-white bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 hover:border-blue-500/50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:ring-offset-2 focus:ring-offset-surface-card disabled:opacity-60 disabled:pointer-events-none">
+                                <i class="fa-regular fa-floppy-disk mr-1.5" aria-hidden="true"></i>Save Assessment
+                            </button>
+                            <button type="button" id="saveAndNextBtn"
+                                    class="flex-1 px-5 py-2.5 rounded-full text-sm font-semibold text-blue-100 hover:text-white bg-blue-950 hover:bg-blue-900 border border-blue-500/40 hover:border-blue-400/60 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:ring-offset-2 focus:ring-offset-surface-card disabled:opacity-60 disabled:pointer-events-none">
+                                Save &amp; Next<i class="fa-solid fa-arrow-right ml-1.5" aria-hidden="true"></i>
+                            </button>
+                        </div>
+
+                        <p id="saveStatus" role="status" aria-live="polite" aria-atomic="true" class="mt-3 text-sm flex items-center gap-2 text-gray-500">
+                            <i class="fa-regular fa-circle text-xs" aria-hidden="true"></i>
+                            <span>No unsaved changes</span>
+                        </p>
+                    </form>
                 </div>
             </div>
-        }
-        else
-        {
-            <div class="text-center py-12 text-gray-500">
-                <i class="fa-regular fa-users-slash text-3xl block mb-3 opacity-50"></i>
-                <p class="text-sm">No participants found for this event.</p>
-            </div>
-        }
-    </div>
+        </div>
+
+        <script type="application/json" id="participantData">@Html.Raw(participantPayloadJson)</script>
+    }
+    else
+    {
+        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl text-center py-12 text-gray-500">
+            <i class="fa-regular fa-users-slash text-3xl block mb-3 opacity-50" aria-hidden="true"></i>
+            <p class="text-sm">No participants found for this event.</p>
+        </div>
+    }
 </div>
 
-<script id="loadingTemplate" type="text/template">
-    <div class="text-center py-8">
-        <div class="inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-        <p class="text-gray-400 text-sm mt-3">Loading...</p>
-    </div>
-</script>
-
-<script id="assessmentTemplate" type="text/template">
-    <div class="space-y-4">
-        <div class="flex items-center gap-3 pb-3 border-b border-white/10">
-            <div class="w-10 h-10 rounded-full overflow-hidden shrink-0 bg-gray-700">
-                {profilePhoto}
-            </div>
-            <div>
-                <p class="text-white font-medium text-sm">{fullName}</p>
-                <p class="text-gray-400 text-xs">{email}</p>
-                <p class="text-gray-500 text-xs mt-1">
-                    Pre-Hike: <span class="text-white font-medium">{preHike}</span>
-                </p>
-            </div>
-        </div>
-
-        <div>
-            <label class="block text-xs font-medium text-gray-400 mb-2">Hike Outcome <span class="text-red-400">*</span></label>
-            <div class="space-y-1.5">
-                <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-blue-500 transition-all has-checked:border-blue-500 has-checked:bg-blue-500/10">
-                    <input type="radio" name="outcome" value="Much easier than expected" class="w-4 h-4 accent-blue-500" />
-                    <span class="text-gray-300 text-sm">Much easier than expected — Over-prepared</span>
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-blue-500 transition-all has-checked:border-blue-500 has-checked:bg-blue-500/10">
-                    <input type="radio" name="outcome" value="Matched perfectly" class="w-4 h-4 accent-blue-500" />
-                    <span class="text-gray-300 text-sm">Matched perfectly — Finished comfortably</span>
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-blue-500 transition-all has-checked:border-blue-500 has-checked:bg-blue-500/10">
-                    <input type="radio" name="outcome" value="Matched but challenging" class="w-4 h-4 accent-blue-500" />
-                    <span class="text-gray-300 text-sm">Matched — Finished but challenging</span>
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-blue-500 transition-all has-checked:border-blue-500 has-checked:bg-blue-500/10">
-                    <input type="radio" name="outcome" value="Harder than expected" class="w-4 h-4 accent-blue-500" />
-                    <span class="text-gray-300 text-sm">Harder than expected — Finished but struggled</span>
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-blue-500 transition-all has-checked:border-blue-500 has-checked:bg-blue-500/10">
-                    <input type="radio" name="outcome" value="Much harder" class="w-4 h-4 accent-blue-500" />
-                    <span class="text-gray-300 text-sm">Much harder — Needed assistance</span>
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-blue-500 transition-all has-checked:border-blue-500 has-checked:bg-blue-500/10">
-                    <input type="radio" name="outcome" value="Could not finish - turned back" class="w-4 h-4 accent-blue-500" />
-                    <span class="text-gray-300 text-sm">Could not finish — Turned back early</span>
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-blue-500 transition-all has-checked:border-blue-500 has-checked:bg-blue-500/10">
-                    <input type="radio" name="outcome" value="Could not finish - injured" class="w-4 h-4 accent-blue-500" />
-                    <span class="text-gray-300 text-sm">Could not finish — Injured or unsafe</span>
-                </label>
+@section Modals {
+    @if (totalCount > 0)
+    {
+        <!-- Unsaved-change protection dialog - same @@section Modals / z-60 pattern
+             and accessible lifecycle established by Event/Details.cshtml's
+             Reschedule/Cancel Event modals (focus trap, focus restoration,
+             Escape, background inert, scroll lock, toast host exemption). -->
+        <div id="discardChangesModal" class="fixed inset-0 z-60 hidden items-center justify-center p-4">
+            <div data-discard-backdrop class="fixed inset-0 bg-black/70 backdrop-blur-sm z-60" aria-hidden="true"></div>
+            <div role="dialog" aria-modal="true" aria-labelledby="discardChangesModalTitle"
+                 class="relative bg-surface-card border border-white/10 rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col z-60">
+                <div class="flex items-start justify-between gap-4 px-6 py-4 border-b border-white/10 shrink-0">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <span class="w-9 h-9 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0" aria-hidden="true">
+                            <i class="fa-solid fa-triangle-exclamation text-amber-400 text-sm"></i>
+                        </span>
+                        <h2 id="discardChangesModalTitle" class="text-lg font-bold text-white">Discard unsaved changes?</h2>
+                    </div>
+                    <button type="button" id="discardModalCloseBtn" aria-label="Close" class="shrink-0 text-gray-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded">
+                        <i class="fa-solid fa-xmark text-xl" aria-hidden="true"></i>
+                    </button>
+                </div>
+                <div class="p-6">
+                    <p class="text-gray-300 text-sm">This participant's assessment has not been saved. If you continue, your changes will be lost.</p>
+                </div>
+                <div class="flex gap-3 px-6 py-4 border-t border-white/10 shrink-0">
+                    <button type="button" id="discardContinueEditingBtn"
+                            class="flex-1 px-4 py-2.5 rounded-full text-gray-300 hover:text-white text-sm font-medium bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-accent">
+                        Continue editing
+                    </button>
+                    <button type="button" id="discardConfirmBtn"
+                            class="flex-1 px-4 py-2.5 rounded-full text-red-200 hover:text-white text-sm font-semibold bg-red-950 hover:bg-red-900 border border-red-500/40 hover:border-red-400/60 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500/60 focus:ring-offset-2 focus:ring-offset-surface-card">
+                        Discard changes
+                    </button>
+                </div>
             </div>
         </div>
-
-        <div>
-            <label class="block text-xs font-medium text-gray-400 mb-1">Notes <span class="text-gray-500">(Optional)</span></label>
-            <textarea id="assessmentNotes" rows="2" class="w-full bg-surface-card border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none transition-colors resize-none" placeholder="Add notes..."></textarea>
-        </div>
-
-        <div class="flex gap-2 pt-2">
-            <button onclick="saveSelectedAssessment()" class="flex-1 px-4 py-2 rounded-xl text-white text-sm font-medium bg-blue-500 hover:bg-blue-600 transition-colors">
-                <i class="fa-regular fa-floppy-disk mr-1"></i> Save
-            </button>
-        </div>
-
-        <div id="saveStatus" class="text-xs text-gray-500 text-center hidden"></div>
-    </div>
-</script>
-
-<script>
-    // ============================================
-    // FINAL WORKING VERSION - POST EVENT ASSESSMENT
-    // ============================================
-    
-    var currentRegistrationId = null;
-    var currentUserId = null;
-
-    // I-save ang data mula sa server
-    var registrations = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(registrations));
-    var existingAssessments = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(existingAssessments));
-    
-    console.log('=== POST-EVENT ASSESSMENT LOADED ===');
-    console.log('Registrations count:', registrations ? registrations.length : 0);
-    if (registrations && registrations.length > 0) {
-        console.log('First registration:', registrations[0]);
-        console.log('Registration fields:', Object.keys(registrations[0]));
     }
+}
 
-    function selectParticipant(userId) {
-        console.log('=== selectParticipant called ===');
-        console.log('Looking for userId:', userId);
-        
-        // Hanapin ang registration gamit ang UserId (case-insensitive)
-        var reg = registrations.find(function(r) { 
-            var rUserId = (r.UserId || '').toLowerCase().trim();
-            var searchUserId = (userId || '').toLowerCase().trim();
-            return rUserId === searchUserId;
-        });
-        
-        console.log('Found registration:', reg);
-        
-        if (!reg) {
-            console.error('Registration not found for userId:', userId);
-            var detailsContainer = document.getElementById('assessmentDetails');
-            detailsContainer.innerHTML = '<div class="text-center py-8 text-red-400"><i class="fa-solid fa-circle-exclamation text-2xl block mb-2"></i><p class="text-sm">Participant not found</p><p class="text-xs text-gray-500 mt-2">UserId: ' + userId + '</p></div>';
-            return;
-        }
+@* Authored CSS for this page (participant-queue scrollbar) now lives in
+   wwwroot/css/input.css, scoped under #postEventAssessmentRoot - see the
+   "Post-Event Assessment" section there. The reduced-motion handling that
+   used to live here is now done directly in markup/script instead: the
+   progress bar carries motion-reduce:transition-none, and the saving-state
+   spinner icon is chosen in JS based on prefers-reduced-motion (Font
+   Awesome's own .fa-spin has no built-in reduced-motion behavior, and
+   overriding it globally in a shared stylesheet would affect every other
+   page's spinners too). *@
 
-        currentRegistrationId = reg.Id;
-        currentUserId = reg.UserId;
-        console.log('Current Registration ID:', currentRegistrationId);
-        console.log('Current User ID:', currentUserId);
-        
-        // I-highlight ang selected
-        document.querySelectorAll('.participant-item').forEach(function(el) {
-            el.classList.remove('bg-white/10', 'border-l-2', 'border-l-blue-500');
-        });
-        
-        var selectedItem = document.querySelector('.participant-item[data-user-id="' + userId + '"]');
-        if (selectedItem) {
-            selectedItem.classList.add('bg-white/10', 'border-l-2', 'border-l-blue-500');
-        }
+@if (totalCount > 0)
+{
+    <script>
+        (function () {
+            'use strict';
 
-        var detailsContainer = document.getElementById('assessmentDetails');
-        detailsContainer.innerHTML = document.getElementById('loadingTemplate').innerHTML;
+            // ------------------------------------------------------------------
+            // State - one namespaced module, no globals besides the DOM hooks
+            // every other page already relies on (postJson, showToast,
+            // window.tgToastHostExempt, window.tgGetToastCloseButtons).
+            // ------------------------------------------------------------------
+            var participants = [];
+            var assessedByUserId = {};   // userId -> { outcome, notes } - saved baseline, server-confirmed only
+            var selectedRegistrationId = null;
+            var baseline = { outcome: null, notes: '' };
+            var dirty = false;
+            var activeFilter = 'all';
+            var saving = false;
+            var requestSeq = 0;
+            var eventId = 0;
+            var totalCount = 0;
+            var els = {};
+            // Font Awesome's fa-spin has no built-in reduced-motion behavior,
+            // so the saving-state spinner icon is chosen once at init instead
+            // of via CSS - see the CSS-source note near the top of this file.
+            var prefersReducedMotion = false;
 
-        // I-build ang assessment details gamit ang registration
-        var fullName = reg.User ? reg.User.FirstName + ' ' + reg.User.LastName : reg.ParticipantName;
-        var initial = fullName ? fullName.charAt(0).toUpperCase() : '?';
-        var email = reg.User ? reg.User.Email : '';
-        var preHike = reg.Assessment ? reg.Assessment.Result : 'Not Assessed';
-        
-        var profilePhoto = reg.User && reg.User.ProfilePictureUrl ? reg.User.ProfilePictureUrl : null;
-        
-        var profilePhotoHtml = '';
-        if (profilePhoto) {
-            profilePhotoHtml = '<img src="' + profilePhoto + '" alt="' + fullName + '" class="w-full h-full object-cover" />';
-        } else {
-            profilePhotoHtml = '<div class="w-full h-full flex items-center justify-center text-white text-sm font-bold bg-gradient-to-r from-blue-500 to-cyan-500">' + initial + '</div>';
-        }
-        
-        // Hanapin ang assessment gamit ang UserId (case-insensitive)
-        var assessment = null;
-        if (existingAssessments) {
-            var keys = Object.keys(existingAssessments);
-            for (var i = 0; i < keys.length; i++) {
-                if (keys[i].toLowerCase().trim() === userId.toLowerCase().trim()) {
-                    assessment = existingAssessments[keys[i]];
-                    break;
+            function byId(id) { return document.getElementById(id); }
+            function setText(el, text) { if (el) el.textContent = text; }
+
+            function isAssessed(p) {
+                return Object.prototype.hasOwnProperty.call(assessedByUserId, p.userId);
+            }
+
+            function findParticipant(registrationId) {
+                for (var i = 0; i < participants.length; i++) {
+                    if (participants[i].registrationId === registrationId) return participants[i];
+                }
+                return null;
+            }
+
+            function matchesFilter(filterName) {
+                if (filterName === 'pending') return function (p) { return !isAssessed(p); };
+                if (filterName === 'assessed') return isAssessed;
+                return function () { return true; };
+            }
+
+            function visibleParticipants() {
+                return participants.filter(matchesFilter(activeFilter));
+            }
+
+            function computeNextUnassessed(currentRegistrationId) {
+                var idx = -1;
+                for (var i = 0; i < participants.length; i++) {
+                    if (participants[i].registrationId === currentRegistrationId) { idx = i; break; }
+                }
+                if (idx === -1) return null;
+                // Forward-only search from just after the current participant -
+                // deliberately never wraps back to the start of the list.
+                for (var j = idx + 1; j < participants.length; j++) {
+                    if (!isAssessed(participants[j])) return participants[j];
+                }
+                return null;
+            }
+
+            // ---------------- Pill color helpers (display-only; underlying
+            // stored values are never altered) ----------------
+            function preHikePillClasses(result) {
+                switch (result) {
+                    case 'Good-Match': return 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30';
+                    case 'Borderline': return 'bg-amber-500/15 text-amber-400 border-amber-500/30';
+                    case 'Not Recommended': return 'bg-red-500/15 text-red-400 border-red-500/30';
+                    default: return 'bg-white/5 text-gray-400 border-white/10';
                 }
             }
-        }
-        
-        var selectedValue = assessment ? assessment.DifficultyExperience : '';
-        var notes = assessment && assessment.Notes ? assessment.Notes : '';
-
-        var template = document.getElementById('assessmentTemplate').innerHTML
-            .replace(/{profilePhoto}/g, profilePhotoHtml)
-            .replace(/{fullName}/g, fullName)
-            .replace(/{email}/g, email || 'N/A')
-            .replace(/{preHike}/g, preHike);
-
-        detailsContainer.innerHTML = template;
-
-        if (selectedValue) {
-            var radio = document.querySelector('input[name="outcome"][value="' + selectedValue + '"]');
-            if (radio) radio.checked = true;
-        }
-
-        if (notes) {
-            var notesField = document.getElementById('assessmentNotes');
-            if (notesField) notesField.value = notes;
-        }
-
-        var statusSpan = document.getElementById('saveStatus');
-        if (statusSpan) {
-            if (assessment) {
-                statusSpan.textContent = '✅ Last saved';
-                statusSpan.className = 'text-xs text-green-400 text-center block';
-            } else {
-                statusSpan.className = 'text-xs text-gray-500 text-center hidden';
-            }
-        }
-    }
-
-    function saveSelectedAssessment() {
-        console.log('=== saveSelectedAssessment called ===');
-        console.log('Current Registration ID:', currentRegistrationId);
-        
-        if (!currentRegistrationId) {
-            showToast('Please select a participant first.', 'error');
-            return;
-        }
-
-        var selected = document.querySelector('input[name="outcome"]:checked');
-        if (!selected) {
-            showToast('Please select a hike outcome.', 'error');
-            return;
-        }
-
-        var difficultyExperience = selected.value;
-        var notes = document.getElementById('assessmentNotes')?.value || '';
-        var eventId = @(Model?.Id ?? 0);
-        var statusSpan = document.getElementById('saveStatus');
-
-        console.log('Saving assessment:', {
-            eventId: eventId,
-            registrationId: currentRegistrationId,
-            difficultyExperience: difficultyExperience,
-            notes: notes
-        });
-
-        if (statusSpan) {
-            statusSpan.textContent = 'Saving...';
-            statusSpan.className = 'text-xs text-yellow-400 text-center block';
-        }
-
-        postJson('/Organizer/SubmitPostEventAssessment', {
-                eventId: eventId,
-                registrationId: currentRegistrationId,
-                difficultyExperience: difficultyExperience,
-                notes: notes
-            })
-        .then(function(response) {
-            console.log('Response status:', response.status);
-            return response.json();
-        })
-        .then(function(data) {
-            console.log('Response data:', data);
-            if (data.success) {
-                if (statusSpan) {
-                    statusSpan.textContent = '✅ Saved successfully!';
-                    statusSpan.className = 'text-xs text-green-400 text-center block';
+            function outcomePillClasses(outcome) {
+                switch (outcome) {
+                    case 'Much easier than expected':
+                    case 'Matched perfectly':
+                        return 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30';
+                    case 'Matched but challenging':
+                    case 'Harder than expected':
+                        return 'bg-amber-500/15 text-amber-400 border-amber-500/30';
+                    case 'Much harder':
+                    case 'Could not finish - turned back':
+                    case 'Could not finish - injured':
+                        return 'bg-red-500/15 text-red-400 border-red-500/30';
+                    default: return 'bg-white/5 text-gray-400 border-white/10';
                 }
-                showToast(data.message, 'success');
-                setTimeout(function() {
-                    location.reload();
-                }, 1000);
-            } else {
-                if (statusSpan) {
-                    statusSpan.textContent = '❌ ' + data.message;
-                    statusSpan.className = 'text-xs text-red-400 text-center block';
+            }
+
+            // ---------------- Rendering ----------------
+            function renderCounts() {
+                var pendingCount = participants.filter(function (p) { return !isAssessed(p); }).length;
+                var assessedCount = participants.length - pendingCount;
+                setText(els.countAll, String(participants.length));
+                setText(els.countPending, String(pendingCount));
+                setText(els.countAssessed, String(assessedCount));
+            }
+
+            function renderFilterButtons() {
+                [els.filterAll, els.filterPending, els.filterAssessed].forEach(function (btn) {
+                    if (!btn) return;
+                    var isActive = btn.getAttribute('data-filter') === activeFilter;
+                    btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+                    btn.classList.toggle('bg-accent/15', isActive);
+                    btn.classList.toggle('border-accent/40', isActive);
+                    btn.classList.toggle('text-white', isActive);
+                    btn.classList.toggle('bg-white/5', !isActive);
+                    btn.classList.toggle('border-white/10', !isActive);
+                    btn.classList.toggle('text-gray-400', !isActive);
+                    btn.classList.toggle('hover:text-white', !isActive);
+                });
+            }
+
+            function populateAvatar(container, p) {
+                container.textContent = '';
+                if (p.profilePictureUrl) {
+                    var img = document.createElement('img');
+                    img.src = p.profilePictureUrl;
+                    img.alt = ''; // decorative - the name is already rendered as adjacent text
+                    img.className = 'w-full h-full object-cover';
+                    container.appendChild(img);
+                } else {
+                    var initial = (p.fullName || '').trim().charAt(0).toUpperCase();
+                    container.textContent = initial || '?';
                 }
-                showToast(data.message, 'error');
             }
-        })
-        .catch(function(error) {
-            console.error('Error:', error);
-            if (statusSpan) {
-                statusSpan.textContent = '❌ Error saving';
-                statusSpan.className = 'text-xs text-red-400 text-center block';
+
+            function createAvatar(p, sizeClasses) {
+                var wrap = document.createElement('div');
+                wrap.className = sizeClasses + ' rounded-full overflow-hidden shrink-0 bg-gray-700 flex items-center justify-center text-white font-bold';
+                populateAvatar(wrap, p);
+                return wrap;
             }
-            showToast('Error saving assessment: ' + error.message, 'error');
-        });
-    }
 
-    // showToast(message, type) is now the canonical implementation in
-    // wwwroot/js/toast.js, loaded globally from _Layout.cshtml.
+            function createPill(text, colorClasses) {
+                var span = document.createElement('span');
+                span.className = 'px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap border ' + colorClasses;
+                span.textContent = text;
+                return span;
+            }
 
-    // Auto-select first participant on page load
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('DOM loaded, selecting first participant...');
-        var firstItem = document.querySelector('.participant-item');
-        if (firstItem) {
-            var userId = firstItem.getAttribute('data-user-id');
-            var registrationId = firstItem.getAttribute('data-registration-id');
-            console.log('First participant - UserId:', userId, 'RegistrationId:', registrationId);
-            selectParticipant(userId);
-        } else {
-            console.log('No participant items found');
-        }
-    });
-</script>
+            function createParticipantRow(p) {
+                var li = document.createElement('li');
 
-<style>
-    .custom-scrollbar::-webkit-scrollbar {
-        width: 5px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-track {
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 10px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: rgba(59, 130, 246, 0.4);
-        border-radius: 10px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-        background: rgba(59, 130, 246, 0.6);
-    }
-    
-    .custom-scrollbar {
-        scrollbar-width: thin;
-        scrollbar-color: rgba(59, 130, 246, 0.4) rgba(255, 255, 255, 0.05);
-    }
-    
-    .participant-item.active {
-        background: rgba(59, 130, 246, 0.1);
-        border-left: 3px solid #3b82f6;
-    }
-</style>
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.setAttribute('data-registration-id', String(p.registrationId));
+                var isSelected = p.registrationId === selectedRegistrationId;
+                btn.className = 'w-full flex items-center gap-3 px-4 py-3 text-left transition-colors border-l-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset ' +
+                    (isSelected ? 'bg-accent/10 border-l-accent' : 'border-l-transparent hover:bg-white/5');
+                if (isSelected) btn.setAttribute('aria-current', 'true');
+
+                btn.appendChild(createAvatar(p, 'w-9 h-9 text-xs'));
+
+                var info = document.createElement('div');
+                info.className = 'min-w-0 flex-1';
+
+                var nameEl = document.createElement('p');
+                nameEl.className = 'text-white text-sm font-medium truncate';
+                nameEl.textContent = p.fullName || 'Unnamed participant';
+
+                var emailEl = document.createElement('p');
+                emailEl.className = 'text-gray-500 text-xs truncate';
+                emailEl.textContent = p.email || 'No email on file';
+
+                var pillsRow = document.createElement('div');
+                pillsRow.className = 'flex flex-wrap gap-1.5 mt-1.5';
+                pillsRow.appendChild(createPill('Pre-hike: ' + (p.preHikeResult || 'Not assessed'), preHikePillClasses(p.preHikeResult)));
+                var saved = assessedByUserId[p.userId];
+                var savedOutcome = saved ? saved.outcome : null;
+                pillsRow.appendChild(createPill(savedOutcome ? 'Outcome: ' + savedOutcome : 'Not assessed', outcomePillClasses(savedOutcome)));
+
+                info.appendChild(nameEl);
+                info.appendChild(emailEl);
+                info.appendChild(pillsRow);
+                btn.appendChild(info);
+                li.appendChild(btn);
+                return li;
+            }
+
+            function renderQueue() {
+                var list = visibleParticipants();
+                els.queue.textContent = '';
+                list.forEach(function (p) { els.queue.appendChild(createParticipantRow(p)); });
+                var isEmpty = list.length === 0;
+                els.queueEmpty.classList.toggle('hidden', !isEmpty);
+                els.queue.classList.toggle('hidden', isEmpty);
+            }
+
+            function renderProgress() {
+                var pendingCount = participants.filter(function (p) { return !isAssessed(p); }).length;
+                var assessedCount = participants.length - pendingCount;
+                var percent = totalCount > 0 ? Math.round((assessedCount / totalCount) * 100) : 0;
+                setText(els.progressSummary, assessedCount + ' of ' + totalCount + ' assessed (' + percent + '%)');
+                if (els.progressBar) els.progressBar.style.width = percent + '%';
+                if (els.progressComplete) els.progressComplete.classList.toggle('hidden', !(totalCount > 0 && assessedCount === totalCount));
+            }
+
+            function updateIdentityOutcomePill(p) {
+                var saved = assessedByUserId[p.userId];
+                var savedOutcome = saved ? saved.outcome : null;
+                els.workspaceOutcomePill.textContent = savedOutcome ? 'Outcome: ' + savedOutcome : 'Not assessed';
+                els.workspaceOutcomePill.className = 'px-2.5 py-1 rounded-full text-xs font-medium border ' + outcomePillClasses(savedOutcome);
+            }
+
+            function setSaveStatus(state, message) {
+                if (!els.saveStatus) return;
+                var icon = els.saveStatus.querySelector('i');
+                var text = els.saveStatus.querySelector('span');
+                var config = {
+                    idle: { icon: 'fa-regular fa-circle', color: 'text-gray-500', text: 'No unsaved changes' },
+                    dirty: { icon: 'fa-solid fa-circle-exclamation', color: 'text-amber-400', text: 'Unsaved changes' },
+                    saving: { icon: prefersReducedMotion ? 'fa-solid fa-circle-notch' : 'fa-solid fa-circle-notch fa-spin', color: 'text-accent', text: 'Saving assessment…' },
+                    saved: { icon: 'fa-solid fa-circle-check', color: 'text-emerald-400', text: 'Assessment saved' },
+                    error: { icon: 'fa-solid fa-triangle-exclamation', color: 'text-red-400', text: message || 'Unable to save. Please try again.' }
+                };
+                var c = config[state] || config.idle;
+                if (icon) icon.className = c.icon + ' text-xs';
+                if (text) text.textContent = c.text;
+                els.saveStatus.className = 'mt-3 text-sm flex items-center gap-2 ' + c.color;
+            }
+
+            function updateSaveButtonsEnabled() {
+                if (els.saveBtn) els.saveBtn.disabled = saving;
+                if (els.saveNextBtn) {
+                    var hasNext = selectedRegistrationId != null && computeNextUnassessed(selectedRegistrationId) != null;
+                    els.saveNextBtn.disabled = saving || !hasNext;
+                }
+                if (els.queue) els.queue.classList.toggle('pointer-events-none', saving);
+                if (els.queue) els.queue.classList.toggle('opacity-60', saving);
+            }
+
+            function setDirty(value) { dirty = value; }
+
+            function onOutcomeOrNotesChanged() {
+                var selected = els.form.querySelector('input[name="outcome"]:checked');
+                var currentOutcome = selected ? selected.value : null;
+                var currentNotes = els.notes.value;
+                var isDirty = currentOutcome !== baseline.outcome || currentNotes !== (baseline.notes || '');
+                setDirty(isDirty);
+                if (!saving) setSaveStatus(isDirty ? 'dirty' : 'idle');
+            }
+
+            function hydrateWorkspace(p) {
+                els.workspaceEmpty.classList.add('hidden');
+                els.workspaceActive.classList.remove('hidden');
+
+                populateAvatar(els.workspaceAvatar, p);
+
+                setText(els.workspaceName, p.fullName || 'Unnamed participant');
+                setText(els.workspaceEmail, p.email || 'No email on file');
+
+                els.workspacePreHikePill.textContent = 'Pre-hike: ' + (p.preHikeResult || 'Not assessed');
+                els.workspacePreHikePill.className = 'px-2.5 py-1 rounded-full text-xs font-medium border ' + preHikePillClasses(p.preHikeResult);
+
+                var saved = assessedByUserId[p.userId];
+                var savedOutcome = saved ? saved.outcome : null;
+                var savedNotes = saved ? (saved.notes || '') : '';
+                updateIdentityOutcomePill(p);
+
+                var radios = els.form.querySelectorAll('input[name="outcome"]');
+                radios.forEach(function (r) { r.checked = (r.value === savedOutcome); });
+                els.notes.value = savedNotes;
+
+                baseline = { outcome: savedOutcome || null, notes: savedNotes };
+                setDirty(false);
+                setSaveStatus('idle');
+                updateSaveButtonsEnabled();
+            }
+
+            function performSwitch(registrationId) {
+                var p = findParticipant(registrationId);
+                if (!p) return;
+                selectedRegistrationId = registrationId;
+                hydrateWorkspace(p);
+                renderQueue();
+            }
+
+            function requestSwitch(registrationId) {
+                if (saving || registrationId === selectedRegistrationId) return;
+                if (dirty) {
+                    DiscardModal.open(function () { performSwitch(registrationId); });
+                    return;
+                }
+                performSwitch(registrationId);
+            }
+
+            function applyFilter(newFilter) {
+                activeFilter = newFilter;
+                renderFilterButtons();
+                var visible = visibleParticipants();
+                var stillVisible = selectedRegistrationId != null && visible.some(function (p) { return p.registrationId === selectedRegistrationId; });
+                if (!stillVisible) {
+                    if (visible.length > 0) {
+                        performSwitch(visible[0].registrationId);
+                    } else {
+                        selectedRegistrationId = null;
+                        els.workspaceActive.classList.add('hidden');
+                        els.workspaceEmpty.classList.remove('hidden');
+                        setDirty(false);
+                    }
+                }
+                renderQueue();
+            }
+
+            function requestFilterChange(newFilter) {
+                if (saving || newFilter === activeFilter) return;
+                var visibleUnderNewFilter = participants.filter(matchesFilter(newFilter));
+                var currentStillVisible = selectedRegistrationId != null &&
+                    visibleUnderNewFilter.some(function (p) { return p.registrationId === selectedRegistrationId; });
+                if (dirty && !currentStillVisible) {
+                    DiscardModal.open(function () { applyFilter(newFilter); });
+                    return;
+                }
+                applyFilter(newFilter);
+            }
+
+            function requestNavigateBack(url) {
+                DiscardModal.open(function () { window.location.href = url; });
+            }
+
+            // ---------------- Save ----------------
+            function saveAssessment(nextAction) {
+                if (saving) return;
+                if (!selectedRegistrationId) {
+                    showToast('Please select a participant first.', 'error');
+                    return;
+                }
+                var selectedRadio = els.form.querySelector('input[name="outcome"]:checked');
+                if (!selectedRadio) {
+                    showToast('Please select a hike outcome.', 'error');
+                    return;
+                }
+                var p = findParticipant(selectedRegistrationId);
+                if (!p) return;
+
+                var outcome = selectedRadio.value;
+                var notes = els.notes.value;
+                var registrationId = selectedRegistrationId;
+                var mySeq = ++requestSeq;
+
+                saving = true;
+                setSaveStatus('saving');
+                updateSaveButtonsEnabled();
+
+                postJson('/Organizer/SubmitPostEventAssessment', {
+                    eventId: eventId,
+                    registrationId: registrationId,
+                    difficultyExperience: outcome,
+                    notes: notes
+                })
+                .then(function (response) { return response.json(); })
+                .then(function (data) {
+                    if (mySeq !== requestSeq) return;
+                    saving = false;
+
+                    if (data.success) {
+                        assessedByUserId[p.userId] = { outcome: outcome, notes: notes };
+                        baseline = { outcome: outcome, notes: notes };
+                        setDirty(false);
+                        renderCounts();
+                        renderProgress();
+                        renderQueue();
+
+                        var next = nextAction === 'next' ? computeNextUnassessed(registrationId) : null;
+                        if (next) {
+                            performSwitch(next.registrationId);
+                        } else {
+                            updateIdentityOutcomePill(p);
+                            setSaveStatus('saved');
+                            if (nextAction === 'next') {
+                                showToast('All participants have been assessed.', 'success');
+                            }
+                        }
+                        updateSaveButtonsEnabled();
+                    } else {
+                        // A normal, expected rejection (e.g. business validation)
+                        // tied directly to the button just clicked - shown inline
+                        // only, not duplicated via the global toast.
+                        setSaveStatus('error', data.message);
+                        updateSaveButtonsEnabled();
+                    }
+                })
+                .catch(function (error) {
+                    if (mySeq !== requestSeq) return;
+                    saving = false;
+                    console.error('Error saving assessment:', error);
+                    setSaveStatus('error', 'Unable to save the assessment right now.');
+                    // Unexpected/network-level failure - the one case the global
+                    // toast is deliberately kept for, per the approved design.
+                    showToast('Unable to save the assessment right now.', 'error');
+                    updateSaveButtonsEnabled();
+                });
+            }
+
+            // ---------------- Discard-changes dialog lifecycle - mirrors
+            // Event/Details.cshtml's RescheduleModal/CancelEventModal exactly. ----------------
+            var DiscardModal = (function () {
+                var modalId = 'discardChangesModal';
+                var isOpen = false;
+                var lastFocusedElement = null;
+                var inertedElements = [];
+                var bodyOverflowBeforeModal = null;
+                var onConfirm = null;
+
+                function getFocusableElements(container) {
+                    return Array.from(container.querySelectorAll(
+                        'a[href], button:not([disabled]), textarea:not([disabled]), ' +
+                        'input:not([disabled]):not([type="hidden"]), select:not([disabled]), ' +
+                        '[tabindex]:not([tabindex="-1"])'
+                    )).filter(function (el) { return el.offsetParent !== null; });
+                }
+
+                function makeBackgroundInert(modalRoot) {
+                    inertedElements = [];
+                    var current = modalRoot;
+                    while (current && current !== document.body) {
+                        var parent = current.parentElement;
+                        if (!parent) break;
+                        Array.from(parent.children).forEach(function (sibling) {
+                            if (sibling === current || sibling.hasAttribute('inert')) return;
+                            if (window.tgToastHostExempt && window.tgToastHostExempt(sibling)) return;
+                            sibling.setAttribute('inert', '');
+                            inertedElements.push(sibling);
+                        });
+                        current = parent;
+                    }
+                }
+
+                function restoreBackgroundInert() {
+                    inertedElements.forEach(function (el) { el.removeAttribute('inert'); });
+                    inertedElements = [];
+                }
+
+                function handleKeydown(event) {
+                    if (!isOpen) return;
+                    var modal = document.getElementById(modalId);
+                    if (!modal) return;
+
+                    if (event.key === 'Escape') { close(); return; }
+
+                    if (event.key === 'Tab') {
+                        var toastCloseButtons = window.tgGetToastCloseButtons ? window.tgGetToastCloseButtons() : [];
+                        var focusable = getFocusableElements(modal).concat(toastCloseButtons);
+                        if (focusable.length === 0) { event.preventDefault(); return; }
+                        var first = focusable[0];
+                        var last = focusable[focusable.length - 1];
+                        if (event.shiftKey && document.activeElement === first) {
+                            event.preventDefault();
+                            last.focus();
+                        } else if (!event.shiftKey && document.activeElement === last) {
+                            event.preventDefault();
+                            first.focus();
+                        }
+                    }
+                }
+
+                function open(confirmCallback) {
+                    var modal = document.getElementById(modalId);
+                    if (!modal || isOpen) return;
+                    onConfirm = confirmCallback;
+                    lastFocusedElement = document.activeElement;
+                    modal.classList.remove('hidden');
+                    modal.classList.add('flex');
+                    isOpen = true;
+                    makeBackgroundInert(modal);
+                    bodyOverflowBeforeModal = document.body.style.overflow;
+                    document.body.style.overflow = 'hidden';
+                    document.addEventListener('keydown', handleKeydown);
+                    var target = document.getElementById('discardContinueEditingBtn') || getFocusableElements(modal)[0] || modal;
+                    if (target && typeof target.focus === 'function') target.focus();
+                }
+
+                function close() {
+                    var modal = document.getElementById(modalId);
+                    if (!modal) return;
+                    if (window.CustomSelect) window.CustomSelect.closeAll();
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                    if (!isOpen) return;
+                    isOpen = false;
+                    restoreBackgroundInert();
+                    document.body.style.overflow = bodyOverflowBeforeModal || '';
+                    bodyOverflowBeforeModal = null;
+                    document.removeEventListener('keydown', handleKeydown);
+                    onConfirm = null;
+                    if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') lastFocusedElement.focus();
+                    lastFocusedElement = null;
+                }
+
+                function confirmDiscard() {
+                    var callback = onConfirm;
+                    close();
+                    if (typeof callback === 'function') callback();
+                }
+
+                return { open: open, close: close, confirmDiscard: confirmDiscard };
+            })();
+
+            // ---------------- Init ----------------
+            function init() {
+                prefersReducedMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+                var root = byId('postEventAssessmentRoot');
+                var parsedEventId = root ? parseInt(root.getAttribute('data-event-id'), 10) : 0;
+                eventId = Number.isFinite(parsedEventId) ? parsedEventId : 0;
+
+                els = {
+                    backLink: byId('backToEventDetailsLink'),
+                    queue: byId('participantQueue'),
+                    queueEmpty: byId('queueEmptyState'),
+                    filterAll: document.querySelector('[data-filter="all"]'),
+                    filterPending: document.querySelector('[data-filter="pending"]'),
+                    filterAssessed: document.querySelector('[data-filter="assessed"]'),
+                    countAll: document.querySelector('[data-count-all]'),
+                    countPending: document.querySelector('[data-count-pending]'),
+                    countAssessed: document.querySelector('[data-count-assessed]'),
+                    progressSummary: byId('progressSummary'),
+                    progressBar: byId('progressBar'),
+                    progressComplete: byId('progressComplete'),
+                    workspaceEmpty: byId('workspaceEmpty'),
+                    workspaceActive: byId('workspaceActive'),
+                    workspaceAvatar: byId('workspaceAvatar'),
+                    workspaceName: byId('workspaceName'),
+                    workspaceEmail: byId('workspaceEmail'),
+                    workspacePreHikePill: byId('workspacePreHikePill'),
+                    workspaceOutcomePill: byId('workspaceOutcomePill'),
+                    form: byId('assessmentForm'),
+                    notes: byId('assessmentNotes'),
+                    saveBtn: byId('saveAssessmentBtn'),
+                    saveNextBtn: byId('saveAndNextBtn'),
+                    saveStatus: byId('saveStatus')
+                };
+
+                var dataEl = byId('participantData');
+                try {
+                    participants = dataEl ? (JSON.parse(dataEl.textContent || '[]') || []) : [];
+                } catch (e) {
+                    console.error('Could not parse participant data:', e);
+                    participants = [];
+                }
+                // Validate the identifiers this page actually trusts - array
+                // position is never used as participant identity.
+                participants = participants.filter(function (p) {
+                    return p && typeof p.registrationId === 'number' && typeof p.userId === 'string' && p.userId.length > 0;
+                });
+                totalCount = participants.length;
+
+                participants.forEach(function (p) {
+                    if (p.savedOutcome) {
+                        assessedByUserId[p.userId] = { outcome: p.savedOutcome, notes: p.savedNotes || '' };
+                    }
+                });
+
+                if (els.filterAll) els.filterAll.addEventListener('click', function () { requestFilterChange('all'); });
+                if (els.filterPending) els.filterPending.addEventListener('click', function () { requestFilterChange('pending'); });
+                if (els.filterAssessed) els.filterAssessed.addEventListener('click', function () { requestFilterChange('assessed'); });
+
+                if (els.queue) {
+                    els.queue.addEventListener('click', function (e) {
+                        var btn = e.target.closest('[data-registration-id]');
+                        if (!btn || saving) return;
+                        var id = parseInt(btn.getAttribute('data-registration-id'), 10);
+                        if (!Number.isFinite(id)) return;
+                        requestSwitch(id);
+                    });
+                }
+
+                if (els.form) {
+                    els.form.addEventListener('submit', function (e) { e.preventDefault(); });
+                    els.form.addEventListener('change', function (e) {
+                        if (e.target && e.target.name === 'outcome') onOutcomeOrNotesChanged();
+                    });
+                }
+                if (els.notes) els.notes.addEventListener('input', onOutcomeOrNotesChanged);
+                if (els.saveBtn) els.saveBtn.addEventListener('click', function () { saveAssessment(null); });
+                if (els.saveNextBtn) els.saveNextBtn.addEventListener('click', function () { saveAssessment('next'); });
+
+                if (els.backLink) {
+                    els.backLink.addEventListener('click', function (e) {
+                        if (dirty) {
+                            e.preventDefault();
+                            requestNavigateBack(els.backLink.getAttribute('href'));
+                        }
+                    });
+                }
+
+                window.addEventListener('beforeunload', function (e) {
+                    if (dirty) { e.preventDefault(); e.returnValue = ''; }
+                });
+
+                var discardCloseBtn = byId('discardModalCloseBtn');
+                var discardContinueBtn = byId('discardContinueEditingBtn');
+                var discardConfirmBtn = byId('discardConfirmBtn');
+                if (discardCloseBtn) discardCloseBtn.addEventListener('click', DiscardModal.close);
+                if (discardContinueBtn) discardContinueBtn.addEventListener('click', DiscardModal.close);
+                if (discardConfirmBtn) discardConfirmBtn.addEventListener('click', DiscardModal.confirmDiscard);
+                var discardBackdrop = document.querySelector('#discardChangesModal [data-discard-backdrop]');
+                if (discardBackdrop) discardBackdrop.addEventListener('click', DiscardModal.close);
+
+                renderCounts();
+                renderFilterButtons();
+                renderQueue();
+                renderProgress();
+
+                if (participants.length > 0) {
+                    performSwitch(participants[0].registrationId);
+                }
+            }
+
+            document.addEventListener('DOMContentLoaded', init);
+        })();
+    </script>
+}

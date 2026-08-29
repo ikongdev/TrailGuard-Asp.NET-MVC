@@ -536,14 +536,33 @@
                 }
                 else if (isCompleted)
                 {
-                    <a asp-controller="Organizer" asp-action="PostEventAssessment" asp-route-eventId="@Model.Id"
-                       class="px-5 py-2.5 rounded-xl text-blue-100 hover:text-white text-sm font-semibold bg-blue-950 hover:bg-blue-900 border border-blue-500/40 hover:border-blue-400/60 transition-colors flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:ring-offset-2 focus:ring-offset-surface-card">
-                        <i class="fa-solid fa-clipboard-check" aria-hidden="true"></i> Assess Participants
-                    </a>
-                    <a asp-controller="Organizer" asp-action="EventComparison" asp-route-eventId="@Model.Id"
-                       class="px-5 py-2.5 rounded-xl text-violet-200 hover:text-white text-sm font-semibold bg-violet-950/80 hover:bg-violet-900 border border-violet-500/40 hover:border-violet-400/60 transition-colors flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-violet-500/60 focus:ring-offset-2 focus:ring-offset-surface-card">
-                        <i class="fa-solid fa-chart-simple" aria-hidden="true"></i> View Comparison
-                    </a>
+                    @* Organizer-only feature - hidden from Admin-only and dual-role
+                       Admin+Organizer users, matching CanAssessEventAsync in
+                       OrganizerController (a dual-role account holds the Admin role
+                       too and follows the Admin branch everywhere else in this app).
+                       Computed server-side from the authenticated user's roles and
+                       the Event's own stable OrganizerId - see EventController.Details'
+                       ViewBag.CanAssessParticipants. *@
+                    @if ((bool)(ViewBag.CanAssessParticipants ?? false))
+                    {
+                        <a asp-controller="Organizer" asp-action="PostEventAssessment" asp-route-eventId="@Model.Id"
+                           class="px-5 py-2.5 rounded-xl text-blue-100 hover:text-white text-sm font-semibold bg-blue-950 hover:bg-blue-900 border border-blue-500/40 hover:border-blue-400/60 transition-colors flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:ring-offset-2 focus:ring-offset-surface-card">
+                            <i class="fa-solid fa-clipboard-check" aria-hidden="true"></i> Assess Participants
+                        </a>
+                    }
+                    @* Comparison's destination (OrganizerController.EventComparison)
+                       is Organizer-only but, unlike assessment, does not exclude a
+                       dual-role Admin+Organizer account - only ownership is
+                       required. So a dual-role user may see this link for an
+                       Event they own; an Admin-only account (no Organizer role)
+                       never does. See EventController.Details' ViewBag.CanViewComparison. *@
+                    @if ((bool)(ViewBag.CanViewComparison ?? false))
+                    {
+                        <a asp-controller="Organizer" asp-action="EventComparison" asp-route-eventId="@Model.Id"
+                           class="px-5 py-2.5 rounded-xl text-violet-200 hover:text-white text-sm font-semibold bg-violet-950/80 hover:bg-violet-900 border border-violet-500/40 hover:border-violet-400/60 transition-colors flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-violet-500/60 focus:ring-offset-2 focus:ring-offset-surface-card">
+                            <i class="fa-solid fa-chart-simple" aria-hidden="true"></i> View Comparison
+                        </a>
+                    }
                 }
             </div>
         </div>
