@@ -620,7 +620,8 @@ namespace TrailGuard.Controllers
             }
             catch (Exception ex)
             {
-                return Json(new { success = false, message = ex.Message });
+                _logger.LogError(ex, "Failed to reschedule event {EventId}.", request.Id);
+                return Json(new { success = false, message = "Unable to reschedule the event right now. Please try again." });
             }
         }
 

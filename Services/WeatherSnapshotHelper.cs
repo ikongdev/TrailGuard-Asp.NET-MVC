@@ -125,6 +125,30 @@ namespace TrailGuard.Services
             return true;
         }
 
+        // Maps an Open-Meteo weather code to the FontAwesome icon class used by
+        // the modern weather card - mirrors Views/Event/Index.cshtml's client-
+        // side getAddEventWeatherIconClass(weatherCode) exactly (categories
+        // match WeatherService.GetWeatherDescription's own groupings,
+        // deliberately kept in sync) so a persisted snapshot renders the same
+        // icon server-side (Event/Details.cshtml) that a live fetch would have
+        // shown client-side. Presentation only - no risk/condition/business
+        // logic lives here.
+        public static string GetIconClass(int? weatherCode)
+        {
+            return weatherCode switch
+            {
+                0 => "fa-sun",
+                1 => "fa-cloud-sun",
+                2 or 3 => "fa-cloud",
+                45 or 48 => "fa-smog",
+                51 or 53 or 55 or 56 or 57 or 61 or 63 or 65 or 66 or 67 => "fa-cloud-rain",
+                80 or 81 or 82 => "fa-cloud-showers-heavy",
+                71 or 73 or 75 => "fa-snowflake",
+                95 or 96 or 99 => "fa-cloud-bolt",
+                _ => "fa-cloud"
+            };
+        }
+
         private static bool IsBoundedText(string? value)
         {
             return value == null || value.Length <= MaxTextLength;
