@@ -272,17 +272,11 @@ Recommendations are **derived from negative SHAP factors**, not score thresholds
 
 Registration review shows an "Assessment Explanation" panel using **Supported / Weakened**, with a disclaimer that the ML result is decision support only.
 
-### Two divergent copies of the feature-name mapping — known bug, not yet fixed
+### Feature-name mapping — single shared source
 
-`Services/ShapHelper.cs` was meant to be the shared display logic and friendly feature-name mapping. It is **not** reused, and it is **stale**: it still holds the v1 27-feature name list (`age`, `height_cm`, `weight_kg`, `has_hypertension_heart_condition`, `has_vertigo`, `gear_water`, `trail_distance_km`, `trail_estimated_duration_hr`, etc.), silently falling through to the raw feature name (`_ => featureName`) for anything it doesn't recognize.
+`Services/ShapHelper.cs` is the single shared display logic and friendly feature-name mapping, reused by every page that renders SHAP factors: `AssessmentController` (the Assessment Report page), `RegistrationController.cs` (the My Registrations SHAP modal, participant-facing), and `OrganizerController.cs` (the RegistrationDetails Suitability Assessment panel) all call `ShapHelper.BuildDisplayItems`/`ShapHelper.GetFriendlyFeatureName` — none of them holds a second, private copy. `GetFriendlyFeatureName` covers all 14 v2 features and **throws** on an unrecognized name rather than silently falling through to the raw snake_case string, so a Python-side feature-contract change that isn't mirrored here fails loudly instead of rendering `has_cvd_symptoms` to an organizer or participant.
 
-`AssessmentController` has its own separate, private `GetFriendlyFeatureName`, which correctly covers all 14 v2 features and **throws** on an unrecognized name — but it's only used by the Assessment Report page, immediately after submission.
-
-`ShapHelper.BuildDisplayItems` is still called from two places that render **after** that first report:
-- `RegistrationController.cs` (the My Registrations SHAP modal, participant-facing)
-- `OrganizerController.cs` (the RegistrationDetails Assessment Explanation panel)
-
-Both currently render four of the fourteen v2 features as raw snake_case — `exercise_consistency_score`, `has_cvd`, `has_cvd_symptoms`, `trail_shenandoah_score` — because those names don't exist in `ShapHelper`'s v1 switch statement and fall through unrecognized. This is a live display bug, not a hypothetical one. Fixing it means updating `ShapHelper.GetFriendlyFeatureName` to the v2 feature list and then actually pointing `AssessmentController` at `ShapHelper` instead of its own copy, so there's one mapping instead of two that can drift again.
+This file previously documented two divergent copies of this mapping (a stale v1 27-feature `ShapHelper` plus a separate, correct, private v2 copy inside `AssessmentController`) as a known, unfixed bug. That has since been resolved — confirmed by searching the repository for every `GetFriendlyFeatureName`/`BuildDisplayItems` call site — and this section is corrected to describe the current, single-mapping state.
 
 ---
 
@@ -502,7 +496,6 @@ Note: `Organizer/RegistrationDetails.cshtml` has a SHAP panel added during earli
 
 ## Known Cleanup / Outstanding Work
 
-- **Two divergent SHAP feature-name mappings** (`Services/ShapHelper.cs` vs. `AssessmentController`'s private copy) — `ShapHelper` is stale (v1 feature names) and is what actually renders in the My Registrations SHAP modal and the organizer's Assessment Explanation panel. See Explainability above. This is a live bug, not stale documentation, and is now the most concrete unfinished item in this file
 - **Antiforgery** — `AutoValidateAntiforgeryTokenAttribute` is the correct end state but would break every `fetch()` POST that sends no token. Only 5 of the state-changing POST actions across the whole app currently carry `[ValidateAntiForgeryToken]`; get an up-to-date per-controller count before scoping this rather than trusting a number written here
 - **`AssessmentResultViewModel`** (used by `Views/Registration/Register.cshtml`) still carries `FitnessScore`/`ExperienceScore`/`HealthScore`/`GearScore` fields. They're populated (by the still-running legacy `Compute*` methods) but not rendered anywhere — the model isn't clean even though the display already was
 - **Two modal show/hide mechanisms** — `Views/Trail/Index.cshtml` and `Views/Participant/Trails.cshtml` both use custom `.modal-hidden`/`.modal-visible` CSS; everything else uses Tailwind `hidden`/`flex`. Standardise on Tailwind

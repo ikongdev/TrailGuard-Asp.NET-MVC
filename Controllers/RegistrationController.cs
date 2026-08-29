@@ -232,16 +232,31 @@ namespace TrailGuard.Controllers
             string? medicalClearanceUrl = null;
             if (medicalClearance != null && medicalClearance.Length > 0)
             {
+                // Validated before anything is written or the registration is
+                // created - extension and file signature must both match one of
+                // the allowed types (see DocumentFileSignature; this is the same
+                // check DocumentsController re-runs whenever the file is served
+                // back). Rejecting here means an unrecognized/mismatched upload
+                // never reaches disk and never gets attached to the registration.
+                var verifiedType = await DocumentUploadValidator.ValidateAsync(medicalClearance);
+                if (verifiedType == null)
+                {
+                    TempData["Error"] = "Medical clearance must be a JPG, PNG, WEBP, or PDF file.";
+                    return RedirectToAction("Register", new { eventId, assessmentId });
+                }
+
                 var uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "uploads", "medical-clearances");
                 if (!Directory.Exists(uploadsFolder))
                 {
                     Directory.CreateDirectory(uploadsFolder);
                 }
 
-                var fileName = $"{Guid.NewGuid()}_{Path.GetFileName(medicalClearance.FileName)}";
+                // Server-generated name only - never the client's original
+                // filename (see DocumentUploadValidator.GenerateStoredFileName).
+                var fileName = DocumentUploadValidator.GenerateStoredFileName(uploadsFolder, verifiedType.Value);
                 var filePath = Path.Combine(uploadsFolder, fileName);
 
-                using (var stream = new FileStream(filePath, FileMode.Create))
+                using (var stream = new FileStream(filePath, FileMode.CreateNew))
                 {
                     await medicalClearance.CopyToAsync(stream);
                 }
@@ -376,16 +391,28 @@ namespace TrailGuard.Controllers
 
             if (paymentReceipt != null && paymentReceipt.Length > 0)
             {
+                // Validated before anything is written or the registration is
+                // mutated - see the identical check in Register's medical-clearance
+                // upload above, and DocumentFileSignature/DocumentUploadValidator
+                // for why this must be the same rule the serving endpoint re-runs.
+                var verifiedType = await DocumentUploadValidator.ValidateAsync(paymentReceipt);
+                if (verifiedType == null)
+                {
+                    return Json(new { success = false, message = "Payment receipt must be a JPG, PNG, WEBP, or PDF file." });
+                }
+
                 var uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "uploads", "receipts");
                 if (!Directory.Exists(uploadsFolder))
                 {
                     Directory.CreateDirectory(uploadsFolder);
                 }
 
-                var fileName = $"{Guid.NewGuid()}_{Path.GetFileName(paymentReceipt.FileName)}";
+                // Server-generated name only - never the client's original
+                // filename (see DocumentUploadValidator.GenerateStoredFileName).
+                var fileName = DocumentUploadValidator.GenerateStoredFileName(uploadsFolder, verifiedType.Value);
                 var filePath = Path.Combine(uploadsFolder, fileName);
 
-                using (var stream = new FileStream(filePath, FileMode.Create))
+                using (var stream = new FileStream(filePath, FileMode.CreateNew))
                 {
                     await paymentReceipt.CopyToAsync(stream);
                 }
@@ -455,7 +482,6 @@ namespace TrailGuard.Controllers
                     email = registration.Email,
                     pickupPoint = registration.PickupPoint,
                     isPaid = registration.IsPaid,
-                    paymentReceiptUrl = registration.PaymentReceiptUrl,
                     emergencyContactName = registration.EmergencyContactName,
                     emergencyContactNumber = registration.EmergencyContactNumber,
                     assessmentResult = registration.Assessment?.Result,

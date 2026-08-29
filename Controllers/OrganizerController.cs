@@ -13,12 +13,14 @@ namespace TrailGuard.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IWebHostEnvironment _webHostEnvironment;
         private readonly ILogger<OrganizerController> _logger;
 
-        public OrganizerController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, ILogger<OrganizerController> logger)
+        public OrganizerController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, IWebHostEnvironment webHostEnvironment, ILogger<OrganizerController> logger)
         {
             _context = context;
             _userManager = userManager;
+            _webHostEnvironment = webHostEnvironment;
             _logger = logger;
         }
 
@@ -251,6 +253,7 @@ namespace TrailGuard.Controllers
                 .ThenInclude(e => e!.Trail)
                 .Include(r => r.Assessment)
                 .Include(r => r.User)
+                .Include(r => r.AlternativeEvent)
                 .FirstOrDefaultAsync(r => r.Id == id);
 
             // Ownership checked before anything about this registration -
@@ -289,6 +292,21 @@ namespace TrailGuard.Controllers
                     ViewBag.HasMlPrediction = false;
                 }
             }
+
+            // The view never resolves a document itself - it only renders the
+            // protected-endpoint URL plus these two booleans, both produced by
+            // the same DocumentStorageResolver the actual serving endpoint
+            // (DocumentsController) independently re-runs on every request. This
+            // is a display decision only; it grants no access on its own.
+            var receiptResolved = await DocumentStorageResolver.TryResolveAsync(
+                _webHostEnvironment.WebRootPath, RegistrationDocumentKind.Receipt, registration.PaymentReceiptUrl);
+            ViewBag.ReceiptAvailable = receiptResolved != null;
+            ViewBag.ReceiptIsImage = receiptResolved != null && DocumentFileSignature.IsImageType(receiptResolved.Type);
+
+            var clearanceResolved = await DocumentStorageResolver.TryResolveAsync(
+                _webHostEnvironment.WebRootPath, RegistrationDocumentKind.Clearance, registration.MedicalClearanceUrl);
+            ViewBag.ClearanceAvailable = clearanceResolved != null;
+            ViewBag.ClearanceIsImage = clearanceResolved != null && DocumentFileSignature.IsImageType(clearanceResolved.Type);
 
             return View(registration);
         }
@@ -331,59 +349,88 @@ namespace TrailGuard.Controllers
             public string? Reason { get; set; }
         }
 
+        // No [MaxLength] exists on EventRegistration.DecisionReason (checked
+        // against every migration snapshot - it's an unconstrained text column),
+        // so there is no schema constraint to validate against. This is an
+        // application-level sanity bound only, not a stand-in for one - it does
+        // not require and must not be paired with a migration.
+        private const int MaxDecisionReasonLength = 2000;
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> RecommendAlternative([FromBody] RecommendAlternativeRequest request)
         {
-            var currentUser = await _userManager.GetUserAsync(User);
-            if (currentUser == null)
+            try
             {
-                return Json(new { success = false, message = "Registration not found" });
+                var currentUser = await _userManager.GetUserAsync(User);
+                if (currentUser == null)
+                {
+                    return Json(new { success = false, message = "Registration not found" });
+                }
+
+                var registration = await _context.EventRegistrations
+                    .Include(r => r.Event)
+                    .Include(r => r.Assessment)
+                    .FirstOrDefaultAsync(r => r.Id == request.RegistrationId);
+
+                // Ownership is checked before anything else about this
+                // registration (including its current status) is revealed.
+                if (registration == null || registration.Event == null || !OwnsEvent(registration.Event, currentUser))
+                {
+                    return Json(new { success = false, message = "Registration not found" });
+                }
+
+                if (registration.Status != "Pending")
+                {
+                    return Json(new { success = false, message = "This registration is no longer pending review." });
+                }
+
+                if (request.AlternativeEventIds == null || request.AlternativeEventIds.Length != 1)
+                {
+                    return Json(new { success = false, message = "Please select exactly one alternative event." });
+                }
+
+                if (request.Reason != null && request.Reason.Length > MaxDecisionReasonLength)
+                {
+                    return Json(new { success = false, message = "Decision reason is too long." });
+                }
+
+                var submittedAlternativeEventId = request.AlternativeEventIds[0];
+
+                // Re-derives the same candidate set GetAlternativeEvents already
+                // builds for this registration, so the UI's candidate list and
+                // this validation can never independently drift. A submitted ID
+                // outside that set (tampered, stale, or otherwise never offered)
+                // is rejected without distinguishing why.
+                var candidateEvents = await GetAlternativeEvents(
+                    registration.Event.Id,
+                    registration.Event.Difficulty ?? "",
+                    registration.Assessment?.Result ?? "");
+
+                if (!candidateEvents.Any(e => e.Id == submittedAlternativeEventId))
+                {
+                    return Json(new { success = false, message = "That event is not an available alternative for this participant." });
+                }
+
+                // All validation above must pass before any field changes or
+                // SaveChangesAsync is called.
+                registration.Status = "Alternative Recommended";
+                registration.AlternativeEventId = submittedAlternativeEventId;
+
+                if (!string.IsNullOrWhiteSpace(request.Reason))
+                {
+                    registration.DecisionReason = request.Reason;
+                }
+
+                await _context.SaveChangesAsync();
+
+                return Json(new { success = true, message = "Alternative event recommended to the participant." });
             }
-
-            var registration = await _context.EventRegistrations
-                .Include(r => r.Event)
-                .Include(r => r.Assessment)
-                .FirstOrDefaultAsync(r => r.Id == request.RegistrationId);
-
-            if (registration == null || registration.Event == null || !OwnsEvent(registration.Event, currentUser))
+            catch (Exception ex)
             {
-                return Json(new { success = false, message = "Registration not found" });
+                _logger.LogError(ex, "Failed to recommend an alternative event for registration {RegistrationId}.", request.RegistrationId);
+                return Json(new { success = false, message = "Unable to recommend an alternative right now. Please try again." });
             }
-
-            if (request.AlternativeEventIds == null || request.AlternativeEventIds.Length == 0)
-            {
-                return Json(new { success = false, message = "Pumili muna ng kahit isang alternative event." });
-            }
-
-            var submittedAlternativeEventId = request.AlternativeEventIds.First();
-
-            // Re-derives the same candidate set GetAlternativeEvents already
-            // builds for this registration, so the UI's candidate list and
-            // this validation can never independently drift. A submitted ID
-            // outside that set (tampered, stale, or otherwise never offered)
-            // is rejected without distinguishing why.
-            var candidateEvents = await GetAlternativeEvents(
-                registration.Event.Id,
-                registration.Event.Difficulty ?? "",
-                registration.Assessment?.Result ?? "");
-
-            if (!candidateEvents.Any(e => e.Id == submittedAlternativeEventId))
-            {
-                return Json(new { success = false, message = "That event is not an available alternative for this participant." });
-            }
-
-            registration.Status = "Alternative Recommended";
-            registration.AlternativeEventId = submittedAlternativeEventId;
-
-            if (!string.IsNullOrWhiteSpace(request.Reason))
-            {
-                registration.DecisionReason = request.Reason;
-            }
-
-            await _context.SaveChangesAsync();
-
-            return Json(new { success = true, message = $"Recommended {request.AlternativeEventIds.Length} alternative event(s)" });
         }
 
         public class UpdateRegistrationStatusRequest
@@ -393,56 +440,99 @@ namespace TrailGuard.Controllers
             public string? Reason { get; set; }
         }
 
+        // The only two decisions the Pending decision workspace can submit.
+        // "Accepted" is the existing approval request value that transitions to
+        // "Awaiting Payment" below - the UI never sends "Awaiting Payment"
+        // directly. Anything outside this set is rejected before any field is
+        // touched, closing the gap where this endpoint previously wrote an
+        // arbitrary client-submitted string straight to registration.Status.
+        private static readonly string[] AllowedDecisionStatuses = { "Accepted", "Rejected" };
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdateRegistrationStatus([FromBody] UpdateRegistrationStatusRequest request)
         {
-            var currentUser = await _userManager.GetUserAsync(User);
-            if (currentUser == null)
+            try
             {
-                return Json(new { success = false, message = "Registration not found" });
-            }
-
-            var registration = await _context.EventRegistrations
-                .Include(r => r.Event)
-                .FirstOrDefaultAsync(r => r.Id == request.Id);
-
-            if (registration == null || registration.Event == null || !OwnsEvent(registration.Event, currentUser))
-            {
-                return Json(new { success = false, message = "Registration not found" });
-            }
-
-            if (request.Status == "Accepted")
-            {
-                var approvedAt = DateTime.Now;
-                var deadline = approvedAt.Date.AddDays(3).AddHours(23).AddMinutes(59).AddSeconds(59);
-
-                if (registration.Event != null)
+                var currentUser = await _userManager.GetUserAsync(User);
+                if (currentUser == null)
                 {
+                    return Json(new { success = false, message = "Registration not found" });
+                }
+
+                var registration = await _context.EventRegistrations
+                    .Include(r => r.Event)
+                    .Include(r => r.Assessment)
+                    .FirstOrDefaultAsync(r => r.Id == request.Id);
+
+                // Ownership is checked before anything else about this
+                // registration (including its current status or Assessment
+                // result) is revealed.
+                if (registration == null || registration.Event == null || !OwnsEvent(registration.Event, currentUser))
+                {
+                    return Json(new { success = false, message = "Registration not found" });
+                }
+
+                if (registration.Status != "Pending")
+                {
+                    return Json(new { success = false, message = "This registration is no longer pending review." });
+                }
+
+                if (!AllowedDecisionStatuses.Contains(request.Status))
+                {
+                    return Json(new { success = false, message = "Invalid decision." });
+                }
+
+                if (request.Reason != null && request.Reason.Length > MaxDecisionReasonLength)
+                {
+                    return Json(new { success = false, message = "Decision reason is too long." });
+                }
+
+                // Approving a Not Recommended result is allowed - the organizer
+                // keeps final authority - but requires an explicit, non-blank
+                // reason, enforced independently of the client-side check.
+                if (request.Status == "Accepted" && registration.Assessment?.Result == "Not Recommended"
+                    && string.IsNullOrWhiteSpace(request.Reason))
+                {
+                    return Json(new { success = false, message = "A decision reason is required to approve a Not Recommended registration." });
+                }
+
+                // All validation above must pass before any field changes or
+                // SaveChangesAsync is called.
+                if (request.Status == "Accepted")
+                {
+                    var approvedAt = DateTime.Now;
+                    var deadline = approvedAt.Date.AddDays(3).AddHours(23).AddMinutes(59).AddSeconds(59);
+
                     var eveOfEventDeadline = registration.Event.EventDate.Date.AddDays(-1).AddHours(23).AddMinutes(59).AddSeconds(59);
                     if (eveOfEventDeadline < deadline)
                     {
                         deadline = eveOfEventDeadline;
                     }
+
+                    registration.ApprovedAt = approvedAt;
+                    registration.PaymentDeadline = deadline;
+                    registration.Status = "Awaiting Payment";
+                }
+                else
+                {
+                    registration.Status = request.Status;
                 }
 
-                registration.ApprovedAt = approvedAt;
-                registration.PaymentDeadline = deadline;
-                registration.Status = "Awaiting Payment";
+                if (!string.IsNullOrWhiteSpace(request.Reason))
+                {
+                    registration.DecisionReason = request.Reason;
+                }
+
+                await _context.SaveChangesAsync();
+
+                return Json(new { success = true, message = $"Registration status updated to {registration.Status}" });
             }
-            else
+            catch (Exception ex)
             {
-                registration.Status = request.Status;
+                _logger.LogError(ex, "Failed to update status for registration {RegistrationId}.", request.Id);
+                return Json(new { success = false, message = "Unable to update this registration right now. Please try again." });
             }
-
-            if (!string.IsNullOrWhiteSpace(request.Reason))
-            {
-                registration.DecisionReason = request.Reason;
-            }
-
-            await _context.SaveChangesAsync();
-
-            return Json(new { success = true, message = $"Registration status updated to {registration.Status}" });
         }
 
         public class VerifyPaymentRequest
@@ -455,45 +545,54 @@ namespace TrailGuard.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> VerifyPayment([FromBody] VerifyPaymentRequest request)
         {
-            var currentUser = await _userManager.GetUserAsync(User);
-            if (currentUser == null)
+            try
             {
-                return Json(new { success = false, message = "Registration not found" });
+                var currentUser = await _userManager.GetUserAsync(User);
+                if (currentUser == null)
+                {
+                    return Json(new { success = false, message = "Registration not found" });
+                }
+
+                var registration = await _context.EventRegistrations
+                    .Include(r => r.Event)
+                    .FirstOrDefaultAsync(r => r.Id == request.Id);
+
+                if (registration == null || registration.Event == null || !OwnsEvent(registration.Event, currentUser))
+                {
+                    return Json(new { success = false, message = "Registration not found" });
+                }
+
+                if (registration.Status != "For Payment Verification")
+                {
+                    return Json(new { success = false, message = "This registration is not awaiting payment verification." });
+                }
+
+                // Validation above is complete before any field changes.
+                if (request.Approved)
+                {
+                    registration.IsPaid = true;
+                    registration.Status = "Accepted";
+                }
+                else
+                {
+                    registration.Status = "Awaiting Payment";
+                }
+
+                await _context.SaveChangesAsync();
+
+                return Json(new
+                {
+                    success = true,
+                    message = request.Approved
+                        ? "Payment verified. Registration accepted."
+                        : "Payment rejected. Participant can re-upload their receipt."
+                });
             }
-
-            var registration = await _context.EventRegistrations
-                .Include(r => r.Event)
-                .FirstOrDefaultAsync(r => r.Id == request.Id);
-
-            if (registration == null || registration.Event == null || !OwnsEvent(registration.Event, currentUser))
+            catch (Exception ex)
             {
-                return Json(new { success = false, message = "Registration not found" });
+                _logger.LogError(ex, "Failed to verify payment for registration {RegistrationId}.", request.Id);
+                return Json(new { success = false, message = "Unable to verify payment right now. Please try again." });
             }
-
-            if (registration.Status != "For Payment Verification")
-            {
-                return Json(new { success = false, message = "This registration is not awaiting payment verification." });
-            }
-
-            if (request.Approved)
-            {
-                registration.IsPaid = true;
-                registration.Status = "Accepted";
-            }
-            else
-            {
-                registration.Status = "Awaiting Payment";
-            }
-
-            await _context.SaveChangesAsync();
-
-            return Json(new
-            {
-                success = true,
-                message = request.Approved
-                    ? "Payment verified. Registration accepted."
-                    : "Payment rejected. Participant can re-upload their receipt."
-            });
         }
 
         public async Task<IActionResult> EventDetails(int id)

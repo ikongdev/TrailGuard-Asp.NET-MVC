@@ -1,183 +1,238 @@
 @model TrailGuard.Models.EventRegistration
+@using TrailGuard.Models
 @{
     ViewData["Title"] = "Registration Details";
-    
-    var statusColor = Model.Status switch
+
+    // Plain semantic text, no pill shell - identical to the mapping on the
+    // Registrations list (Views/Organizer/Registrations.cshtml) so the two
+    // pages can never disagree on what a status means.
+    Func<string, string> statusTextClass = status => status switch
     {
-        "Pending" => "text-yellow-400 bg-yellow-500/20",
-        "Accepted" => "text-green-400 bg-green-500/20",
-        "Rejected" => "text-red-400 bg-red-500/20",
-        "Cancelled" => "text-gray-400 bg-gray-500/20",
-        "Awaiting Payment" => "text-amber-400 bg-amber-500/20",
-        "For Payment Verification" => "text-blue-400 bg-blue-500/20",
-        "Voided" => "text-gray-400 bg-gray-500/20",
-        _ => "text-gray-400 bg-gray-500/20"
+        "Pending" => "text-amber-400",
+        "Awaiting Payment" => "text-amber-400",
+        "For Payment Verification" => "text-blue-400",
+        "Accepted" => "text-emerald-400",
+        "Alternative Recommended" => "text-blue-400",
+        "Rejected" => "text-red-400",
+        "Cancelled" => "text-slate-400",
+        "Voided" => "text-slate-400",
+        _ => "text-gray-300"
     };
-    
-    var resultColor = Model.Assessment?.Result switch
+
+    Func<string?, string> resultTextClass = value => value switch
     {
-        "Good-Match" => "text-green-400",
-        "Borderline" => "text-yellow-400",
+        "Good-Match" => "text-emerald-400",
+        "Borderline" => "text-amber-400",
         "Not Recommended" => "text-red-400",
         _ => "text-gray-400"
     };
-    
-    var firstInitial = string.IsNullOrEmpty(Model.ParticipantName) ? "?" : Model.ParticipantName.First().ToString().ToUpper();
+
+    var firstInitial = string.IsNullOrEmpty(Model.ParticipantName) ? "?" : Model.ParticipantName.Trim().First().ToString().ToUpper();
+
+    var isPending = Model.Status == "Pending";
+    var isPaymentVerification = Model.Status == "For Payment Verification";
+    var isDecidedStatus = !isPending && !isPaymentVerification;
+
+    // Document availability/type are resolved once, server-side, by
+    // OrganizerController.RegistrationDetails via the shared
+    // DocumentStorageResolver - this view never resolves or validates a
+    // stored path itself (see Program.cs and DocumentsController: the raw
+    // /uploads/... paths are never sent to the client at all, only these
+    // booleans plus the protected endpoint route below).
+    var receiptAvailable = ViewBag.ReceiptAvailable == true;
+    var receiptIsImage = ViewBag.ReceiptIsImage == true;
+    var receiptUrl = receiptAvailable ? Url.Action("Registration", "Documents", new { id = Model.Id, kind = "receipt" }) : null;
+    var receiptDownloadUrl = receiptAvailable ? Url.Action("RegistrationDownload", "Documents", new { id = Model.Id, kind = "receipt" }) : null;
+    var hasReceiptOnFile = !string.IsNullOrEmpty(Model.PaymentReceiptUrl);
+
+    var clearanceRequired = Model.Assessment?.MedicalClearanceRequired == true;
+    var clearanceAvailable = ViewBag.ClearanceAvailable == true;
+    var clearanceIsImage = ViewBag.ClearanceIsImage == true;
+    var clearanceUrl = clearanceAvailable ? Url.Action("Registration", "Documents", new { id = Model.Id, kind = "clearance" }) : null;
+    var clearanceDownloadUrl = clearanceAvailable ? Url.Action("RegistrationDownload", "Documents", new { id = Model.Id, kind = "clearance" }) : null;
+    var hasClearanceOnFile = !string.IsNullOrEmpty(Model.MedicalClearanceUrl);
+    var hasPreparationPlan = !string.IsNullOrWhiteSpace(Model.PreparationPlan);
+    var showClearanceCard = clearanceRequired || hasClearanceOnFile;
+    // No items-start - default grid stretch matches Medical Clearance and
+    // Preparation Plan to the taller of the two on desktop, same as the
+    // overview row above. A no-op when only one of the two renders.
+    var documentsGridClass = (showClearanceCard && hasPreparationPlan)
+        ? "grid grid-cols-1 md:grid-cols-2 gap-6 mt-6"
+        : "grid grid-cols-1 gap-6 mt-6";
+
+    var gateReason = ViewBag.GateReason as string;
+    var hasMlPrediction = ViewBag.HasMlPrediction == true;
+    var shapFactors = hasMlPrediction ? (ViewBag.ShapFactors as List<ShapDisplayItem> ?? new List<ShapDisplayItem>()) : new List<ShapDisplayItem>();
+    var supportedFactors = shapFactors.Where(f => f.IsPositive).ToList();
+    var weakenedFactors = shapFactors.Where(f => !f.IsPositive).ToList();
+    var alternativeEvents = ViewBag.AlternativeEvents as List<Event> ?? new List<Event>();
 }
 
-<div class="pt-32 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
-    
-    <div class="mb-6">
-        <a asp-controller="Organizer" asp-action="Registrations" class="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors group">
-            <i class="fa-solid fa-arrow-left group-hover:-translate-x-1 transition-transform"></i>
+<div id="registrationDetailsRoot" data-registration-id="@Model.Id" data-assessment-result="@(Model.Assessment?.Result ?? "")" class="pt-24 px-4 max-w-7xl mx-auto min-h-screen text-white pb-16">
+
+    <div class="mb-6 scroll-mt-24">
+        <a asp-controller="Organizer" asp-action="Registrations"
+           class="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors group focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded">
+            <i class="fa-solid fa-arrow-left group-hover:-translate-x-1 transition-transform" aria-hidden="true"></i>
             Back to Registrations
         </a>
     </div>
 
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+    <div class="mb-8 scroll-mt-24">
         <h1 class="text-2xl font-bold text-white">Registration Details</h1>
-        <div class="flex flex-wrap items-center gap-3">
-            <div class="bg-white/5 border border-white/10 px-4 py-2 rounded-full flex items-center gap-2">
-                <i class="fa-regular fa-hashtag text-blue-400 text-xs"></i>
-                <span class="text-sm text-gray-300">#@Model.Id</span>
-            </div>
-            <div class="bg-white/5 border border-white/10 px-4 py-2 rounded-full flex items-center gap-2">
-                <i class="fa-regular fa-calendar text-blue-400 text-xs"></i>
-                <span class="text-sm text-gray-300">@Model.RegisteredAt.ToString("MMM dd, yyyy")</span>
-            </div>
-            <div class="bg-white/5 border border-white/10 px-4 py-2 rounded-full flex items-center gap-2">
-                <i class="fa-regular fa-circle-check text-blue-400 text-xs"></i>
-                <span class="px-2 py-0.5 rounded-full text-xs font-semibold @statusColor">@Model.Status</span>
-            </div>
-        </div>
+        <p class="text-gray-400 text-sm mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+            <span>Registration #@Model.Id</span>
+            <span aria-hidden="true" class="text-gray-600">&middot;</span>
+            <span>Registered @Model.RegisteredAt.ToString("MMM dd, yyyy") at @Model.RegisteredAt.ToString("h:mm tt")</span>
+            <span aria-hidden="true" class="text-gray-600">&middot;</span>
+            <span class="font-semibold @statusTextClass(Model.Status)">@Model.Status</span>
+        </p>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
-        
-        <!-- ROW 1, COL 1: Participant Information -->
-        <div class="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-5 h-full">
+    <!-- Overview: grid's default stretch (no items-start) so all three cards in
+         this desktop row match the tallest one's height; h-full makes each card
+         actually fill the stretched cell, min-w-0 stops long unbroken content
+         (email, pickup point) from forcing the column wider than its track. -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+        <!-- Participant -->
+        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 h-full min-w-0">
             <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-                <i class="fa-regular fa-user text-blue-400"></i>
+                <i class="fa-regular fa-user text-accent" aria-hidden="true"></i>
                 Participant
             </h2>
-            <div class="flex items-center gap-4 mb-4">
-                <div class="w-16 h-16 rounded-full bg-linear-to-r from-blue-500 to-cyan-500 flex items-center justify-center text-white text-2xl font-bold overflow-hidden shrink-0">
+            <div class="flex items-start gap-4 mb-4">
+                <div class="w-14 h-14 rounded-full bg-accent/20 border border-accent/30 flex items-center justify-center text-white text-xl font-bold overflow-hidden shrink-0">
                     @if (!string.IsNullOrEmpty(Model.User?.ProfilePictureUrl))
                     {
-                        <img src="@Model.User.ProfilePictureUrl" alt="@Model.ParticipantName" class="w-full h-full object-cover" />
+                        <img src="@Model.User.ProfilePictureUrl" alt="" class="w-full h-full object-cover" />
                     }
                     else
                     {
                         @firstInitial
                     }
                 </div>
-                <div>
-                    <p class="text-white font-semibold text-base">@Model.ParticipantName</p>
-                    <p class="text-gray-400 text-sm">@(!string.IsNullOrEmpty(Model.Email) ? Model.Email : Model.User?.Email)</p>
+                <div class="min-w-0">
+                    <p class="text-white font-semibold text-base wrap-break-word">@Model.ParticipantName</p>
+                    <p class="text-gray-400 text-sm wrap-break-word">@(!string.IsNullOrEmpty(Model.Email) ? Model.Email : (Model.User?.Email ?? "No email on file"))</p>
                 </div>
             </div>
-            <div class="space-y-3 text-sm">
+            <dl class="space-y-3 text-sm">
                 <div>
-                    <p class="text-gray-500 text-[10px] uppercase tracking-wider">Contact Number</p>
-                    <p class="text-white font-medium">@(!string.IsNullOrEmpty(Model.ContactNumber) ? Model.ContactNumber : (Model.User?.PhoneNumber ?? "N/A"))</p>
+                    <dt class="text-gray-500 text-[11px] uppercase tracking-wider">Contact Number</dt>
+                    <dd class="text-gray-100 font-medium wrap-break-word">@(!string.IsNullOrEmpty(Model.ContactNumber) ? Model.ContactNumber : (Model.User?.PhoneNumber ?? "N/A"))</dd>
                 </div>
                 <div>
-                    <p class="text-gray-500 text-[10px] uppercase tracking-wider">Pickup Point</p>
-                    <p class="text-white font-medium">@Model.PickupPoint</p>
+                    <dt class="text-gray-500 text-[11px] uppercase tracking-wider">Pickup Point</dt>
+                    <dd class="text-gray-100 font-medium wrap-break-word">@(string.IsNullOrEmpty(Model.PickupPoint) ? "N/A" : Model.PickupPoint)</dd>
                 </div>
                 <div>
-                    <p class="text-gray-500 text-[10px] uppercase tracking-wider">Emergency Contact</p>
-                    <p class="text-white font-medium">@(string.IsNullOrEmpty(Model.EmergencyContactName) ? "N/A" : Model.EmergencyContactName)</p>
+                    <dt class="text-gray-500 text-[11px] uppercase tracking-wider">Emergency Contact</dt>
+                    <dd class="text-gray-100 font-medium wrap-break-word">@(string.IsNullOrEmpty(Model.EmergencyContactName) ? "N/A" : Model.EmergencyContactName)</dd>
                 </div>
                 <div>
-                    <p class="text-gray-500 text-[10px] uppercase tracking-wider">Emergency Number</p>
-                    <p class="text-white font-medium">@(string.IsNullOrEmpty(Model.EmergencyContactNumber) ? "N/A" : Model.EmergencyContactNumber)</p>
+                    <dt class="text-gray-500 text-[11px] uppercase tracking-wider">Emergency Number</dt>
+                    <dd class="text-gray-100 font-medium wrap-break-word">@(string.IsNullOrEmpty(Model.EmergencyContactNumber) ? "N/A" : Model.EmergencyContactNumber)</dd>
                 </div>
-            </div>
+            </dl>
         </div>
 
-        <!-- ROW 1, COL 2: Event & Trail Details -->
-        <div class="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-5 h-full">
+        <!-- Event & Trail -->
+        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 h-full min-w-0">
             <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-                <i class="fa-regular fa-calendar text-blue-400"></i>
-                Event & Trail
+                <i class="fa-regular fa-calendar text-accent" aria-hidden="true"></i>
+                Event &amp; Trail
             </h2>
             <div>
-                <p class="text-gray-500 text-[10px] uppercase tracking-wider">Event</p>
-                <p class="text-white font-semibold text-base">@Model.Event?.EventTitle</p>
-                <div class="space-y-2 text-xs mt-2">
-                    <div>
-                        <p class="text-gray-500 text-[10px]">Date</p>
-                        <p class="text-white font-medium">@Model.Event?.EventDate.ToString("MMM dd, yyyy")</p>
+                <p class="text-gray-500 text-[11px] uppercase tracking-wider">Event</p>
+                <p class="text-white font-semibold text-base wrap-break-word">@(Model.Event?.EventTitle ?? "Unknown event")</p>
+                <dl class="space-y-2 text-xs mt-2">
+                    <div class="flex justify-between gap-3">
+                        <dt class="text-gray-500 shrink-0">Date</dt>
+                        <dd class="text-gray-100 font-medium text-right wrap-break-word">@(Model.Event != null ? Model.Event.EventDate.ToString("MMM dd, yyyy") : "N/A")</dd>
                     </div>
-                    <div>
-                        <p class="text-gray-500 text-[10px]">Time</p>
-                        <p class="text-white font-medium">@Model.Event?.FormattedEventTime</p>
+                    <div class="flex justify-between gap-3">
+                        <dt class="text-gray-500 shrink-0">Time</dt>
+                        <dd class="text-gray-100 font-medium text-right wrap-break-word">@(Model.Event?.FormattedEventTime ?? "N/A")</dd>
                     </div>
-                    <div>
-                        <p class="text-gray-500 text-[10px]">Difficulty</p>
-                        <p class="text-white font-medium">@Model.Event?.Difficulty</p>
+                    <div class="flex justify-between gap-3">
+                        <dt class="text-gray-500 shrink-0">Difficulty</dt>
+                        <dd class="text-gray-100 font-medium text-right wrap-break-word">@(string.IsNullOrEmpty(Model.Event?.Difficulty) ? "N/A" : Model.Event.Difficulty)</dd>
                     </div>
-                    <div>
-                        <p class="text-gray-500 text-[10px]">Location</p>
-                        <p class="text-white font-medium truncate" title="@Model.Event?.Location">@Model.Event?.Location</p>
+                    <div class="flex justify-between gap-3">
+                        <dt class="text-gray-500 shrink-0">Location</dt>
+                        <dd class="text-gray-100 font-medium text-right wrap-break-word">@(string.IsNullOrEmpty(Model.Event?.Location) ? "N/A" : Model.Event.Location)</dd>
                     </div>
-                </div>
+                </dl>
             </div>
-            <div class="mt-3 pt-3 border-t border-white/10">
-                <p class="text-gray-500 text-[10px] uppercase tracking-wider">Trail</p>
-                <p class="text-white font-semibold text-base">@Model.Event?.Trail?.Name</p>
-                <div class="space-y-2 text-xs mt-2">
-                    <div>
-                        <p class="text-gray-500 text-[10px]">Distance</p>
-                        <p class="text-white font-medium">@Model.Event?.Trail?.DistanceKm km</p>
-                    </div>
-                    <div>
-                        <p class="text-gray-500 text-[10px]">Elevation</p>
-                        <p class="text-white font-medium">@Model.Event?.Trail?.ElevationGainMeters m</p>
-                    </div>
-                    <div>
-                        <p class="text-gray-500 text-[10px]">Terrain</p>
-                        <p class="text-white font-medium">@Model.Event?.Trail?.Terrain</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ROW 1, COL 3: Payment -->
-        <div class="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-5 h-full overflow-visible relative">
-            <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-                <i class="fa-regular fa-receipt text-blue-400"></i>
-                Payment
-            </h2>
-            <div>
-                <p class="text-gray-500 text-[10px] uppercase tracking-wider">Payment Receipt</p>
-                @if (!string.IsNullOrEmpty(Model.PaymentReceiptUrl))
+            <div class="mt-4 pt-4 border-t border-white/10">
+                @if (Model.Event?.Trail != null)
                 {
-                    <div class="flex justify-center">
-                        <div class="relative cursor-pointer mt-2" id="receiptWrapper">
-                            <img src="@Model.PaymentReceiptUrl" alt="Payment Receipt" 
-                                 class="h-52 object-contain bg-[#111A2E] rounded-xl border border-gray-700"
-                                 id="receiptImage"
-                                 onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\'p-4 text-center text-gray-400\'><i class=\'fa-regular fa-file-image text-2xl block mb-2\'></i><p class=\'text-sm\'>Receipt image not available</p></div>';" />
-                            <div class="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black/50 rounded-xl" id="receiptOverlay">
-                                <span class="text-white text-xs font-medium"><i class="fa-regular fa-eye mr-2"></i> Preview</span>
-                            </div>
+                    <p class="text-gray-500 text-[11px] uppercase tracking-wider">Trail</p>
+                    <p class="text-white font-semibold text-base wrap-break-word">@Model.Event.Trail.Name</p>
+                    <dl class="space-y-2 text-xs mt-2">
+                        <div class="flex justify-between gap-3">
+                            <dt class="text-gray-500 shrink-0">Distance</dt>
+                            <dd class="text-gray-100 font-medium text-right wrap-break-word">@Model.Event.Trail.DistanceKm km</dd>
                         </div>
-                    </div>
+                        <div class="flex justify-between gap-3">
+                            <dt class="text-gray-500 shrink-0">Elevation</dt>
+                            <dd class="text-gray-100 font-medium text-right wrap-break-word">@Model.Event.Trail.ElevationGainMeters m</dd>
+                        </div>
+                        <div class="flex justify-between gap-3">
+                            <dt class="text-gray-500 shrink-0">Terrain</dt>
+                            <dd class="text-gray-100 font-medium text-right wrap-break-word">@(string.IsNullOrEmpty(Model.Event.Trail.Terrain) ? "N/A" : Model.Event.Trail.Terrain)</dd>
+                        </div>
+                    </dl>
+                }
+                else
+                {
+                    <p class="text-gray-500 text-sm">Trail details unavailable.</p>
+                }
+            </div>
+        </div>
+
+        <!-- Registration & Payment -->
+        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 h-full min-w-0">
+            <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                <i class="fa-regular fa-receipt text-accent" aria-hidden="true"></i>
+                Registration &amp; Payment
+            </h2>
+
+            <div>
+                <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-2">Payment Receipt</p>
+                @if (receiptAvailable)
+                {
+                    <button type="button" class="doc-preview-trigger w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-black/20 border border-white/10 hover:border-accent transition-colors text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                            data-doc-url="@receiptUrl" data-doc-download-url="@receiptDownloadUrl" data-doc-title="Payment Receipt" data-doc-image="@(receiptIsImage ? "true" : "false")"
+                            aria-label="Preview payment receipt">
+                        <span class="w-9 h-9 rounded-lg bg-accent/15 border border-accent/30 flex items-center justify-center shrink-0" aria-hidden="true">
+                            <i class="fa-regular @(receiptIsImage ? "fa-image" : "fa-file-lines") text-accent"></i>
+                        </span>
+                        <span class="min-w-0">
+                            <span class="block text-white text-sm font-medium">View receipt</span>
+                            <span class="block text-gray-500 text-xs">Click to preview</span>
+                        </span>
+                    </button>
+                }
+                else if (hasReceiptOnFile)
+                {
+                    <p class="text-gray-500 text-sm">Document unavailable</p>
                 }
                 else
                 {
                     <p class="text-gray-500 text-sm">No receipt uploaded</p>
                 }
             </div>
-            <div class="mt-3 pt-3 border-t border-white/10">
-                <p class="text-gray-500 text-[10px] uppercase tracking-wider">Payment Status</p>
-                <span class="@(Model.IsPaid ? "text-green-400" : "text-yellow-400") font-medium">@(Model.IsPaid ? "✅ Paid" : "⏳ Unpaid")</span>
+
+            <div class="mt-4 pt-4 border-t border-white/10 flex items-center gap-2">
+                <i class="fa-solid @(Model.IsPaid ? "fa-circle-check" : "fa-clock") @(Model.IsPaid ? "text-emerald-400" : "text-amber-400")" aria-hidden="true"></i>
+                <span class="@(Model.IsPaid ? "text-emerald-400" : "text-amber-400") font-medium text-sm">@(Model.IsPaid ? "Paid" : "Payment pending")</span>
             </div>
-            <div class="mt-3 pt-3 border-t border-white/10">
-                <p class="text-gray-500 text-[10px] uppercase tracking-wider">Registered On</p>
-                <p class="text-white text-sm">@Model.RegisteredAt.ToString("MMM dd, yyyy hh:mm tt")</p>
+
+            <div class="mt-4 pt-4 border-t border-white/10">
+                <p class="text-gray-500 text-[11px] uppercase tracking-wider">Registered Date</p>
+                <p class="text-gray-100 text-sm">@Model.RegisteredAt.ToString("MMM dd, yyyy")</p>
             </div>
 
             @if (Model.Status == "Awaiting Payment" && Model.PaymentDeadline.HasValue)
@@ -190,498 +245,858 @@
                     _ => $"{daysLeft} days left"
                 };
 
-                <div class="mt-3 pt-3 border-t border-white/10">
-                    <p class="text-gray-500 text-[10px] uppercase tracking-wider">Payment Deadline</p>
+                <div class="mt-4 pt-4 border-t border-white/10">
+                    <p class="text-gray-500 text-[11px] uppercase tracking-wider">Payment Deadline</p>
                     <p class="text-amber-400 text-sm font-medium">@relativeText</p>
-                    <p class="text-gray-400 text-xs">@Model.PaymentDeadline.Value.ToString("MMM dd, yyyy, h:mm tt")</p>
+                    <p class="text-gray-500 text-xs">@Model.PaymentDeadline.Value.ToString("MMM dd, yyyy, h:mm tt")</p>
                 </div>
             }
 
-            @if (Model.Status == "For Payment Verification")
+            @if (isPaymentVerification)
             {
-                <div class="mt-3 pt-3 border-t border-white/10 flex gap-2">
-                    <button onclick="verifyPayment(true)" class="flex-1 px-3 py-2 rounded-lg text-white text-xs font-medium bg-green-500 hover:bg-green-600 transition-colors">
-                        <i class="fa-solid fa-check mr-1"></i> Verify Payment
+                <div class="mt-4 pt-4 border-t border-white/10 flex flex-col sm:flex-row gap-2">
+                    <button type="button" id="verifyPaymentBtn"
+                            class="flex-1 px-3 py-2.5 rounded-full text-emerald-200 hover:text-white text-xs font-semibold bg-emerald-950 hover:bg-emerald-900 border border-emerald-500/40 hover:border-emerald-400/60 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/60 focus:ring-offset-2 focus:ring-offset-surface-base disabled:opacity-60 disabled:pointer-events-none">
+                        <i class="fa-solid fa-check mr-1" aria-hidden="true"></i> Verify Payment
                     </button>
-                    <button onclick="verifyPayment(false)" class="flex-1 px-3 py-2 rounded-lg text-white text-xs font-medium bg-red-500 hover:bg-red-600 transition-colors">
-                        <i class="fa-solid fa-xmark mr-1"></i> Reject Payment
+                    <button type="button" id="rejectPaymentBtn"
+                            class="flex-1 px-3 py-2.5 rounded-full text-red-200 hover:text-white text-xs font-semibold bg-red-950 hover:bg-red-900 border border-red-500/40 hover:border-red-400/60 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500/60 focus:ring-offset-2 focus:ring-offset-surface-base disabled:opacity-60 disabled:pointer-events-none">
+                        <i class="fa-solid fa-xmark mr-1" aria-hidden="true"></i> Reject Payment
                     </button>
                 </div>
             }
         </div>
     </div>
 
-    @{
-        var clearanceRequired = Model.Assessment?.MedicalClearanceRequired == true;
-        var hasMedicalClearance = !string.IsNullOrEmpty(Model.MedicalClearanceUrl);
-        var hasPreparationPlan = !string.IsNullOrEmpty(Model.PreparationPlan);
-        var showClearanceCard = hasMedicalClearance || clearanceRequired;
-        var documentsGridClass = (showClearanceCard && hasPreparationPlan)
-            ? "grid grid-cols-1 md:grid-cols-2 gap-6 mt-6"
-            : "grid grid-cols-1 gap-6 mt-6";
-        var gateReason = ViewBag.GateReason as string;
-    }
+    <!-- Documents -->
     @if (showClearanceCard || hasPreparationPlan)
     {
-        <!-- ROW 1.5: Submitted Documents -->
         <div class="@documentsGridClass">
 
             @if (showClearanceCard)
             {
-                <!-- Medical Clearance -->
-                <div class="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-5 h-full overflow-visible relative">
-                    <h2 class="text-sm font-semibold text-white mb-1 flex items-center gap-2">
-                        <i class="fa-solid fa-file-medical text-blue-400"></i>
-                        Medical Clearance
-                        @if (clearanceRequired)
+                <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 h-full min-w-0">
+                    <div class="flex items-center justify-between gap-3 mb-1">
+                        <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-file-medical text-accent" aria-hidden="true"></i>
+                            Medical Clearance
+                        </h2>
+                        <span class="text-xs font-medium @(clearanceRequired ? "text-amber-400" : "text-gray-500")">
+                            @(clearanceRequired ? "Required" : "Voluntary")
+                        </span>
+                    </div>
+                    @if (clearanceRequired && !string.IsNullOrWhiteSpace(gateReason))
+                    {
+                        <p class="text-amber-400/80 text-xs mb-3 mt-2"><i class="fa-solid fa-circle-info mr-1" aria-hidden="true"></i>@gateReason</p>
+                    }
+                    <div class="mt-3">
+                        @if (clearanceAvailable)
                         {
-                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 font-semibold">Required</span>
+                            <button type="button" class="doc-preview-trigger w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-black/20 border border-white/10 hover:border-accent transition-colors text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                                    data-doc-url="@clearanceUrl" data-doc-download-url="@clearanceDownloadUrl" data-doc-title="Medical Clearance" data-doc-image="@(clearanceIsImage ? "true" : "false")"
+                                    aria-label="Preview medical clearance document">
+                                <span class="w-9 h-9 rounded-lg bg-accent/15 border border-accent/30 flex items-center justify-center shrink-0" aria-hidden="true">
+                                    <i class="fa-regular @(clearanceIsImage ? "fa-image" : "fa-file-lines") text-accent"></i>
+                                </span>
+                                <span class="min-w-0">
+                                    <span class="block text-white text-sm font-medium">View document</span>
+                                    <span class="block text-gray-500 text-xs">Click to preview</span>
+                                </span>
+                            </button>
+                        }
+                        else if (hasClearanceOnFile)
+                        {
+                            <p class="text-gray-500 text-sm">Document unavailable</p>
                         }
                         else
                         {
-                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-gray-500/20 text-gray-400 font-semibold">Voluntary</span>
+                            <p class="@(clearanceRequired ? "text-red-400" : "text-gray-500") text-sm">
+                                @(clearanceRequired ? "Not uploaded — this participant has not submitted a medical clearance document." : "No medical clearance document submitted.")
+                            </p>
                         }
-                    </h2>
-                    @if (clearanceRequired && !string.IsNullOrWhiteSpace(gateReason))
-                    {
-                        <p class="text-amber-400/80 text-xs mb-3"><i class="fa-solid fa-circle-info mr-1"></i>@gateReason</p>
-                    }
-                    @if (hasMedicalClearance)
-                    {
-                        <div class="flex justify-center">
-                            <div class="relative cursor-pointer mt-2" id="clearanceWrapper">
-                                <img src="@Model.MedicalClearanceUrl" alt="Medical Clearance"
-                                     class="h-52 object-contain bg-[#111A2E] rounded-xl border border-gray-700"
-                                     id="clearanceImage"
-                                     onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\'p-4 text-center text-gray-400\'><i class=\'fa-regular fa-file-image text-2xl block mb-2\'></i><p class=\'text-sm\'>Document not available</p></div>';" />
-                                <div class="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black/50 rounded-xl" id="clearanceOverlay">
-                                    <span class="text-white text-xs font-medium"><i class="fa-regular fa-eye mr-2"></i> Preview</span>
-                                </div>
-                            </div>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="flex flex-col items-center justify-center py-6 text-center">
-                            <i class="fa-solid fa-triangle-exclamation text-2xl text-red-400 mb-2"></i>
-                            <p class="text-red-400 text-sm font-medium">Not uploaded</p>
-                            <p class="text-gray-500 text-xs mt-1">This participant has not submitted a medical clearance document.</p>
-                        </div>
-                    }
+                    </div>
                 </div>
             }
 
             @if (hasPreparationPlan)
             {
-                <!-- Preparation Plan -->
-                <div class="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-5 h-full">
-                    <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-                        <i class="fa-solid fa-file-lines text-blue-400"></i>
+                <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 h-full min-w-0">
+                    <h2 class="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-file-lines text-accent" aria-hidden="true"></i>
                         Preparation Plan
                     </h2>
-                    <p class="text-gray-300 text-sm whitespace-pre-wrap">@Model.PreparationPlan</p>
+                    <p class="text-gray-300 text-sm whitespace-pre-wrap wrap-break-word">@Model.PreparationPlan</p>
                 </div>
             }
         </div>
     }
 
-    <!-- ROW 2 -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+    <!-- Suitability Assessment -->
+    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 mt-6">
+        <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+            <i class="fa-solid fa-clipboard-check text-accent" aria-hidden="true"></i>
+            Suitability Assessment
+        </h2>
 
-        <!-- ROW 2, COL 1: Assessment Result with Charts -->
-        <div class="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-5 h-full">
-            <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-                <i class="fa-solid fa-clipboard-check text-blue-400"></i>
-                Assessment Result
-            </h2>
-            @if (Model.Assessment != null)
-            {
-                <div class="flex items-center gap-3 mb-4">
-                    <span class="text-sm font-semibold @resultColor">@Model.Assessment.Result</span>
-                    <span class="text-gray-500 text-xs">Score: @Model.Assessment.TotalScore / 44</span>
+        @if (Model.Assessment == null)
+        {
+            <p class="text-gray-500 text-sm">No assessment on file for this participant.</p>
+        }
+        else
+        {
+            <div class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-3 mb-5">
+                <div>
+                    <p class="text-gray-500 text-[11px] uppercase tracking-wider">Result</p>
+                    <p class="text-lg font-semibold @resultTextClass(Model.Assessment.Result)">@(string.IsNullOrEmpty(Model.Assessment.Result) ? "No result available" : Model.Assessment.Result)</p>
                 </div>
-                <div class="space-y-3">
-                    <div>
-                        <div class="flex justify-between text-xs">
-                            <span class="text-gray-400">Fitness</span>
-                            <span class="text-white font-medium">@Model.Assessment.FitnessScore / 12</span>
-                        </div>
-                        <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-                            <div class="h-full rounded-full bg-blue-500" style="width: @((Model.Assessment.FitnessScore ?? 0) * 100 / 12)%"></div>
-                        </div>
-                    </div>
-                    <div>
-                        <div class="flex justify-between text-xs">
-                            <span class="text-gray-400">Experience</span>
-                            <span class="text-white font-medium">@Model.Assessment.ExperienceScore / 12</span>
-                        </div>
-                        <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-                            <div class="h-full rounded-full bg-green-500" style="width: @((Model.Assessment.ExperienceScore ?? 0) * 100 / 12)%"></div>
-                        </div>
-                    </div>
-                    <div>
-                        <div class="flex justify-between text-xs">
-                            <span class="text-gray-400">Health</span>
-                            <span class="text-white font-medium">@Model.Assessment.HealthScore / 12</span>
-                        </div>
-                        <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-                            <div class="h-full rounded-full bg-purple-500" style="width: @((Model.Assessment.HealthScore ?? 0) * 100 / 12)%"></div>
-                        </div>
-                    </div>
-                    <div>
-                        <div class="flex justify-between text-xs">
-                            <span class="text-gray-400">Gear</span>
-                            <span class="text-white font-medium">@Model.Assessment.GearScore / 8</span>
-                        </div>
-                        <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-                            <div class="h-full rounded-full bg-orange-500" style="width: @((Model.Assessment.GearScore ?? 0) * 100 / 8)%"></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="mt-4 pt-4 border-t border-white/10">
-                    <p class="text-gray-500 text-[10px] uppercase tracking-wider mb-3">Trail Demands</p>
-                    <div class="space-y-3">
-                        <div>
-                            <div class="flex justify-between text-xs">
-                                <span class="text-gray-400">Distance</span>
-                                <span class="text-white font-medium">@Model.Event?.Trail?.DistanceKm km</span>
-                            </div>
-                            <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-                                <div class="h-full rounded-full @((Model.Event?.Trail?.DistanceKm ?? 0) >= 15 ? "bg-red-500" : (Model.Event?.Trail?.DistanceKm ?? 0) >= 10 ? "bg-yellow-500" : "bg-green-500")" style="width: @(Math.Min(((Model.Event?.Trail?.DistanceKm ?? 0) / 20) * 100, 100))%"></div>
-                            </div>
-                        </div>
-                        <div>
-                            <div class="flex justify-between text-xs">
-                                <span class="text-gray-400">Elevation</span>
-                                <span class="text-white font-medium">@Model.Event?.Trail?.ElevationGainMeters m</span>
-                            </div>
-                            <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-                                <div class="h-full rounded-full @((Model.Event?.Trail?.ElevationGainMeters ?? 0) >= 1000 ? "bg-red-500" : (Model.Event?.Trail?.ElevationGainMeters ?? 0) >= 600 ? "bg-yellow-500" : "bg-green-500")" style="width: @(Math.Min(((double)(Model.Event?.Trail?.ElevationGainMeters ?? 0) / 1500) * 100, 100))%"></div>
-                            </div>
-                        </div>
-                        <div>
-                            <div class="flex justify-between text-xs">
-                                <span class="text-gray-400">Duration</span>
-                                <span class="text-white font-medium">@Model.Event?.EstimatedDuration hrs</span>
-                            </div>
-                            <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-                                <div class="h-full rounded-full @((Model.Event?.EstimatedDuration ?? 0) >= 8 ? "bg-red-500" : (Model.Event?.EstimatedDuration ?? 0) >= 6 ? "bg-yellow-500" : "bg-green-500")" style="width: @(Math.Min(((Model.Event?.EstimatedDuration ?? 0) / 10) * 100, 100))%"></div>
-                            </div>
-                        </div>
-                        @{
-                            var rdTerrainType = Model.Event?.Trail?.TrailClass ?? 0;
-                            var rdTerrainLabel = TrailGuard.Services.DifficultyCalculator.TrailClassLabel(rdTerrainType);
-                            var rdTerrainPct = rdTerrainType switch { 1 => 25, 2 => 50, 3 => 75, 4 => 100, _ => 0 };
-                            var rdTerrainColor = rdTerrainType switch { 1 => "bg-green-500", 2 => "bg-yellow-500", 3 => "bg-orange-500", 4 => "bg-red-500", _ => "bg-gray-500" };
-                        }
-                        <div>
-                            <div class="flex justify-between text-xs">
-                                <span class="text-gray-400">Trail Class</span>
-                                <span class="text-white font-medium">@rdTerrainLabel</span>
-                            </div>
-                            <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-                                <div class="h-full rounded-full @rdTerrainColor" style="width: @(rdTerrainPct)%"></div>
-                            </div>
-                        </div>
-                        <div>
-                            <span class="text-gray-400 text-xs">Terrain</span>
-                            <span class="text-white text-xs ml-2">@(Model.Event?.Trail?.Terrain ?? "N/A")</span>
-                        </div>
-                    </div>
-                </div>
-            }
-            else
-            {
-                <p class="text-gray-500 text-sm">No assessment taken</p>
-            }
-        </div>
-
-        <div class="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-5 h-full">
-            <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-                <i class="fa-solid fa-arrows-rotate text-blue-400"></i>
-                Available Alternative Events
-            </h2>
-            @if (ViewBag.AlternativeEvents != null && ((List<TrailGuard.Models.Event>)ViewBag.AlternativeEvents).Any())
-            {
-                <div class="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
-                    @foreach (var altEvent in (List<TrailGuard.Models.Event>)ViewBag.AlternativeEvents)
+                <div>
+                    <p class="text-gray-500 text-[11px] uppercase tracking-wider">Model Confidence</p>
+                    @if (hasMlPrediction)
                     {
-                        <label class="flex items-start gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer">
-                            <input type="checkbox" name="selectedAlternatives" value="@altEvent.Id" class="w-4 h-4 mt-0.5 accent-blue-500" />
-                            <div>
-                                <p class="text-white text-sm font-medium">@altEvent.EventTitle</p>
-                                <p class="text-gray-500 text-xs">@altEvent.EventDate.ToString("MMM dd, yyyy") • @altEvent.Difficulty</p>
-                            </div>
-                        </label>
+                        <p class="text-accent font-semibold text-lg">@(((double)ViewBag.MlConfidence * 100).ToString("0.0"))%</p>
+                    }
+                    else
+                    {
+                        <p class="text-gray-500 text-sm">Confidence unavailable</p>
                     }
                 </div>
-            }
-            else
-            {
-                <p class="text-gray-500 text-sm">No alternative events available</p>
-            }
-        </div>
-
-        <div class="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-5 h-full flex flex-col">
-            <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-                <i class="fa-solid fa-gavel text-blue-400"></i>
-                Decision
-            </h2>
-            
-            <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-300 mb-2">Reason for Decision <span class="text-gray-500 text-xs">(Optional)</span></label>
-                <textarea id="decisionReason" rows="4" class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-3 text-sm focus:border-blue-500 focus:outline-none transition-colors resize-none min-h-25" placeholder="Add a note about your decision..."></textarea>
             </div>
-            
-            @if (Model.Status == "Pending")
+
+            @if (clearanceRequired && !string.IsNullOrWhiteSpace(gateReason))
             {
-                <div class="flex flex-col gap-3 flex-1 justify-center mt-2">
-                    <button onclick="makeDecision('Accepted')" class="w-full px-4 py-3 rounded-xl text-white text-sm font-medium bg-green-500 hover:bg-green-600 transition-colors">
-                        <i class="fa-solid fa-check mr-2"></i> Approve
-                    </button>
-                    <button onclick="makeDecision('Rejected')" class="w-full px-4 py-3 rounded-xl text-white text-sm font-medium bg-red-500 hover:bg-red-600 transition-colors">
-                        <i class="fa-solid fa-xmark mr-2"></i> Reject
-                    </button>
-                    <button onclick="recommendAlternative()" class="w-full px-4 py-3 rounded-xl text-white text-sm font-medium bg-blue-500 hover:bg-blue-600 transition-colors">
-                        <i class="fa-solid fa-arrows-rotate mr-2"></i> Recommend Alternative
-                    </button>
+                <div class="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 mb-5">
+                    <p class="text-amber-300 text-sm">
+                        <i class="fa-solid fa-shield-halved mr-1.5" aria-hidden="true"></i>@gateReason
+                    </p>
                 </div>
             }
+
+            @if (!hasMlPrediction)
+            {
+                <p class="text-gray-500 text-sm">No machine-learning explanation is available for this assessment.</p>
+            }
+            else if (shapFactors.Count == 0)
+            {
+                <p class="text-gray-500 text-sm">No explanation factors are available for this result.</p>
+            }
             else
             {
-                <div class="flex-1 flex items-center justify-center">
-                    <div class="text-center">
-                        <p class="text-gray-400 text-sm">This registration has been</p>
-                        <p class="text-lg font-semibold @statusColor mt-1">@Model.Status</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <p class="text-[11px] uppercase tracking-wider text-emerald-400 font-semibold mb-3">Supported</p>
+                        @if (supportedFactors.Count == 0)
+                        {
+                            <p class="text-gray-500 text-xs">No supporting factors.</p>
+                        }
+                        else
+                        {
+                            <div class="space-y-3">
+                                @foreach (var factor in supportedFactors)
+                                {
+                                    <div>
+                                        <div class="flex justify-between items-center text-xs mb-1.5 gap-3">
+                                            <span class="text-gray-300 wrap-break-word">@factor.FriendlyName</span>
+                                            <span class="text-emerald-400 font-semibold shrink-0">
+                                                <i class="fa-solid fa-arrow-up mr-1" aria-hidden="true"></i>Supported (@factor.BarWidth.ToString("0.0")%)
+                                            </span>
+                                        </div>
+                                        <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden" role="progressbar" aria-valuenow="@factor.BarWidth" aria-valuemin="0" aria-valuemax="100" aria-label="@($"{factor.FriendlyName} share of impact")">
+                                            <div class="h-full rounded-full bg-emerald-500" style="width: @(factor.BarWidth.ToString(System.Globalization.CultureInfo.InvariantCulture))%"></div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                    <div>
+                        <p class="text-[11px] uppercase tracking-wider text-red-400 font-semibold mb-3">Weakened</p>
+                        @if (weakenedFactors.Count == 0)
+                        {
+                            <p class="text-gray-500 text-xs">No weakening factors.</p>
+                        }
+                        else
+                        {
+                            <div class="space-y-3">
+                                @foreach (var factor in weakenedFactors)
+                                {
+                                    <div>
+                                        <div class="flex justify-between items-center text-xs mb-1.5 gap-3">
+                                            <span class="text-gray-300 wrap-break-word">@factor.FriendlyName</span>
+                                            <span class="text-red-400 font-semibold shrink-0">
+                                                <i class="fa-solid fa-arrow-down mr-1" aria-hidden="true"></i>Weakened (@factor.BarWidth.ToString("0.0")%)
+                                            </span>
+                                        </div>
+                                        <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden" role="progressbar" aria-valuenow="@factor.BarWidth" aria-valuemin="0" aria-valuemax="100" aria-label="@($"{factor.FriendlyName} share of impact")">
+                                            <div class="h-full rounded-full bg-red-500" style="width: @(factor.BarWidth.ToString(System.Globalization.CultureInfo.InvariantCulture))%"></div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
                     </div>
                 </div>
+
+                <div class="mt-5 pt-4 border-t border-white/10">
+                    <p class="text-[11px] text-gray-500">
+                        <i class="fa-solid fa-circle-info mr-1" aria-hidden="true"></i>
+                        Generated by machine learning model (@ViewBag.MlModelVersion). This is decision support only — final approval remains your judgment.
+                    </p>
+                </div>
             }
-        </div>
+        }
     </div>
 
-    @if (ViewBag.HasMlPrediction == true && ViewBag.ShapFactors != null && ((List<TrailGuard.Models.ShapDisplayItem>)ViewBag.ShapFactors).Any())
+    @if (isPending)
     {
-        <div class="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-5 mt-6">
-            <div class="flex items-start justify-between mb-1">
-                <h2 class="text-sm font-semibold text-white flex items-center gap-2">
-                    <i class="fa-solid fa-brain text-blue-400"></i>
-                    Assessment Explanation
+        <!-- Decision and Available Alternatives are intentional desktop-row
+             siblings - same default-stretch treatment as the rows above. -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 h-full min-w-0">
+                <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-gavel text-accent" aria-hidden="true"></i>
+                    Decision
                 </h2>
-                <div class="text-right">
-                    <p class="text-gray-500 text-[10px] uppercase tracking-wider">Model Confidence</p>
-                    <p class="text-blue-400 font-bold text-base">@(((double)ViewBag.MlConfidence * 100).ToString("0.0"))%</p>
+
+                <div class="mb-4">
+                    <label for="decisionReasonInput" class="block text-sm font-medium text-gray-300 mb-2">
+                        Decision Reason <span id="decisionReasonOptionalTag" class="text-gray-500 text-xs">(Optional)</span>
+                    </label>
+                    <textarea id="decisionReasonInput" rows="4" maxlength="2000" aria-describedby="decisionReasonError"
+                              class="w-full bg-black/20 border border-gray-700 text-white rounded-xl px-4 py-3 text-sm focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors resize-none min-h-25"
+                              placeholder="Add a note about your decision..."></textarea>
+                    <p id="decisionReasonError" role="alert" class="hidden text-red-400 text-xs mt-2">A reason is required to approve a Not Recommended registration.</p>
+                </div>
+
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <button type="button" id="approveBtn"
+                            class="flex-1 px-4 py-2.5 rounded-full text-emerald-200 hover:text-white text-sm font-semibold bg-emerald-950 hover:bg-emerald-900 border border-emerald-500/40 hover:border-emerald-400/60 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/60 focus:ring-offset-2 focus:ring-offset-surface-base disabled:opacity-60 disabled:pointer-events-none">
+                        <i class="fa-solid fa-check mr-1.5" aria-hidden="true"></i> Approve
+                    </button>
+                    <button type="button" id="rejectBtn"
+                            class="flex-1 px-4 py-2.5 rounded-full text-red-200 hover:text-white text-sm font-semibold bg-red-950 hover:bg-red-900 border border-red-500/40 hover:border-red-400/60 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500/60 focus:ring-offset-2 focus:ring-offset-surface-base disabled:opacity-60 disabled:pointer-events-none">
+                        <i class="fa-solid fa-xmark mr-1.5" aria-hidden="true"></i> Reject
+                    </button>
                 </div>
             </div>
-            <p class="text-gray-500 text-xs mb-5">
-                Factors that most influenced this participant's assessment result. Use this to inform your approval decision.
-            </p>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                @foreach (var factor in (List<TrailGuard.Models.ShapDisplayItem>)ViewBag.ShapFactors)
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 h-full min-w-0">
+                <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-arrows-rotate text-accent" aria-hidden="true"></i>
+                    Available Alternatives
+                </h2>
+
+                @if (alternativeEvents.Count == 0)
                 {
-                    <div class="px-1">
-                        <div class="flex justify-between items-center text-xs mb-1.5 gap-4">
-                            <span class="text-gray-400">@factor.FriendlyName</span>
-                            <span class="@(factor.IsPositive ? "text-green-400" : "text-red-400") font-semibold">
-                                <i class="fa-solid @(factor.IsPositive ? "fa-arrow-up" : "fa-arrow-down") mr-1"></i>
-                                @(factor.IsPositive ? "Supported" : "Weakened")
-                            </span>
+                    <p class="text-gray-500 text-sm">No suitable alternative events are available right now.</p>
+                }
+                else
+                {
+                    <fieldset>
+                        <legend class="sr-only">Select one alternative event to recommend</legend>
+                        <div class="space-y-2">
+                            @foreach (var altEvent in alternativeEvents)
+                            {
+                                <label class="flex items-start gap-3 cursor-pointer px-4 py-3 rounded-xl border border-gray-700 hover:border-accent transition-colors has-checked:border-accent has-checked:bg-accent/10 focus-within:ring-2 focus-within:ring-accent">
+                                    <input type="radio" name="alternativeEvent" value="@altEvent.Id" class="mt-0.5 w-4 h-4 accent-accent shrink-0" />
+                                    <span class="min-w-0">
+                                        <span class="block text-white text-sm font-medium wrap-break-word">@altEvent.EventTitle</span>
+                                        <span class="block text-gray-500 text-xs">@altEvent.EventDate.ToString("MMM dd, yyyy") &bull; @altEvent.Difficulty</span>
+                                    </span>
+                                </label>
+                            }
                         </div>
-                        <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-                            <div class="h-full rounded-full @(factor.IsPositive ? "bg-green-500" : "bg-red-500")"
-                                 style="width: @factor.BarWidth%"></div>
-                        </div>
-                    </div>
+                    </fieldset>
+                    <p id="alternativeEventError" role="alert" class="hidden text-red-400 text-xs mt-3">Please select an alternative event.</p>
+
+                    <button type="button" id="recommendAlternativeBtn"
+                            class="mt-4 w-full px-4 py-2.5 rounded-full text-blue-100 hover:text-white text-sm font-semibold bg-blue-950 hover:bg-blue-900 border border-blue-500/40 hover:border-blue-400/60 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:ring-offset-2 focus:ring-offset-surface-base disabled:opacity-60 disabled:pointer-events-none">
+                        <i class="fa-solid fa-arrows-rotate mr-1.5" aria-hidden="true"></i> Recommend Alternative
+                    </button>
                 }
             </div>
-
-            <div class="mt-5 pt-4 border-t border-white/10">
-                <p class="text-[10px] text-gray-500">
-                    <i class="fa-solid fa-circle-info mr-1"></i>
-                    Generated by machine learning model (@ViewBag.MlModelVersion). Green bars supported the result; red bars worked against it. This is decision support only — final approval remains your judgment.
+        </div>
+    }
+    else if (isDecidedStatus)
+    {
+        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 mt-6">
+            <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-gavel text-accent" aria-hidden="true"></i>
+                Decision Summary
+            </h2>
+            <p class="text-gray-400 text-sm">
+                Status: <span class="font-semibold @statusTextClass(Model.Status)">@Model.Status</span>
+            </p>
+            @if (!string.IsNullOrWhiteSpace(Model.DecisionReason))
+            {
+                <p class="text-gray-400 text-sm mt-2 wrap-break-word"><span class="text-gray-500">Organizer's note:</span> @Model.DecisionReason</p>
+            }
+            @if (Model.Status == "Alternative Recommended" && Model.AlternativeEvent != null)
+            {
+                <p class="text-gray-400 text-sm mt-2 wrap-break-word">
+                    <span class="text-gray-500">Recommended alternative:</span>
+                    @Model.AlternativeEvent.EventTitle &bull; @Model.AlternativeEvent.EventDate.ToString("MMM dd, yyyy")
                 </p>
-            </div>
+            }
         </div>
     }
 </div>
 
-@if (!string.IsNullOrEmpty(Model.PaymentReceiptUrl))
-{
-    <div id="receiptTooltip" class="fixed z-9999 hidden pointer-events-none">
-        <div class="bg-surface-card border border-gray-700 rounded-xl shadow-2xl p-4 w-96">
-            <img src="@Model.PaymentReceiptUrl" alt="Receipt Preview" class="w-full h-auto max-h-96 object-contain rounded-lg" />
-            <p class="text-center text-xs text-gray-400 mt-2">Receipt Preview</p>
+@section Modals {
+    <!-- Document Preview - one reusable dialog for both the payment receipt and
+         the medical clearance document. Mirrors the accessible lifecycle already
+         established by Event/Details.cshtml's RescheduleModal/CancelEventModal
+         and Organizer/PostEventAssessment.cshtml's DiscardModal: focus trap,
+         exact focus return, Escape/backdrop close, background inert, scroll
+         lock, toast-host exemption, z-60. -->
+    <div id="documentPreviewModal" class="fixed inset-0 z-60 hidden items-center justify-center p-4">
+        <div data-doc-preview-backdrop class="fixed inset-0 bg-black/70 backdrop-blur-sm z-60" aria-hidden="true"></div>
+        <div role="dialog" aria-modal="true" aria-labelledby="documentPreviewTitle"
+             class="relative bg-surface-card border border-white/10 rounded-xl shadow-2xl w-full max-w-lg max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col z-60">
+            <div class="flex items-start justify-between gap-4 px-6 py-4 border-b border-white/10 shrink-0">
+                <h2 id="documentPreviewTitle" class="text-lg font-bold text-white">Document Preview</h2>
+                <button type="button" id="documentPreviewCloseBtn" aria-label="Close document preview" class="shrink-0 text-gray-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded">
+                    <i class="fa-solid fa-xmark text-xl" aria-hidden="true"></i>
+                </button>
+            </div>
+            <div class="overflow-y-auto flex-1 p-6 flex items-center justify-center min-h-48">
+                <img id="documentPreviewImage" src="" alt="" class="hidden max-w-full max-h-[60vh] object-contain rounded-lg border border-white/10" />
+                <!-- Non-image documents (PDF) get a plain state here, not a
+                     second clickable "open" link - the footer below (Open in
+                     new tab / Download) is the single action area for every
+                     document type, so this never duplicates it. -->
+                <div id="documentPreviewOpenWrap" class="hidden text-center text-gray-400 py-6">
+                    <i class="fa-regular fa-file-lines text-3xl block mb-3" aria-hidden="true"></i>
+                    <p class="text-sm font-medium text-gray-300">PDF document</p>
+                    <p class="text-sm mt-1">Use the actions below to open or download this file.</p>
+                </div>
+                <div id="documentPreviewErrorWrap" class="hidden text-center text-gray-400 py-6">
+                    <i class="fa-regular fa-file-image text-3xl block mb-3" aria-hidden="true"></i>
+                    <p class="text-sm">Document unavailable</p>
+                </div>
+            </div>
+            <!-- Open/Download - protected-route actions, valid for every
+                 verified document type (image or PDF), not just the inline
+                 image preview above. Hidden whenever no document is currently
+                 loaded (see showError()/onClose() in the script below). -->
+            <div id="documentPreviewActions" class="hidden flex-col sm:flex-row gap-3 px-6 py-4 border-t border-white/10 shrink-0">
+                <a id="documentPreviewOpenTabLink" href="#" target="_blank" rel="noopener noreferrer"
+                   class="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-accent">
+                    Open in new tab <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+                </a>
+                <a id="documentPreviewDownloadLink" href="#"
+                   class="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold text-white bg-accent/20 hover:bg-accent/30 border border-accent/40 hover:border-accent/60 transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-card">
+                    Download <i class="fa-solid fa-download" aria-hidden="true"></i>
+                </a>
+            </div>
         </div>
     </div>
-}
 
-@if (!string.IsNullOrEmpty(Model.MedicalClearanceUrl))
-{
-    <div id="clearanceTooltip" class="fixed z-9999 hidden pointer-events-none">
-        <div class="bg-surface-card border border-gray-700 rounded-xl shadow-2xl p-4 w-96">
-            <img src="@Model.MedicalClearanceUrl" alt="Medical Clearance Preview" class="w-full h-auto max-h-96 object-contain rounded-lg" />
-            <p class="text-center text-xs text-gray-400 mt-2">Medical Clearance Preview</p>
+    <!-- Registration Action - one reusable confirmation dialog for Approve,
+         Reject, Recommend Alternative, Verify Payment, and Reject Payment
+         Proof. Same accessible lifecycle as Document Preview above. -->
+    <div id="actionConfirmModal" class="fixed inset-0 z-60 hidden items-center justify-center p-4">
+        <div data-action-confirm-backdrop class="fixed inset-0 bg-black/70 backdrop-blur-sm z-60" aria-hidden="true"></div>
+        <div role="dialog" aria-modal="true" aria-labelledby="actionConfirmTitle"
+             class="relative bg-surface-card border border-white/10 rounded-xl shadow-2xl w-full max-w-md max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col z-60">
+            <div class="flex items-start justify-between gap-4 px-6 py-4 border-b border-white/10 shrink-0">
+                <div class="flex items-center gap-3 min-w-0">
+                    <span id="actionConfirmIconWrap" class="w-9 h-9 rounded-full flex items-center justify-center shrink-0" aria-hidden="true">
+                        <i id="actionConfirmIcon" class="text-sm"></i>
+                    </span>
+                    <h2 id="actionConfirmTitle" class="text-lg font-bold text-white"></h2>
+                </div>
+                <button type="button" id="actionConfirmCloseBtn" aria-label="Close" class="shrink-0 text-gray-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded">
+                    <i class="fa-solid fa-xmark text-xl" aria-hidden="true"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <p id="actionConfirmMessage" class="text-gray-300 text-sm"></p>
+                <div id="actionConfirmWarning" class="hidden mt-3 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+                    <p class="text-amber-300 text-sm">
+                        <i class="fa-solid fa-triangle-exclamation mr-1.5" aria-hidden="true"></i><span id="actionConfirmWarningText"></span>
+                    </p>
+                </div>
+            </div>
+            <div class="flex gap-3 px-6 py-4 border-t border-white/10 shrink-0">
+                <button type="button" id="actionConfirmCancelBtn"
+                        class="flex-1 px-4 py-2.5 rounded-full text-gray-300 hover:text-white text-sm font-medium bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-60 disabled:pointer-events-none">
+                    Cancel
+                </button>
+                <button type="button" id="actionConfirmSubmitBtn"
+                        class="flex-1 px-4 py-2.5 rounded-full text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface-card disabled:opacity-60 disabled:pointer-events-none">
+                    <span id="actionConfirmSubmitLabel">Confirm</span>
+                    <i id="actionConfirmSpinner" class="fa-solid fa-circle-notch fa-spin ml-1.5 hidden" aria-hidden="true"></i>
+                </button>
+            </div>
         </div>
     </div>
 }
 
 <script>
-    // ============================================================
-    // TOOLTIP PREVIEW - Mouse Events
-    // ============================================================
-    function setupImageTooltip(wrapperId, imageId, tooltipId) {
-        const image = document.getElementById(imageId);
-        const wrapper = document.getElementById(wrapperId);
-        const tooltip = document.getElementById(tooltipId);
+    (function () {
+        'use strict';
 
-        if (!image || !wrapper || !tooltip) return;
+        var els = {};
+        var registrationId = 0;
 
-        function updateTooltipPosition(e) {
-            var x = e.clientX - 420;
-            var y = e.clientY - 100;
+        function byId(id) { return document.getElementById(id); }
 
-            if (x < 10) x = 10;
-            if (y < 10) y = 10;
-            if (y + 400 > window.innerHeight) y = window.innerHeight - 420;
+        // ------------------------------------------------------------------
+        // Shared accessible dialog lifecycle - one implementation reused by
+        // both the Document Preview dialog and the Registration Action
+        // confirmation dialog, so the focus trap / inert / scroll-lock /
+        // toast-exemption behavior can never drift between the two. Mirrors
+        // Event/Details.cshtml's RescheduleModal and
+        // Organizer/PostEventAssessment.cshtml's DiscardModal exactly.
+        // ------------------------------------------------------------------
+        function createDialog(modalId, options) {
+            options = options || {};
+            var isOpen = false;
+            var lastFocusedElement = null;
+            var inertedElements = [];
+            var bodyOverflowBeforeModal = null;
 
-            tooltip.style.left = x + 'px';
-            tooltip.style.top = y + 'px';
+            function getFocusableElements(container) {
+                return Array.from(container.querySelectorAll(
+                    'a[href], button:not([disabled]), textarea:not([disabled]), ' +
+                    'input:not([disabled]):not([type="hidden"]), select:not([disabled]), ' +
+                    '[tabindex]:not([tabindex="-1"])'
+                )).filter(function (el) { return el.offsetParent !== null; });
+            }
+
+            function makeBackgroundInert(modalRoot) {
+                inertedElements = [];
+                var current = modalRoot;
+                while (current && current !== document.body) {
+                    var parent = current.parentElement;
+                    if (!parent) break;
+                    Array.from(parent.children).forEach(function (sibling) {
+                        if (sibling === current || sibling.hasAttribute('inert')) return;
+                        if (window.tgToastHostExempt && window.tgToastHostExempt(sibling)) return;
+                        sibling.setAttribute('inert', '');
+                        inertedElements.push(sibling);
+                    });
+                    current = parent;
+                }
+            }
+
+            function restoreBackgroundInert() {
+                inertedElements.forEach(function (el) { el.removeAttribute('inert'); });
+                inertedElements = [];
+            }
+
+            function handleKeydown(event) {
+                if (!isOpen) return;
+                var modal = byId(modalId);
+                if (!modal) return;
+
+                if (event.key === 'Escape') { close(); return; }
+
+                if (event.key === 'Tab') {
+                    var toastCloseButtons = window.tgGetToastCloseButtons ? window.tgGetToastCloseButtons() : [];
+                    var focusable = getFocusableElements(modal).concat(toastCloseButtons);
+                    if (focusable.length === 0) { event.preventDefault(); return; }
+                    var first = focusable[0];
+                    var last = focusable[focusable.length - 1];
+                    if (event.shiftKey && document.activeElement === first) {
+                        event.preventDefault();
+                        last.focus();
+                    } else if (!event.shiftKey && document.activeElement === last) {
+                        event.preventDefault();
+                        first.focus();
+                    }
+                }
+            }
+
+            function open() {
+                var modal = byId(modalId);
+                if (!modal || isOpen) return;
+
+                lastFocusedElement = document.activeElement;
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                isOpen = true;
+                makeBackgroundInert(modal);
+                bodyOverflowBeforeModal = document.body.style.overflow;
+                document.body.style.overflow = 'hidden';
+                document.addEventListener('keydown', handleKeydown);
+
+                var target = null;
+                if (typeof options.initialFocus === 'function') target = options.initialFocus(modal);
+                if (!target) target = getFocusableElements(modal)[0] || modal;
+                if (target && typeof target.focus === 'function') target.focus();
+            }
+
+            function close() {
+                var modal = byId(modalId);
+                if (!modal) return;
+
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+
+                if (!isOpen) return;
+                isOpen = false;
+                restoreBackgroundInert();
+                document.body.style.overflow = bodyOverflowBeforeModal || '';
+                bodyOverflowBeforeModal = null;
+                document.removeEventListener('keydown', handleKeydown);
+
+                if (typeof options.onClose === 'function') options.onClose();
+
+                if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') lastFocusedElement.focus();
+                lastFocusedElement = null;
+            }
+
+            return { open: open, close: close, isOpen: function () { return isOpen; } };
         }
 
-        wrapper.addEventListener('mouseenter', function(e) {
-            tooltip.classList.remove('hidden');
-            tooltip.style.display = 'block';
-            updateTooltipPosition(e);
-        });
+        // ------------------------------------------------------------------
+        // Document Preview
+        // ------------------------------------------------------------------
+        var DocumentPreview = (function () {
+            var dialog = createDialog('documentPreviewModal', {
+                initialFocus: function () { return byId('documentPreviewCloseBtn'); },
+                onClose: function () {
+                    els.docTitle.textContent = 'Document Preview';
+                    els.docImage.classList.add('hidden');
+                    els.docImage.removeAttribute('src');
+                    els.docOpenWrap.classList.add('hidden');
+                    els.docErrorWrap.classList.add('hidden');
+                    // Never leave a previous participant's document link
+                    // attached to this reusable dialog.
+                    setActionsVisible(false);
+                    els.docOpenTabLink.removeAttribute('href');
+                    els.docDownloadLink.removeAttribute('href');
+                }
+            });
 
-        wrapper.addEventListener('mousemove', function(e) {
-            updateTooltipPosition(e);
-        });
+            // Mirrors the modal-root hidden/flex toggle used by createDialog()
+            // above (classList.remove('hidden') + add('flex') to show,
+            // add('hidden') + remove('flex') to hide) rather than ever having
+            // both classes sit in the static markup together - the static
+            // class list only ever carries 'hidden', never 'hidden' and
+            // 'flex' at once.
+            function setActionsVisible(visible) {
+                els.docActions.classList.toggle('hidden', !visible);
+                els.docActions.classList.toggle('flex', visible);
+            }
 
-        wrapper.addEventListener('mouseleave', function(e) {
-            tooltip.classList.add('hidden');
-            tooltip.style.display = 'none';
-        });
-    }
+            function showImage(url) {
+                els.docImage.classList.remove('hidden');
+                els.docOpenWrap.classList.add('hidden');
+                els.docErrorWrap.classList.add('hidden');
+                els.docImage.src = url;
+            }
 
-    document.addEventListener('DOMContentLoaded', function() {
-        setupImageTooltip('receiptWrapper', 'receiptImage', 'receiptTooltip');
-        setupImageTooltip('clearanceWrapper', 'clearanceImage', 'clearanceTooltip');
-    });
+            // Non-image documents (PDF) get a plain, non-interactive state -
+            // the footer's Open in new tab / Download links (set in open()
+            // below) are the only actions, so this never renders a link of
+            // its own.
+            function showNonImageState() {
+                els.docImage.classList.add('hidden');
+                els.docErrorWrap.classList.add('hidden');
+                els.docOpenWrap.classList.remove('hidden');
+            }
 
-    // ============================================================
-    // DECISION FUNCTIONS
-    // ============================================================
-    function makeDecision(status) {
-        const reason = document.getElementById('decisionReason')?.value || '';
-        const id = @Model.Id;
-        
-        console.log('📝 Registration ID:', id);
-        console.log('📝 Status:', status);
-        
-        if (!id) {
-            showToast('Registration ID is missing', 'error');
-            return;
+            function showError() {
+                els.docImage.classList.add('hidden');
+                els.docOpenWrap.classList.add('hidden');
+                els.docErrorWrap.classList.remove('hidden');
+                // An errored/unavailable document has nothing to open or
+                // download.
+                setActionsVisible(false);
+                els.docOpenTabLink.removeAttribute('href');
+                els.docDownloadLink.removeAttribute('href');
+            }
+
+            function open(url, downloadUrl, title, isImage) {
+                els.docTitle.textContent = title || 'Document Preview';
+                if (isImage) {
+                    showImage(url);
+                } else {
+                    showNonImageState();
+                }
+                // Open-in-new-tab always points at the inline route (works for
+                // every verified type - images render, PDFs open in the
+                // browser's own viewer); Download always points at the
+                // dedicated attachment route. Both are valid regardless of
+                // whether the preview area above is showing the image or the
+                // non-image fallback.
+                els.docOpenTabLink.href = url;
+                els.docDownloadLink.href = downloadUrl;
+                setActionsVisible(true);
+                dialog.open();
+            }
+
+            function bindImageErrorHandler() {
+                els.docImage.addEventListener('error', function () {
+                    if (!els.docImage.classList.contains('hidden')) showError();
+                });
+            }
+
+            return { open: open, close: dialog.close, bindImageErrorHandler: bindImageErrorHandler };
+        })();
+
+        // ------------------------------------------------------------------
+        // Registration Action confirmation
+        // ------------------------------------------------------------------
+        var ACTION_STYLES = {
+            positive: {
+                iconWrap: 'w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-emerald-500/15 border border-emerald-500/30',
+                icon: 'fa-solid fa-check text-emerald-400 text-sm',
+                submit: 'flex-1 px-4 py-2.5 rounded-full text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/60 focus:ring-offset-2 focus:ring-offset-surface-card disabled:opacity-60 disabled:pointer-events-none text-emerald-200 hover:text-white bg-emerald-950 hover:bg-emerald-900 border border-emerald-500/40 hover:border-emerald-400/60'
+            },
+            negative: {
+                iconWrap: 'w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-red-500/15 border border-red-500/30',
+                icon: 'fa-solid fa-xmark text-red-400 text-sm',
+                submit: 'flex-1 px-4 py-2.5 rounded-full text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-red-500/60 focus:ring-offset-2 focus:ring-offset-surface-card disabled:opacity-60 disabled:pointer-events-none text-red-200 hover:text-white bg-red-950 hover:bg-red-900 border border-red-500/40 hover:border-red-400/60'
+            },
+            neutral: {
+                iconWrap: 'w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-blue-500/15 border border-blue-500/30',
+                icon: 'fa-solid fa-arrows-rotate text-blue-400 text-sm',
+                submit: 'flex-1 px-4 py-2.5 rounded-full text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:ring-offset-2 focus:ring-offset-surface-card disabled:opacity-60 disabled:pointer-events-none text-blue-100 hover:text-white bg-blue-950 hover:bg-blue-900 border border-blue-500/40 hover:border-blue-400/60'
+            }
+        };
+
+        var ActionConfirm = (function () {
+            var pending = null; // { url, payload, triggerEl, onSuccess }
+            var submitting = false;
+
+            var dialog = createDialog('actionConfirmModal', {
+                initialFocus: function () { return byId('actionConfirmSubmitBtn'); },
+                onClose: function () {
+                    pending = null;
+                    setSubmitting(false);
+                    els.actionWarning.classList.add('hidden');
+                }
+            });
+
+            function setSubmitting(value) {
+                submitting = value;
+                els.actionSubmitBtn.disabled = value;
+                els.actionCancelBtn.disabled = value;
+                els.actionCloseBtn.disabled = value;
+                els.actionSpinner.classList.toggle('hidden', !value);
+            }
+
+            function configure(options) {
+                var style = ACTION_STYLES[options.tone] || ACTION_STYLES.neutral;
+                els.actionIconWrap.className = style.iconWrap;
+                els.actionIcon.className = style.icon;
+                els.actionSubmitBtn.className = style.submit;
+                els.actionTitle.textContent = options.title;
+                els.actionMessage.textContent = options.message;
+                els.actionSubmitLabel.textContent = options.confirmLabel;
+
+                if (options.warning) {
+                    els.actionWarningText.textContent = options.warning;
+                    els.actionWarning.classList.remove('hidden');
+                } else {
+                    els.actionWarning.classList.add('hidden');
+                }
+            }
+
+            function open(options) {
+                if (dialog.isOpen()) return; // one pending action at a time
+                configure(options);
+                pending = { url: options.url, payload: options.payload, onSuccess: options.onSuccess };
+                dialog.open();
+            }
+
+            function submit() {
+                if (submitting || !pending) return; // one click, one request
+                var current = pending;
+                setSubmitting(true);
+
+                postJson(current.url, current.payload)
+                    .then(function (response) { return response.json(); })
+                    .then(function (data) {
+                        if (data.success) {
+                            showToast(data.message, 'success');
+                            dialog.close();
+                            if (typeof current.onSuccess === 'function') current.onSuccess();
+                            setTimeout(function () { location.reload(); }, 1000);
+                        } else {
+                            showToast(data.message, 'error');
+                            setSubmitting(false);
+                        }
+                    })
+                    .catch(function (error) {
+                        console.error('Registration action failed:', error);
+                        showToast('Something went wrong. Please try again.', 'error');
+                        setSubmitting(false);
+                    });
+            }
+
+            return { open: open, close: dialog.close, submit: submit };
+        })();
+
+        // ------------------------------------------------------------------
+        // Page actions
+        // ------------------------------------------------------------------
+        function getAssessmentResult() {
+            var root = byId('registrationDetailsRoot');
+            return root ? root.getAttribute('data-assessment-result') : null;
         }
-        
-        if (!confirm(`Are you sure you want to ${status.toLowerCase()} this registration?`)) return;
 
-        postJson('/Organizer/UpdateRegistrationStatus', {
-                id: id,
-                status: status,
-                reason: reason
-            })
-        .then(response => response.json())
-        .then(data => {
-            console.log('📝 Response:', data);
-            if (data.success) {
-                showToast(data.message, 'success');
-                setTimeout(() => location.reload(), 1000);
-            } else {
-                showToast(data.message, 'error');
-            }
-        })
-        .catch(error => {
-            console.error('❌ Error:', error);
-            showToast('Error updating status', 'error');
-        });
-    }
-
-    function verifyPayment(approved) {
-        const id = @Model.Id;
-        const action = approved ? 'verify' : 'reject';
-
-        if (!confirm(`Are you sure you want to ${action} this payment?`)) return;
-
-        postJson('/Organizer/VerifyPayment', {
-                id: id,
-                approved: approved
-            })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showToast(data.message, 'success');
-                setTimeout(() => location.reload(), 1000);
-            } else {
-                showToast(data.message, 'error');
-            }
-        })
-        .catch(error => {
-            console.error('❌ Error:', error);
-            showToast('Error verifying payment', 'error');
-        });
-    }
-
-    function recommendAlternative() {
-        const selected = document.querySelectorAll('input[name="selectedAlternatives"]:checked');
-        const reason = document.getElementById('decisionReason')?.value || '';
-        const id = @Model.Id;
-        
-        if (selected.length === 0) {
-            showToast('Please select at least one alternative event', 'error');
-            return;
+        function clearReasonError() {
+            els.reasonError.classList.add('hidden');
         }
 
-        const alternativeIds = Array.from(selected).map(cb => parseInt(cb.value));
+        function openApprove() {
+            var reason = els.reasonInput ? els.reasonInput.value.trim() : '';
+            var isNotRecommended = getAssessmentResult() === 'Not Recommended';
 
-        if (!confirm(`Recommend ${selected.length} alternative event(s) to this participant?`)) return;
-
-        postJson('/Organizer/RecommendAlternative', {
-                registrationId: id,
-                alternativeEventIds: alternativeIds,
-                reason: reason
-            })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showToast(data.message, 'success');
-                setTimeout(() => location.reload(), 1000);
-            } else {
-                showToast(data.message, 'error');
+            if (isNotRecommended && reason === '') {
+                els.reasonError.classList.remove('hidden');
+                if (els.reasonInput) els.reasonInput.focus();
+                return;
             }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showToast('Error recommending alternatives', 'error');
-        });
-    }
+            clearReasonError();
 
-    // showToast(message, type) is now the canonical implementation in
-    // wwwroot/js/toast.js, loaded globally from _Layout.cshtml.
+            ActionConfirm.open({
+                tone: 'positive',
+                title: 'Approve Registration',
+                message: 'This moves the registration to Awaiting Payment. The participant will be notified to submit payment.',
+                warning: isNotRecommended
+                    ? 'The suitability model does not recommend this trail for this participant. You retain final authority to approve based on your own judgment.'
+                    : null,
+                confirmLabel: 'Confirm Approval',
+                url: '/Organizer/UpdateRegistrationStatus',
+                payload: { id: registrationId, status: 'Accepted', reason: reason }
+            });
+        }
+
+        function openReject() {
+            var reason = els.reasonInput ? els.reasonInput.value.trim() : '';
+            ActionConfirm.open({
+                tone: 'negative',
+                title: 'Reject Registration',
+                message: 'This rejects the registration. The participant will be notified.',
+                confirmLabel: 'Confirm Rejection',
+                url: '/Organizer/UpdateRegistrationStatus',
+                payload: { id: registrationId, status: 'Rejected', reason: reason }
+            });
+        }
+
+        function openRecommendAlternative() {
+            var selected = document.querySelector('input[name="alternativeEvent"]:checked');
+            if (!selected) {
+                if (els.altError) els.altError.classList.remove('hidden');
+                var firstRadio = document.querySelector('input[name="alternativeEvent"]');
+                if (firstRadio) firstRadio.focus();
+                return;
+            }
+            if (els.altError) els.altError.classList.add('hidden');
+
+            var reason = els.reasonInput ? els.reasonInput.value.trim() : '';
+            var label = selected.closest('label');
+            var titleEl = label ? label.querySelector('span span') : null;
+            var eventTitle = titleEl ? titleEl.textContent : 'this event';
+
+            ActionConfirm.open({
+                tone: 'neutral',
+                title: 'Recommend Alternative Event',
+                message: 'Recommend "' + eventTitle + '" to this participant. Their current registration will move to Alternative Recommended.',
+                confirmLabel: 'Confirm Recommendation',
+                url: '/Organizer/RecommendAlternative',
+                payload: { registrationId: registrationId, alternativeEventIds: [parseInt(selected.value, 10)], reason: reason }
+            });
+        }
+
+        function openVerifyPayment() {
+            ActionConfirm.open({
+                tone: 'positive',
+                title: 'Verify Payment',
+                message: 'Confirm that you have reviewed and verified this participant’s payment receipt. The registration will be accepted.',
+                confirmLabel: 'Confirm Verification',
+                url: '/Organizer/VerifyPayment',
+                payload: { id: registrationId, approved: true }
+            });
+        }
+
+        function openRejectPayment() {
+            ActionConfirm.open({
+                tone: 'negative',
+                title: 'Reject Payment Proof',
+                message: 'The participant will be asked to re-upload their payment receipt.',
+                confirmLabel: 'Confirm Rejection',
+                url: '/Organizer/VerifyPayment',
+                payload: { id: registrationId, approved: false }
+            });
+        }
+
+        // ------------------------------------------------------------------
+        // Init - one DOMContentLoaded pass, every listener bound once.
+        // ------------------------------------------------------------------
+        document.addEventListener('DOMContentLoaded', function () {
+            var root = byId('registrationDetailsRoot');
+            var parsedId = root ? parseInt(root.getAttribute('data-registration-id'), 10) : NaN;
+            registrationId = Number.isFinite(parsedId) ? parsedId : 0;
+
+            els = {
+                docImage: byId('documentPreviewImage'),
+                docTitle: byId('documentPreviewTitle'),
+                docOpenWrap: byId('documentPreviewOpenWrap'),
+                docErrorWrap: byId('documentPreviewErrorWrap'),
+                docActions: byId('documentPreviewActions'),
+                docOpenTabLink: byId('documentPreviewOpenTabLink'),
+                docDownloadLink: byId('documentPreviewDownloadLink'),
+                actionIconWrap: byId('actionConfirmIconWrap'),
+                actionIcon: byId('actionConfirmIcon'),
+                actionTitle: byId('actionConfirmTitle'),
+                actionMessage: byId('actionConfirmMessage'),
+                actionWarning: byId('actionConfirmWarning'),
+                actionWarningText: byId('actionConfirmWarningText'),
+                actionSubmitBtn: byId('actionConfirmSubmitBtn'),
+                actionSubmitLabel: byId('actionConfirmSubmitLabel'),
+                actionCancelBtn: byId('actionConfirmCancelBtn'),
+                actionCloseBtn: byId('actionConfirmCloseBtn'),
+                actionSpinner: byId('actionConfirmSpinner'),
+                reasonInput: byId('decisionReasonInput'),
+                reasonError: byId('decisionReasonError'),
+                altError: byId('alternativeEventError')
+            };
+
+            DocumentPreview.bindImageErrorHandler();
+
+            // Document preview triggers - delegated so any number of trigger
+            // buttons (receipt, clearance) are handled by one listener.
+            document.getElementById('registrationDetailsRoot').addEventListener('click', function (e) {
+                var trigger = e.target.closest('.doc-preview-trigger');
+                if (!trigger) return;
+                var url = trigger.getAttribute('data-doc-url');
+                var downloadUrl = trigger.getAttribute('data-doc-download-url');
+                var title = trigger.getAttribute('data-doc-title');
+                var isImage = trigger.getAttribute('data-doc-image') === 'true';
+                if (url) DocumentPreview.open(url, downloadUrl, title, isImage);
+            });
+
+            var docCloseBtn = byId('documentPreviewCloseBtn');
+            if (docCloseBtn) docCloseBtn.addEventListener('click', DocumentPreview.close);
+            var docBackdrop = document.querySelector('#documentPreviewModal [data-doc-preview-backdrop]');
+            if (docBackdrop) docBackdrop.addEventListener('click', DocumentPreview.close);
+
+            if (els.actionCloseBtn) els.actionCloseBtn.addEventListener('click', ActionConfirm.close);
+            if (els.actionCancelBtn) els.actionCancelBtn.addEventListener('click', ActionConfirm.close);
+            if (els.actionSubmitBtn) els.actionSubmitBtn.addEventListener('click', ActionConfirm.submit);
+            var actionBackdrop = document.querySelector('#actionConfirmModal [data-action-confirm-backdrop]');
+            if (actionBackdrop) actionBackdrop.addEventListener('click', ActionConfirm.close);
+
+            var approveBtn = byId('approveBtn');
+            var rejectBtn = byId('rejectBtn');
+            var recommendBtn = byId('recommendAlternativeBtn');
+            var verifyBtn = byId('verifyPaymentBtn');
+            var rejectPaymentBtn = byId('rejectPaymentBtn');
+
+            if (approveBtn) approveBtn.addEventListener('click', openApprove);
+            if (rejectBtn) rejectBtn.addEventListener('click', openReject);
+            if (recommendBtn) recommendBtn.addEventListener('click', openRecommendAlternative);
+            if (verifyBtn) verifyBtn.addEventListener('click', openVerifyPayment);
+            if (rejectPaymentBtn) rejectPaymentBtn.addEventListener('click', openRejectPayment);
+
+            if (els.reasonInput) els.reasonInput.addEventListener('input', clearReasonError);
+        });
+    })();
 </script>
-
-<style>
-    .custom-scrollbar::-webkit-scrollbar {
-        width: 4px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-track {
-        background: transparent;
-    }
-    .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: rgba(59, 130, 246, 0.3);
-        border-radius: 10px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-        background: rgba(59, 130, 246, 0.6);
-    }
-</style>

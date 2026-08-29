@@ -43,6 +43,32 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// Payment receipts and medical clearances are sensitive documents served only
+// through the authenticated, ownership-checked DocumentsController - never
+// directly as static files. This must run before UseStaticFiles() below, or
+// static-file middleware would serve them to anyone who knows/guesses a URL,
+// with no authentication, ownership, or Organizer/Event check at all.
+// Segment-based matching (not a plain string prefix) so a differently named
+// public folder that merely starts with the same characters is never caught
+// by accident - every other wwwroot path (profile images, trail images,
+// event images, css/js/fonts) is unaffected.
+var blockedUploadSegments = new[] { "uploads/receipts", "uploads/medical-clearances" };
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path.Value?.Trim('/').ToLowerInvariant() ?? "";
+    var isBlocked = blockedUploadSegments.Any(segment =>
+        path == segment || path.StartsWith(segment + "/", StringComparison.Ordinal));
+
+    if (isBlocked)
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+
+    await next();
+});
+
 app.UseStaticFiles();
 
 app.UseRouting();
