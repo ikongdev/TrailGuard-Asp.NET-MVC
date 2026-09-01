@@ -1,152 +1,297 @@
 @model TrailGuard.Controllers.RecordsViewModel
 @{
     ViewData["Title"] = "Records";
+
+    // Plain semantic text, no pill shell - see DESIGN.md, Registration Status.
+    // Reuses the exact mapping already shipped on Organizer/Registrations.cshtml
+    // so the same status never reads as a different color on two pages.
+    Func<string, string> registrationStatusClass = status => status switch
+    {
+        "Pending" => "text-amber-400",
+        "Awaiting Payment" => "text-amber-400",
+        "For Payment Verification" => "text-blue-400",
+        "Accepted" => "text-emerald-400",
+        "Alternative Recommended" => "text-blue-400",
+        "Rejected" => "text-red-400",
+        "Cancelled" => "text-slate-400",
+        "Voided" => "text-slate-400",
+        _ => "text-gray-300"
+    };
+
+    Func<string, string> historyStatusClass = status => status switch
+    {
+        "Completed" => "text-blue-400",
+        "Cancelled" => "text-red-400",
+        _ => "text-gray-400"
+    };
+
+    string EventSearch(TrailGuard.Controllers.EventHistoryRowViewModel e) =>
+        $"{e.EventTitle} {e.TrailName} {(Model.IsAdmin ? e.OrganizerName : string.Empty)}".Trim().ToLowerInvariant();
+
+    string RegistrationSearch(TrailGuard.Controllers.RegistrationRowViewModel r) =>
+        $"{r.ParticipantName} {r.EventTitle} {(Model.IsAdmin ? r.OrganizerName : string.Empty)}".Trim().ToLowerInvariant();
+
+    string FeedbackSearch(TrailGuard.Controllers.FeedbackRowViewModel f) =>
+        $"{f.ParticipantName} {f.EventTitle}".Trim().ToLowerInvariant();
+
+    var eventWord = Model.EventHistory.Count == 1 ? "event" : "events";
+    var registrationWord = Model.Registrations.Count == 1 ? "registration" : "registrations";
+    var reviewWord = Model.FeedbackCount == 1 ? "review" : "reviews";
 }
 
-@* Success/Error feedback now goes through the canonical global toast host
-   in _Layout.cshtml instead of a page-local banner. *@
+@* Success/Error feedback goes through the canonical global toast host in _Layout.cshtml. *@
 
-@section PageHero {
-    <div class="pt-24 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
-        <div class="mb-8">
-            <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-linear-to-r from-orange-400 to-purple-400">Records</h1>
-            <p class="text-gray-400 mt-1 text-sm">View event history, participant registrations, trail usage, financial records, and feedback.</p>
+<div class="pt-24 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
+
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-white">Records</h1>
+        <p class="text-gray-400 mt-1 text-sm">Review event history, participant registrations, trail usage, and participant feedback.</p>
+    </div>
+
+    <div class="flex flex-col gap-4 mb-8 bg-white/5 backdrop-blur-xl p-5 rounded-2xl border border-white/10">
+        <div class="relative w-full">
+            <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden="true"></i>
+            <label for="searchInput" class="sr-only">Search records</label>
+            <input type="text" id="searchInput" placeholder="Search records..."
+                   class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-11 pr-4 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors placeholder-gray-500">
         </div>
 
-        <div class="flex flex-col gap-4 mb-8 bg-white/5 backdrop-blur-xl p-5 rounded-3xl border border-white/10 shadow-2xl">
-            <div class="relative w-full">
-                <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                <input type="text" id="searchInput" placeholder="Search records..." value="@ViewData["CurrentFilter"]"
-                     class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-11 pr-4 py-3 focus:border-orange-500 focus:outline-none transition-colors placeholder-gray-500">
+        <div class="flex flex-wrap items-center gap-3">
+            <div class="relative inline-block">
+                <label for="historyStatusFilter" class="sr-only">History status</label>
+                <select id="historyStatusFilter" data-custom-select data-custom-select-portal
+                        data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-4 py-3 rounded-full bg-black/20 border border-white/10 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer hover:bg-white/10"
+                        class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors">
+                    <option value="All" class="bg-surface-card">All History</option>
+                    <option value="Completed" class="bg-surface-card">Completed</option>
+                    <option value="Cancelled" class="bg-surface-card">Cancelled</option>
+                </select>
             </div>
 
-            <div class="flex flex-col sm:flex-row gap-4">
-                <div class="flex items-center gap-2 flex-1">
-                    <span class="text-xs text-gray-400 w-8">From</span>
-                    <div class="relative flex-1">
-                        <input type="date" id="dateFrom" value="@ViewData["DateFrom"]"
-                               class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full px-4 py-3 focus:border-orange-500 focus:outline-none">
+            <div class="relative inline-block">
+                <label for="sortFilter" class="sr-only">Sort</label>
+                <select id="sortFilter" data-custom-select data-custom-select-portal
+                        data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-4 py-3 rounded-full bg-black/20 border border-white/10 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer hover:bg-white/10"
+                        class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors">
+                    <option value="newest" class="bg-surface-card">Newest first</option>
+                    <option value="oldest" class="bg-surface-card">Oldest first</option>
+                </select>
+            </div>
+
+            @if (Model.IsAdmin)
+            {
+                <div class="relative inline-block">
+                    <label for="organizerFilter" class="sr-only">Organizer</label>
+                    <select id="organizerFilter" data-custom-select data-custom-select-portal
+                            data-cs-menu-class="overflow-x-hidden" data-cs-menu-width-class="w-64"
+                            data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-4 py-3 rounded-full bg-black/20 border border-white/10 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer hover:bg-white/10"
+                            class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors">
+                        <option value="All" class="bg-surface-card" selected="@(Model.SelectedOrganizerId == null)">All Organizers</option>
+                        @foreach (var org in Model.OrganizerOptions)
+                        {
+                            <option value="@org.Id" class="bg-surface-card" selected="@(Model.SelectedOrganizerId == org.Id)">@org.Name</option>
+                        }
+                    </select>
+                </div>
+            }
+
+            <button type="button" id="clearFiltersBtn" class="rounded-full text-sm text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-colors px-5 py-3 focus:outline-none focus:ring-2 focus:ring-accent">
+                Clear filters
+            </button>
+
+            <button type="button" id="exportBtn" class="ml-auto rounded-full text-sm font-semibold text-white bg-white/5 hover:bg-white/10 border border-accent/40 hover:border-accent transition-colors px-6 py-3 flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50 disabled:cursor-not-allowed">
+                <i class="fa-solid fa-download" aria-hidden="true"></i> Export
+            </button>
+        </div>
+    </div>
+
+    <section id="eventHistorySection" class="mb-12" aria-labelledby="event-history-heading">
+        <div class="flex items-center justify-between gap-3 mb-4">
+            <h2 id="event-history-heading" class="text-xl font-bold text-white"><i class="fa-solid fa-calendar text-accent mr-2" aria-hidden="true"></i>Event History</h2>
+            <span id="eventHistoryCount" class="text-sm text-gray-400">@Model.EventHistory.Count @eventWord</span>
+        </div>
+
+        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
+            @if (Model.EventHistory.Any())
+            {
+                <div class="hidden lg:block relative">
+                    <div id="eventHistoryDesktopScroll" tabindex="0" aria-label="Event history records" class="overflow-y-auto tg-records-scroll focus:outline-none focus:ring-2 focus:ring-accent focus:ring-inset">
+                        <table class="w-full text-left text-sm border-collapse">
+                            <caption class="sr-only">Completed and cancelled events, with trail, date, status, capacity, and registered participant counts.</caption>
+                            <thead class="sticky top-0 z-10 bg-surface-card">
+                                <tr class="border-b border-white/10">
+                                    <th scope="col" class="px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Event Title</th>
+                                    <th scope="col" class="px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Trail</th>
+                                    @if (Model.IsAdmin)
+                                    {
+                                        <th scope="col" class="px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Organizer</th>
+                                    }
+                                    <th scope="col" class="px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Date</th>
+                                    <th scope="col" class="px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
+                                    <th scope="col" class="px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Capacity</th>
+                                    <th scope="col" class="px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Registered</th>
+                                </tr>
+                            </thead>
+                            <tbody id="eventHistoryTbody" class="divide-y divide-white/10">
+                                @foreach (var e in Model.EventHistory)
+                                {
+                                    <tr data-id="@e.Id" data-search="@EventSearch(e)" data-status="@e.Status" data-date="@e.EventDateTime.ToString("o")" class="hover:bg-white/5 transition-colors">
+                                        <th scope="row" class="px-5 py-4 text-white font-medium wrap-break-word">@e.EventTitle</th>
+                                        <td class="px-5 py-4 text-gray-300 wrap-break-word">@e.TrailName</td>
+                                        @if (Model.IsAdmin)
+                                        {
+                                            <td class="px-5 py-4 text-gray-300 wrap-break-word">@e.OrganizerName</td>
+                                        }
+                                        <td class="px-5 py-4 text-gray-300 whitespace-nowrap">@e.EventDate.ToString("MMM dd, yyyy")</td>
+                                        <td class="px-5 py-4 font-semibold @historyStatusClass(e.Status)">@e.Status</td>
+                                        <td class="px-5 py-4 text-gray-300">@e.Capacity</td>
+                                        <td class="px-5 py-4 text-gray-300">@e.Registered</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
                     </div>
+                    <div id="eventHistoryDesktopCue" class="tg-records-cue" aria-hidden="true"><span>Scroll for more <i class="fa-solid fa-chevron-down ml-1" aria-hidden="true"></i></span></div>
                 </div>
 
-                <div class="flex items-center gap-2 flex-1">
-                    <span class="text-xs text-gray-400 w-8">To</span>
-                    <div class="relative flex-1">
-                        <input type="date" id="dateTo" value="@ViewData["DateTo"]"
-                               class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full px-4 py-3 focus:border-orange-500 focus:outline-none">
+                <div class="lg:hidden relative">
+                    <div id="eventHistoryMobileScroll" tabindex="0" aria-label="Event history records" class="overflow-y-auto tg-records-scroll space-y-3 p-4 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-inset">
+                        @foreach (var e in Model.EventHistory)
+                        {
+                            <article data-id="@e.Id" data-search="@EventSearch(e)" data-status="@e.Status" data-date="@e.EventDateTime.ToString("o")" class="bg-white/5 border border-white/10 rounded-xl p-4">
+                                <h3 class="text-white font-semibold text-base mb-3 wrap-break-word">@e.EventTitle</h3>
+                                <dl class="space-y-2.5 text-sm">
+                                    <div><dt class="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Trail</dt><dd class="text-gray-200 wrap-break-word">@e.TrailName</dd></div>
+                                    @if (Model.IsAdmin)
+                                    {
+                                        <div><dt class="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Organizer</dt><dd class="text-gray-200 wrap-break-word">@e.OrganizerName</dd></div>
+                                    }
+                                    <div><dt class="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Date</dt><dd class="text-gray-200">@e.EventDate.ToString("MMM dd, yyyy")</dd></div>
+                                    <div><dt class="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Status</dt><dd class="font-semibold @historyStatusClass(e.Status)">@e.Status</dd></div>
+                                    <div class="flex gap-6"><div><dt class="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Capacity</dt><dd class="text-gray-200">@e.Capacity</dd></div><div><dt class="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Registered</dt><dd class="text-gray-200">@e.Registered</dd></div></div>
+                                </dl>
+                            </article>
+                        }
                     </div>
+                    <div id="eventHistoryMobileCue" class="tg-records-cue" aria-hidden="true"><span>Scroll for more <i class="fa-solid fa-chevron-down ml-1" aria-hidden="true"></i></span></div>
                 </div>
 
-                <button id="exportBtn" class="primary-btn px-6 py-3 rounded-full text-sm font-bold text-white bg-linear-to-r from-orange-500 to-purple-600 hover:opacity-90 transition-all flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-download"></i> Export
-                </button>
-            </div>
-        </div>
-
-        <div id="eventsSection" class="mb-12">
-            <h2 class="text-xl font-bold text-white mb-4"><i class="fa-solid fa-calendar text-orange-400 mr-2"></i>Event History</h2>
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left">
-                        <thead class="border-b border-gray-700">
-                            <tr>
-                                <th class="px-6 py-3 text-xs font-medium text-gray-400 uppercase">Event Title</th>
-                                <th class="px-6 py-3 text-xs font-medium text-gray-400 uppercase">Trail</th>
-                                <th class="px-6 py-3 text-xs font-medium text-gray-400 uppercase">Date</th>
-                                <th class="px-6 py-3 text-xs font-medium text-gray-400 uppercase">Status</th>
-                                <th class="px-6 py-3 text-xs font-medium text-gray-400 uppercase">Capacity</th>
-                                <th class="px-6 py-3 text-xs font-medium text-gray-400 uppercase">Registered</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var eventItem in Model.Events)
-                            {
-                                var registeredCount = Model.Registrations.Count(r => r.EventId == eventItem.Id);
-                                <tr class="border-b border-gray-800 hover:bg-white/5 transition-colors">
-                                    <td class="px-6 py-4 text-white">@eventItem.EventTitle</td>
-                                    <td class="px-6 py-4 text-gray-300">@eventItem.Trail?.Name</td>
-                                    <td class="px-6 py-4 text-gray-300">@eventItem.EventDate.ToString("MMM dd, yyyy")</td>
-                                    <td class="px-6 py-4">
-                                        <span class="text-xs px-2 py-1 rounded-full font-semibold 
-                                            @(eventItem.Status == "Upcoming" ? "bg-green-600 text-white" : 
-                                              eventItem.Status == "Completed" ? "bg-blue-600 text-white" : 
-                                              eventItem.Status == "Cancelled" ? "bg-red-600 text-white" : 
-                                              "bg-gray-600 text-white")">
-                                            @eventItem.Status
-                                        </span>
-                                    </td>
-                                    <td class="px-6 py-4 text-gray-300">@eventItem.Capacity</td>
-                                    <td class="px-6 py-4 text-gray-300">@registeredCount</td>
-                                </tr>
-                            }
-                            @if (!Model.Events.Any())
-                            {
-                                <tr>
-                                    <td colspan="6" class="px-6 py-8 text-center text-gray-500">No events found</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
+                <div id="eventHistoryNoMatches" hidden class="text-center py-12 px-5">
+                    <i class="fa-solid fa-magnifying-glass text-3xl text-slate-600 mb-3" aria-hidden="true"></i>
+                    <p class="text-gray-400 text-sm">No events match your search or filters.</p>
                 </div>
-            </div>
-        </div>
-
-        <div id="registrationsSection" class="mb-12">
-            <h2 class="text-xl font-bold text-white mb-4"><i class="fa-solid fa-users text-orange-400 mr-2"></i>Participant Registrations</h2>
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left">
-                        <thead class="border-b border-gray-700">
-                            <tr>
-                                <th class="px-6 py-3 text-xs font-medium text-gray-400 uppercase">Participant</th>
-                                <th class="px-6 py-3 text-xs font-medium text-gray-400 uppercase">Event</th>
-                                <th class="px-6 py-3 text-xs font-medium text-gray-400 uppercase">Pickup Point</th>
-                                <th class="px-6 py-3 text-xs font-medium text-gray-400 uppercase">Registered At</th>
-                                <th class="px-6 py-3 text-xs font-medium text-gray-400 uppercase">Payment Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var reg in Model.Registrations)
-                            {
-                                <tr class="border-b border-gray-800 hover:bg-white/5 transition-colors">
-                                    <td class="px-6 py-4 text-white">@reg.ParticipantName</td>
-                                    <td class="px-6 py-4 text-gray-300">@reg.Event?.EventTitle</td>
-                                    <td class="px-6 py-4 text-gray-300">@reg.PickupPoint</td>
-                                    <td class="px-6 py-4 text-gray-300">@reg.RegisteredAt.ToString("MMM dd, yyyy")</td>
-                                    <td class="px-6 py-4">
-                                        <span class="text-xs px-2 py-1 rounded-full font-semibold @(reg.IsPaid ? "bg-green-600 text-white" : "bg-yellow-600 text-white")">
-                                            @(reg.IsPaid ? "Paid" : "Pending")
-                                        </span>
-                                    </td>
-                                </tr>
-                            }
-                            @if (!Model.Registrations.Any())
-                            {
-                                <tr>
-                                    <td colspan="5" class="px-6 py-8 text-center text-gray-500">No registrations found</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
+            }
+            else
+            {
+                <div class="text-center py-16 px-5">
+                    <i class="fa-regular fa-calendar text-4xl text-slate-600 mb-3" aria-hidden="true"></i>
+                    <p class="text-gray-400 text-sm">No historical events yet. Completed and cancelled events will appear here.</p>
                 </div>
-            </div>
+            }
+        </div>
+    </section>
+
+    <section id="registrationsSection" class="mb-12" aria-labelledby="registrations-heading">
+        <div class="flex items-center justify-between gap-3 mb-4">
+            <h2 id="registrations-heading" class="text-xl font-bold text-white"><i class="fa-solid fa-users text-accent mr-2" aria-hidden="true"></i>Participant Registrations</h2>
+            <span id="registrationsCount" class="text-sm text-gray-400">@Model.Registrations.Count @registrationWord</span>
         </div>
 
-        <div id="trailsSection" class="mb-12">
-            <h2 class="text-xl font-bold text-white mb-4"><i class="fa-solid fa-mountain text-orange-400 mr-2"></i>Trail Usage & Popularity</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
+            @if (Model.Registrations.Any())
+            {
+                <div class="hidden lg:block relative">
+                    <div id="registrationsDesktopScroll" tabindex="0" aria-label="Participant registration records" class="overflow-y-auto tg-records-scroll focus:outline-none focus:ring-2 focus:ring-accent focus:ring-inset">
+                        <table class="w-full text-left text-sm border-collapse">
+                            <caption class="sr-only">Participant registrations with event, registration date, and status.</caption>
+                            <thead class="sticky top-0 z-10 bg-surface-card">
+                                <tr class="border-b border-white/10">
+                                    <th scope="col" class="px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Participant</th>
+                                    <th scope="col" class="px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Event</th>
+                                    @if (Model.IsAdmin)
+                                    {
+                                        <th scope="col" class="px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Organizer</th>
+                                    }
+                                    <th scope="col" class="px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Registered</th>
+                                    <th scope="col" class="px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="registrationsTbody" class="divide-y divide-white/10">
+                                @foreach (var r in Model.Registrations)
+                                {
+                                    <tr data-id="@r.Id" data-search="@RegistrationSearch(r)" data-date="@r.RegisteredAt.ToString("o")" class="hover:bg-white/5 transition-colors">
+                                        <th scope="row" class="px-5 py-4 text-white font-medium wrap-break-word">@r.ParticipantName</th>
+                                        <td class="px-5 py-4 text-gray-300 wrap-break-word">@r.EventTitle</td>
+                                        @if (Model.IsAdmin)
+                                        {
+                                            <td class="px-5 py-4 text-gray-300 wrap-break-word">@r.OrganizerName</td>
+                                        }
+                                        <td class="px-5 py-4 text-gray-300 whitespace-nowrap">@r.RegisteredAt.ToString("MMM dd, yyyy")</td>
+                                        <td class="px-5 py-4 font-semibold @registrationStatusClass(r.Status)">@r.Status</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="registrationsDesktopCue" class="tg-records-cue" aria-hidden="true"><span>Scroll for more <i class="fa-solid fa-chevron-down ml-1" aria-hidden="true"></i></span></div>
+                </div>
+
+                <div class="lg:hidden relative">
+                    <div id="registrationsMobileScroll" tabindex="0" aria-label="Participant registration records" class="overflow-y-auto tg-records-scroll space-y-3 p-4 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-inset">
+                        @foreach (var r in Model.Registrations)
+                        {
+                            <article data-id="@r.Id" data-search="@RegistrationSearch(r)" data-date="@r.RegisteredAt.ToString("o")" class="bg-white/5 border border-white/10 rounded-xl p-4">
+                                <h3 class="text-white font-semibold text-base mb-3 wrap-break-word">@r.ParticipantName</h3>
+                                <dl class="space-y-2.5 text-sm">
+                                    <div><dt class="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Event</dt><dd class="text-gray-200 wrap-break-word">@r.EventTitle</dd></div>
+                                    @if (Model.IsAdmin)
+                                    {
+                                        <div><dt class="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Organizer</dt><dd class="text-gray-200 wrap-break-word">@r.OrganizerName</dd></div>
+                                    }
+                                    <div><dt class="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Registered</dt><dd class="text-gray-200">@r.RegisteredAt.ToString("MMM dd, yyyy")</dd></div>
+                                    <div><dt class="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Status</dt><dd class="font-semibold @registrationStatusClass(r.Status)">@r.Status</dd></div>
+                                </dl>
+                            </article>
+                        }
+                    </div>
+                    <div id="registrationsMobileCue" class="tg-records-cue" aria-hidden="true"><span>Scroll for more <i class="fa-solid fa-chevron-down ml-1" aria-hidden="true"></i></span></div>
+                </div>
+
+                <div id="registrationsNoMatches" hidden class="text-center py-12 px-5">
+                    <i class="fa-solid fa-magnifying-glass text-3xl text-slate-600 mb-3" aria-hidden="true"></i>
+                    <p class="text-gray-400 text-sm">No registrations match your search or filters.</p>
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-16 px-5">
+                    <i class="fa-regular fa-clipboard text-4xl text-slate-600 mb-3" aria-hidden="true"></i>
+                    <p class="text-gray-400 text-sm">No registrations found.</p>
+                </div>
+            }
+        </div>
+    </section>
+
+    <section id="trailUsageSection" class="mb-12" aria-labelledby="trail-usage-heading">
+        <div class="flex items-center justify-between gap-3 mb-4">
+            <h2 id="trail-usage-heading" class="text-xl font-bold text-white"><i class="fa-solid fa-mountain text-accent mr-2" aria-hidden="true"></i>Trail Usage &amp; Popularity</h2>
+        </div>
+
+        @if (Model.TrailUsage.Any())
+        {
+            <div id="trailUsageGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 @foreach (var trail in Model.TrailUsage)
                 {
-                    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
+                    <div data-search="@trail.TrailName.ToLowerInvariant()" class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
                         <div class="flex items-center gap-3 mb-3">
-                            <div class="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
-                                <i class="fa-solid fa-mountain text-purple-400"></i>
+                            <div class="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
+                                <i class="fa-solid fa-mountain text-accent" aria-hidden="true"></i>
                             </div>
-                            <h3 class="text-lg font-bold text-white">@trail.TrailName</h3>
+                            <h3 class="text-lg font-bold text-white wrap-break-word">@trail.TrailName</h3>
                         </div>
                         <div class="space-y-2">
                             <div class="flex justify-between">
-                                <span class="text-gray-400">Total Events</span>
+                                <span class="text-gray-400">Completed Events</span>
                                 <span class="text-white font-semibold">@trail.TotalEvents</span>
                             </div>
                             <div class="flex justify-between">
@@ -156,83 +301,36 @@
                         </div>
                     </div>
                 }
-                @if (!Model.TrailUsage.Any())
-                {
-                    <div class="col-span-full text-center py-8 text-gray-500">No trail usage data available</div>
-                }
             </div>
+            <div id="trailUsageNoMatches" hidden class="text-center py-12 text-gray-400 text-sm">No trails match your search.</div>
+        }
+        else
+        {
+            <div class="text-center py-12 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl">
+                <i class="fa-regular fa-compass text-4xl text-slate-600 mb-3" aria-hidden="true"></i>
+                <p class="text-gray-400 text-sm">No completed events yet, so no trail usage to report.</p>
+            </div>
+        }
+    </section>
+
+    <section id="feedbackSection" aria-labelledby="feedback-heading">
+        <div class="flex items-center justify-between gap-3 mb-4">
+            <h2 id="feedback-heading" class="text-xl font-bold text-white"><i class="fa-solid fa-star text-accent mr-2" aria-hidden="true"></i>Feedback &amp; Ratings</h2>
         </div>
 
-        <div id="financialSection" class="mb-12">
-            <h2 class="text-xl font-bold text-white mb-4"><i class="fa-solid fa-chart-line text-orange-400 mr-2"></i>Financial Records</h2>
-            
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                <div class="bg-linear-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 rounded-2xl p-5">
-                    <p class="text-gray-400 text-sm">Total Revenue</p>
-                    <p class="text-2xl font-bold text-green-400">₱ @Model.FinancialRecords.Sum(f => f.TotalRevenue).ToString("N0")</p>
-                </div>
-                <div class="bg-linear-to-r from-blue-500/20 to-cyan-500/20 border border-blue-500/30 rounded-2xl p-5">
-                    <p class="text-gray-400 text-sm">Total Completed Events</p>
-                    <p class="text-2xl font-bold text-blue-400">@Model.FinancialRecords.Count</p>
-                </div>
-                <div class="bg-linear-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 rounded-2xl p-5">
-                    <p class="text-gray-400 text-sm">Total Participants</p>
-                    <p class="text-2xl font-bold text-purple-400">@Model.FinancialRecords.Sum(f => f.TotalParticipants).ToString("N0")</p>
-                </div>
-            </div>
-
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left">
-                        <thead class="border-b border-gray-700">
-                            <tr>
-                                <th class="px-6 py-3 text-xs font-medium text-gray-400 uppercase">Event</th>
-                                <th class="px-6 py-3 text-xs font-medium text-gray-400 uppercase">Date</th>
-                                <th class="px-6 py-3 text-xs font-medium text-gray-400 uppercase">Registration Fee</th>
-                                <th class="px-6 py-3 text-xs font-medium text-gray-400 uppercase">Participants</th>
-                                <th class="px-6 py-3 text-xs font-medium text-gray-400 uppercase">Revenue</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var record in Model.FinancialRecords)
-                            {
-                                <tr class="border-b border-gray-800 hover:bg-white/5 transition-colors">
-                                    <td class="px-6 py-4 text-white">@record.EventTitle</td>
-                                    <td class="px-6 py-4 text-gray-300">@record.EventDate.ToString("MMM dd, yyyy")</td>
-                                    <td class="px-6 py-4 text-gray-300">₱ @record.RegistrationFee.ToString("N0")</td>
-                                    <td class="px-6 py-4 text-gray-300">@record.TotalParticipants</td>
-                                    <td class="px-6 py-4 text-green-400 font-semibold">₱ @record.TotalRevenue.ToString("N0")</td>
-                                </tr>
-                            }
-                            @if (!Model.FinancialRecords.Any())
-                            {
-                                <tr>
-                                    <td colspan="5" class="px-6 py-8 text-center text-gray-500">No financial records found</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <div id="feedbackSection">
-            <h2 class="text-xl font-bold text-white mb-4"><i class="fa-solid fa-star text-orange-400 mr-2"></i>Feedback & Ratings</h2>
-            
-            @{
-                var avgRating = Model.Feedbacks.Any() ? Model.Feedbacks.Average(f => f.Rating) : 0;
-            }
-            <div class="bg-linear-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 rounded-2xl p-5 mb-6 text-center">
+        @if (Model.FeedbackCount > 0)
+        {
+            <div id="feedbackSummaryCard" class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 mb-6 flex flex-col items-center text-center">
                 <p class="text-gray-400 text-sm">Average Rating</p>
-                <div class="text-4xl font-bold text-yellow-400">@avgRating.ToString("F1")</div>
-                <div class="text-yellow-400 mt-1">
+                <div id="feedbackAverageValue" class="text-4xl font-bold text-white mt-1">@Model.FeedbackAverage.ToString("F1")</div>
+                <div id="feedbackAverageStars" class="text-amber-400 mt-2" aria-hidden="true">
                     @for (int i = 1; i <= 5; i++)
                     {
-                        if (i <= Math.Floor(avgRating))
+                        if (i <= Math.Floor(Model.FeedbackAverage))
                         {
                             <i class="fa-solid fa-star"></i>
                         }
-                        else if (i - 0.5 <= avgRating)
+                        else if (i - 0.5 <= Model.FeedbackAverage)
                         {
                             <i class="fa-solid fa-star-half-alt"></i>
                         }
@@ -241,352 +339,556 @@
                             <i class="fa-regular fa-star"></i>
                         }
                     }
-                    <span class="text-gray-400 text-sm ml-2">(@Model.Feedbacks.Count reviews)</span>
                 </div>
+                @* Accessible text alternative to the star row above - this is
+                   the node search-driven recomputation updates, and it's the
+                   only place the average/count is described in a way a
+                   screen reader announces, so "don't rely on stars or color
+                   alone" holds even after client-side recomputation. *@
+                <p id="feedbackAverageSummaryText" class="text-gray-300 text-sm mt-2">@Model.FeedbackAverage.ToString("F1") out of 5 &bull; @Model.FeedbackCount @reviewWord</p>
             </div>
 
-            <div class="space-y-4">
-                @foreach (var feedback in Model.Feedbacks)
-                {
-                    var trailConditionColor = feedback.TrailCondition switch
+            <div class="relative">
+                <div id="feedbackScroll" tabindex="0" aria-label="Participant feedback records" class="overflow-y-auto tg-records-scroll space-y-4 pr-1 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-inset">
+                    @foreach (var feedback in Model.Feedbacks)
                     {
-                        "Well-maintained" => "bg-green-500/20 text-green-400 border-green-500/30",
-                        "Passable" => "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-                        "Poorly maintained" => "bg-orange-500/20 text-orange-400 border-orange-500/30",
-                        "Hazardous" => "bg-red-500/20 text-red-400 border-red-500/30",
-                        _ => "bg-gray-500/20 text-gray-400 border-gray-500/30"
-                    };
+                        var trailConditionColor = feedback.TrailCondition switch
+                        {
+                            "Well-maintained" => "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+                            "Passable" => "bg-amber-500/10 text-amber-400 border-amber-500/20",
+                            "Poorly maintained" => "bg-orange-500/10 text-orange-400 border-orange-500/20",
+                            "Hazardous" => "bg-red-500/10 text-red-400 border-red-500/20",
+                            _ => "bg-gray-500/10 text-gray-300 border-gray-500/20"
+                        };
 
-                    var hasTrailSection = !string.IsNullOrEmpty(feedback.TrailCondition) || !string.IsNullOrEmpty(feedback.TrailSignage) ||
-                        !string.IsNullOrEmpty(feedback.WaterSourceAvailability) || !string.IsNullOrEmpty(feedback.HazardsEncountered);
-                    var hasOrganizerSection = !string.IsNullOrEmpty(feedback.PreEventCommunication) || !string.IsNullOrEmpty(feedback.SafetyManagement) ||
-                        !string.IsNullOrEmpty(feedback.GroupManagement) || !string.IsNullOrEmpty(feedback.Comment);
+                        var hasTrailSection = !string.IsNullOrEmpty(feedback.TrailCondition) || !string.IsNullOrEmpty(feedback.TrailSignage) ||
+                            !string.IsNullOrEmpty(feedback.WaterSourceAvailability) || !string.IsNullOrEmpty(feedback.HazardsEncountered);
+                        var hasOrganizerSection = !string.IsNullOrEmpty(feedback.PreEventCommunication) || !string.IsNullOrEmpty(feedback.SafetyManagement) ||
+                            !string.IsNullOrEmpty(feedback.GroupManagement) || !string.IsNullOrEmpty(feedback.Comment);
 
-                    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
-                        <div class="flex justify-between items-start mb-3">
-                            <div class="flex items-center gap-2">
-                                <div class="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center shrink-0">
-                                    <i class="fa-solid fa-user text-orange-400 text-sm"></i>
+                        <article data-id="@feedback.Id" data-search="@FeedbackSearch(feedback)" data-date="@feedback.CreatedAt.ToString("o")" data-rating="@feedback.Rating" class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
+                            <div class="flex justify-between items-start mb-3 gap-3">
+                                <div class="flex items-center gap-2 min-w-0">
+                                    <div class="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
+                                        <i class="fa-solid fa-user text-accent text-sm" aria-hidden="true"></i>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <p class="text-white font-semibold wrap-break-word">@feedback.ParticipantName</p>
+                                        <p class="text-xs text-gray-500 wrap-break-word">@feedback.CreatedAt.ToString("MMM dd, yyyy") &bull; @feedback.EventTitle</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <p class="text-white font-semibold">@(feedback.User?.FirstName ?? "Anonymous")</p>
-                                    <p class="text-xs text-gray-500">@feedback.CreatedAt.ToString("MMM dd, yyyy") &bull; @feedback.Event?.EventTitle</p>
+                                <div class="shrink-0 text-right">
+                                    <span class="sr-only">Rating: @feedback.Rating out of 5</span>
+                                    <div class="text-amber-400" aria-hidden="true">
+                                        @for (int i = 1; i <= 5; i++)
+                                        {
+                                            if (i <= feedback.Rating)
+                                            {
+                                                <i class="fa-solid fa-star text-xs"></i>
+                                            }
+                                            else
+                                            {
+                                                <i class="fa-regular fa-star text-xs"></i>
+                                            }
+                                        }
+                                    </div>
                                 </div>
                             </div>
-                            <div class="text-yellow-400 shrink-0">
-                                @for (int i = 1; i <= 5; i++)
+
+                            <div class="ml-10 space-y-3">
+                                @if (!string.IsNullOrEmpty(feedback.DifficultyExperience))
                                 {
-                                    if (i <= feedback.Rating)
-                                    {
-                                        <i class="fa-solid fa-star text-xs"></i>
-                                    }
-                                    else
-                                    {
-                                        <i class="fa-regular fa-star text-xs"></i>
-                                    }
+                                    <div>
+                                        <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Hiking Experience</p>
+                                        <span class="inline-block px-2.5 py-1 rounded-full text-xs font-medium bg-accent/10 text-accent border border-accent/20">@feedback.DifficultyExperience</span>
+                                    </div>
+                                }
+
+                                @if (hasTrailSection)
+                                {
+                                    <div>
+                                        <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Trail Conditions</p>
+                                        <div class="flex flex-wrap gap-1.5">
+                                            @if (!string.IsNullOrEmpty(feedback.TrailCondition))
+                                            {
+                                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border @trailConditionColor">
+                                                    <i class="fa-solid fa-road" aria-hidden="true"></i> @feedback.TrailCondition
+                                                </span>
+                                            }
+                                            @if (!string.IsNullOrEmpty(feedback.TrailSignage))
+                                            {
+                                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-500/10 text-gray-300 border border-gray-500/20">
+                                                    <i class="fa-solid fa-signs-post" aria-hidden="true"></i> Signage: @feedback.TrailSignage
+                                                </span>
+                                            }
+                                            @if (!string.IsNullOrEmpty(feedback.WaterSourceAvailability))
+                                            {
+                                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-500/10 text-gray-300 border border-gray-500/20">
+                                                    <i class="fa-solid fa-droplet" aria-hidden="true"></i> Water: @feedback.WaterSourceAvailability
+                                                </span>
+                                            }
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(feedback.HazardsEncountered))
+                                        {
+                                            <p class="text-xs text-red-300/80 mt-1.5"><i class="fa-solid fa-triangle-exclamation mr-1" aria-hidden="true"></i>@feedback.HazardsEncountered</p>
+                                        }
+                                    </div>
+                                }
+
+                                @if (hasOrganizerSection)
+                                {
+                                    <div>
+                                        <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Organizer &amp; Event Management</p>
+                                        <div class="flex flex-wrap gap-1.5">
+                                            @if (!string.IsNullOrEmpty(feedback.PreEventCommunication))
+                                            {
+                                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                                                    <i class="fa-solid fa-comments" aria-hidden="true"></i> Communication: @feedback.PreEventCommunication
+                                                </span>
+                                            }
+                                            @if (!string.IsNullOrEmpty(feedback.SafetyManagement))
+                                            {
+                                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                                                    <i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Safety: @feedback.SafetyManagement
+                                                </span>
+                                            }
+                                            @if (!string.IsNullOrEmpty(feedback.GroupManagement))
+                                            {
+                                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                                                    <i class="fa-solid fa-people-group" aria-hidden="true"></i> Group: @feedback.GroupManagement
+                                                </span>
+                                            }
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(feedback.Comment))
+                                        {
+                                            <p class="text-gray-300 text-sm mt-2 wrap-break-word">@feedback.Comment</p>
+                                        }
+                                    </div>
                                 }
                             </div>
-                        </div>
-
-                        <div class="ml-10 space-y-3">
-                            @if (!string.IsNullOrEmpty(feedback.DifficultyExperience))
-                            {
-                                <div>
-                                    <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Hiking Experience</p>
-                                    <span class="inline-block px-2.5 py-1 rounded-full text-xs font-medium bg-orange-500/10 text-orange-300 border border-orange-500/20">@feedback.DifficultyExperience</span>
-                                </div>
-                            }
-
-                            @if (hasTrailSection)
-                            {
-                                <div>
-                                    <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Trail Conditions</p>
-                                    <div class="flex flex-wrap gap-1.5">
-                                        @if (!string.IsNullOrEmpty(feedback.TrailCondition))
-                                        {
-                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border @trailConditionColor">
-                                                <i class="fa-solid fa-road"></i> @feedback.TrailCondition
-                                            </span>
-                                        }
-                                        @if (!string.IsNullOrEmpty(feedback.TrailSignage))
-                                        {
-                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-500/10 text-gray-300 border border-gray-500/20">
-                                                <i class="fa-solid fa-signs-post"></i> Signage: @feedback.TrailSignage
-                                            </span>
-                                        }
-                                        @if (!string.IsNullOrEmpty(feedback.WaterSourceAvailability))
-                                        {
-                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-500/10 text-gray-300 border border-gray-500/20">
-                                                <i class="fa-solid fa-droplet"></i> Water: @feedback.WaterSourceAvailability
-                                            </span>
-                                        }
-                                    </div>
-                                    @if (!string.IsNullOrEmpty(feedback.HazardsEncountered))
-                                    {
-                                        <p class="text-xs text-red-300/80 mt-1.5"><i class="fa-solid fa-triangle-exclamation mr-1"></i>@feedback.HazardsEncountered</p>
-                                    }
-                                </div>
-                            }
-
-                            @if (hasOrganizerSection)
-                            {
-                                <div>
-                                    <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Organizer & Event Management</p>
-                                    <div class="flex flex-wrap gap-1.5">
-                                        @if (!string.IsNullOrEmpty(feedback.PreEventCommunication))
-                                        {
-                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-300 border border-blue-500/20">
-                                                <i class="fa-solid fa-comments"></i> Communication: @feedback.PreEventCommunication
-                                            </span>
-                                        }
-                                        @if (!string.IsNullOrEmpty(feedback.SafetyManagement))
-                                        {
-                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-300 border border-blue-500/20">
-                                                <i class="fa-solid fa-shield-halved"></i> Safety: @feedback.SafetyManagement
-                                            </span>
-                                        }
-                                        @if (!string.IsNullOrEmpty(feedback.GroupManagement))
-                                        {
-                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-300 border border-blue-500/20">
-                                                <i class="fa-solid fa-people-group"></i> Group: @feedback.GroupManagement
-                                            </span>
-                                        }
-                                    </div>
-                                    @if (!string.IsNullOrEmpty(feedback.Comment))
-                                    {
-                                        <p class="text-gray-300 text-sm mt-2">@feedback.Comment</p>
-                                    }
-                                </div>
-                            }
-                        </div>
-                    </div>
-                }
-                @if (!Model.Feedbacks.Any())
-                {
-                    <div class="text-center py-8 text-gray-500">No feedback submitted yet</div>
-                }
+                        </article>
+                    }
+                </div>
+                <div id="feedbackCue" class="tg-records-cue" aria-hidden="true"><span>Scroll for more <i class="fa-solid fa-chevron-down ml-1" aria-hidden="true"></i></span></div>
             </div>
-        </div>
-    </div>
-}
-
-<style>
-    .primary-btn {
-        background: linear-gradient(to right, #f97316, #9333ea);
-    }
-    .primary-btn:hover {
-        opacity: 0.9;
-        transform: scale(1.02);
-    }
-</style>
+            <div id="feedbackNoMatches" hidden class="text-center py-12 text-gray-400 text-sm">No feedback matches your search.</div>
+        }
+        else
+        {
+            <div class="text-center py-12 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl">
+                <i class="fa-regular fa-comment-dots text-4xl text-slate-600 mb-3" aria-hidden="true"></i>
+                <p class="text-gray-400 text-sm">No feedback submitted yet.</p>
+            </div>
+        }
+    </section>
+</div>
 
 <script>
-    document.addEventListener("DOMContentLoaded", function () {
-        const searchInput = document.getElementById('searchInput');
-        const dateFrom = document.getElementById('dateFrom');
-        const dateTo = document.getElementById('dateTo');
-        const exportBtn = document.getElementById('exportBtn');
-        
-        // Get all table bodies
-        const eventTableBody = document.querySelector('#eventsSection tbody');
-        const registrationTableBody = document.querySelector('#registrationsSection tbody');
-        const financialTableBody = document.querySelector('#financialSection tbody');
-        const feedbackContainer = document.querySelector('#feedbackSection .space-y-4');
-        const trailCards = document.querySelectorAll('#trailsSection .grid > div');
+    document.addEventListener('DOMContentLoaded', function () {
+        var isAdmin = @Html.Raw(Model.IsAdmin ? "true" : "false");
 
-        // Store original data
-        let originalEventRows = [];
-        let originalRegistrationRows = [];
-        let originalFinancialRows = [];
-        let originalFeedbackItems = [];
-        let originalTrailCards = [];
+        var searchInput = document.getElementById('searchInput');
+        var historyStatusFilter = document.getElementById('historyStatusFilter');
+        var sortFilter = document.getElementById('sortFilter');
+        var organizerFilter = document.getElementById('organizerFilter');
+        var clearFiltersBtn = document.getElementById('clearFiltersBtn');
+        var exportBtn = document.getElementById('exportBtn');
 
-        // Store rows on load
-        if (eventTableBody) {
-            originalEventRows = Array.from(eventTableBody.querySelectorAll('tr'));
-        }
-        if (registrationTableBody) {
-            originalRegistrationRows = Array.from(registrationTableBody.querySelectorAll('tr'));
-        }
-        if (financialTableBody) {
-            originalFinancialRows = Array.from(financialTableBody.querySelectorAll('tr'));
-        }
-        if (feedbackContainer) {
-            originalFeedbackItems = Array.from(feedbackContainer.querySelectorAll('.bg-white\\/5.backdrop-blur-xl.border.border-white\\/10.rounded-2xl.p-5'));
-        }
-        if (trailCards.length > 0) {
-            originalTrailCards = Array.from(trailCards);
+        function plural(count, singular, pluralWord) {
+            return count + ' ' + (count === 1 ? singular : pluralWord);
         }
 
-        // Function to filter a table by search term
-        function filterTableRows(rows, searchTerm, columns) {
-            rows.forEach(row => {
-                let match = false;
-                for (let i = 0; i < columns.length; i++) {
-                    const cell = row.cells[columns[i]];
-                    if (cell && cell.textContent.toLowerCase().includes(searchTerm)) {
-                        match = true;
-                        break;
-                    }
+        // ------------------------------------------------------------------
+        // Shared bounded-viewport + bottom scroll cue, reused across every
+        // scrollable region on this page (Event History desktop/mobile,
+        // Registrations desktop/mobile, Feedback). Mirrors the measured-
+        // height technique from Organizer/Registrations.cshtml (row heights
+        // vary with wrapped text, so a fixed pixel guess would either clip
+        // content or leave dead space) combined with the Organizer
+        // Dashboard's single bottom-only cue visual.
+        // ------------------------------------------------------------------
+        function createScrollRegion(scrollEl, cueEl, rows) {
+            if (!scrollEl) return { recalc: function () {} };
+
+            function updateCue() {
+                if (!cueEl) return;
+                var hasOverflow = scrollEl.scrollHeight > scrollEl.clientHeight + 1;
+                var atBottom = Math.ceil(scrollEl.scrollTop + scrollEl.clientHeight) >= scrollEl.scrollHeight - 1;
+                cueEl.classList.toggle('is-visible', hasOverflow && !atBottom);
+            }
+
+            function recalc() {
+                var visible = Array.prototype.filter.call(scrollEl.children, function (el) {
+                    return el.style.display !== 'none';
+                });
+
+                if (visible.length <= rows) {
+                    scrollEl.style.maxHeight = '';
+                    updateCue();
+                    return;
                 }
-                row.style.display = match ? '' : 'none';
+
+                var firstTop = visible[0].getBoundingClientRect().top;
+                var nextTop = visible[rows].getBoundingClientRect().top;
+                scrollEl.style.maxHeight = (nextTop - firstTop) + 'px';
+                updateCue();
+            }
+
+            var scheduled = false;
+            function scheduleRecalc() {
+                if (scheduled) return;
+                scheduled = true;
+                requestAnimationFrame(function () {
+                    scheduled = false;
+                    recalc();
+                });
+            }
+
+            scrollEl.addEventListener('scroll', updateCue, { passive: true });
+            window.addEventListener('resize', scheduleRecalc);
+
+            return { recalc: function () { scrollEl.scrollTop = 0; scheduleRecalc(); } };
+        }
+
+        // ------------------------------------------------------------------
+        // Event History - desktop <table> rows and mobile <article> cards
+        // are index-paired (both rendered from the same model, in the same
+        // order), so reordering one and moving the other by the same index
+        // keeps them in lockstep without a second data-id lookup pass.
+        // ------------------------------------------------------------------
+        var eventHistoryDesktopBody = document.getElementById('eventHistoryTbody');
+        var eventHistoryMobileBody = document.getElementById('eventHistoryMobileScroll');
+        var eventHistoryDesktopRegion = createScrollRegion(document.getElementById('eventHistoryDesktopScroll'), document.getElementById('eventHistoryDesktopCue'), 5);
+        var eventHistoryMobileRegion = createScrollRegion(eventHistoryMobileBody, document.getElementById('eventHistoryMobileCue'), 5);
+        var eventHistoryCountEl = document.getElementById('eventHistoryCount');
+        var eventHistoryNoMatches = document.getElementById('eventHistoryNoMatches');
+
+        var eventHistoryItems = eventHistoryDesktopBody ? Array.prototype.map.call(eventHistoryDesktopBody.children, function (tr, i) {
+            return {
+                tr: tr,
+                card: eventHistoryMobileBody ? eventHistoryMobileBody.children[i] : null,
+                id: tr.dataset.id,
+                search: tr.dataset.search || '',
+                status: tr.dataset.status || '',
+                date: new Date(tr.dataset.date).getTime()
+            };
+        }) : [];
+
+        function applyEventHistory() {
+            if (eventHistoryItems.length === 0) return;
+
+            var term = (searchInput.value || '').trim().toLowerCase();
+            var status = historyStatusFilter ? historyStatusFilter.value : 'All';
+            var oldestFirst = sortFilter && sortFilter.value === 'oldest';
+
+            var visible = eventHistoryItems.filter(function (item) {
+                var matchesSearch = !term || item.search.indexOf(term) !== -1;
+                var matchesStatus = status === 'All' || item.status === status;
+                return matchesSearch && matchesStatus;
+            });
+
+            visible.sort(function (a, b) {
+                var diff = oldestFirst ? (a.date - b.date) : (b.date - a.date);
+                if (diff !== 0) return diff;
+                return oldestFirst ? (a.id - b.id) : (b.id - a.id);
+            });
+
+            eventHistoryItems.forEach(function (item) {
+                item.tr.style.display = 'none';
+                if (item.card) item.card.style.display = 'none';
+            });
+            visible.forEach(function (item) {
+                item.tr.style.display = '';
+                if (item.card) item.card.style.display = '';
+                eventHistoryDesktopBody.appendChild(item.tr);
+                if (eventHistoryMobileBody && item.card) eventHistoryMobileBody.appendChild(item.card);
+            });
+
+            if (eventHistoryCountEl) eventHistoryCountEl.textContent = plural(visible.length, 'event', 'events');
+            if (eventHistoryNoMatches) eventHistoryNoMatches.hidden = visible.length !== 0;
+
+            eventHistoryDesktopRegion.recalc();
+            eventHistoryMobileRegion.recalc();
+        }
+
+        // ------------------------------------------------------------------
+        // Participant Registrations - same index-pairing technique as above.
+        // ------------------------------------------------------------------
+        var registrationsDesktopBody = document.getElementById('registrationsTbody');
+        var registrationsMobileBody = document.getElementById('registrationsMobileScroll');
+        var registrationsDesktopRegion = createScrollRegion(document.getElementById('registrationsDesktopScroll'), document.getElementById('registrationsDesktopCue'), 5);
+        var registrationsMobileRegion = createScrollRegion(registrationsMobileBody, document.getElementById('registrationsMobileCue'), 5);
+        var registrationsCountEl = document.getElementById('registrationsCount');
+        var registrationsNoMatches = document.getElementById('registrationsNoMatches');
+
+        var registrationItems = registrationsDesktopBody ? Array.prototype.map.call(registrationsDesktopBody.children, function (tr, i) {
+            return {
+                tr: tr,
+                card: registrationsMobileBody ? registrationsMobileBody.children[i] : null,
+                id: tr.dataset.id,
+                search: tr.dataset.search || '',
+                date: new Date(tr.dataset.date).getTime()
+            };
+        }) : [];
+
+        function applyRegistrations() {
+            if (registrationItems.length === 0) return;
+
+            var term = (searchInput.value || '').trim().toLowerCase();
+            var oldestFirst = sortFilter && sortFilter.value === 'oldest';
+
+            var visible = registrationItems.filter(function (item) {
+                return !term || item.search.indexOf(term) !== -1;
+            });
+
+            visible.sort(function (a, b) {
+                var diff = oldestFirst ? (a.date - b.date) : (b.date - a.date);
+                if (diff !== 0) return diff;
+                return oldestFirst ? (a.id - b.id) : (b.id - a.id);
+            });
+
+            registrationItems.forEach(function (item) {
+                item.tr.style.display = 'none';
+                if (item.card) item.card.style.display = 'none';
+            });
+            visible.forEach(function (item) {
+                item.tr.style.display = '';
+                if (item.card) item.card.style.display = '';
+                registrationsDesktopBody.appendChild(item.tr);
+                if (registrationsMobileBody && item.card) registrationsMobileBody.appendChild(item.card);
+            });
+
+            if (registrationsCountEl) registrationsCountEl.textContent = plural(visible.length, 'registration', 'registrations');
+            if (registrationsNoMatches) registrationsNoMatches.hidden = visible.length !== 0;
+
+            registrationsDesktopRegion.recalc();
+            registrationsMobileRegion.recalc();
+        }
+
+        // ------------------------------------------------------------------
+        // Trail Usage - search only, no sort/status control and no scroll
+        // viewport (the section stays a natural-height grid per spec).
+        // ------------------------------------------------------------------
+        var trailUsageGrid = document.getElementById('trailUsageGrid');
+        var trailUsageNoMatches = document.getElementById('trailUsageNoMatches');
+        var trailUsageCards = trailUsageGrid ? Array.prototype.slice.call(trailUsageGrid.children) : [];
+
+        function applyTrailUsage() {
+            if (trailUsageCards.length === 0) return;
+            var term = (searchInput.value || '').trim().toLowerCase();
+            var visibleCount = 0;
+            trailUsageCards.forEach(function (card) {
+                var match = !term || (card.dataset.search || '').indexOf(term) !== -1;
+                card.style.display = match ? '' : 'none';
+                if (match) visibleCount++;
+            });
+            if (trailUsageNoMatches) trailUsageNoMatches.hidden = visibleCount !== 0;
+        }
+
+        // ------------------------------------------------------------------
+        // Feedback - search + Newest/Oldest sort, single card list (no
+        // desktop/mobile split - the cards are already the compact
+        // presentation on every width), bounded to ~3 visible records.
+        // ------------------------------------------------------------------
+        var feedbackScroll = document.getElementById('feedbackScroll');
+        var feedbackRegion = createScrollRegion(feedbackScroll, document.getElementById('feedbackCue'), 3);
+        var feedbackNoMatches = document.getElementById('feedbackNoMatches');
+        var feedbackAverageValueEl = document.getElementById('feedbackAverageValue');
+        var feedbackAverageStarsEl = document.getElementById('feedbackAverageStars');
+        var feedbackAverageStars = feedbackAverageStarsEl ? Array.prototype.slice.call(feedbackAverageStarsEl.children) : [];
+        var feedbackAverageSummaryTextEl = document.getElementById('feedbackAverageSummaryText');
+
+        function parseValidRating(raw) {
+            var n = parseInt(raw, 10);
+            return (!isNaN(n) && n >= 1 && n <= 5) ? n : null;
+        }
+
+        var feedbackItems = feedbackScroll ? Array.prototype.map.call(feedbackScroll.children, function (card) {
+            return {
+                el: card,
+                id: card.dataset.id,
+                search: card.dataset.search || '',
+                date: new Date(card.dataset.date).getTime(),
+                rating: parseValidRating(card.dataset.rating)
+            };
+        }) : [];
+
+        // Recomputes the Average Rating card from exactly the rows currently
+        // visible in the list below it - never the full role-scoped set - so
+        // the summary can never describe more reviews than the participant
+        // can actually see. Called after every filter/sort pass (including
+        // sort-only and Clear Filters), so it never drifts from the list.
+        // Text nodes are updated via textContent only; star icons are
+        // updated via a whole-token className replacement (also not
+        // innerHTML) from a small fixed set of literal class strings.
+        function recomputeFeedbackSummary(visibleItems) {
+            var validRatings = visibleItems
+                .map(function (item) { return item.rating; })
+                .filter(function (r) { return r !== null; });
+
+            var count = validRatings.length;
+
+            if (count === 0) {
+                if (feedbackAverageValueEl) feedbackAverageValueEl.textContent = '—';
+                if (feedbackAverageStarsEl) feedbackAverageStarsEl.hidden = true;
+                if (feedbackAverageSummaryTextEl) feedbackAverageSummaryTextEl.textContent = 'No matching reviews';
+                return;
+            }
+
+            var sum = validRatings.reduce(function (a, b) { return a + b; }, 0);
+            var average = sum / count;
+            var averageLabel = average.toFixed(1);
+
+            if (feedbackAverageValueEl) feedbackAverageValueEl.textContent = averageLabel;
+
+            if (feedbackAverageStarsEl) {
+                feedbackAverageStarsEl.hidden = false;
+                feedbackAverageStars.forEach(function (starEl, index) {
+                    var position = index + 1;
+                    if (position <= Math.floor(average)) {
+                        starEl.className = 'fa-solid fa-star';
+                    } else if (position - 0.5 <= average) {
+                        starEl.className = 'fa-solid fa-star-half-alt';
+                    } else {
+                        starEl.className = 'fa-regular fa-star';
+                    }
+                });
+            }
+
+            if (feedbackAverageSummaryTextEl) {
+                feedbackAverageSummaryTextEl.textContent = averageLabel + ' out of 5 • ' + plural(count, 'review', 'reviews');
+            }
+        }
+
+        function applyFeedback() {
+            if (feedbackItems.length === 0) return;
+
+            var term = (searchInput.value || '').trim().toLowerCase();
+            var oldestFirst = sortFilter && sortFilter.value === 'oldest';
+
+            var visible = feedbackItems.filter(function (item) {
+                return !term || item.search.indexOf(term) !== -1;
+            });
+
+            visible.sort(function (a, b) {
+                var diff = oldestFirst ? (a.date - b.date) : (b.date - a.date);
+                if (diff !== 0) return diff;
+                return oldestFirst ? (a.id - b.id) : (b.id - a.id);
+            });
+
+            feedbackItems.forEach(function (item) { item.el.style.display = 'none'; });
+            visible.forEach(function (item) {
+                item.el.style.display = '';
+                feedbackScroll.appendChild(item.el);
+            });
+
+            if (feedbackNoMatches) feedbackNoMatches.hidden = visible.length !== 0;
+            recomputeFeedbackSummary(visible);
+            feedbackRegion.recalc();
+        }
+
+        function applyAll() {
+            applyEventHistory();
+            applyRegistrations();
+            applyTrailUsage();
+            applyFeedback();
+        }
+
+        var debounceTimer;
+        searchInput.addEventListener('input', function () {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(applyAll, 150);
+        });
+        if (historyStatusFilter) historyStatusFilter.addEventListener('change', applyEventHistory);
+        if (sortFilter) sortFilter.addEventListener('change', applyAll);
+
+        // Admin Organizer filter recomputes Trail Usage/Feedback aggregates
+        // (completed-event counts, accepted-participant totals, average
+        // rating) that can't be produced by hiding pre-rendered cards on the
+        // client - it navigates the page so the server recomputes them for
+        // the selected organizer, the same way the old date filters used to.
+        if (organizerFilter) {
+            organizerFilter.addEventListener('change', function () {
+                var value = organizerFilter.value;
+                var url = '/Records' + (value && value !== 'All' ? ('?organizerId=' + encodeURIComponent(value)) : '');
+                window.location.href = url;
             });
         }
 
-        // Function to filter feedback items
-        function filterFeedbackItems(items, searchTerm) {
-            items.forEach(item => {
-                const text = item.textContent.toLowerCase();
-                item.style.display = text.includes(searchTerm) ? '' : 'none';
+        if (clearFiltersBtn) {
+            clearFiltersBtn.addEventListener('click', function () {
+                var organizerIsScoped = isAdmin && organizerFilter && organizerFilter.value !== 'All';
+                if (organizerIsScoped) {
+                    // One navigation resets every filter at once (search/history/
+                    // sort aren't URL state, so a fresh render already defaults
+                    // them) - satisfies "refresh all visible datasets once".
+                    window.location.href = '/Records';
+                    return;
+                }
+
+                searchInput.value = '';
+                if (historyStatusFilter) historyStatusFilter.value = 'All';
+                if (sortFilter) sortFilter.value = 'newest';
+
+                if (window.CustomSelect && typeof window.CustomSelect.refresh === 'function') {
+                    if (historyStatusFilter) window.CustomSelect.refresh(historyStatusFilter);
+                    if (sortFilter) window.CustomSelect.refresh(sortFilter);
+                }
+
+                applyAll();
+                searchInput.focus();
             });
         }
 
-        // Function to filter trail cards
-        function filterTrailCards(cards, searchTerm) {
-            cards.forEach(card => {
-                const text = card.textContent.toLowerCase();
-                card.style.display = text.includes(searchTerm) ? '' : 'none';
+        function buildExportUrl() {
+            var params = new URLSearchParams();
+            var term = (searchInput.value || '').trim();
+            if (term) params.set('search', term);
+            params.set('historyStatus', historyStatusFilter ? historyStatusFilter.value : 'All');
+            params.set('sort', (sortFilter && sortFilter.value === 'oldest') ? 'oldest' : 'newest');
+            if (isAdmin && organizerFilter && organizerFilter.value !== 'All') {
+                params.set('organizerId', organizerFilter.value);
+            }
+            return '/Records/Export?' + params.toString();
+        }
+
+        if (exportBtn) {
+            exportBtn.addEventListener('click', function () {
+                if (exportBtn.disabled) return;
+                exportBtn.disabled = true;
+
+                fetch(buildExportUrl(), { credentials: 'same-origin' })
+                    .then(function (res) {
+                        if (res.status === 404) {
+                            if (window.showToast) window.showToast('No records match the current filters.', 'warning');
+                            return null;
+                        }
+                        if (!res.ok) {
+                            if (window.showToast) window.showToast('Unable to generate the export. Please try again.', 'error');
+                            return null;
+                        }
+                        return res.blob();
+                    })
+                    .then(function (blob) {
+                        if (!blob) return;
+                        var link = document.createElement('a');
+                        var objectUrl = URL.createObjectURL(blob);
+                        link.href = objectUrl;
+                        link.download = 'trailguard-records-' + new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '').replace(/^(\d{8})(\d{4})$/, '$1-$2') + '.csv';
+                        document.body.appendChild(link);
+                        link.click();
+                        link.remove();
+                        URL.revokeObjectURL(objectUrl);
+                    })
+                    .catch(function () {
+                        if (window.showToast) window.showToast('Unable to generate the export. Please try again.', 'error');
+                    })
+                    .finally(function () {
+                        exportBtn.disabled = false;
+                    });
             });
         }
 
-        // Check if there are any visible rows
-        function updateNoDataMessages() {
-            // Event History
-            const eventRows = eventTableBody?.querySelectorAll('tr');
-            const eventNoData = document.querySelector('#eventsSection .no-data-message');
-            if (eventRows) {
-                const visible = Array.from(eventRows).filter(r => r.style.display !== 'none');
-                if (visible.length === 0) {
-                    if (!eventNoData) {
-                        const msg = document.createElement('tr');
-                        msg.className = 'no-data-message';
-                        msg.innerHTML = `<td colspan="6" class="px-6 py-8 text-center text-gray-500">No events match your search</td>`;
-                        eventTableBody.appendChild(msg);
-                    }
-                } else if (eventNoData) {
-                    eventNoData.remove();
-                }
-            }
-
-            // Registrations
-            const regRows = registrationTableBody?.querySelectorAll('tr');
-            const regNoData = document.querySelector('#registrationsSection .no-data-message');
-            if (regRows) {
-                const visible = Array.from(regRows).filter(r => r.style.display !== 'none');
-                if (visible.length === 0) {
-                    if (!regNoData) {
-                        const msg = document.createElement('tr');
-                        msg.className = 'no-data-message';
-                        msg.innerHTML = `<td colspan="5" class="px-6 py-8 text-center text-gray-500">No registrations match your search</td>`;
-                        registrationTableBody.appendChild(msg);
-                    }
-                } else if (regNoData) {
-                    regNoData.remove();
-                }
-            }
-
-            // Financial
-            const finRows = financialTableBody?.querySelectorAll('tr');
-            const finNoData = document.querySelector('#financialSection .no-data-message');
-            if (finRows) {
-                const visible = Array.from(finRows).filter(r => r.style.display !== 'none');
-                if (visible.length === 0) {
-                    if (!finNoData) {
-                        const msg = document.createElement('tr');
-                        msg.className = 'no-data-message';
-                        msg.innerHTML = `<td colspan="5" class="px-6 py-8 text-center text-gray-500">No financial records match your search</td>`;
-                        financialTableBody.appendChild(msg);
-                    }
-                } else if (finNoData) {
-                    finNoData.remove();
-                }
-            }
-        }
-
-        // Main filter function
-        function filterAll() {
-            const searchTerm = searchInput.value.toLowerCase().trim();
-
-            // Filter Event History
-            if (originalEventRows.length > 0) {
-                originalEventRows.forEach(row => row.style.display = '');
-                if (searchTerm) {
-                    filterTableRows(originalEventRows, searchTerm, [0, 1]); // Title and Trail columns
-                }
-            }
-
-            // Filter Registrations
-            if (originalRegistrationRows.length > 0) {
-                originalRegistrationRows.forEach(row => row.style.display = '');
-                if (searchTerm) {
-                    filterTableRows(originalRegistrationRows, searchTerm, [0, 1]); // Participant and Event columns
-                }
-            }
-
-            // Filter Financial Records
-            if (originalFinancialRows.length > 0) {
-                originalFinancialRows.forEach(row => row.style.display = '');
-                if (searchTerm) {
-                    filterTableRows(originalFinancialRows, searchTerm, [0]); // Event column only
-                }
-            }
-
-            // Filter Feedback
-            if (originalFeedbackItems.length > 0) {
-                originalFeedbackItems.forEach(item => item.style.display = '');
-                if (searchTerm) {
-                    filterFeedbackItems(originalFeedbackItems, searchTerm);
-                }
-            }
-
-            // Filter Trail Cards
-            if (originalTrailCards.length > 0) {
-                originalTrailCards.forEach(card => card.style.display = '');
-                if (searchTerm) {
-                    filterTrailCards(originalTrailCards, searchTerm);
-                }
-            }
-
-            // Update no data messages
-            updateNoDataMessages();
-        }
-
-        // Real-time: trigger on input with debounce
-        let debounceTimer;
-        searchInput?.addEventListener('input', function() {
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(filterAll, 200);
-        });
-
-        // Date filters still cause page reload (for server-side filtering)
-        dateFrom?.addEventListener('change', function() {
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(applyFilters, 500);
-        });
-
-        dateTo?.addEventListener('change', function() {
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(applyFilters, 500);
-        });
-
-        function applyFilters() {
-            const search = searchInput?.value || '';
-            const from = dateFrom?.value || '';
-            const to = dateTo?.value || '';
-            window.location.href = `/Records/Index?searchString=${encodeURIComponent(search)}&dateFrom=${from}&dateTo=${to}`;
-        }
-
-        // Export
-        exportBtn?.addEventListener('click', function() {
-            const search = searchInput?.value || '';
-            const from = dateFrom?.value || '';
-            const to = dateTo?.value || '';
-            window.location.href = `/Records/Export?searchString=${encodeURIComponent(search)}&dateFrom=${from}&dateTo=${to}`;
-        });
-
-        // Initial filter on page load (if there's a search term)
-        if (searchInput?.value) {
-            setTimeout(filterAll, 300);
-        }
+        applyAll();
     });
 </script>
