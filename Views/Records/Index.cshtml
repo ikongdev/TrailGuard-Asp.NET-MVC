@@ -506,9 +506,27 @@
         // vary with wrapped text, so a fixed pixel guess would either clip
         // content or leave dead space) combined with the Organizer
         // Dashboard's single bottom-only cue visual.
+        //
+        // scrollEl is the element overflow-y/scrollTop/scrollHeight and the
+        // measured max-height apply to (and, for a table region, the element
+        // whose rendered top already includes the sticky <thead>).
+        // rowsContainer is the element whose direct children are the actual
+        // record elements to count/measure - for a desktop table that's the
+        // <tbody>, NOT scrollEl itself. Passing scrollEl.children here for a
+        // table region was the original bug: a div that wraps a whole
+        // <table> has exactly one direct child (the <table> element) no
+        // matter how many <tr> rows are inside its <tbody>, so
+        // visible.length was always 1 and the "visible.length <= rows" early
+        // return always fired - the desktop table regions were never
+        // actually bounded to N rows, and the cue never had anything to show
+        // (scrollHeight === clientHeight with no max-height constraint). A
+        // direct-child list (mobile cards, Feedback) has always measured
+        // correctly since scrollEl and rowsContainer were effectively the
+        // same set of children - callers for those pass the same element
+        // for both parameters.
         // ------------------------------------------------------------------
-        function createScrollRegion(scrollEl, cueEl, rows) {
-            if (!scrollEl) return { recalc: function () {} };
+        function createScrollRegion(scrollEl, rowsContainer, cueEl, rows) {
+            if (!scrollEl || !rowsContainer) return { recalc: function () {} };
 
             function updateCue() {
                 if (!cueEl) return;
@@ -518,19 +536,30 @@
             }
 
             function recalc() {
-                var visible = Array.prototype.filter.call(scrollEl.children, function (el) {
+                var visible = Array.prototype.filter.call(rowsContainer.children, function (el) {
                     return el.style.display !== 'none';
                 });
 
                 if (visible.length <= rows) {
+                    // Clears any stale max-height from a previous, larger
+                    // result set before re-measuring - never leaves a
+                    // forced blank scrollable area once the record count
+                    // drops to (or starts at) the limit or below.
                     scrollEl.style.maxHeight = '';
                     updateCue();
                     return;
                 }
 
-                var firstTop = visible[0].getBoundingClientRect().top;
-                var nextTop = visible[rows].getBoundingClientRect().top;
-                scrollEl.style.maxHeight = (nextTop - firstTop) + 'px';
+                // (top of the row just past the limit) - (top of scrollEl
+                // itself) = header height (if any - scrollEl's own rendered
+                // top is where a sticky <thead> starts) + exactly `rows`
+                // complete row heights. For the mobile/Feedback case where
+                // rowsContainer === scrollEl there is no header to include,
+                // so this is equivalent to the original first-row-relative
+                // measurement.
+                var containerTop = scrollEl.getBoundingClientRect().top;
+                var afterRowsTop = visible[rows].getBoundingClientRect().top;
+                scrollEl.style.maxHeight = (afterRowsTop - containerTop) + 'px';
                 updateCue();
             }
 
@@ -558,8 +587,8 @@
         // ------------------------------------------------------------------
         var eventHistoryDesktopBody = document.getElementById('eventHistoryTbody');
         var eventHistoryMobileBody = document.getElementById('eventHistoryMobileScroll');
-        var eventHistoryDesktopRegion = createScrollRegion(document.getElementById('eventHistoryDesktopScroll'), document.getElementById('eventHistoryDesktopCue'), 5);
-        var eventHistoryMobileRegion = createScrollRegion(eventHistoryMobileBody, document.getElementById('eventHistoryMobileCue'), 5);
+        var eventHistoryDesktopRegion = createScrollRegion(document.getElementById('eventHistoryDesktopScroll'), eventHistoryDesktopBody, document.getElementById('eventHistoryDesktopCue'), 5);
+        var eventHistoryMobileRegion = createScrollRegion(eventHistoryMobileBody, eventHistoryMobileBody, document.getElementById('eventHistoryMobileCue'), 5);
         var eventHistoryCountEl = document.getElementById('eventHistoryCount');
         var eventHistoryNoMatches = document.getElementById('eventHistoryNoMatches');
 
@@ -616,8 +645,8 @@
         // ------------------------------------------------------------------
         var registrationsDesktopBody = document.getElementById('registrationsTbody');
         var registrationsMobileBody = document.getElementById('registrationsMobileScroll');
-        var registrationsDesktopRegion = createScrollRegion(document.getElementById('registrationsDesktopScroll'), document.getElementById('registrationsDesktopCue'), 5);
-        var registrationsMobileRegion = createScrollRegion(registrationsMobileBody, document.getElementById('registrationsMobileCue'), 5);
+        var registrationsDesktopRegion = createScrollRegion(document.getElementById('registrationsDesktopScroll'), registrationsDesktopBody, document.getElementById('registrationsDesktopCue'), 5);
+        var registrationsMobileRegion = createScrollRegion(registrationsMobileBody, registrationsMobileBody, document.getElementById('registrationsMobileCue'), 5);
         var registrationsCountEl = document.getElementById('registrationsCount');
         var registrationsNoMatches = document.getElementById('registrationsNoMatches');
 
@@ -691,7 +720,7 @@
         // presentation on every width), bounded to ~3 visible records.
         // ------------------------------------------------------------------
         var feedbackScroll = document.getElementById('feedbackScroll');
-        var feedbackRegion = createScrollRegion(feedbackScroll, document.getElementById('feedbackCue'), 3);
+        var feedbackRegion = createScrollRegion(feedbackScroll, feedbackScroll, document.getElementById('feedbackCue'), 3);
         var feedbackNoMatches = document.getElementById('feedbackNoMatches');
         var feedbackAverageValueEl = document.getElementById('feedbackAverageValue');
         var feedbackAverageStarsEl = document.getElementById('feedbackAverageStars');
