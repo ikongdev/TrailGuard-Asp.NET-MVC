@@ -536,12 +536,35 @@ namespace TrailGuard.Services
         // manual Admin resolution instead of silently left undetected.
         public async Task<RoleIntegrityAudit> AuditRoleIntegrityAsync()
         {
-            var users = await _userManager.Users.AsNoTracking().ToListAsync();
-            var audit = new RoleIntegrityAudit { Total = users.Count };
+            // Two bounded, constant-count queries instead of one
+            // GetRolesAsync call per account (Admin Dashboard now calls this
+            // on every page load, so that per-account cost no longer scales
+            // acceptably): (1) every account id, (2) every UserRole row
+            // joined to its Role name, in one query - not one per account.
+            // Grouped in memory afterward; an account with zero rows in (2)
+            // simply has no entry in the dictionary and falls through to an
+            // empty role list below, which OperationalRolePolicy.Evaluate
+            // already classifies as Missing - exactly what GetRolesAsync(user)
+            // returning an empty IList<string> produced for that same
+            // account before. The classification rule itself
+            // (OperationalRolePolicy.Evaluate) is untouched.
+            var userIds = await _context.Users.AsNoTracking().Select(u => u.Id).ToListAsync();
 
-            foreach (var user in users)
+            var userRoleNames = await (
+                from ur in _context.UserRoles.AsNoTracking()
+                join r in _context.Roles.AsNoTracking() on ur.RoleId equals r.Id
+                select new { ur.UserId, RoleName = r.Name }
+            ).ToListAsync();
+
+            var rolesByUserId = userRoleNames
+                .GroupBy(x => x.UserId)
+                .ToDictionary(g => g.Key, g => g.Select(x => x.RoleName!).ToList());
+
+            var audit = new RoleIntegrityAudit { Total = userIds.Count };
+
+            foreach (var userId in userIds)
             {
-                var roles = await _userManager.GetRolesAsync(user);
+                var roles = rolesByUserId.TryGetValue(userId, out var found) ? found : new List<string>();
                 switch (OperationalRolePolicy.Evaluate(roles).Status)
                 {
                     case RoleIntegrityStatus.Admin: audit.Admin++; break;

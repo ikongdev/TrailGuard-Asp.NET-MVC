@@ -43,86 +43,264 @@ namespace TrailGuard.Controllers
             _logger = logger;
         }
 
+        // A bounded "recent" window for the dashboard - not the full
+        // registration history Records already exposes in full elsewhere.
+        // Comfortably larger than the 5 rows shown before scrolling, so the
+        // fixed viewport and its cue have real content to demonstrate.
+        private const int RecentRegistrationsWindow = 20;
+
         public async Task<IActionResult> Index()
         {
+            // Registration status is a lazy check everywhere else it's read
+            // (Records, Reports, Organizer, Participant, Event) - Recent
+            // Registrations below reads and displays canonical Status, so it
+            // needs the same freshness guarantee before it's shown.
+            await RegistrationStatusHelper.ExpireOverdueRegistrations(_context);
+
             var model = new AdminDashboardViewModel();
+            var now = DateTime.Now;
 
-            model.TotalTrails = await _context.Trails.CountAsync();
-            model.TotalEvents = await _context.Events.CountAsync();
-            model.TotalParticipants = await _context.EventRegistrations.CountAsync();
+            model.ActiveAccountsCount = await _userManager.Users.AsNoTracking().CountAsync(u => u.IsActive);
+            model.TotalTrails = await _context.Trails.AsNoTracking().CountAsync();
 
-            var completedEvents = await _context.Events.Where(e => e.Status == "Completed").ToListAsync();
-            decimal totalRevenue = 0;
-            foreach (var e in completedEvents)
-            {
-                var fee = ExtractRegistrationFee(e.PaymentDetails ?? "");
-                var participantCount = await _context.EventRegistrations.CountAsync(r => r.EventId == e.Id);
-                totalRevenue += fee * participantCount;
-            }
-            model.TotalRevenue = totalRevenue;
-
-            var last12Months = new List<DateTime>();
-            for (int i = 11; i >= 0; i--)
-            {
-                last12Months.Add(DateTime.Now.AddMonths(-i).Date);
-            }
-
-            model.EventsPerMonth = new List<MonthlyData>();
-            foreach (var month in last12Months)
-            {
-                var count = await _context.Events.CountAsync(e => e.EventDate.Year == month.Year && e.EventDate.Month == month.Month);
-                model.EventsPerMonth.Add(new MonthlyData
-                {
-                    Month = month.ToString("MMM yyyy"),
-                    Count = count
-                });
-            }
-
-            model.PopularTrails = new List<PopularTrailData>();
-            var trailGroups = await _context.Events
-                .GroupBy(e => e.TrailId)
-                .Select(g => new { TrailId = g.Key, EventCount = g.Count() })
-                .OrderByDescending(t => t.EventCount)
-                .Take(5)
+            // Upcoming Events - Status == "Upcoming" is a bounded subset (not
+            // every Event ever created; Completed/Cancelled events are never
+            // in this set at all). Three views of it, kept explicitly
+            // separate rather than reusing one for another purpose:
+            //
+            //   joinableEvents    - EventJoinabilityHelper.IsJoinable
+            //                       (Status == "Upcoming" && date in the
+            //                       future). Feeds ONLY the Upcoming Events
+            //                       summary count and displayed list - the
+            //                       same predicate Organizer Dashboard uses,
+            //                       unbroadened.
+            //   staleEvents       - EventJoinabilityHelper.RequiresManualClosure
+            //                       (Status == "Upcoming" but the date has
+            //                       passed). Feeds the "stale Upcoming"
+            //                       Needs Attention category.
+            //   operationalUpcomingEvents - every stored-Upcoming event that
+            //                       is NOT stale, i.e. NOT RequiresManualClosure.
+            //                       Feeds the Organizer-integrity Needs
+            //                       Attention categories below. Deliberately
+            //                       NOT joinableEvents: a future event that's
+            //                       full or has a closed registration window
+            //                       still needs a valid, active Organizer,
+            //                       and must not be silently skipped just
+            //                       because it isn't currently accepting new
+            //                       participants. (As EventJoinabilityHelper
+            //                       is implemented today - Status+date only,
+            //                       no Capacity/registration-window check,
+            //                       which RegistrationController applies
+            //                       separately at join time - this set is
+            //                       numerically identical to joinableEvents;
+            //                       it's kept as its own explicit definition
+            //                       so the Organizer-integrity checks stay
+            //                       correct independent of whatever
+            //                       "joinable" comes to mean later, without
+            //                       needing a second fix here.)
+            //
+            // staleEvents and operationalUpcomingEvents partition
+            // upcomingStatusEvents exactly (every stored-Upcoming event is in
+            // exactly one of the two), which is what guarantees no event is
+            // ever flagged under both the stale category and an
+            // Organizer-integrity category below.
+            var upcomingStatusEvents = await _context.Events
+                .AsNoTracking()
+                .Include(e => e.Trail)
+                .Where(e => e.Status == "Upcoming")
                 .ToListAsync();
 
-            foreach (var g in trailGroups)
-            {
-                var trail = await _context.Trails.FirstOrDefaultAsync(t => t.Id == g.TrailId);
-                model.PopularTrails.Add(new PopularTrailData
-                {
-                    TrailId = g.TrailId,
-                    TrailName = trail?.Name ?? "Unknown Trail",
-                    EventCount = g.EventCount
-                });
-            }
+            var joinableEvents = upcomingStatusEvents
+                .Where(EventJoinabilityHelper.IsJoinable)
+                .OrderBy(e => e.EventDate).ThenBy(e => e.EventTime).ThenBy(e => e.Id)
+                .ToList();
+            var staleEvents = upcomingStatusEvents
+                .Where(EventJoinabilityHelper.RequiresManualClosure)
+                .OrderBy(e => e.EventDate).ThenBy(e => e.EventTime).ThenBy(e => e.Id)
+                .ToList();
+            var operationalUpcomingEvents = upcomingStatusEvents
+                .Where(e => !EventJoinabilityHelper.RequiresManualClosure(e))
+                .OrderBy(e => e.EventDate).ThenBy(e => e.EventTime).ThenBy(e => e.Id)
+                .ToList();
 
-            model.EventStatusDistribution = new List<StatusData>();
-            var statuses = new[] { "Upcoming", "Completed", "Cancelled", "Postponed" };
-            foreach (var status in statuses)
-            {
-                var count = await _context.Events.CountAsync(e => e.Status == status);
-                model.EventStatusDistribution.Add(new StatusData
-                {
-                    Status = status,
-                    Count = count
-                });
-            }
+            model.UpcomingEventsCount = joinableEvents.Count;
 
-            model.UpcomingEvents = await _context.Events
-                .Include(e => e.Trail)
-                .Where(e => e.EventDate >= DateTime.Today)
-                .OrderBy(e => e.EventDate)
-                .Take(5)
-                .ToListAsync() ?? new List<Event>();
-
-            model.RecentRegistrations = await _context.EventRegistrations
+            // Recent Registrations - bounded window, newest first with a
+            // stable id tiebreaker.
+            var recentRegistrations = await _context.EventRegistrations
+                .AsNoTracking()
                 .Include(r => r.Event)
-                .OrderByDescending(r => r.RegisteredAt)
-                .Take(5)
-                .ToListAsync() ?? new List<EventRegistration>();
+                .OrderByDescending(r => r.RegisteredAt).ThenByDescending(r => r.Id)
+                .Take(RecentRegistrationsWindow)
+                .ToListAsync();
+
+            // Bulk Organizer identity resolution - one query covering the
+            // union of every Organizer id referenced anywhere below
+            // (joinable Upcoming Events display, every operational Upcoming
+            // event Needs Attention checks against, and Recent
+            // Registrations) - never one lookup per row/event/category.
+            var organizerIds = joinableEvents
+                .Select(e => e.OrganizerId)
+                .Concat(operationalUpcomingEvents.Select(e => e.OrganizerId))
+                .Concat(recentRegistrations.Select(r => r.Event?.OrganizerId))
+                .Where(id => !string.IsNullOrEmpty(id))
+                .Select(id => id!)
+                .Distinct()
+                .ToList();
+
+            var organizersById = organizerIds.Count > 0
+                ? (await _userManager.Users.AsNoTracking().Where(u => organizerIds.Contains(u.Id)).ToListAsync())
+                    .ToDictionary(u => u.Id, u => u)
+                : new Dictionary<string, ApplicationUser>();
+
+            model.UpcomingEvents = joinableEvents.Select(e =>
+            {
+                var organizer = e.OrganizerId != null && organizersById.TryGetValue(e.OrganizerId, out var found) ? found : null;
+                return new AdminUpcomingEventData
+                {
+                    EventId = e.Id,
+                    EventTitle = e.EventTitle,
+                    TrailName = e.Trail?.Name ?? "Unknown Trail",
+                    EventDate = e.EventDate,
+                    EventTime = e.EventTime,
+                    Difficulty = e.Difficulty,
+                    // Unassigned only when there's no owner id at all;
+                    // "Organizer unavailable" when one exists but couldn't be
+                    // resolved - never a raw id or email as a fallback.
+                    OrganizerName = organizer != null
+                        ? $"{organizer.FirstName} {organizer.LastName}"
+                        : (e.OrganizerId == null ? null : "Organizer unavailable"),
+                    OrganizerProfilePictureUrl = organizer?.ProfilePictureUrl,
+                    OrganizerInitials = BuildInitials(organizer?.FirstName, organizer?.LastName)
+                };
+            }).ToList();
+
+            model.RecentRegistrations = recentRegistrations.Select(r =>
+            {
+                var organizerId = r.Event?.OrganizerId;
+                var organizerName = "Unassigned";
+                if (!string.IsNullOrEmpty(organizerId))
+                {
+                    organizerName = organizersById.TryGetValue(organizerId, out var org)
+                        ? $"{org.FirstName} {org.LastName}"
+                        : "Organizer unavailable";
+                }
+                return new AdminRecentRegistrationData
+                {
+                    RegistrationId = r.Id,
+                    ParticipantName = r.ParticipantName,
+                    EventTitle = r.Event?.EventTitle ?? "Unknown Event",
+                    OrganizerName = organizerName,
+                    Status = r.Status,
+                    RegisteredAt = r.RegisteredAt
+                };
+            }).ToList();
+
+            // Monthly Registration Activity - 6 calendar months including the
+            // current one, oldest to newest, zero-filled, system-wide.
+            // Registrations This Month is this exact same series' last
+            // element, not a second query - mirrors OrganizerController.
+            // Index's identical (Organizer-scoped) pattern.
+            var currentMonthStart = new DateTime(now.Year, now.Month, 1);
+            var chartStart = currentMonthStart.AddMonths(-5);
+            var nextMonthStart = currentMonthStart.AddMonths(1);
+            var registrationsByMonth = await _context.EventRegistrations
+                .AsNoTracking()
+                .Where(r => r.RegisteredAt >= chartStart && r.RegisteredAt < nextMonthStart)
+                .GroupBy(r => new { r.RegisteredAt.Year, r.RegisteredAt.Month })
+                .Select(g => new { g.Key.Year, g.Key.Month, Count = g.Count() })
+                .ToListAsync();
+            var monthCounts = registrationsByMonth.ToDictionary(x => (x.Year, x.Month), x => x.Count);
+            model.MonthlyRegistrations = Enumerable.Range(0, 6).Select(offset =>
+            {
+                var month = chartStart.AddMonths(offset);
+                return new MonthlyTrendData { Month = month.ToString("MMM"), Count = monthCounts.GetValueOrDefault((month.Year, month.Month)) };
+            }).ToList();
+            model.RegistrationsThisMonthCount = monthCounts.GetValueOrDefault((now.Year, now.Month));
+
+            // Needs Attention - concatenated in deterministic severity order:
+            // (1) system-wide account role integrity, as one aggregate item
+            //     (never N+1 per-account lookups to render every account);
+            // (2) stale Upcoming events - already overdue, the most urgent
+            //     per-event category;
+            // (3) operational (non-stale) Upcoming events with a null or
+            //     unresolvable OrganizerId;
+            // (4) operational (non-stale) Upcoming events whose Organizer
+            //     resolves but is inactive.
+            // (3)/(4) are drawn only from operationalUpcomingEvents, which by
+            // construction excludes every event in staleEvents (the two sets
+            // partition upcomingStatusEvents) - so an event already flagged
+            // as stale in (2) is never also evaluated for an Organizer issue
+            // in (3)/(4). Within (3)/(4) themselves: an event with a null
+            // OrganizerId can only ever match (3); an event with a non-null
+            // OrganizerId resolves to exactly one of unresolved (3) /
+            // inactive (4) / active-and-fine (no item at all) - so no event
+            // is ever flagged under both (3) and (4) either. Every event in
+            // upcomingStatusEvents therefore produces at most one Needs
+            // Attention item.
+            var attentionItems = new List<OrganizerAttentionItem>();
+
+            var roleAudit = await _roleAssignmentService.AuditRoleIntegrityAsync();
+            var roleIssueCount = roleAudit.Conflict + roleAudit.Missing;
+            if (roleIssueCount > 0)
+            {
+                attentionItems.Add(new OrganizerAttentionItem
+                {
+                    Title = "Account role issues",
+                    Detail = $"{roleAudit.Conflict} conflicted, {roleAudit.Missing} missing a role.",
+                    ActionLabel = "Review accounts",
+                    Controller = "Admin",
+                    Action = "Accounts"
+                });
+            }
+
+            attentionItems.AddRange(staleEvents.Select(e => new OrganizerAttentionItem
+            {
+                Title = e.EventTitle,
+                Detail = $"Event date passed on {e.EventDate:MMM dd}; still marked Upcoming.",
+                ActionLabel = "Manage event",
+                Controller = "Event",
+                Action = "Details",
+                Id = e.Id
+            }));
+
+            attentionItems.AddRange(operationalUpcomingEvents
+                .Where(e => string.IsNullOrEmpty(e.OrganizerId) || !organizersById.ContainsKey(e.OrganizerId))
+                .Select(e => new OrganizerAttentionItem
+                {
+                    Title = e.EventTitle,
+                    Detail = string.IsNullOrEmpty(e.OrganizerId)
+                        ? "No Organizer is assigned to this event."
+                        : "This event's Organizer no longer resolves to an account.",
+                    ActionLabel = "Assign organizer",
+                    Controller = "Event",
+                    Action = "Details",
+                    Id = e.Id
+                }));
+
+            attentionItems.AddRange(operationalUpcomingEvents
+                .Where(e => !string.IsNullOrEmpty(e.OrganizerId) && organizersById.TryGetValue(e.OrganizerId, out var org) && !org.IsActive)
+                .Select(e => new OrganizerAttentionItem
+                {
+                    Title = e.EventTitle,
+                    Detail = "This event's Organizer account is disabled.",
+                    ActionLabel = "Manage event",
+                    Controller = "Event",
+                    Action = "Details",
+                    Id = e.Id
+                }));
+
+            model.AttentionItems = attentionItems;
 
             return View(model);
+        }
+
+        private static string BuildInitials(string? firstName, string? lastName)
+        {
+            var initials = "";
+            if (!string.IsNullOrEmpty(firstName)) initials += firstName[0];
+            if (!string.IsNullOrEmpty(lastName)) initials += lastName[0];
+            return initials.ToUpper();
         }
 
         public async Task<IActionResult> Accounts()
@@ -322,17 +500,5 @@ namespace TrailGuard.Controllers
             }
         }
 
-        private static decimal ExtractRegistrationFee(string paymentDetails)
-        {
-            if (string.IsNullOrEmpty(paymentDetails)) return 0;
-            var match = System.Text.RegularExpressions.Regex.Match(paymentDetails, @"₱\s*(\d+(?:,\d+)*(?:\.\d+)?)");
-            if (match.Success)
-            {
-                var amount = match.Groups[1].Value.Replace(",", "");
-                if (decimal.TryParse(amount, out var fee))
-                    return fee;
-            }
-            return 0;
-        }
     }
 }

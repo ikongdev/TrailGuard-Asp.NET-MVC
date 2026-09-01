@@ -1,269 +1,379 @@
-@using TrailGuard.Models
+@using System.Text.Json
+@using TrailGuard.Services
 @model AdminDashboardViewModel
 @{
     ViewData["Title"] = "Admin Dashboard";
+
+    // JsonSerializer.Serialize (not the Json.Serialize the old version of
+    // this file used) to match Organizer/Index.cshtml's own chart-data
+    // serialization exactly - same PascalCase property names read back on
+    // the JS side below (x.Month / x.Count).
+    var monthlyRegistrationsChartData = JsonSerializer.Serialize(Model.MonthlyRegistrations);
+
+    // Plain semantic text, no pill shell - reused verbatim from
+    // Records/Index.cshtml and Organizer/Registrations.cshtml so the same
+    // status never reads as a different color on two pages.
+    Func<string, string> registrationStatusClass = status => status switch
+    {
+        "Pending" => "text-amber-400",
+        "Awaiting Payment" => "text-amber-400",
+        "For Payment Verification" => "text-blue-400",
+        "Accepted" => "text-emerald-400",
+        "Alternative Recommended" => "text-blue-400",
+        "Rejected" => "text-red-400",
+        "Cancelled" => "text-slate-400",
+        "Voided" => "text-slate-400",
+        _ => "text-gray-300"
+    };
 }
 
 @section PageHero {
     <div class="pt-24 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
-        <div class="mb-8">
-            <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-linear-to-r from-orange-400 to-purple-400">Admin Dashboard</h1>
-            <p class="text-gray-400 mt-1 text-sm">Overview of trails, events, participants, and revenue.</p>
-        </div>
+        @* Success/Error feedback goes through the canonical global toast host in _Layout.cshtml. *@
 
-        <!-- Summary Cards -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
-                        <i class="fa-solid fa-mountain text-orange-400 text-lg"></i>
-                    </div>
-                    <div>
-                        <p class="text-gray-400 text-xs">Total Trails</p>
-                        <p class="text-2xl font-bold text-white">@Model.TotalTrails</p>
-                    </div>
-                </div>
+        <header class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+            <div>
+                <h1 class="text-3xl font-bold text-white">Admin Dashboard</h1>
+                <p class="text-gray-400 mt-1 text-sm">Monitor system activity, upcoming events, accounts, and registrations.</p>
             </div>
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
-                        <i class="fa-solid fa-calendar text-orange-400 text-lg"></i>
-                    </div>
-                    <div>
-                        <p class="text-gray-400 text-xs">Total Events</p>
-                        <p class="text-2xl font-bold text-white">@Model.TotalEvents</p>
-                    </div>
-                </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <a asp-controller="Admin" asp-action="AddAccount"
+                   class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-base transition-colors">
+                    <i class="fa-solid fa-user-plus" aria-hidden="true"></i>Add Account
+                </a>
+                <a asp-controller="Trail" asp-action="Index" asp-route-openModal="add"
+                   class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-base transition-colors">
+                    <i class="fa-solid fa-mountain" aria-hidden="true"></i>Add Trail
+                </a>
+                <a asp-controller="Event" asp-action="Index" asp-route-openModal="add"
+                   class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white bg-accent hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-base transition">
+                    <i class="fa-solid fa-calendar-plus" aria-hidden="true"></i>Add Event
+                </a>
             </div>
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
-                        <i class="fa-solid fa-users text-orange-400 text-lg"></i>
-                    </div>
-                    <div>
-                        <p class="text-gray-400 text-xs">Total Participants</p>
-                        <p class="text-2xl font-bold text-white">@Model.TotalParticipants.ToString("N0")</p>
-                    </div>
-                </div>
-            </div>
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
-                        <i class="fa-solid fa-chart-line text-orange-400 text-lg"></i>
-                    </div>
-                    <div>
-                        <p class="text-gray-400 text-xs">Total Revenue</p>
-                        <p class="text-2xl font-bold text-green-400">₱ @Model.TotalRevenue.ToString("N0")</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+        </header>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
-                <h2 class="text-sm font-bold text-white mb-3"><i class="fa-solid fa-chart-line text-orange-400 mr-2"></i>Events per Month</h2>
-                <div style="height: 280px; display: flex; align-items: center; justify-content: center;">
-                    <canvas id="eventsChart" style="width: 100% !important; height: 100% !important;"></canvas>
+        <section aria-label="Admin summary" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+            <a asp-controller="Admin" asp-action="Accounts" class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-4 hover:border-white/20 focus:outline-none focus:ring-2 focus:ring-accent transition-colors">
+                <div class="flex items-center gap-3">
+                    <span class="w-10 h-10 rounded-full bg-accent/15 text-accent flex items-center justify-center"><i class="fa-solid fa-user-check" aria-hidden="true"></i></span>
+                    <div><p class="text-2xl font-bold text-white">@Model.ActiveAccountsCount</p><p class="text-gray-300 text-sm">Active Accounts</p></div>
                 </div>
-            </div>
+            </a>
+            <a asp-controller="Trail" asp-action="Index" class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-4 hover:border-white/20 focus:outline-none focus:ring-2 focus:ring-accent transition-colors">
+                <div class="flex items-center gap-3">
+                    <span class="w-10 h-10 rounded-full bg-accent/15 text-accent flex items-center justify-center"><i class="fa-solid fa-mountain" aria-hidden="true"></i></span>
+                    <div><p class="text-2xl font-bold text-white">@Model.TotalTrails</p><p class="text-gray-300 text-sm">Total Trails</p></div>
+                </div>
+            </a>
+            <a asp-controller="Event" asp-action="Index" class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-4 hover:border-white/20 focus:outline-none focus:ring-2 focus:ring-accent transition-colors">
+                <div class="flex items-center gap-3">
+                    <span class="w-10 h-10 rounded-full bg-accent/15 text-accent flex items-center justify-center"><i class="fa-regular fa-calendar" aria-hidden="true"></i></span>
+                    <div><p class="text-2xl font-bold text-white">@Model.UpcomingEventsCount</p><p class="text-gray-300 text-sm">Upcoming Events</p></div>
+                </div>
+            </a>
+            <a asp-controller="Records" asp-action="Index" class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-4 hover:border-white/20 focus:outline-none focus:ring-2 focus:ring-accent transition-colors">
+                <div class="flex items-center gap-3">
+                    <span class="w-10 h-10 rounded-full bg-accent/15 text-accent flex items-center justify-center"><i class="fa-solid fa-user-plus" aria-hidden="true"></i></span>
+                    <div><p class="text-2xl font-bold text-white">@Model.RegistrationsThisMonthCount</p><p class="text-gray-300 text-sm">Registrations This Month</p></div>
+                </div>
+            </a>
+        </section>
 
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
-                <h2 class="text-sm font-bold text-white mb-3"><i class="fa-solid fa-mountain text-orange-400 mr-2"></i>Popular Trails</h2>
-                <div style="height: 280px; display: flex; align-items: center; justify-content: center;">
-                    <canvas id="popularTrailsChart" style="width: 100% !important; height: 100% !important;"></canvas>
-                </div>
-            </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <section class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-5" aria-labelledby="monthly-registrations-heading">
+                <h2 id="monthly-registrations-heading" class="text-sm font-semibold text-white"><i class="fa-solid fa-chart-line text-accent mr-2" aria-hidden="true"></i>Monthly Registration Activity</h2>
+                <p class="text-gray-500 text-xs mt-1">System-wide registration submissions, last 6 months.</p>
+                <div class="h-64 mt-4"><canvas id="monthlyRegistrationsChart" role="img" aria-label="Monthly registration submissions over the last six months" aria-describedby="monthlyRegistrationsData"></canvas></div>
+                <ul id="monthlyRegistrationsData" class="sr-only">
+                    @foreach (var m in Model.MonthlyRegistrations)
+                    {
+                        <li>@m.Month: @m.Count registration@(m.Count == 1 ? "" : "s") submitted</li>
+                    }
+                </ul>
+            </section>
 
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
-                <h2 class="text-sm font-bold text-white mb-3"><i class="fa-solid fa-chart-pie text-orange-400 mr-2"></i>Event Status</h2>
-                <div style="height: 280px; display: flex; align-items: center; justify-content: center;">
-                    <canvas id="statusChart" style="max-width: 220px; max-height: 220px; width: 100%; height: 100%;"></canvas>
+            <section class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-5" aria-labelledby="attention-heading">
+                <div class="flex items-center justify-between gap-3 mb-3">
+                    <h2 id="attention-heading" class="text-sm font-semibold text-white"><i class="fa-solid fa-bell text-amber-400 mr-2" aria-hidden="true"></i>Needs Attention</h2>
+                    <span class="text-xs text-gray-500">@Model.AttentionItems.Count item@(Model.AttentionItems.Count == 1 ? "" : "s")</span>
                 </div>
-            </div>
+                @if (Model.AttentionItems.Any())
+                {
+                    <div class="relative">
+                        <div id="attentionScrollRegion" data-scroll-cue="attentionScrollCue" tabindex="0" aria-label="All items needing attention" class="dashboard-scroll-region max-h-72 overflow-y-auto divide-y divide-white/5 pr-2 focus:outline-none focus:ring-2 focus:ring-accent rounded">
+                            @foreach (var item in Model.AttentionItems)
+                            {
+                                <div class="py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                    <div class="min-w-0"><p class="font-medium text-sm text-white truncate">@item.Title</p><p class="text-gray-400 text-xs mt-1">@item.Detail</p></div>
+                                    <a asp-controller="@item.Controller" asp-action="@item.Action" asp-route-id="@item.Id" class="shrink-0 text-sm font-medium text-accent hover:brightness-125 focus:outline-none focus:ring-2 focus:ring-accent rounded transition-colors">@item.ActionLabel <i class="fa-solid fa-arrow-right ml-1 text-xs" aria-hidden="true"></i></a>
+                                </div>
+                            }
+                        </div>
+                        <div id="attentionScrollCue" class="dashboard-scroll-cue" aria-hidden="true"><span>Scroll for more <i class="fa-solid fa-chevron-down ml-1" aria-hidden="true"></i></span></div>
+                    </div>
+                }
+                else
+                {
+                    <div class="flex items-center gap-3 py-2 text-sm text-gray-300"><span class="w-9 h-9 rounded-full bg-emerald-500/15 text-emerald-400 flex items-center justify-center"><i class="fa-solid fa-check" aria-hidden="true"></i></span><span>No system issues need attention.</span></div>
+                }
+            </section>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
-                <div class="px-4 py-3 border-b border-gray-700">
-                    <h2 class="text-sm font-bold text-white"><i class="fa-solid fa-calendar-week text-orange-400 mr-2"></i>Upcoming Events</h2>
+            <section class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden flex flex-col" aria-labelledby="upcoming-events-heading">
+                <div class="px-5 py-4 border-b border-white/10 flex items-center justify-between shrink-0">
+                    <h2 id="upcoming-events-heading" class="text-sm font-semibold text-white"><i class="fa-regular fa-calendar text-accent mr-2" aria-hidden="true"></i>Upcoming Events</h2>
+                    <a asp-controller="Event" asp-action="Index" class="text-xs text-accent hover:brightness-125 focus:outline-none focus:ring-2 focus:ring-accent rounded">View all events</a>
                 </div>
-                <div class="p-3 space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
-                    @if (Model.UpcomingEvents.Any())
-                    {
-                        @foreach (var e in Model.UpcomingEvents)
-                        {
-                            <div class="flex justify-between items-center p-2 hover:bg-white/5 rounded-lg transition-colors">
-                                <div>
-                                    <p class="text-white font-medium text-sm">@e.EventTitle</p>
-                                    <p class="text-gray-400 text-xs">@e.EventDate.ToString("MMM dd, yyyy")</p>
-                                </div>
-                                <span class="text-xs px-2 py-1 rounded-full font-semibold
-                                    @(e.Status == "Upcoming" ? "bg-green-600 text-white" :
-                                    e.Status == "Completed" ? "bg-blue-600 text-white" :
-                                    e.Status == "Cancelled" ? "bg-red-600 text-white" :
-                                    e.Status == "Postponed" ? "bg-yellow-600 text-white" :
-                                    "bg-gray-600 text-white")">
-                                    @e.Status
-                                </span>
-                            </div>
-                        }
-                    }
-                    else
-                    {
-                        <p class="text-gray-500 text-sm text-center py-4">No upcoming events</p>
-                    }
-                </div>
-                <div class="px-4 py-2 border-t border-gray-700">
-                    <a asp-controller="Event" asp-action="Index" class="text-xs text-orange-400 hover:text-orange-300 transition">View all events →</a>
-                </div>
-            </div>
+                @if (Model.UpcomingEvents.Any())
+                {
+                    <div class="relative">
+                        <div id="upcomingEventsScroll" tabindex="0" aria-label="Upcoming events, system-wide" class="dashboard-scroll-region overflow-y-auto divide-y divide-white/5">
+                            @foreach (var e in Model.UpcomingEvents)
+                            {
+                                var badgeClass = DifficultyCalculator.BadgeClass(e.Difficulty);
+                                <article class="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                    <div class="min-w-0">
+                                        <h3 class="font-medium text-sm text-white truncate">@e.EventTitle</h3>
+                                        <p class="text-gray-400 text-xs mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                                            <span class="inline-flex items-center gap-1"><i class="fa-solid fa-mountain text-accent" aria-hidden="true"></i>@e.TrailName</span>
+                                            <span class="inline-flex items-center gap-1"><i class="fa-regular fa-calendar" aria-hidden="true"></i>@e.EventDate.ToString("MMM dd, yyyy")</span>
+                                            <span class="inline-flex items-center gap-1"><i class="fa-regular fa-clock" aria-hidden="true"></i>@e.FormattedEventTime</span>
+                                        </p>
+                                        @if (!string.IsNullOrEmpty(e.Difficulty))
+                                        {
+                                            <span class="inline-block mt-2 px-2 py-0.5 rounded-full text-[11px] font-medium @badgeClass">@e.Difficulty</span>
+                                        }
+                                    </div>
+                                    <div class="flex items-center gap-2 shrink-0">
+                                        @if (!string.IsNullOrEmpty(e.OrganizerProfilePictureUrl))
+                                        {
+                                            <img src="@e.OrganizerProfilePictureUrl" alt="" class="w-7 h-7 rounded-full object-cover shrink-0" />
+                                        }
+                                        else
+                                        {
+                                            <span class="w-7 h-7 rounded-full bg-accent text-white flex items-center justify-center text-[10px] font-bold shrink-0" aria-hidden="true">@(string.IsNullOrEmpty(e.OrganizerInitials) ? "?" : e.OrganizerInitials)</span>
+                                        }
+                                        <span class="text-xs text-gray-300 wrap-break-word">@(e.OrganizerName ?? "Unassigned")</span>
+                                        <a asp-controller="Event" asp-action="Details" asp-route-id="@e.EventId" class="text-xs font-medium text-accent hover:brightness-125 focus:outline-none focus:ring-2 focus:ring-accent rounded ml-1 shrink-0">Manage <i class="fa-solid fa-arrow-right ml-1 text-[10px]" aria-hidden="true"></i></a>
+                                    </div>
+                                </article>
+                            }
+                        </div>
+                        <div id="upcomingEventsCue" class="dashboard-scroll-cue" aria-hidden="true"><span>Scroll for more <i class="fa-solid fa-chevron-down ml-1" aria-hidden="true"></i></span></div>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-10 px-5"><i class="fa-regular fa-calendar-plus text-3xl text-slate-600 mb-3" aria-hidden="true"></i><p class="text-slate-400 text-sm">No upcoming events yet.</p></div>
+                }
+            </section>
 
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
-                <div class="px-4 py-3 border-b border-gray-700">
-                    <h2 class="text-sm font-bold text-white"><i class="fa-solid fa-user-plus text-orange-400 mr-2"></i>Recent Registrations</h2>
+            <section class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden flex flex-col" aria-labelledby="recent-registrations-heading">
+                <div class="px-5 py-4 border-b border-white/10 flex items-center justify-between shrink-0">
+                    <h2 id="recent-registrations-heading" class="text-sm font-semibold text-white"><i class="fa-solid fa-user-plus text-accent mr-2" aria-hidden="true"></i>Recent Registrations</h2>
+                    <a asp-controller="Records" asp-action="Index" class="text-xs text-accent hover:brightness-125 focus:outline-none focus:ring-2 focus:ring-accent rounded">View all records</a>
                 </div>
-                <div class="p-3 space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
-                    @if (Model.RecentRegistrations.Any())
-                    {
-                        @foreach (var r in Model.RecentRegistrations)
-                        {
-                            <div class="flex justify-between items-center p-2 hover:bg-white/5 rounded-lg transition-colors">
-                                <div>
-                                    <p class="text-white font-medium text-sm">@r.ParticipantName</p>
-                                    <p class="text-gray-400 text-xs">@r.Event?.EventTitle</p>
-                                </div>
-                                <span class="text-xs px-2 py-1 rounded-full @(r.IsPaid ? "bg-green-600 text-white" : "bg-yellow-600 text-white")">
-                                    @(r.IsPaid ? "Paid" : "Pending")
-                                </span>
-                            </div>
-                        }
-                    }
-                    else
-                    {
-                        <p class="text-gray-500 text-sm text-center py-4">No registrations yet</p>
-                    }
-                </div>
-            </div>
+                @if (Model.RecentRegistrations.Any())
+                {
+                    <div class="relative">
+                        <div id="recentRegistrationsScroll" tabindex="0" aria-label="Recent registrations, system-wide" class="dashboard-scroll-region overflow-y-auto divide-y divide-white/5">
+                            @foreach (var r in Model.RecentRegistrations)
+                            {
+                                <article class="p-4 flex items-center justify-between gap-3">
+                                    <div class="min-w-0">
+                                        <p class="font-medium text-sm text-white truncate">@r.ParticipantName</p>
+                                        <p class="text-gray-400 text-xs mt-0.5 truncate">@r.EventTitle &bull; @r.OrganizerName</p>
+                                        <p class="text-gray-500 text-[11px] mt-0.5">@r.RegisteredAt.ToString("MMM dd, yyyy h:mm tt")</p>
+                                    </div>
+                                    <p class="shrink-0 font-semibold text-sm @registrationStatusClass(r.Status)">@r.Status</p>
+                                </article>
+                            }
+                        </div>
+                        <div id="recentRegistrationsCue" class="dashboard-scroll-cue" aria-hidden="true"><span>Scroll for more <i class="fa-solid fa-chevron-down ml-1" aria-hidden="true"></i></span></div>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-10 px-5"><i class="fa-regular fa-clipboard text-3xl text-slate-600 mb-3" aria-hidden="true"></i><p class="text-slate-400 text-sm">No registrations yet.</p></div>
+                }
+            </section>
         </div>
     </div>
 }
 
 <style>
-    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
-    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+    /* Identical recipe to Organizer/Index.cshtml's .dashboard-scroll-region /
+       .dashboard-scroll-cue - each dashboard page keeps its own local copy
+       (established convention; see that file and Records/Index.cshtml's own
+       near-identical .tg-records-scroll/.tg-records-cue for the same note)
+       rather than sharing one class from input.css. */
+    .dashboard-scroll-region {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(139, 92, 246, .65) transparent;
+    }
+
+    .dashboard-scroll-region::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .dashboard-scroll-region::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .dashboard-scroll-region::-webkit-scrollbar-thumb {
+        background: rgba(139, 92, 246, .65);
+        border-radius: 9999px;
+    }
+
+    .dashboard-scroll-cue {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        display: none;
+        justify-content: center;
+        padding: 2rem .5rem .5rem;
+        pointer-events: none;
+        color: #9ca3af;
+        font-size: .75rem;
+        background: linear-gradient(to top, rgb(15 23 42), rgb(15 23 42 / .9), transparent);
+    }
+
+    .dashboard-scroll-cue.is-visible {
+        display: flex;
+    }
 </style>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-    const eventsCtx = document.getElementById('eventsChart')?.getContext('2d');
-    if (eventsCtx) {
-        new Chart(eventsCtx, {
-            type: 'line',
-            data: {
-                labels: @Html.Raw(Json.Serialize(Model.EventsPerMonth.Select(m => m.Month))),
-                datasets: [{
-                    label: 'Number of Events',
-                    data: @Html.Raw(Json.Serialize(Model.EventsPerMonth.Select(m => m.Count))),
-                    borderColor: '#f97316',
-                    backgroundColor: 'rgba(249, 115, 22, 0.15)',
-                    tension: 0.3,
-                    fill: true,
-                    pointBackgroundColor: '#f97316',
-                    pointBorderColor: '#fff',
-                    pointRadius: 4,
-                    pointHoverRadius: 6,
-                    borderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { labels: { color: '#9ca3af', font: { size: 11 } } }
-                },
-                scales: {
-                    y: {
-                        grid: { color: '#374151' },
-                        ticks: { color: '#9ca3af', font: { size: 11 }, stepSize: 1 }
-                    },
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: '#9ca3af', font: { size: 10 }, maxRotation: 45, minRotation: 45 }
-                    }
-                }
-            }
-        });
-    }
+    document.addEventListener('DOMContentLoaded', function () {
+        // ------------------------------------------------------------------
+        // Needs Attention - simple overflow-based cue over a fixed max-h-72
+        // region, identical to Organizer/Index.cshtml's own
+        // initializeScrollCue (no row-count measurement needed here; this
+        // list isn't required to show an exact number of complete rows the
+        // way Upcoming Events/Recent Registrations are below).
+        // ------------------------------------------------------------------
+        function initializeScrollCue(region) {
+            const cue = document.getElementById(region.dataset.scrollCue);
+            if (!cue) return;
 
-    const trailsCtx = document.getElementById('popularTrailsChart')?.getContext('2d');
-    if (trailsCtx) {
-        new Chart(trailsCtx, {
-            type: 'bar',
-            data: {
-                labels: @Html.Raw(Json.Serialize(Model.PopularTrails.Select(t => t.TrailName))),
-                datasets: [{
-                    label: 'Number of Events',
-                    data: @Html.Raw(Json.Serialize(Model.PopularTrails.Select(t => t.EventCount))),
-                    backgroundColor: ['#f97316', '#fb923c', '#f59e0b', '#eab308', '#d97706'],
-                    borderRadius: 6,
-                    barPercentage: 0.6
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { labels: { color: '#9ca3af', font: { size: 11 } } }
-                },
-                scales: {
-                    y: {
-                        grid: { color: '#374151' },
-                        ticks: { color: '#9ca3af', font: { size: 11 }, stepSize: 1, precision: 0 }
-                    },
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: '#9ca3af', font: { size: 10 } }
-                    }
-                }
-            }
-        });
-    }
+            const updateCue = function () {
+                const hasOverflow = region.scrollHeight > region.clientHeight + 1;
+                const isAtBottom = Math.ceil(region.scrollTop + region.clientHeight) >= region.scrollHeight - 1;
+                cue.classList.toggle('is-visible', hasOverflow && !isAtBottom);
+            };
 
-    const statusCtx = document.getElementById('statusChart')?.getContext('2d');
-    if (statusCtx) {
-        const statusLabels = @Html.Raw(Json.Serialize(Model.EventStatusDistribution.Select(s => s.Status)));
-        const statusData = @Html.Raw(Json.Serialize(Model.EventStatusDistribution.Select(s => s.Count)));
-        
-        new Chart(statusCtx, {
-            type: 'doughnut',
-            data: {
-                labels: statusLabels,
-                datasets: [{
-                    data: statusData,
-                    backgroundColor: ['#10b981', '#3b82f6', '#ef4444', '#f59e0b'],
-                    borderWidth: 0,
-                    cutout: '65%'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: {
-                            color: '#e5e7eb',
-                            font: { size: 12, weight: '500' },
-                            boxWidth: 14,
-                            padding: 12,
-                            usePointStyle: true,
-                            pointStyle: 'circle'
-                        }
+            region.addEventListener('scroll', updateCue, { passive: true });
+            window.addEventListener('resize', updateCue);
+            window.addEventListener('load', updateCue, { once: true });
+            requestAnimationFrame(updateCue);
+        }
+
+        document.querySelectorAll('[data-scroll-cue]').forEach(initializeScrollCue);
+
+        // ------------------------------------------------------------------
+        // Upcoming Events / Recent Registrations - bounded five-row viewport
+        // with a measured (not guessed) max-height, reusing the corrected
+        // createScrollRegion technique from Records/Index.cshtml and
+        // Admin/Accounts.cshtml. Both regions here are direct-children
+        // article lists (no <table>/<tbody> split), so scrollEl and
+        // rowsContainer are the same element - no filtering/sorting exists
+        // on this read-only dashboard, so recalc() only needs to run once at
+        // load (plus on resize, handled internally below); there is no
+        // repeated filter pass to wire up.
+        // ------------------------------------------------------------------
+        function createScrollRegion(scrollEl, rowsContainer, cueEl, rows) {
+            if (!scrollEl || !rowsContainer) return { recalc: function () {} };
+
+            function updateCue() {
+                if (!cueEl) return;
+                var hasOverflow = scrollEl.scrollHeight > scrollEl.clientHeight + 1;
+                var atBottom = Math.ceil(scrollEl.scrollTop + scrollEl.clientHeight) >= scrollEl.scrollHeight - 1;
+                cueEl.classList.toggle('is-visible', hasOverflow && !atBottom);
+            }
+
+            function recalc() {
+                var visible = Array.prototype.filter.call(rowsContainer.children, function (el) {
+                    return el.style.display !== 'none';
+                });
+
+                if (visible.length <= rows) {
+                    scrollEl.style.maxHeight = '';
+                    updateCue();
+                    return;
+                }
+
+                var containerTop = scrollEl.getBoundingClientRect().top;
+                var afterRowsTop = visible[rows].getBoundingClientRect().top;
+                scrollEl.style.maxHeight = (afterRowsTop - containerTop) + 'px';
+                updateCue();
+            }
+
+            var scheduled = false;
+            function scheduleRecalc() {
+                if (scheduled) return;
+                scheduled = true;
+                requestAnimationFrame(function () {
+                    scheduled = false;
+                    recalc();
+                });
+            }
+
+            scrollEl.addEventListener('scroll', updateCue, { passive: true });
+            window.addEventListener('resize', scheduleRecalc);
+
+            return { recalc: function () { scrollEl.scrollTop = 0; scheduleRecalc(); } };
+        }
+
+        var upcomingEventsScroll = document.getElementById('upcomingEventsScroll');
+        createScrollRegion(upcomingEventsScroll, upcomingEventsScroll, document.getElementById('upcomingEventsCue'), 5).recalc();
+
+        var recentRegistrationsScroll = document.getElementById('recentRegistrationsScroll');
+        createScrollRegion(recentRegistrationsScroll, recentRegistrationsScroll, document.getElementById('recentRegistrationsCue'), 5).recalc();
+
+        // ------------------------------------------------------------------
+        // Monthly Registration Activity - the one remaining chart. Chart.js
+        // itself is already loaded once, globally, by _Layout.cshtml - this
+        // page must not load a second copy (the previous version of this
+        // page did, redundantly). Mirrors Organizer/Index.cshtml's own
+        // registrationsChart configuration (line, accent color, reduced-
+        // motion honored) exactly, just retargeted to system-wide data.
+        // ------------------------------------------------------------------
+        var monthlyData = @Html.Raw(monthlyRegistrationsChartData);
+        var monthlyCtx = document.getElementById('monthlyRegistrationsChart')?.getContext('2d');
+        if (monthlyCtx && window.Chart) {
+            var existing = typeof Chart.getChart === 'function' ? Chart.getChart(monthlyCtx.canvas) : null;
+            if (existing) existing.destroy();
+
+            var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            new Chart(monthlyCtx, {
+                type: 'line',
+                data: {
+                    labels: monthlyData.map(function (x) { return x.Month; }),
+                    datasets: [{
+                        label: 'Registrations submitted',
+                        data: monthlyData.map(function (x) { return x.Count; }),
+                        borderColor: '#8b5cf6',
+                        backgroundColor: 'rgba(139, 92, 246, .12)',
+                        fill: true,
+                        tension: .3,
+                        borderWidth: 2,
+                        pointRadius: 3,
+                        pointBackgroundColor: '#8b5cf6'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: reduceMotion ? false : undefined,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { precision: 0, stepSize: 1, color: '#9ca3af' }, grid: { color: 'rgba(255,255,255,.08)' } },
+                        x: { ticks: { color: '#9ca3af' }, grid: { display: false } }
                     }
                 }
-            }
-        });
-    }
+            });
+        }
+    });
 </script>
