@@ -1,6 +1,42 @@
+@using TrailGuard.Services
 @model TrailGuard.Models.AccountManagementViewModel
 @{
     ViewData["Title"] = "Account Management";
+
+    // Plain semantic text, no pill shell - see DESIGN.md, Registration Status,
+    // and the identical Func<> convention on Records/Index.cshtml and
+    // Organizer/Registrations.cshtml.
+    Func<RoleIntegrityStatus, string> roleTextClass = status => status switch
+    {
+        RoleIntegrityStatus.Admin => "text-amber-400",
+        RoleIntegrityStatus.Organizer => "text-blue-400",
+        RoleIntegrityStatus.Participant => "text-accent",
+        RoleIntegrityStatus.Conflict => "text-amber-400",
+        RoleIntegrityStatus.Missing => "text-red-400",
+        _ => "text-gray-400"
+    };
+
+    Func<RoleIntegrityStatus, string> roleFilterValue = status => status switch
+    {
+        RoleIntegrityStatus.Admin => "admin",
+        RoleIntegrityStatus.Organizer => "organizer",
+        RoleIntegrityStatus.Participant => "participant",
+        // Conflict/Missing never match a specific role filter option - they
+        // only ever match "Needs Attention" (see the JS filter below).
+        _ => status.ToString().ToLowerInvariant()
+    };
+
+    Func<bool, string> statusTextClass = active => active ? "text-emerald-400" : "text-red-400";
+    Func<bool, string> statusText = active => active ? "Active" : "Inactive";
+
+    // A normally configured single-role Admin can never change their own
+    // role here (RoleAssignmentService.ReplaceRoleAsync enforces this
+    // server-side too) - the one exception is a conflicted account that
+    // still holds Admin, which may repair itself to Admin-only.
+    Func<TrailGuard.Models.AccountItemViewModel, bool> canChangeRole = a =>
+        !a.IsCurrentUser || (a.RoleStatus == RoleIntegrityStatus.Conflict && a.AssignedRoles.Contains("Admin"));
+
+    var accountWord = Model?.TotalAccounts == 1 ? "account" : "accounts";
 }
 
 @* Success/Error feedback now goes through the canonical global toast host
@@ -10,84 +46,92 @@
     <div class="pt-24 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
             <div>
-                <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-linear-to-r from-orange-400 to-purple-400">Account Management</h1>
+                <h1 class="text-3xl font-bold text-white">Account Management</h1>
                 <p class="text-gray-400 mt-1 text-sm">Manage user roles, statuses, and system access.</p>
             </div>
-            
+
             <div class="flex flex-wrap items-center gap-4">
                 <div class="bg-white/5 border border-white/10 px-4 py-2.5 rounded-full flex items-center gap-2 backdrop-blur-sm shadow-lg">
-                    <i class="fa-solid fa-users text-gray-400"></i>
-                    <span class="text-sm font-medium text-gray-300">Total Accounts: <strong class="text-white">@(Model?.TotalAccounts ?? 0)</strong></span>
+                    <i class="fa-solid fa-users text-accent" aria-hidden="true"></i>
+                    <span id="accountsCountLabel" class="text-sm font-medium text-gray-300">@(Model?.TotalAccounts ?? 0) @accountWord</span>
                 </div>
-                
+
                 <a asp-controller="Admin" asp-action="AddAccount"
-                   class="group inline-flex items-center justify-center gap-2 px-7 py-3 text-sm rounded-full bg-linear-to-r from-orange-400 via-pink-500 to-violet-500 text-white font-bold shadow-lg shadow-violet-500/30 hover:scale-105 hover:opacity-90 transform transition duration-300 ease-out">
+                   class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm rounded-full bg-accent hover:brightness-110 text-white font-semibold transition focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-base">
+                    <i class="fa-solid fa-plus" aria-hidden="true"></i>
                     <span>Add Account</span>
-                    <i class="fa-solid fa-plus transition-transform duration-300 group-hover:translate-x-1"></i>
                 </a>
             </div>
         </div>
 
-        <div class="flex flex-col lg:flex-row gap-4 mb-8 bg-white/5 backdrop-blur-xl p-5 rounded-3xl border border-white/10 shadow-2xl">
+        <div class="flex flex-col lg:flex-row gap-4 mb-8 bg-white/5 backdrop-blur-xl p-5 rounded-2xl border border-white/10 shadow-2xl">
             <div class="relative grow">
-                <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                <input type="text" id="searchInput" placeholder="Search by name or email..." 
-                    class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-11 pr-4 py-3 focus:border-orange-500 focus:outline-none transition-colors placeholder-gray-500">
+                <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" aria-hidden="true"></i>
+                <label for="searchInput" class="sr-only">Search accounts by name or email</label>
+                <input type="text" id="searchInput" placeholder="Search by name or email..."
+                    class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-11 pr-4 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors placeholder-gray-500">
             </div>
 
-            <div class="flex flex-wrap sm:flex-nowrap gap-3">
+            <div class="flex flex-wrap sm:flex-nowrap items-center gap-3">
                 <div class="relative inline-block">
-                    <select id="roleFilter" class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-orange-500 focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors w-full">
-                        <option value="all" class="bg-[#0b1329] text-white py-2">All Roles</option>
-                        <option value="admin" class="bg-[#0b1329] text-white py-2">Admin</option>
-                        <option value="organizer" class="bg-[#0b1329] text-white py-2">Organizer</option>
-                        <option value="participant" class="bg-[#0b1329] text-white py-2">Participant</option>
+                    <label for="roleFilter" class="sr-only">Role</label>
+                    <select id="roleFilter" data-custom-select data-custom-select-portal
+                            data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-5 py-3 rounded-full bg-black/20 border border-white/10 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer hover:bg-white/10"
+                            class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors w-full">
+                        <option value="all" class="bg-surface-card">All Roles</option>
+                        <option value="admin" class="bg-surface-card">Admin</option>
+                        <option value="organizer" class="bg-surface-card">Organizer</option>
+                        <option value="participant" class="bg-surface-card">Participant</option>
+                        <option value="needs-attention" class="bg-surface-card">Needs Attention</option>
                     </select>
-                    <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
-                        <i class="fa-solid fa-chevron-down text-xs"></i>
-                    </div>
                 </div>
 
                 <div class="relative inline-block">
-                    <select id="statusFilter" class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-orange-500 focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors w-full">
-                        <option value="all" class="bg-[#0b1329] text-white py-2">All Status</option>
-                        <option value="active" class="bg-[#0b1329] text-white py-2">Active</option>
-                        <option value="disabled" class="bg-[#0b1329] text-white py-2">Disabled</option>
+                    <label for="statusFilter" class="sr-only">Status</label>
+                    <select id="statusFilter" data-custom-select data-custom-select-portal
+                            data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-5 py-3 rounded-full bg-black/20 border border-white/10 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer hover:bg-white/10"
+                            class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors w-full">
+                        <option value="all" class="bg-surface-card">All Statuses</option>
+                        <option value="active" class="bg-surface-card">Active</option>
+                        <option value="inactive" class="bg-surface-card">Inactive</option>
                     </select>
-                    <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
-                        <i class="fa-solid fa-chevron-down text-xs"></i>
-                    </div>
                 </div>
 
                 <div class="relative inline-block">
-                    <select id="sortFilter" class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-orange-500 focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors w-full">
-                        <option value="newest" class="bg-[#0b1329] text-white py-2">Sort by: Newest</option>
-                        <option value="oldest" class="bg-[#0b1329] text-white py-2">Sort by: Oldest</option>
-                        <option value="name" class="bg-[#0b1329] text-white py-2">Name (A-Z)</option>
+                    <label for="sortFilter" class="sr-only">Sort</label>
+                    <select id="sortFilter" data-custom-select data-custom-select-portal
+                            data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-5 py-3 rounded-full bg-black/20 border border-white/10 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer hover:bg-white/10"
+                            class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors w-full">
+                        <option value="newest" class="bg-surface-card">Newest</option>
+                        <option value="oldest" class="bg-surface-card">Oldest</option>
+                        <option value="name_asc" class="bg-surface-card">Name: A-Z</option>
+                        <option value="name_desc" class="bg-surface-card">Name: Z-A</option>
                     </select>
-                    <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
-                        <i class="fa-solid fa-chevron-down text-xs"></i>
-                    </div>
                 </div>
+
+                <button type="button" id="clearFiltersBtn" hidden
+                        class="rounded-full text-sm text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-colors px-5 py-3 focus:outline-none focus:ring-2 focus:ring-accent">
+                    Clear Filters
+                </button>
             </div>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
-                        <i class="fa-solid fa-users text-orange-400 text-lg"></i>
+                    <div class="w-10 h-10 rounded-full bg-accent/15 flex items-center justify-center">
+                        <i class="fa-solid fa-user-shield text-accent text-lg" aria-hidden="true"></i>
                     </div>
                     <div>
-                        <p class="text-gray-400 text-xs">Total Accounts</p>
-                        <p class="text-2xl font-bold text-white">@(Model?.TotalAccounts ?? 0)</p>
+                        <p class="text-gray-400 text-xs">Total Admins</p>
+                        <p class="text-2xl font-bold text-white">@(Model?.TotalAdmins ?? 0)</p>
                     </div>
                 </div>
             </div>
             <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
-                        <i class="fa-solid fa-user-tie text-orange-400 text-lg"></i>
+                    <div class="w-10 h-10 rounded-full bg-accent/15 flex items-center justify-center">
+                        <i class="fa-solid fa-user-tie text-accent text-lg" aria-hidden="true"></i>
                     </div>
                     <div>
                         <p class="text-gray-400 text-xs">Total Organizers</p>
@@ -97,8 +141,8 @@
             </div>
             <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
-                        <i class="fa-solid fa-person-hiking text-orange-400 text-lg"></i>
+                    <div class="w-10 h-10 rounded-full bg-accent/15 flex items-center justify-center">
+                        <i class="fa-solid fa-person-hiking text-accent text-lg" aria-hidden="true"></i>
                     </div>
                     <div>
                         <p class="text-gray-400 text-xs">Total Participants</p>
@@ -108,8 +152,8 @@
             </div>
             <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
-                        <i class="fa-solid fa-user-check text-orange-400 text-lg"></i>
+                    <div class="w-10 h-10 rounded-full bg-emerald-500/15 flex items-center justify-center">
+                        <i class="fa-solid fa-user-check text-emerald-400 text-lg" aria-hidden="true"></i>
                     </div>
                     <div>
                         <p class="text-gray-400 text-xs">Active Accounts</p>
@@ -120,94 +164,317 @@
         </div>
 
         <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full text-left">
-                    <thead class="border-b border-gray-700">
-                        <tr>
-                            <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase">Name</th>
-                            <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase">Email</th>
-                            <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase">Role</th>
-                            <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase">Status</th>
-                            <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase">Date Created</th>
-                            <th class="px-6 py-4 text-xs font-medium text-gray-400 uppercase text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tableBody">
-                        @if (Model?.Accounts != null && Model.Accounts.Any())
-                        {
-                            @foreach (var account in Model.Accounts)
-                            {
-                                var roleClass = account.Role == "Admin" ? "bg-orange-500/20 text-orange-400" : 
-                                                account.Role == "Organizer" ? "bg-blue-500/20 text-blue-400" : 
-                                                "bg-purple-500/20 text-purple-400";
-                                
-                                <tr class="account-row border-b border-gray-800 hover:bg-white/5 transition-colors"
-                                    data-name="@account.FullName"
-                                    data-email="@account.Email"
-                                    data-role="@(account.Role?.ToLower())"
-                                    data-status="@(account.IsActive ? "active" : "disabled")"
-                                    data-date="@account.DateCreated">
-                                    <td class="px-6 py-4">
-                                        <div class="flex items-center gap-3">
-                                            @if (!string.IsNullOrEmpty(account.ProfilePictureUrl))
-                                            {
-                                                <img src="@account.ProfilePictureUrl" alt="Profile" class="w-8 h-8 rounded-full object-cover shadow-lg" />
-                                            }
-                                            else
-                                            {
-                                                <div class="w-8 h-8 rounded-full bg-linear-to-r from-orange-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold shadow-lg">
-                                                    @account.Initials
-                                                </div>
-                                            }
-                                            <span class="text-white font-medium">@account.FullName</span>
-                                        </div>
-                                    </td>
-                                    <td class="px-6 py-4 text-gray-400">@account.Email</td>
-                                    <td class="px-6 py-4">
-                                        <span class="text-xs px-2 py-1 rounded-full @roleClass">@account.Role</span>
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        @if (account.IsActive)
-                                        {
-                                            <span class="text-xs px-2 py-1 rounded-full bg-green-600 text-white">Active</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="text-xs px-2 py-1 rounded-full bg-red-600 text-white">Disabled</span>
-                                        }
-                                    </td>
-                                    <td class="px-6 py-4 text-gray-400">@account.DateCreated</td>
-                                    <td class="px-6 py-4 text-right">
-                                        <form method="post" asp-action="ToggleAccountStatus" class="inline" onsubmit="return confirm('Are you sure?');">
-                                            <input type="hidden" name="id" value="@account.Id" />
-                                            @if (account.IsActive)
-                                            {
-                                                <button type="submit" class="bg-red-500/20 hover:bg-red-500 border border-red-500/30 hover:border-red-500 text-red-400 hover:text-white px-4 py-1.5 rounded-lg text-xs font-semibold transition-all">
-                                                    Disable
-                                                </button>
-                                            }
-                                            else
-                                            {
-                                                <button type="submit" class="bg-green-500/20 hover:bg-green-500 border border-green-500/30 hover:border-green-500 text-green-400 hover:text-white px-4 py-1.5 rounded-lg text-xs font-semibold transition-all">
-                                                    Enable
-                                                </button>
-                                            }
-                                        </form>
-                                    </td>
+            @if (Model?.Accounts != null && Model.Accounts.Any())
+            {
+                <!-- Desktop: five-row bounded table with sticky header, reusing
+                     the exact .tg-records-scroll/.tg-records-cue convention from
+                     Records/Index.cshtml (scrollbar look + bottom-only fade cue).
+                     The row-count measurement itself is intentionally NOT a
+                     literal copy of that page's desktop-table wiring: there,
+                     createScrollRegion() measures the scroll div's own direct
+                     children, but for a <table> the div's only direct child is
+                     the <table> itself (rows live two levels deeper, inside
+                     <tbody>), so that measurement is always "1 child" and never
+                     actually bounds the table to five rows. Here, rows are
+                     measured from #accountsTbody's children directly while the
+                     max-height is still applied to the outer scroll div (whose
+                     rendered top already includes the sticky thead), which
+                     bounds the visible area to exactly thead + 5 rows. -->
+                <div class="hidden lg:block relative">
+                    <div id="accountsDesktopScroll" tabindex="0" aria-label="Accounts" class="overflow-y-auto tg-records-scroll focus:outline-none focus:ring-2 focus:ring-accent focus:ring-inset">
+                        <table class="w-full text-left text-sm border-collapse">
+                            <caption class="sr-only">User accounts with role, status, and account actions.</caption>
+                            <thead class="sticky top-0 z-10 bg-surface-card">
+                                <tr class="border-b border-white/10">
+                                    <th scope="col" class="px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider text-center">Name</th>
+                                    <th scope="col" class="px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider text-center">Email</th>
+                                    <th scope="col" class="px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider text-center">Role</th>
+                                    <th scope="col" class="px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider text-center">Status</th>
+                                    <th scope="col" class="px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider text-center">Date Created</th>
+                                    <th scope="col" class="px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider text-center">Actions</th>
                                 </tr>
-                            }
-                        }
-                        else
+                            </thead>
+                            <tbody id="accountsTbody" class="divide-y divide-white/10">
+                                @foreach (var account in Model.Accounts)
+                                {
+                                    var isConflictOrMissing = account.RoleStatus is RoleIntegrityStatus.Conflict or RoleIntegrityStatus.Missing;
+
+                                    <tr class="account-row hover:bg-white/5 transition-colors"
+                                        data-id="@account.Id"
+                                        data-name="@account.FullName"
+                                        data-email="@account.Email"
+                                        data-role="@roleFilterValue(account.RoleStatus)"
+                                        data-status="@(account.IsActive ? "active" : "inactive")"
+                                        data-date="@account.DateCreatedIso">
+                                        <th scope="row" class="px-5 py-4 font-normal">
+                                            <div class="flex items-center gap-3 min-w-0">
+                                                @if (!string.IsNullOrEmpty(account.ProfilePictureUrl))
+                                                {
+                                                    <img src="@account.ProfilePictureUrl" alt="" class="w-8 h-8 rounded-full object-cover shrink-0" />
+                                                }
+                                                else
+                                                {
+                                                    <div class="w-8 h-8 rounded-full bg-accent text-white flex items-center justify-center text-xs font-bold shrink-0" aria-hidden="true">@account.Initials</div>
+                                                }
+                                                <span class="text-white font-medium wrap-break-word">@account.FullName</span>
+                                            </div>
+                                        </th>
+                                        <td class="px-5 py-4 text-gray-300 wrap-break-word">@account.Email</td>
+                                        <td class="px-5 py-4">
+                                            @if (!isConflictOrMissing)
+                                            {
+                                                <p class="font-semibold @roleTextClass(account.RoleStatus)">@account.RoleStatus</p>
+                                            }
+                                            else if (account.RoleStatus == RoleIntegrityStatus.Conflict)
+                                            {
+                                                <p class="font-semibold @roleTextClass(account.RoleStatus)">Role conflict</p>
+                                                <p class="text-gray-500 text-xs mt-0.5 wrap-break-word">Assigned: @string.Join(" + ", account.AssignedRoles)</p>
+                                            }
+                                            else
+                                            {
+                                                <p class="font-semibold @roleTextClass(account.RoleStatus)">Role missing</p>
+                                            }
+                                        </td>
+                                        <td class="px-5 py-4">
+                                            <p class="font-semibold @statusTextClass(account.IsActive)">@statusText(account.IsActive)</p>
+                                        </td>
+                                        <td class="px-5 py-4 text-gray-300 whitespace-nowrap">@account.DateCreated</td>
+                                        <td class="px-5 py-4 text-right">
+                                            <div class="inline-flex flex-wrap items-center justify-end gap-2">
+                                                @if (canChangeRole(account))
+                                                {
+                                                    <button type="button"
+                                                            class="role-change-trigger inline-flex items-center justify-center px-4 py-1.5 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 border border-white/10 hover:border-accent/60 text-gray-300 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50 disabled:pointer-events-none"
+                                                            data-id="@account.Id"
+                                                            data-name="@account.FullName"
+                                                            data-status="@account.RoleStatus"
+                                                            data-roles="@string.Join(",", account.AssignedRoles)"
+                                                            data-is-self="@(account.IsCurrentUser ? "true" : "false")">
+                                                        @(isConflictOrMissing ? "Resolve" : "Change Role")
+                                                    </button>
+                                                }
+                                                @if (account.IsCurrentUser)
+                                                {
+                                                    <span class="text-gray-500 text-xs italic px-1">Current account</span>
+                                                }
+                                                else if (account.IsActive)
+                                                {
+                                                    <button type="button"
+                                                            class="status-toggle-trigger inline-flex items-center justify-center px-4 py-1.5 rounded-lg text-xs font-semibold text-red-300 hover:text-white bg-red-950 hover:bg-red-900 border border-red-500/40 hover:border-red-400/60 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500/60 disabled:opacity-50 disabled:pointer-events-none"
+                                                            data-id="@account.Id" data-name="@account.FullName" data-target-active="false">
+                                                        Disable
+                                                    </button>
+                                                }
+                                                else
+                                                {
+                                                    <button type="button"
+                                                            class="status-toggle-trigger inline-flex items-center justify-center px-4 py-1.5 rounded-lg text-xs font-semibold text-emerald-300 hover:text-white bg-emerald-950 hover:bg-emerald-900 border border-emerald-500/40 hover:border-emerald-400/60 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/60 disabled:opacity-50 disabled:pointer-events-none"
+                                                            data-id="@account.Id" data-name="@account.FullName" data-target-active="true">
+                                                        Enable
+                                                    </button>
+                                                }
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="accountsDesktopCue" class="tg-records-cue" aria-hidden="true"><span>Scroll for more <i class="fa-solid fa-chevron-down ml-1" aria-hidden="true"></i></span></div>
+                </div>
+
+                <!-- Mobile: natural-height stacked cards, same bottom cue
+                     convention, same Role/Status/Actions markup as desktop. -->
+                <div class="lg:hidden relative">
+                    <div id="accountsMobileScroll" tabindex="0" aria-label="Accounts" class="overflow-y-auto tg-records-scroll space-y-3 p-4 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-inset">
+                        @foreach (var account in Model.Accounts)
                         {
-                            <tr>
-                                <td colspan="6" class="px-6 py-12 text-center text-gray-500">
-                                    <i class="fa-solid fa-users-slash text-3xl mb-2 block opacity-50"></i>
-                                    <p>No accounts found</p>
-                                </td>
-                            </tr>
+                            var isConflictOrMissing = account.RoleStatus is RoleIntegrityStatus.Conflict or RoleIntegrityStatus.Missing;
+
+                            <article class="account-row bg-white/5 border border-white/10 rounded-xl p-4"
+                                     data-id="@account.Id"
+                                     data-name="@account.FullName"
+                                     data-email="@account.Email"
+                                     data-role="@roleFilterValue(account.RoleStatus)"
+                                     data-status="@(account.IsActive ? "active" : "inactive")"
+                                     data-date="@account.DateCreatedIso">
+                                <div class="flex items-center gap-3 mb-3">
+                                    @if (!string.IsNullOrEmpty(account.ProfilePictureUrl))
+                                    {
+                                        <img src="@account.ProfilePictureUrl" alt="" class="w-9 h-9 rounded-full object-cover shrink-0" />
+                                    }
+                                    else
+                                    {
+                                        <div class="w-9 h-9 rounded-full bg-accent text-white flex items-center justify-center text-xs font-bold shrink-0" aria-hidden="true">@account.Initials</div>
+                                    }
+                                    <h3 class="text-white font-semibold text-base wrap-break-word min-w-0">@account.FullName</h3>
+                                </div>
+                                <dl class="space-y-2.5 text-sm">
+                                    <div><dt class="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Email</dt><dd class="text-gray-200 wrap-break-word">@account.Email</dd></div>
+                                    <div>
+                                        <dt class="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Role</dt>
+                                        <dd>
+                                            @if (!isConflictOrMissing)
+                                            {
+                                                <p class="font-semibold @roleTextClass(account.RoleStatus)">@account.RoleStatus</p>
+                                            }
+                                            else if (account.RoleStatus == RoleIntegrityStatus.Conflict)
+                                            {
+                                                <p class="font-semibold @roleTextClass(account.RoleStatus)">Role conflict</p>
+                                                <p class="text-gray-500 text-xs mt-0.5 wrap-break-word">Assigned: @string.Join(" + ", account.AssignedRoles)</p>
+                                            }
+                                            else
+                                            {
+                                                <p class="font-semibold @roleTextClass(account.RoleStatus)">Role missing</p>
+                                            }
+                                        </dd>
+                                    </div>
+                                    <div class="flex gap-6">
+                                        <div><dt class="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Status</dt><dd class="font-semibold @statusTextClass(account.IsActive)">@statusText(account.IsActive)</dd></div>
+                                        <div><dt class="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Date Created</dt><dd class="text-gray-200">@account.DateCreated</dd></div>
+                                    </div>
+                                </dl>
+                                <div class="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-white/10">
+                                    @if (canChangeRole(account))
+                                    {
+                                        <button type="button"
+                                                class="role-change-trigger inline-flex items-center justify-center px-4 py-1.5 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 border border-white/10 hover:border-accent/60 text-gray-300 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50 disabled:pointer-events-none"
+                                                data-id="@account.Id"
+                                                data-name="@account.FullName"
+                                                data-status="@account.RoleStatus"
+                                                data-roles="@string.Join(",", account.AssignedRoles)"
+                                                data-is-self="@(account.IsCurrentUser ? "true" : "false")">
+                                            @(isConflictOrMissing ? "Resolve" : "Change Role")
+                                        </button>
+                                    }
+                                    @if (account.IsCurrentUser)
+                                    {
+                                        <span class="text-gray-500 text-xs italic px-1">Current account</span>
+                                    }
+                                    else if (account.IsActive)
+                                    {
+                                        <button type="button"
+                                                class="status-toggle-trigger inline-flex items-center justify-center px-4 py-1.5 rounded-lg text-xs font-semibold text-red-300 hover:text-white bg-red-950 hover:bg-red-900 border border-red-500/40 hover:border-red-400/60 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500/60 disabled:opacity-50 disabled:pointer-events-none"
+                                                data-id="@account.Id" data-name="@account.FullName" data-target-active="false">
+                                            Disable
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button type="button"
+                                                class="status-toggle-trigger inline-flex items-center justify-center px-4 py-1.5 rounded-lg text-xs font-semibold text-emerald-300 hover:text-white bg-emerald-950 hover:bg-emerald-900 border border-emerald-500/40 hover:border-emerald-400/60 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/60 disabled:opacity-50 disabled:pointer-events-none"
+                                                data-id="@account.Id" data-name="@account.FullName" data-target-active="true">
+                                            Enable
+                                        </button>
+                                    }
+                                </div>
+                            </article>
                         }
-                    </tbody>
-                </table>
+                    </div>
+                    <div id="accountsMobileCue" class="tg-records-cue" aria-hidden="true"><span>Scroll for more <i class="fa-solid fa-chevron-down ml-1" aria-hidden="true"></i></span></div>
+                </div>
+
+                <div id="accountsNoMatches" hidden class="text-center py-12 px-5">
+                    <i class="fa-solid fa-magnifying-glass text-3xl text-slate-600 mb-3" aria-hidden="true"></i>
+                    <p class="text-gray-400 text-sm">No accounts match your search or filters.</p>
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-16 px-5">
+                    <i class="fa-solid fa-users-slash text-3xl text-slate-600 mb-3" aria-hidden="true"></i>
+                    <p class="text-gray-400 text-sm">No accounts found.</p>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@section Modals {
+    <!-- Change Role - one reusable confirmation dialog for every account row's
+         Change Role / Resolve action. Same accessible dialog lifecycle as
+         Organizer/RegistrationDetails.cshtml's actionConfirmModal (focus trap,
+         Escape/backdrop close, background inert, scroll lock, toast exemption,
+         one-request protection). -->
+    <div id="roleChangeModal" class="fixed inset-0 z-60 hidden items-center justify-center p-4">
+        <div data-role-change-backdrop class="fixed inset-0 bg-black/70 backdrop-blur-sm z-60" aria-hidden="true"></div>
+        <div role="dialog" aria-modal="true" aria-labelledby="roleChangeTitle"
+             class="relative bg-surface-card border border-white/10 rounded-xl shadow-2xl w-full max-w-md max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col z-60">
+            <div class="flex items-start justify-between gap-4 px-6 py-4 border-b border-white/10 shrink-0">
+                <div class="flex items-center gap-3 min-w-0">
+                    <span class="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-accent/15 border border-accent/30" aria-hidden="true">
+                        <i class="fa-solid fa-user-shield text-accent text-sm"></i>
+                    </span>
+                    <h2 id="roleChangeTitle" class="text-lg font-bold text-white">Change Role</h2>
+                </div>
+                <button type="button" id="roleChangeCloseBtn" aria-label="Close" class="shrink-0 text-gray-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded">
+                    <i class="fa-solid fa-xmark text-xl" aria-hidden="true"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <p id="roleChangeMessage" class="text-gray-300 text-sm"></p>
+                <div id="roleChangeNote" class="hidden bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+                    <p class="text-amber-300 text-sm"><i class="fa-solid fa-triangle-exclamation mr-1.5" aria-hidden="true"></i><span id="roleChangeNoteText"></span></p>
+                </div>
+                <div>
+                    <label for="roleChangeSelect" class="block text-sm font-medium text-gray-300 mb-2">Select role</label>
+                    <select id="roleChangeSelect" required data-custom-select
+                            data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-5 py-3 rounded-full bg-black/20 border border-white/10 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer"
+                            class="w-full bg-black/20 border border-white/10 text-white rounded-full px-5 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none cursor-pointer appearance-none transition-colors">
+                        <option value="" selected disabled class="bg-surface-card text-gray-400">Select a role...</option>
+                        <option value="Admin" class="bg-surface-card">Admin</option>
+                        <option value="Organizer" class="bg-surface-card">Organizer</option>
+                        <option value="Participant" class="bg-surface-card">Participant</option>
+                    </select>
+                    <p id="roleChangeError" class="hidden text-red-400 text-xs mt-1">Please select a role.</p>
+                </div>
+            </div>
+            <div class="flex gap-3 px-6 py-4 border-t border-white/10 shrink-0">
+                <button type="button" id="roleChangeCancelBtn"
+                        class="flex-1 px-4 py-2.5 rounded-full text-gray-300 hover:text-white text-sm font-medium bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-60 disabled:pointer-events-none">
+                    Cancel
+                </button>
+                <button type="button" id="roleChangeSubmitBtn"
+                        class="flex-1 px-4 py-2.5 rounded-full text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-card disabled:opacity-60 disabled:pointer-events-none text-white bg-accent/70 hover:bg-accent border border-accent/60">
+                    <span id="roleChangeSubmitLabel">Confirm</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Account Status - one reusable confirmation dialog for every account
+         row's Enable/Disable action, replacing the previous native confirm().
+         Same accessible dialog lifecycle as roleChangeModal above and
+         Organizer/RegistrationDetails.cshtml's actionConfirmModal; tone
+         (positive/negative icon+button color) mirrors that same page's
+         Approve/Reject ACTION_STYLES exactly. -->
+    <div id="statusChangeModal" class="fixed inset-0 z-60 hidden items-center justify-center p-4">
+        <div data-status-change-backdrop class="fixed inset-0 bg-black/70 backdrop-blur-sm z-60" aria-hidden="true"></div>
+        <div role="dialog" aria-modal="true" aria-labelledby="statusChangeTitle"
+             class="relative bg-surface-card border border-white/10 rounded-xl shadow-2xl w-full max-w-md max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col z-60">
+            <div class="flex items-start justify-between gap-4 px-6 py-4 border-b border-white/10 shrink-0">
+                <div class="flex items-center gap-3 min-w-0">
+                    <span id="statusChangeIconWrap" class="w-9 h-9 rounded-full flex items-center justify-center shrink-0" aria-hidden="true">
+                        <i id="statusChangeIcon" class="text-sm"></i>
+                    </span>
+                    <h2 id="statusChangeTitle" class="text-lg font-bold text-white"></h2>
+                </div>
+                <button type="button" id="statusChangeCloseBtn" aria-label="Close" class="shrink-0 text-gray-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded">
+                    <i class="fa-solid fa-xmark text-xl" aria-hidden="true"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <p id="statusChangeMessage" class="text-gray-300 text-sm"></p>
+            </div>
+            <div class="flex gap-3 px-6 py-4 border-t border-white/10 shrink-0">
+                <button type="button" id="statusChangeCancelBtn"
+                        class="flex-1 px-4 py-2.5 rounded-full text-gray-300 hover:text-white text-sm font-medium bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-60 disabled:pointer-events-none">
+                    Cancel
+                </button>
+                <button type="button" id="statusChangeSubmitBtn"
+                        class="flex-1 px-4 py-2.5 rounded-full text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface-card disabled:opacity-60 disabled:pointer-events-none">
+                    <span id="statusChangeSubmitLabel">Confirm</span>
+                </button>
             </div>
         </div>
     </div>
@@ -215,51 +482,553 @@
 
 <script>
     document.addEventListener("DOMContentLoaded", function () {
-        const searchInput = document.getElementById('searchInput');
-        const roleFilter = document.getElementById('roleFilter');
-        const statusFilter = document.getElementById('statusFilter');
-        const sortFilter = document.getElementById('sortFilter');
-        const tableBody = document.getElementById('tableBody');
-        
-        if (!searchInput || !tableBody) return;
+        function byId(id) { return document.getElementById(id); }
 
-        function filterAndSort() {
-            let rows = Array.from(document.querySelectorAll('.account-row'));
-            if (rows.length === 0) return;
+        // ------------------------------------------------------------------
+        // Shared accessible dialog lifecycle - one implementation, two
+        // instances (roleChangeModal, statusChangeModal). Mirrors
+        // Organizer/RegistrationDetails.cshtml's createDialog exactly (focus
+        // trap, Escape/backdrop close, background inert, scroll lock, toast
+        // exemption).
+        // ------------------------------------------------------------------
+        function createDialog(modalId, options) {
+            options = options || {};
+            var isOpen = false;
+            var lastFocusedElement = null;
+            var inertedElements = [];
+            var bodyOverflowBeforeModal = null;
 
-            const searchTerm = searchInput.value.toLowerCase();
-            const role = roleFilter.value;
-            const status = statusFilter.value;
-            const sort = sortFilter.value;
-
-            let visibleRows = rows.filter(row => {
-                const name = row.getAttribute('data-name')?.toLowerCase() || '';
-                const email = row.getAttribute('data-email')?.toLowerCase() || '';
-                const roleAttr = row.getAttribute('data-role') || '';
-                const statusAttr = row.getAttribute('data-status') || '';
-
-                const matchesSearch = name.includes(searchTerm) || email.includes(searchTerm);
-                const matchesRole = role === 'all' || roleAttr === role;
-                const matchesStatus = status === 'all' || statusAttr === status;
-
-                row.style.display = (matchesSearch && matchesRole && matchesStatus) ? '' : 'none';
-                return matchesSearch && matchesRole && matchesStatus;
-            });
-
-            if (sort === 'name') {
-                visibleRows.sort((a, b) => (a.getAttribute('data-name') || '').localeCompare(b.getAttribute('data-name') || ''));
-            } else if (sort === 'newest') {
-                visibleRows.sort((a, b) => new Date(b.getAttribute('data-date') || 0) - new Date(a.getAttribute('data-date') || 0));
-            } else if (sort === 'oldest') {
-                visibleRows.sort((a, b) => new Date(a.getAttribute('data-date') || 0) - new Date(b.getAttribute('data-date') || 0));
+            function getFocusableElements(container) {
+                return Array.from(container.querySelectorAll(
+                    'a[href], button:not([disabled]), textarea:not([disabled]), ' +
+                    'input:not([disabled]):not([type="hidden"]), select:not([disabled]), ' +
+                    '[tabindex]:not([tabindex="-1"])'
+                )).filter(function (el) { return el.offsetParent !== null; });
             }
 
-            visibleRows.forEach(row => tableBody.appendChild(row));
+            function makeBackgroundInert(modalRoot) {
+                inertedElements = [];
+                var current = modalRoot;
+                while (current && current !== document.body) {
+                    var parent = current.parentElement;
+                    if (!parent) break;
+                    Array.from(parent.children).forEach(function (sibling) {
+                        if (sibling === current || sibling.hasAttribute('inert')) return;
+                        if (window.tgToastHostExempt && window.tgToastHostExempt(sibling)) return;
+                        sibling.setAttribute('inert', '');
+                        inertedElements.push(sibling);
+                    });
+                    current = parent;
+                }
+            }
+
+            function restoreBackgroundInert() {
+                inertedElements.forEach(function (el) { el.removeAttribute('inert'); });
+                inertedElements = [];
+            }
+
+            function handleKeydown(event) {
+                if (!isOpen) return;
+                var modalEl = byId(modalId);
+                if (!modalEl) return;
+
+                if (event.key === 'Escape') { close(); return; }
+
+                if (event.key === 'Tab') {
+                    var toastCloseButtons = window.tgGetToastCloseButtons ? window.tgGetToastCloseButtons() : [];
+                    var focusable = getFocusableElements(modalEl).concat(toastCloseButtons);
+                    if (focusable.length === 0) { event.preventDefault(); return; }
+                    var first = focusable[0];
+                    var last = focusable[focusable.length - 1];
+                    if (event.shiftKey && document.activeElement === first) {
+                        event.preventDefault();
+                        last.focus();
+                    } else if (!event.shiftKey && document.activeElement === last) {
+                        event.preventDefault();
+                        first.focus();
+                    }
+                }
+            }
+
+            function open() {
+                var modalEl = byId(modalId);
+                if (!modalEl || isOpen) return;
+
+                lastFocusedElement = document.activeElement;
+                modalEl.classList.remove('hidden');
+                modalEl.classList.add('flex');
+                isOpen = true;
+                makeBackgroundInert(modalEl);
+                bodyOverflowBeforeModal = document.body.style.overflow;
+                document.body.style.overflow = 'hidden';
+                document.addEventListener('keydown', handleKeydown);
+
+                var target = null;
+                if (typeof options.initialFocus === 'function') target = options.initialFocus(modalEl);
+                if (!target) target = getFocusableElements(modalEl)[0] || modalEl;
+                if (target && typeof target.focus === 'function') target.focus();
+            }
+
+            function close() {
+                var modalEl = byId(modalId);
+                if (!modalEl) return;
+
+                modalEl.classList.add('hidden');
+                modalEl.classList.remove('flex');
+
+                if (!isOpen) return;
+                isOpen = false;
+                restoreBackgroundInert();
+                document.body.style.overflow = bodyOverflowBeforeModal || '';
+                bodyOverflowBeforeModal = null;
+                document.removeEventListener('keydown', handleKeydown);
+
+                if (typeof options.onClose === 'function') options.onClose();
+
+                if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') lastFocusedElement.focus();
+                lastFocusedElement = null;
+            }
+
+            return { open: open, close: close, isOpen: function () { return isOpen; } };
         }
 
-        searchInput.addEventListener('input', filterAndSort);
-        roleFilter.addEventListener('change', filterAndSort);
-        statusFilter.addEventListener('change', filterAndSort);
-        sortFilter.addEventListener('change', filterAndSort);
+        // ------------------------------------------------------------------
+        // Change Role / Resolve dialog
+        // ------------------------------------------------------------------
+        var roleModal = byId('roleChangeModal');
+        var roleEls = null;
+        var rolePending = null; // { id }
+        var roleSubmitting = false;
+        var roleDialog = null;
+
+        if (roleModal) {
+            roleEls = {
+                message: byId('roleChangeMessage'),
+                note: byId('roleChangeNote'),
+                noteText: byId('roleChangeNoteText'),
+                select: byId('roleChangeSelect'),
+                error: byId('roleChangeError'),
+                cancelBtn: byId('roleChangeCancelBtn'),
+                closeBtn: byId('roleChangeCloseBtn'),
+                submitBtn: byId('roleChangeSubmitBtn'),
+                submitLabel: byId('roleChangeSubmitLabel')
+            };
+
+            roleDialog = createDialog('roleChangeModal', {
+                initialFocus: function () { return roleEls.select; },
+                onClose: function () {
+                    rolePending = null;
+                    setRoleSubmitting(false);
+                    // Never preselect a role, even for a single-role account
+                    // being changed - an explicit choice is required every
+                    // time. roleEls.select is enhanced by custom-select.js;
+                    // setting .value alone doesn't dispatch 'change', so the
+                    // enhanced trigger/listbox is resynced explicitly via its
+                    // public refresh() API.
+                    roleEls.select.value = '';
+                    if (window.CustomSelect && typeof window.CustomSelect.refresh === 'function') {
+                        window.CustomSelect.refresh(roleEls.select);
+                    }
+                    roleEls.error.classList.add('hidden');
+                    roleEls.note.classList.add('hidden');
+                }
+            });
+
+            // No spinner/label swap on submit by design - the submit button's
+            // disabled property alone is the duplicate-submission guard
+            // (checked again in submitRole()'s own `if (roleSubmitting ...)`
+            // early return), so nothing is inserted/removed from the DOM and
+            // there is no layout shift while a request is pending.
+            function setRoleSubmitting(value) {
+                roleSubmitting = value;
+                roleEls.submitBtn.disabled = value;
+                roleEls.cancelBtn.disabled = value;
+                roleEls.closeBtn.disabled = value;
+            }
+
+            var openForRow = function (trigger) {
+                if (roleDialog.isOpen()) return; // one pending change at a time
+
+                var id = trigger.getAttribute('data-id');
+                var name = trigger.getAttribute('data-name') || 'this account';
+                var status = trigger.getAttribute('data-status') || 'Missing';
+                var roles = (trigger.getAttribute('data-roles') || '').split(',').filter(Boolean);
+                var isSelf = trigger.getAttribute('data-is-self') === 'true';
+
+                rolePending = { id: id };
+
+                if (status === 'Conflict') {
+                    roleEls.message.textContent = name + ' currently holds more than one role. Choose the single role to keep - the others will be removed.';
+                    roleEls.noteText.textContent = 'Currently assigned: ' + roles.join(' + ') + '.';
+                    roleEls.note.classList.remove('hidden');
+                } else if (status === 'Missing') {
+                    roleEls.message.textContent = name + ' currently has no assigned role. Select the role to assign.';
+                    roleEls.note.classList.add('hidden');
+                } else {
+                    roleEls.message.textContent = 'Change ' + name + '’s role. Their current role (' + status + ') will be replaced by your selection.';
+                    roleEls.note.classList.add('hidden');
+                }
+
+                if (isSelf) {
+                    roleEls.noteText.textContent = (roleEls.note.classList.contains('hidden') ? '' : roleEls.noteText.textContent + ' ') +
+                        'You may only resolve your own account to Admin.';
+                    roleEls.note.classList.remove('hidden');
+                }
+
+                roleEls.select.value = '';
+                if (window.CustomSelect && typeof window.CustomSelect.refresh === 'function') {
+                    window.CustomSelect.refresh(roleEls.select);
+                }
+                roleEls.error.classList.add('hidden');
+
+                roleDialog.open();
+            };
+
+            var submitRole = function () {
+                if (roleSubmitting || !rolePending) return; // one click, one request
+
+                var role = roleEls.select.value;
+                if (!role) {
+                    roleEls.error.classList.remove('hidden');
+                    roleEls.select.focus();
+                    return;
+                }
+                roleEls.error.classList.add('hidden');
+
+                var current = rolePending;
+                setRoleSubmitting(true);
+
+                postJson('/Admin/ChangeRole', { id: current.id, role: role })
+                    .then(function (response) { return response.json(); })
+                    .then(function (data) {
+                        if (data.success) {
+                            showToast(data.message, 'success');
+                            roleDialog.close();
+                            setTimeout(function () { location.reload(); }, 1000);
+                        } else {
+                            showToast(data.message, 'error');
+                            setRoleSubmitting(false);
+                        }
+                    })
+                    .catch(function (error) {
+                        console.error('Role change failed:', error);
+                        showToast('Something went wrong. Please try again.', 'error');
+                        setRoleSubmitting(false);
+                    });
+            };
+
+            roleEls.cancelBtn.addEventListener('click', roleDialog.close);
+            roleEls.closeBtn.addEventListener('click', roleDialog.close);
+            roleEls.submitBtn.addEventListener('click', submitRole);
+
+            var roleBackdrop = roleModal.querySelector('[data-role-change-backdrop]');
+            if (roleBackdrop) roleBackdrop.addEventListener('click', roleDialog.close);
+
+            // Event delegation - one listener on the page for every current
+            // and future .role-change-trigger button (desktop and mobile),
+            // never bound per-row.
+            document.addEventListener('click', function (event) {
+                var trigger = event.target.closest('.role-change-trigger');
+                if (trigger) openForRow(trigger);
+            });
+        }
+
+        // ------------------------------------------------------------------
+        // Account Status (Enable/Disable) dialog - replaces the previous
+        // native confirm(). Tone styling matches Organizer/RegistrationDetails
+        // .cshtml's ACTION_STYLES.positive/negative exactly.
+        // ------------------------------------------------------------------
+        var statusModal = byId('statusChangeModal');
+        if (statusModal) {
+            var STATUS_STYLES = {
+                positive: {
+                    iconWrap: 'w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-emerald-500/15 border border-emerald-500/30',
+                    icon: 'fa-solid fa-user-check text-emerald-400 text-sm',
+                    submit: 'flex-1 px-4 py-2.5 rounded-full text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/60 focus:ring-offset-2 focus:ring-offset-surface-card disabled:opacity-60 disabled:pointer-events-none text-emerald-200 hover:text-white bg-emerald-950 hover:bg-emerald-900 border border-emerald-500/40 hover:border-emerald-400/60'
+                },
+                negative: {
+                    iconWrap: 'w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-red-500/15 border border-red-500/30',
+                    icon: 'fa-solid fa-user-slash text-red-400 text-sm',
+                    submit: 'flex-1 px-4 py-2.5 rounded-full text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-red-500/60 focus:ring-offset-2 focus:ring-offset-surface-card disabled:opacity-60 disabled:pointer-events-none text-red-200 hover:text-white bg-red-950 hover:bg-red-900 border border-red-500/40 hover:border-red-400/60'
+                }
+            };
+
+            var statusEls = {
+                iconWrap: byId('statusChangeIconWrap'),
+                icon: byId('statusChangeIcon'),
+                title: byId('statusChangeTitle'),
+                message: byId('statusChangeMessage'),
+                cancelBtn: byId('statusChangeCancelBtn'),
+                closeBtn: byId('statusChangeCloseBtn'),
+                submitBtn: byId('statusChangeSubmitBtn'),
+                submitLabel: byId('statusChangeSubmitLabel')
+            };
+
+            var statusPending = null; // { id, active }
+            var statusSubmitting = false;
+
+            var statusDialog = createDialog('statusChangeModal', {
+                initialFocus: function () { return statusEls.submitBtn; },
+                onClose: function () {
+                    statusPending = null;
+                    setStatusSubmitting(false);
+                }
+            });
+
+            // No spinner/label swap on submit by design - see the identical
+            // note on setRoleSubmitting above.
+            function setStatusSubmitting(value) {
+                statusSubmitting = value;
+                statusEls.submitBtn.disabled = value;
+                statusEls.cancelBtn.disabled = value;
+                statusEls.closeBtn.disabled = value;
+            }
+
+            var openStatusForRow = function (trigger) {
+                if (statusDialog.isOpen()) return; // one pending action at a time
+
+                var id = trigger.getAttribute('data-id');
+                var name = trigger.getAttribute('data-name') || 'this account';
+                var targetActive = trigger.getAttribute('data-target-active') === 'true';
+                var style = STATUS_STYLES[targetActive ? 'positive' : 'negative'];
+
+                statusPending = { id: id, active: targetActive };
+
+                statusEls.iconWrap.className = style.iconWrap;
+                statusEls.icon.className = style.icon;
+                statusEls.submitBtn.className = style.submit;
+                statusEls.title.textContent = targetActive ? 'Enable Account' : 'Disable Account';
+                statusEls.message.textContent = targetActive
+                    ? 'This restores ' + name + '’s access - they will be able to sign in again.'
+                    : 'This immediately blocks ' + name + ' from signing in. They will not be able to access their account until re-enabled.';
+                statusEls.submitLabel.textContent = targetActive ? 'Confirm Enable' : 'Confirm Disable';
+
+                statusDialog.open();
+            };
+
+            var submitStatus = function () {
+                if (statusSubmitting || !statusPending) return; // one click, one request
+
+                var current = statusPending;
+                setStatusSubmitting(true);
+
+                postJson('/Admin/ToggleAccountStatus', { id: current.id, active: current.active })
+                    .then(function (response) { return response.json(); })
+                    .then(function (data) {
+                        if (data.success) {
+                            showToast(data.message, 'success');
+                            statusDialog.close();
+                            setTimeout(function () { location.reload(); }, 1000);
+                        } else {
+                            showToast(data.message, 'error');
+                            setStatusSubmitting(false);
+                        }
+                    })
+                    .catch(function (error) {
+                        console.error('Account status change failed:', error);
+                        showToast('Something went wrong. Please try again.', 'error');
+                        setStatusSubmitting(false);
+                    });
+            };
+
+            statusEls.cancelBtn.addEventListener('click', statusDialog.close);
+            statusEls.closeBtn.addEventListener('click', statusDialog.close);
+            statusEls.submitBtn.addEventListener('click', submitStatus);
+
+            var statusBackdrop = statusModal.querySelector('[data-status-change-backdrop]');
+            if (statusBackdrop) statusBackdrop.addEventListener('click', statusDialog.close);
+
+            // Event delegation - one listener for every current and future
+            // .status-toggle-trigger button (desktop and mobile).
+            document.addEventListener('click', function (event) {
+                var trigger = event.target.closest('.status-toggle-trigger');
+                if (trigger) openStatusForRow(trigger);
+            });
+        }
+
+        // ------------------------------------------------------------------
+        // Filters / sort / search / scroll viewport
+        // ------------------------------------------------------------------
+        var searchInput = byId('searchInput');
+        var roleFilter = byId('roleFilter');
+        var statusFilter = byId('statusFilter');
+        var sortFilter = byId('sortFilter');
+        var clearFiltersBtn = byId('clearFiltersBtn');
+        var countLabel = byId('accountsCountLabel');
+        var noMatches = byId('accountsNoMatches');
+        var desktopBody = byId('accountsTbody');
+        var desktopScroll = byId('accountsDesktopScroll');
+        var mobileScroll = byId('accountsMobileScroll');
+
+        if (searchInput && desktopBody) {
+            function plural(count, singular, pluralWord) {
+                return count + ' ' + (count === 1 ? singular : pluralWord);
+            }
+
+            // ------------------------------------------------------------------
+            // Bounded five-row viewport + bottom scroll cue. rowsContainer is
+            // the element whose direct children are the actual row/card
+            // elements (desktop: #accountsTbody; mobile: the scroll div
+            // itself, since its <article> cards are direct children there).
+            // scrollEl is what overflow-y-auto and the measured max-height are
+            // applied to - for desktop that's the outer scroll div, not the
+            // tbody, so the max-height calculation below measures from the
+            // scroll div's own rendered top (which is where the sticky thead
+            // starts) to the top of the sixth row, correctly bounding the
+            // visible area to "thead + five rows" rather than just five bare
+            // row heights.
+            // ------------------------------------------------------------------
+            function createScrollRegion(scrollEl, rowsContainer, cueEl, rows) {
+                if (!scrollEl || !rowsContainer) return { recalc: function () {} };
+
+                function updateCue() {
+                    if (!cueEl) return;
+                    var hasOverflow = scrollEl.scrollHeight > scrollEl.clientHeight + 1;
+                    var atBottom = Math.ceil(scrollEl.scrollTop + scrollEl.clientHeight) >= scrollEl.scrollHeight - 1;
+                    cueEl.classList.toggle('is-visible', hasOverflow && !atBottom);
+                }
+
+                function recalc() {
+                    var visible = Array.prototype.filter.call(rowsContainer.children, function (el) {
+                        return el.style.display !== 'none';
+                    });
+
+                    if (visible.length <= rows) {
+                        scrollEl.style.maxHeight = '';
+                        updateCue();
+                        return;
+                    }
+
+                    var containerTop = scrollEl.getBoundingClientRect().top;
+                    var afterRowsTop = visible[rows].getBoundingClientRect().top;
+                    scrollEl.style.maxHeight = (afterRowsTop - containerTop) + 'px';
+                    updateCue();
+                }
+
+                var scheduled = false;
+                function scheduleRecalc() {
+                    if (scheduled) return;
+                    scheduled = true;
+                    requestAnimationFrame(function () {
+                        scheduled = false;
+                        recalc();
+                    });
+                }
+
+                scrollEl.addEventListener('scroll', updateCue, { passive: true });
+                window.addEventListener('resize', scheduleRecalc);
+
+                return { recalc: function () { scrollEl.scrollTop = 0; scheduleRecalc(); } };
+            }
+
+            var desktopRegion = createScrollRegion(desktopScroll, desktopBody, byId('accountsDesktopCue'), 5);
+            var mobileRegion = createScrollRegion(mobileScroll, mobileScroll, byId('accountsMobileCue'), 5);
+
+            // Desktop <tr> and mobile <article> are index-paired (both
+            // rendered from the same Model.Accounts, in the same order), so
+            // reordering one and moving the other by the same index keeps
+            // them in lockstep without a second data-id lookup pass - same
+            // technique as Records/Index.cshtml.
+            var items = Array.prototype.map.call(desktopBody.children, function (tr, i) {
+                return {
+                    tr: tr,
+                    card: mobileScroll ? mobileScroll.children[i] : null,
+                    name: (tr.getAttribute('data-name') || '').toLowerCase(),
+                    email: (tr.getAttribute('data-email') || '').toLowerCase(),
+                    role: tr.getAttribute('data-role') || '',
+                    status: tr.getAttribute('data-status') || '',
+                    date: new Date(tr.getAttribute('data-date') || 0).getTime(),
+                    id: tr.getAttribute('data-id') || ''
+                };
+            });
+
+            function isDefaultFilters() {
+                return (searchInput.value || '') === '' &&
+                    roleFilter.value === 'all' &&
+                    statusFilter.value === 'all' &&
+                    sortFilter.value === 'newest';
+            }
+
+            function filterAndSort() {
+                if (items.length === 0) return;
+
+                var term = (searchInput.value || '').trim().toLowerCase();
+                var role = roleFilter.value;
+                var status = statusFilter.value;
+                var sort = sortFilter.value;
+
+                var visible = items.filter(function (item) {
+                    var matchesSearch = !term || item.name.indexOf(term) !== -1 || item.email.indexOf(term) !== -1;
+                    var matchesRole = role === 'all' || item.role === role ||
+                        (role === 'needs-attention' && (item.role === 'conflict' || item.role === 'missing'));
+                    var matchesStatus = status === 'all' || item.status === status;
+                    var show = matchesSearch && matchesRole && matchesStatus;
+                    item.tr.style.display = show ? '' : 'none';
+                    if (item.card) item.card.style.display = show ? '' : 'none';
+                    return show;
+                });
+
+                // Stable sort with a deterministic secondary key (account id)
+                // so equal primary values (e.g. two accounts created within
+                // the same millisecond, or an identical first name) never
+                // reorder between passes.
+                visible.sort(function (a, b) {
+                    var diff = 0;
+                    if (sort === 'oldest') diff = a.date - b.date;
+                    else if (sort === 'name_asc') diff = a.name.localeCompare(b.name);
+                    else if (sort === 'name_desc') diff = b.name.localeCompare(a.name);
+                    else diff = b.date - a.date; // newest (default)
+
+                    if (diff !== 0) return diff;
+                    return a.id < b.id ? -1 : (a.id > b.id ? 1 : 0);
+                });
+
+                visible.forEach(function (item) {
+                    desktopBody.appendChild(item.tr);
+                    if (mobileScroll && item.card) mobileScroll.appendChild(item.card);
+                });
+
+                if (countLabel) {
+                    countLabel.textContent = visible.length === items.length
+                        ? plural(items.length, 'account', 'accounts')
+                        : (visible.length + ' of ' + plural(items.length, 'account', 'accounts'));
+                }
+
+                if (noMatches) noMatches.hidden = visible.length !== 0;
+                if (clearFiltersBtn) clearFiltersBtn.hidden = isDefaultFilters();
+
+                desktopRegion.recalc();
+                mobileRegion.recalc();
+            }
+
+            var debounceTimer;
+            searchInput.addEventListener('input', function () {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(filterAndSort, 150);
+            });
+            roleFilter.addEventListener('change', filterAndSort);
+            statusFilter.addEventListener('change', filterAndSort);
+            sortFilter.addEventListener('change', filterAndSort);
+
+            if (clearFiltersBtn) {
+                clearFiltersBtn.addEventListener('click', function () {
+                    searchInput.value = '';
+                    roleFilter.value = 'all';
+                    statusFilter.value = 'all';
+                    sortFilter.value = 'newest';
+
+                    if (window.CustomSelect && typeof window.CustomSelect.refresh === 'function') {
+                        window.CustomSelect.refresh(roleFilter);
+                        window.CustomSelect.refresh(statusFilter);
+                        window.CustomSelect.refresh(sortFilter);
+                    }
+
+                    filterAndSort();
+                    searchInput.focus();
+                });
+            }
+
+            filterAndSort();
+        }
     });
 </script>

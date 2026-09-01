@@ -23,6 +23,7 @@ builder.Services.ConfigureApplicationCookie(options =>
 });
 
 builder.Services.AddControllersWithViews();
+builder.Services.AddScoped<RoleAssignmentService>();
 // HeaderName lets fetch()-based POSTs (JSON or FormData, both use this - see
 // postJson/postForm in site.js) authenticate with a header instead of a form
 // field, since neither request shape carries the usual hidden form input.
@@ -98,6 +99,32 @@ using (var scope = app.Services.CreateScope())
     }
 
     var startupLogger = services.GetRequiredService<ILogger<Program>>();
+
+    // Read-only: never mutates a role. Existing multi-role/role-less accounts
+    // are resolved manually by an Admin (Account Management), never
+    // auto-normalized here - this only makes sure an existing conflict is
+    // reported instead of silently going unnoticed.
+    try
+    {
+        var roleAssignmentService = services.GetRequiredService<RoleAssignmentService>();
+        var audit = await roleAssignmentService.AuditRoleIntegrityAsync();
+        if (audit.Conflict > 0 || audit.Missing > 0)
+        {
+            startupLogger.LogWarning(
+                "Operational-role integrity check: {Conflict} account(s) hold more than one operational role and {Missing} account(s) hold none, out of {Total} total. " +
+                "These require manual resolution in Admin > Account Management. No roles were changed automatically.",
+                audit.Conflict, audit.Missing, audit.Total);
+        }
+        else
+        {
+            startupLogger.LogInformation("Operational-role integrity check: all {Total} account(s) hold exactly one operational role.", audit.Total);
+        }
+    }
+    catch (Exception ex)
+    {
+        startupLogger.LogError(ex, "Failed to audit operational-role integrity at startup.");
+    }
+
     var suitabilityApi = services.GetRequiredService<SuitabilityApiClient>();
     if (await suitabilityApi.CheckHealthAsync())
     {

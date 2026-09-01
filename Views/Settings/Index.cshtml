@@ -167,6 +167,10 @@
                     <div class="bg-white/5 rounded-xl p-4">
                         <p class="text-gray-500 text-xs">Role</p>
                         <p class="text-white font-semibold">@ViewBag.Role</p>
+                        @if (ViewBag.RoleNeedsAttention != null && (bool)ViewBag.RoleNeedsAttention)
+                        {
+                            <p class="text-amber-400 text-xs mt-1">Contact an Administrator to resolve this.</p>
+                        }
                     </div>
                     <div class="bg-white/5 rounded-xl p-4">
                         <p class="text-gray-500 text-xs">Date Joined</p>

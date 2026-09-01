@@ -632,3 +632,31 @@
 .tg-records-cue.is-visible {
     display: flex;
 }
+
+/* ==========================================================================
+   Add Account - dark-theme autofill override (Views/Admin/AddAccount.cshtml)
+
+   Chromium/WebKit paints its own opaque autofill fill color behind an
+   autofilled field, ignoring the field's own background-color entirely - a
+   Tailwind bg-* utility can't win against it. The only reliable override is
+   an inset box-shadow painted at the browser's own autofill layer (the
+   standard workaround), plus -webkit-text-fill-color/caret-color to keep the
+   filled-in text and caret visible against it. Scoped to .add-account-input
+   (only the five text/password fields on this one page) rather than applied
+   globally - most of the app's other forms use a light-theme native autofill
+   look that this would otherwise incorrectly darken.
+   ========================================================================== */
+.add-account-input:-webkit-autofill,
+.add-account-input:-webkit-autofill:hover,
+.add-account-input:-webkit-autofill:focus,
+.add-account-input:-webkit-autofill:active {
+    -webkit-text-fill-color: #ffffff;
+    caret-color: #ffffff;
+    -webkit-box-shadow: 0 0 0 1000px var(--color-surface-card) inset;
+    box-shadow: 0 0 0 1000px var(--color-surface-card) inset;
+    /* Delays the browser's own background-color transition long enough that
+       it never visibly flashes white before the box-shadow above paints over
+       it - a standard companion to the box-shadow trick, not a real 9999s
+       animation. */
+    transition: background-color 9999s ease-in-out 0s;
+}

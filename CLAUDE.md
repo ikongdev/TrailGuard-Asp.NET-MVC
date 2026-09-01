@@ -438,6 +438,29 @@ All four failure modes return the **same generic message**. Don't distinguish "e
 
 ---
 
+## Account Roles
+
+Each active TrailGuard account has exactly one operational role:
+Admin, Organizer, or Participant.
+
+`Services/RoleAssignmentService.cs` (paired with the static `OperationalRolePolicy`) is the single source of truth for this — the exact allow-listed role names, reading an account's role integrity (`Admin` / `Organizer` / `Participant` / `Conflict` / `Missing`), creating a brand-new account with its initial role, and the exclusive role-replacement flow used by Admin. Every account-creation and role-edit path (`AccountController.Register`, `AdminController.AddAccount`, `AdminController.ChangeRole`, `Data/DbSeeder.cs`) goes through it rather than calling `UserManager.CreateAsync`/`AddToRoleAsync`/`RemoveFromRoleAsync` directly.
+
+**Account creation is transactional.** `RoleAssignmentService.CreateAccountWithRoleAsync` runs `UserManager.CreateAsync` and the initial role assignment inside one database transaction on the same DI-scoped `ApplicationDbContext` `UserManager`'s store uses — a role-assignment failure (or the final role set not converging to exactly the requested role) rolls the new user row back too. There is no committed, role-less account left behind to compensate for with a follow-up delete.
+
+**Existing multi-role or role-less accounts are never auto-mutated.** Startup only *audits* and logs an aggregate warning (`Program.cs`, via `RoleAssignmentService.AuditRoleIntegrityAsync`) — resolving a conflict or a missing role requires an explicit Admin choice through Account Management's Resolve action. There is no "keep the highest role" or "navbar precedence" normalization anywhere in the codebase.
+
+The navbar's Admin-first role check (`Views/Shared/_Layout.cshtml`: `User.IsInRole("Admin")` before Organizer/Participant) is a **transitional defensive fallback** for an unresolved historical conflict, not the policy itself — once an account holds exactly one operational role, that check only ever matches its actual role. `AccountController.Login` has the same defensive Admin-first redirect precedence. Reports remains Admin-only regardless (see below).
+
+`RoleAssignmentService.ReplaceRoleAsync` also enforces, inside one flow: a normally configured single-role Admin can't change their own role (a conflicted account holding Admin may only resolve itself to Admin — the one safe self-repair path); the last Admin account can't be demoted; and an Organizer can't be moved off the Organizer role while they still own `Upcoming` Events (`Event.OrganizerId`) — Completed/Cancelled history keeps its stable `OrganizerId` regardless of the account's current role. `RoleAssignmentService.SetAccountActiveAsync` (used by `AdminController.ToggleAccountStatus`) applies the same last-Admin protection to deactivation.
+
+**`ApplicationUser.IsActive` is enforced at sign-in** (`AccountController.Login`, via `SignInManager.CheckPasswordSignInAsync` before any cookie is issued) — a disabled account can no longer sign in. The check happens only *after* the password itself has already validated, so a wrong password reads identically whether the account is active, disabled, or doesn't exist, and disabled-ness is never leaked through a failed-login response.
+
+**Every role or active-status change updates the target's security stamp**, but this does not terminate an already-issued cookie immediately — ASP.NET Core Identity's default `SecurityStampValidator` interval (30 minutes; `Program.cs` never overrides it) is the actual bound on how long a stale session keeps its old claims. The one exception is the acting Admin resolving their own conflicted account, which also calls `SignInManager.RefreshSignInAsync` to fix their *own* current session immediately.
+
+**Last-Admin checks are concurrency-protected**, not just ordered-before-the-write: removing Admin through `ReplaceRoleAsync` and disabling an account through `SetAccountActiveAsync` both re-read the target and re-count other Admins inside a `Serializable` transaction (Npgsql/PostgreSQL), so two concurrent requests each removing the last Admin from a different account can't both commit — PostgreSQL aborts the second with a `40001 serialization_failure`, which surfaces as a generic "changed concurrently, try again" result. Every other role/status change keeps the provider's default isolation.
+
+---
+
 ## Security
 
 Participant endpoints that take a registration ID **must** verify ownership before acting. `CancelRegistration`, `UpdatePaymentReceipt`, and `GetRegistrationDetails` all previously acted on any ID — any participant could cancel or attach a receipt to someone else's registration by incrementing a number.
@@ -452,7 +475,7 @@ The same pattern was found and fixed in `ParticipantController.Feedback` and `Su
 
 **Corrected claim:** this file previously stated that `SubmitFeedback` carries `[ValidateAntiForgeryToken]`. It does not — checked directly against `ParticipantController.cs`, which has no antiforgery attribute anywhere in the file.
 
-There is **no global antiforgery filter** — `Program.cs` registers a bare `AddControllersWithViews()`. As of this check, `[ValidateAntiForgeryToken]` exists on exactly five actions, across three controllers: `AdminController` (2), `SettingsController` (2), `TrailController` (1). Every POST action in `AssessmentController`, `EventController`, `OrganizerController`, `ParticipantController` (including `SubmitFeedback`), and `RegistrationController` is unprotected. Several views still render `@Html.AntiForgeryToken()` into forms whose actions never validate it, which looks like protection and isn't.
+There is **no global antiforgery filter** — `Program.cs` registers a bare `AddControllersWithViews()`. As of this check, `[ValidateAntiForgeryToken]` exists on exactly six actions, across three controllers: `AdminController` (3, including the `ChangeRole` role-management endpoint), `SettingsController` (2), `TrailController` (1). Every POST action in `AssessmentController`, `EventController`, `OrganizerController`, `ParticipantController` (including `SubmitFeedback`), and `RegistrationController` is unprotected. Several views still render `@Html.AntiForgeryToken()` into forms whose actions never validate it, which looks like protection and isn't.
 
 **Assume nothing is protected unless you check the controller directly** — the specific list above is a snapshot, not a guarantee it's still current by the time you read this.
 

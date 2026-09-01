@@ -34,6 +34,7 @@
     --color-green-600: oklch(62.7% 0.194 149.214);
     --color-green-700: oklch(52.7% 0.154 150.069);
     --color-emerald-200: oklch(90.5% 0.093 164.15);
+    --color-emerald-300: oklch(84.5% 0.143 164.978);
     --color-emerald-400: oklch(76.5% 0.177 163.223);
     --color-emerald-500: oklch(69.6% 0.17 162.48);
     --color-emerald-600: oklch(59.6% 0.145 163.225);
@@ -440,9 +441,6 @@
   }
   .bottom-100 {
     bottom: calc(var(--spacing) * 100);
-  }
-  .-left-20 {
-    left: calc(var(--spacing) * -20);
   }
   .left-0 {
     left: 0px;
@@ -1540,6 +1538,12 @@
       border-color: color-mix(in oklab, var(--color-accent) 50%, transparent);
     }
   }
+  .border-accent\/60 {
+    border-color: color-mix(in srgb, #8b5cf6 60%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      border-color: color-mix(in oklab, var(--color-accent) 60%, transparent);
+    }
+  }
   .border-amber-500\/20 {
     border-color: color-mix(in srgb, oklch(76.9% 0.188 70.08) 20%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
@@ -1756,9 +1760,6 @@
   .border-l-transparent {
     border-left-color: transparent;
   }
-  .bg-\[\#0b1329\] {
-    background-color: #0b1329;
-  }
   .bg-\[\#060B1A\]\/55 {
     background-color: color-mix(in oklab, #060B1A 55%, transparent);
   }
@@ -1790,6 +1791,12 @@
     background-color: color-mix(in srgb, #8b5cf6 20%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
       background-color: color-mix(in oklab, var(--color-accent) 20%, transparent);
+    }
+  }
+  .bg-accent\/70 {
+    background-color: color-mix(in srgb, #8b5cf6 70%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      background-color: color-mix(in oklab, var(--color-accent) 70%, transparent);
     }
   }
   .bg-amber-400 {
@@ -2012,18 +2019,6 @@
     background-color: color-mix(in srgb, oklch(62.7% 0.265 303.9) 5%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
       background-color: color-mix(in oklab, var(--color-purple-500) 5%, transparent);
-    }
-  }
-  .bg-purple-500\/10 {
-    background-color: color-mix(in srgb, oklch(62.7% 0.265 303.9) 10%, transparent);
-    @supports (color: color-mix(in lab, red, red)) {
-      background-color: color-mix(in oklab, var(--color-purple-500) 10%, transparent);
-    }
-  }
-  .bg-purple-500\/20 {
-    background-color: color-mix(in srgb, oklch(62.7% 0.265 303.9) 20%, transparent);
-    @supports (color: color-mix(in lab, red, red)) {
-      background-color: color-mix(in oklab, var(--color-purple-500) 20%, transparent);
     }
   }
   .bg-red-400 {
@@ -2376,9 +2371,6 @@
   }
   .px-6 {
     padding-inline: calc(var(--spacing) * 6);
-  }
-  .px-7 {
-    padding-inline: calc(var(--spacing) * 7);
   }
   .px-8 {
     padding-inline: calc(var(--spacing) * 8);
@@ -2788,6 +2780,9 @@
   .text-emerald-200 {
     color: var(--color-emerald-200);
   }
+  .text-emerald-300 {
+    color: var(--color-emerald-300);
+  }
   .text-emerald-400 {
     color: var(--color-emerald-400);
   }
@@ -3088,12 +3083,6 @@
       --tw-shadow-color: color-mix(in oklab, color-mix(in oklab, var(--color-purple-500) 30%, transparent) var(--tw-shadow-alpha), transparent);
     }
   }
-  .shadow-violet-500\/30 {
-    --tw-shadow-color: color-mix(in srgb, oklch(60.6% 0.25 292.717) 30%, transparent);
-    @supports (color: color-mix(in lab, red, red)) {
-      --tw-shadow-color: color-mix(in oklab, color-mix(in oklab, var(--color-violet-500) 30%, transparent) var(--tw-shadow-alpha), transparent);
-    }
-  }
   .ring-accent {
     --tw-ring-color: var(--color-accent);
   }
@@ -3318,12 +3307,6 @@
       --tw-translate-y: calc(var(--spacing) * -0.5);
       translate: var(--tw-translate-x) var(--tw-translate-y);
     }
-    .hover\:scale-105:hover {
-      --tw-scale-x: 105%;
-      --tw-scale-y: 105%;
-      --tw-scale-z: 105%;
-      scale: var(--tw-scale-x) var(--tw-scale-y);
-    }
     .hover\:scale-\[1\.02\]:hover {
       scale: 1.02;
     }
@@ -3373,9 +3356,6 @@
     .hover\:border-gray-500:hover {
       border-color: var(--color-gray-500);
     }
-    .hover\:border-green-500:hover {
-      border-color: var(--color-green-500);
-    }
     .hover\:border-orange-500:hover {
       border-color: var(--color-orange-500);
     }
@@ -3413,6 +3393,9 @@
       .hover\:border-white\/40:hover {
         border-color: color-mix(in oklab, var(--color-white) 40%, transparent);
       }
+    }
+    .hover\:bg-accent:hover {
+      background-color: var(--color-accent);
     }
     .hover\:bg-accent\/10:hover {
       background-color: color-mix(in srgb, #8b5cf6 10%, transparent);
@@ -3476,9 +3459,6 @@
       .hover\:bg-gray-800\/60:hover {
         background-color: color-mix(in oklab, var(--color-gray-800) 60%, transparent);
       }
-    }
-    .hover\:bg-green-500:hover {
-      background-color: var(--color-green-500);
     }
     .hover\:bg-orange-600:hover {
       background-color: var(--color-orange-600);
@@ -3562,9 +3542,6 @@
     }
     .hover\:text-orange-300:hover {
       color: var(--color-orange-300);
-    }
-    .hover\:text-orange-400:hover {
-      color: var(--color-orange-400);
     }
     .hover\:text-red-300:hover {
       color: var(--color-red-300);
@@ -3657,9 +3634,6 @@
     @supports (color: color-mix(in lab, red, red)) {
       --tw-ring-color: color-mix(in oklab, var(--color-emerald-500) 60%, transparent);
     }
-  }
-  .focus\:ring-orange-500:focus {
-    --tw-ring-color: var(--color-orange-500);
   }
   .focus\:ring-red-500\/60:focus {
     --tw-ring-color: color-mix(in srgb, oklch(63.7% 0.237 25.331) 60%, transparent);
@@ -4540,6 +4514,13 @@
 }
 .tg-records-cue.is-visible {
   display: flex;
+}
+.add-account-input:-webkit-autofill, .add-account-input:-webkit-autofill:hover, .add-account-input:-webkit-autofill:focus, .add-account-input:-webkit-autofill:active {
+  -webkit-text-fill-color: #ffffff;
+  caret-color: #ffffff;
+  -webkit-box-shadow: 0 0 0 1000px var(--color-surface-card) inset;
+  box-shadow: 0 0 0 1000px var(--color-surface-card) inset;
+  transition: background-color 9999s ease-in-out 0s;
 }
 @property --tw-translate-x {
   syntax: "*";

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Hosting;
 using TrailGuard.Models;
+using TrailGuard.Services;
 using System.IO;
 
 namespace TrailGuard.Controllers
@@ -33,10 +34,19 @@ namespace TrailGuard.Controllers
                 return RedirectToAction("Login", "Account");
             }
 
-            var roles = await _userManager.GetRolesAsync(user);
-            var role = roles.FirstOrDefault() ?? "User";
-
-            ViewBag.Role = role;
+            // OperationalRolePolicy.Evaluate is the same read-only classification
+            // Admin > Account Management uses - a plain roles.FirstOrDefault()
+            // would silently show one arbitrary role for a multi-role account and
+            // hide that anything needs an Administrator's attention. Settings
+            // never offers a way to change this - it's read-only, same as before.
+            var integrity = OperationalRolePolicy.Evaluate(await _userManager.GetRolesAsync(user));
+            ViewBag.Role = integrity.Status switch
+            {
+                RoleIntegrityStatus.Conflict => "Role conflict",
+                RoleIntegrityStatus.Missing => "Role missing",
+                _ => integrity.SingleRole
+            };
+            ViewBag.RoleNeedsAttention = integrity.Status is RoleIntegrityStatus.Conflict or RoleIntegrityStatus.Missing;
             ViewBag.DateJoined = user.DateCreated.ToString("MMM dd, yyyy");
             ViewBag.IsActive = user.IsActive;
 
