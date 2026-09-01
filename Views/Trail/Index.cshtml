@@ -42,7 +42,25 @@
 
                 <div class="relative shrink-0 w-full lg:w-64">
                     <label for="sortOrder" class="sr-only">Sort trails by</label>
-                    <select id="sortOrder" name="sortOrder" onchange="document.getElementById('filterForm').submit()"
+                    <!-- data-custom-select-portal: the filter bar
+                         (bg-white/5 backdrop-blur-xl) uses a CSS backdrop
+                         blur, which per the containing-block spec becomes
+                         the containing block for the enhanced menu's
+                         position:fixed coordinates - portal mode appends the
+                         menu to document.body instead, the same fix already
+                         used for every filter select on Accounts/Records/
+                         Registrations and the Add Account Role select. The
+                         trigger-class override reproduces this select's own
+                         existing visual recipe (rounded-full, bg-black/20,
+                         accent focus) so enhancement is a no-op visually.
+                         onchange is untouched - custom-select.js dispatches a
+                         real native 'change' event on the underlying select
+                         when the user picks an option, which this existing
+                         inline handler still receives exactly as before. -->
+                    <select id="sortOrder" name="sortOrder" data-custom-select data-custom-select-portal
+                            data-cs-decorative-chevron="sortOrderChevron"
+                            data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-5 py-3 rounded-full bg-black/20 border border-white/10 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer hover:bg-white/10"
+                            onchange="document.getElementById('filterForm').submit()"
                             class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors">
                         <option value="newest" selected="@(currentSort == "newest" ? "selected" : null)" class="bg-surface-card text-white">Sort by: Newest</option>
                         <option value="oldest" selected="@(currentSort == "oldest" ? "selected" : null)" class="bg-surface-card text-white">Sort by: Oldest</option>
@@ -53,7 +71,7 @@
                         <option value="elevation_asc" selected="@(currentSort == "elevation_asc" ? "selected" : null)" class="bg-surface-card text-white">Elevation (Low to High)</option>
                         <option value="elevation_desc" selected="@(currentSort == "elevation_desc" ? "selected" : null)" class="bg-surface-card text-white">Elevation (High to Low)</option>
                     </select>
-                    <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
+                    <div id="sortOrderChevron" class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
                         <i class="fa-solid fa-chevron-down text-xs" aria-hidden="true"></i>
                     </div>
                 </div>
