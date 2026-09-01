@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
@@ -28,9 +29,40 @@ namespace TrailGuard.Controllers
             return View();
         }
         
+        // [Authorize] with no Roles requirement: an anonymous request is
+        // challenged to LoginPath (never AccessDeniedPath - Identity only
+        // routes an already-authenticated-but-wrong-role user here), while a
+        // signed-in user of any role is let through to see the page. Do not
+        // call Forbid() from inside this action - the cookie handler would
+        // redirect it straight back to AccessDeniedPath and loop.
+        [Authorize]
         [HttpGet]
         public IActionResult AccessDenied()
         {
+            // Established no-store convention (see DocumentsController) so a
+            // denied page is never restored from the back/forward cache
+            // after a role or session change.
+            Response.Headers["Cache-Control"] = "private, no-store";
+
+            // Set explicitly rather than via Forbid()/StatusCodeResult - this
+            // action must render the normal view body with a real 403, not
+            // trigger another authentication challenge.
+            Response.StatusCode = StatusCodes.Status403Forbidden;
+
+            // Same Admin > Organizer > Participant precedence as the navbar's
+            // defensive fallback in _Layout.cshtml and the Login redirect
+            // above - a defensive fallback for a stale/conflicted session,
+            // not a new policy. A user with no recognizable operational role
+            // falls back to Home, the only destination with no [Authorize]
+            // restriction at all, so it can never redirect back here.
+            string dashboardController =
+                User.IsInRole("Admin") ? "Admin" :
+                User.IsInRole("Organizer") ? "Organizer" :
+                User.IsInRole("Participant") ? "Participant" :
+                "Home";
+
+            ViewBag.DashboardController = dashboardController;
+
             return View();
         }
 
