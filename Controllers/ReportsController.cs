@@ -11,7 +11,13 @@ namespace TrailGuard.Controllers
     // OrganizerController.EventComparison. Reuses FinalLabelService for every
     // label comparison so the definitions of "accurate" and the ordinal category
     // order can't drift between the per-event and aggregate views.
-    [Authorize(Roles = "Admin,Organizer")]
+    //
+    // Admin-only: every query in this controller is already system-wide (no
+    // OrganizerId scoping anywhere below), so an Organizer previously granted
+    // access here saw every other Organizer's data, not just their own — this
+    // is an access-control fix, not a data-scope change. A dual-role
+    // Admin+Organizer account is still allowed, since it holds the Admin role.
+    [Authorize(Roles = "Admin")]
     public class ReportsController : Controller
     {
         // Below this many resolved labels, percentages and kappa are not shown —

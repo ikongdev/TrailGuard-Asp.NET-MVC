@@ -390,7 +390,7 @@ The upsert must handle edits — feedback arrives in either order and either sid
 
 ## Reports: Aggregate Model Validation
 
-`ReportsController` (`Admin,Organizer` only) is the multi-event counterpart to `OrganizerController.EventComparison`. It reuses `FinalLabelService` for every label comparison so "accurate" and the ordinal category order can't drift between the per-event and aggregate views.
+`ReportsController` is **Admin-only** (`[Authorize(Roles = "Admin")]`) — `Index` and `Export` both require the Admin role; Organizer and Participant accounts cannot reach either. The dataset is system-wide (no `OrganizerId` scoping). The Reports link renders only in the Admin navbar; a dual-role Admin+Organizer account is allowed via its Admin role. It is the multi-event counterpart to `OrganizerController.EventComparison`, reusing `FinalLabelService` for every label comparison so "accurate" and the ordinal category order can't drift between the per-event and aggregate views.
 
 It shows, over all resolved `FinalSuitabilityLabel` rows:
 
