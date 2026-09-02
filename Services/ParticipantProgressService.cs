@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TrailGuard.Data;
+using TrailGuard.Models;
 
 namespace TrailGuard.Services
 {
@@ -72,6 +73,26 @@ namespace TrailGuard.Services
             _roleAssignmentService = roleAssignmentService;
         }
 
+        // The one predicate that defines "this Registration is part of userId's own
+        // TrailGuard-recognized completed participation" - GetProgressAsync and
+        // GetRecentAdventuresAsync each still run their own physical query (different
+        // Select shapes for different needs: GetProgressAsync doesn't load Event
+        // title/Trail name/Organizer, GetRecentAdventuresAsync doesn't need to run on
+        // every Dashboard load), but both build on this exact same filtered
+        // IQueryable rather than each authoring its own copy of
+        // "Status == Accepted && Event.Status == Completed" - so the two can never
+        // drift into checking slightly different columns or comparisons. Deduplication
+        // (by EventId) and ordering still belong to each caller, since the two need
+        // opposite orders (chronological ascending for achievement earned-date
+        // derivation vs. newest-first for display) and different Take() limits.
+        private IQueryable<EventRegistration> GetOwnQualifyingRegistrations(string userId) =>
+            _context.EventRegistrations
+                .AsNoTracking()
+                .Where(r => r.UserId == userId
+                    && r.Status == ParticipantProgressPolicy.QualifyingRegistrationStatus
+                    && r.Event != null
+                    && r.Event.Status == ParticipantProgressPolicy.QualifyingEventStatus);
+
         // userId is always the internal Identity Id - a caller resolving a
         // PublicProfileId (e.g. a future ProfileController via ProfileAccessService)
         // must translate it to this before calling here.
@@ -101,12 +122,7 @@ namespace TrailGuard.Services
             // plain value-equality Distinct() collapses them with no dependency on
             // which row the database happens to return first - a stricter, more
             // deterministic replacement for a GroupBy(...).First().
-            var qualifyingRows = await _context.EventRegistrations
-                .AsNoTracking()
-                .Where(r => r.UserId == userId
-                    && r.Status == ParticipantProgressPolicy.QualifyingRegistrationStatus
-                    && r.Event != null
-                    && r.Event.Status == ParticipantProgressPolicy.QualifyingEventStatus)
+            var qualifyingRows = await GetOwnQualifyingRegistrations(userId)
                 .Select(r => new QualifyingEventRecord(
                     r.EventId,
                     r.Event!.TrailId,
@@ -233,6 +249,67 @@ namespace TrailGuard.Services
                 EarnedAchievementCount = earnedAchievementCount,
                 TotalAchievementCount = ParticipantAchievementCatalog.Definitions.Count
             };
+        }
+
+        // Recent Adventures for the Profile page - builds on the exact same
+        // GetOwnQualifyingRegistrations predicate as GetProgressAsync (so the two can
+        // never define "qualifying" differently), but as its own physical query with
+        // the extra display fields (title/trail/difficulty/organizer) a Profile card
+        // needs and GetProgressAsync's stats/achievements never do. Kept separate -
+        // not folded into GetProgressAsync itself, and not a second, independently-
+        // defined qualifying-history filter in ProfileController - so the Dashboard's
+        // existing call (which never renders a Recent Adventures list) doesn't pay for
+        // these extra joins and the organizer bulk lookup below on every load.
+        public async Task<IReadOnlyList<RecentAdventureResult>> GetRecentAdventuresAsync(string userId, int maxCount = 20)
+        {
+            var rows = await GetOwnQualifyingRegistrations(userId)
+                .Select(r => new
+                {
+                    r.EventId,
+                    r.Event!.EventTitle,
+                    TrailName = r.Event.Trail != null ? r.Event.Trail.Name : null,
+                    r.Event.EventDate,
+                    r.Event.Difficulty,
+                    r.Event.OrganizerId
+                })
+                .ToListAsync();
+
+            // Same "every duplicate row for one EventId projects identically" fact
+            // GetProgressAsync's history relies on - these fields are all Event-
+            // derived, so Distinct() is a safe, order-independent per-Event dedupe.
+            var newestFirst = rows
+                .Distinct()
+                .OrderByDescending(e => e.EventDate)
+                .ThenByDescending(e => e.EventId)
+                .Take(maxCount)
+                .ToList();
+
+            // One bulk lookup for every distinct Organizer referenced in the page
+            // about to render - never a per-row Identity/User query.
+            var organizerIds = newestFirst
+                .Where(e => e.OrganizerId != null)
+                .Select(e => e.OrganizerId!)
+                .Distinct()
+                .ToList();
+
+            var organizerNames = organizerIds.Count == 0
+                ? new Dictionary<string, string>()
+                : await _context.Users
+                    .AsNoTracking()
+                    .Where(u => organizerIds.Contains(u.Id))
+                    .Select(u => new { u.Id, u.FirstName, u.LastName })
+                    .ToDictionaryAsync(u => u.Id, u => $"{u.FirstName} {u.LastName}".Trim());
+
+            return newestFirst.Select(e => new RecentAdventureResult
+            {
+                EventTitle = e.EventTitle,
+                TrailName = e.TrailName ?? "Unknown Trail",
+                EventDate = e.EventDate,
+                Difficulty = e.Difficulty,
+                OrganizerDisplayName = e.OrganizerId == null
+                    ? "Unassigned"
+                    : organizerNames.TryGetValue(e.OrganizerId, out var name) ? name : "Organizer unavailable"
+            }).ToList();
         }
     }
 }

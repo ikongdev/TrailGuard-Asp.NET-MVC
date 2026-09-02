@@ -57,6 +57,29 @@ namespace TrailGuard.Services
 
         public static bool HasNextTier(int trailPoints) => PointsToNextTier(trailPoints) != null;
 
+        // Name of the tier one step above the current one, or null at the top tier
+        // (Trailblazer). Single source for a future Profile rank card's "X points to
+        // [next tier]" copy, so that string is never independently re-derived from
+        // TierNames/TierThresholds a second time.
+        public static string? NextTierName(int trailPoints)
+        {
+            var index = TierIndexFor(trailPoints);
+            return index >= TierThresholds.Length - 1 ? null : TierNames[index + 1];
+        }
+
+        // Percentage of the current tier's own point range already earned - 100 at
+        // the top tier (Trailblazer), which has no ceiling to progress toward, so the
+        // bar reads as complete rather than dividing by zero.
+        public static int TierProgressPercent(int trailPoints)
+        {
+            var pointsIntoTier = PointsIntoTier(trailPoints);
+            var pointsToNextTier = PointsToNextTier(trailPoints);
+            if (pointsToNextTier == null) return 100;
+
+            var tierWidth = pointsIntoTier + pointsToNextTier.Value;
+            return tierWidth <= 0 ? 100 : (int)Math.Round(Math.Min(100.0, pointsIntoTier * 100.0 / tierWidth));
+        }
+
         // Competition ("1224") ranking: equal Trail Points share the same rank, with no
         // arbitrary tie-breaker. `eligibleScores` must be exactly the Trail Points of
         // every ranked (score > 0) eligible Participant, including the one being ranked.

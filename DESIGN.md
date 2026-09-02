@@ -442,12 +442,22 @@ Every animation respects `prefers-reduced-motion`.
 
 ## Radius
 
+Four values, each answering a different question — "how prominent is this container" — not interchangeable and not a matter of per-page taste:
+
 ```
-rounded-full   buttons, badges, pills, avatars, search and filter inputs
-rounded-xl     cards, modals, panels, form inputs
+rounded-full   buttons, badges, pills, avatars, search and filter inputs,
+               primary/navigation actions
+rounded-2xl    major page sections and primary content cards
+               (Event Details' info/weather/description panels,
+               the Profile hero and its top-level cards)
+rounded-xl     nested list rows, achievement tiles, and secondary inner
+               cards - a card-within-a-card, or a repeated row inside a
+               larger rounded-2xl container
+rounded-lg     compact action buttons (a small icon/text button that
+               isn't a page's primary call to action)
 ```
 
-Two values. `rounded-2xl`, `rounded-3xl`, `rounded-4xl`, and arbitrary `rounded-[...]` are out — the current inconsistency came from using all of them interchangeably.
+`rounded-3xl`, `rounded-4xl`, and arbitrary `rounded-[...]` are still out. This replaces an earlier "two values only" version of this rule that required every card to be `rounded-xl` — that never matched `Event/Details.cshtml`'s top-level panels, which have used `rounded-2xl` since before this section was corrected. The hierarchy above is what's actually applied consistently: a page's major sections get `rounded-2xl`, and anything nested one level inside such a section (an achievement tile, a recent-adventure row, a small stat chip) steps down to `rounded-xl`.
 
 ---
 
@@ -518,6 +528,38 @@ Don't reintroduce the category-score bars or the trail-demand percentage bars �
 
 ---
 
+## Profile
+
+Read-only. The participant's own hiking identity (or, for an authorized Organizer/Admin visitor, the Participant's identity as far as that viewer is allowed to see) — not a second Dashboard and not Settings.
+
+### Hero
+
+Full-width card, `rounded-2xl` (a major page section — see Radius, above). Plain glass surface — `bg-white/5 backdrop-blur-xl border border-white/10`, no decorative glow, blur orb, or gradient wash behind the content. Large avatar is the solid fallback treatment (`bg-accent text-white`, single first-initial) rather than a gradient — the orange/pink/violet brand gradient is reserved for the landing page only (see Color, above) and was never appropriate here; a real profile photo renders unchanged (`object-cover`, no filter/overlay).
+
+The participant's name is the page's plain white `<h1>` — no brand gradient on the heading itself; that gradient stays reserved for the landing page per Color, above. Progression tier renders directly beneath it as plain accent-colored text, not a badge or pill. Owner-only `Edit Profile` uses the established Variant A secondary-button recipe (`rounded-full bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20`, no gradient, no glow) linking to Settings — never rendered for an Organizer/Admin visitor.
+
+Empty Bio: owner sees `Add a short bio from Settings.`; a visitor sees `No bio added.` — never a blank gap.
+
+### Summary cards
+
+Four equal-height (`h-full min-w-0`) cards, `grid-cols-2` on mobile/tablet and `lg:grid-cols-4` on desktop — same shape as the Dashboard's own summary row. All four use the same accent icon treatment (no per-metric color) per Color, above: three-or-four metrics of the same kind get one color, not several. Achievements Earned may show as `earned / total`.
+
+### Rank progress
+
+Plain text pairs (tier, Trail Points, placement), a linear accent progress bar (`role="progressbar"` with `aria-valuenow`/`aria-valuemin`/`aria-valuemax`), and a `<details>`/`<summary>` disclosure for the Trail Points explanation — not a modal, not a tooltip. Ranked state reads `#N of M ranked hikers` with correct singular/plural on "hiker"; zero-completion state names the tier (`Trail Starter`) and explicitly says the account isn't ranked yet rather than showing `#0` or dividing by an empty denominator; top tier shows the bar at 100% with a "highest tier reached" message instead of a next-tier line.
+
+### Achievements
+
+A responsive grid of equal-height (`h-full min-w-0`) cards. Unlocked: accent icon chip, accent-tinted card background, "Earned [date]." Locked: neutral/muted icon chip and card, a plain-text `current / target` progress line, and its own small progress bar — never a fake earned date, and the locked/unlocked distinction is carried in text and icon treatment, not color alone. Every card uses the same fixed Font Awesome icon from `ParticipantAchievementCatalog` — no page-specific color per achievement, matching the same "don't invent per-item color" rule as the summary cards. No filtering/sorting/tabs/carousel/pagination for eight cards.
+
+An Organizer/Admin visitor sees only earned cards (or `No achievements earned yet.` — never an empty grid); locked cards and their progress never render outside the owner's own view.
+
+### Recent Adventures
+
+Reuses the Records page's bounded-viewport recipe exactly: `.tg-records-scroll` (thin accent scrollbar) on the scrollable list, `.tg-records-cue`/`.tg-records-cue.is-visible` (bottom-only fade, JS-owned, never mixed with native `hidden`) for the cue, and the same measured-height technique (five real rows' rendered height, not a fixed pixel guess) — see `wwwroot/css/input.css` and `Views/Records/Index.cshtml`. Difficulty badge reuses `DifficultyCalculator.BadgeClass` unchanged. No action button, no status pill, no Event Details link in this version.
+
+---
+
 ## Accessibility
 
 - Visible focus states on every interactive element
@@ -548,7 +590,7 @@ Filling it in is not on its own enough. `_PrimaryButton` has only three call sit
 
 ## Progress
 
-**The participant flow is complete:** dashboard, browse trails, browse events, event details, assessment form, assessment report, registration form, and my registrations — plus landing page, login, and register.
+**The participant flow is complete:** dashboard, browse trails, browse events, event details, assessment form, assessment report, registration form, my registrations, and the new read-only Profile page — plus landing page, login, and register.
 
 **Remaining:**
 - Feedback page — rebuilt as a three-step wizard functionally, but not restyled

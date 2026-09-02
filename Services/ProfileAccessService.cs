@@ -43,20 +43,6 @@ namespace TrailGuard.Services
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly ApplicationDbContext _context;
 
-        // Organizer Profile access is a distinct, narrower policy from
-        // RegistrationStatusHelper.ActiveStatuses, which exists for capacity/duplicate-
-        // registration purposes and answers a different question. Alternative
-        // Recommended is included here - an Organizer who redirected a participant
-        // elsewhere still has a legitimate relationship to them - while
-        // Rejected/Cancelled/Voided are excluded even though none of those three
-        // appear in ActiveStatuses either. This list is deliberately private and
-        // separate: a future change to registration-capacity semantics must never
-        // silently change who can view a Profile.
-        private static readonly string[] OrganizerRelationshipStatuses =
-        {
-            "Pending", "Awaiting Payment", "For Payment Verification", "Alternative Recommended", "Accepted"
-        };
-
         public ProfileAccessService(UserManager<ApplicationUser> userManager, ApplicationDbContext context)
         {
             _userManager = userManager;
@@ -139,12 +125,20 @@ namespace TrailGuard.Services
                     return ProfileAccessResult.Denied;
                 }
 
-                var hasRelationship = await _context.EventRegistrations
+                // ProfileAccessPolicy.AllowsOrganizerRelationship is a plain C# method,
+                // not translatable inside an EF Core query predicate - the status
+                // filter itself must happen in memory, so this projects out just the
+                // (small, bounded-by-one-participant-and-one-organizer) candidate
+                // statuses first, then evaluates the shared policy over them.
+                var candidateStatuses = await _context.EventRegistrations
                     .AsNoTracking()
-                    .AnyAsync(r => r.UserId == target.Id
+                    .Where(r => r.UserId == target.Id
                         && r.Event != null
-                        && r.Event.OrganizerId == viewer.Id
-                        && OrganizerRelationshipStatuses.Contains(r.Status));
+                        && r.Event.OrganizerId == viewer.Id)
+                    .Select(r => r.Status)
+                    .ToListAsync();
+
+                var hasRelationship = candidateStatuses.Any(ProfileAccessPolicy.AllowsOrganizerRelationship);
 
                 return hasRelationship
                     ? BuildAllowed(target, ProfileViewerType.Organizer, isOwner: false)

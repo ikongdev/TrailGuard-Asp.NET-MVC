@@ -85,8 +85,8 @@
                             <i id="profileDropdownChevron" class="fa-solid fa-chevron-down text-gray-400 text-xs transition-transform duration-200"></i>
                         </button>
                         <div id="profileDropdownMenu" class="absolute right-0 mt-3 w-48 bg-surface-card border border-gray-800 rounded-2xl shadow-2xl p-1.5 z-50 origin-top-right transition-all duration-200 ease-out opacity-0 scale-95 -translate-y-1 pointer-events-none">
-                            <a asp-controller="Participant" asp-action="Index" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-800/60 rounded-xl transition-colors">
-                                <i class="fa-solid fa-layer-group text-gray-400 text-base w-4 text-center"></i> Dashboard
+                            <a asp-controller="Profile" asp-action="Index" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-800/60 rounded-xl transition-colors">
+                                <i class="fa-solid fa-user text-gray-400 text-base w-4 text-center"></i> Profile
                             </a>
                             <a asp-controller="Settings" asp-action="Index" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-800/60 rounded-xl transition-colors">
                                 <i class="fa-solid fa-gear text-gray-400 text-base w-4 text-center"></i> Settings
@@ -135,6 +135,9 @@
                 <div class="h-px bg-white/10 my-2"></div>
                 @if (SignInManager.IsSignedIn(User))
                 {
+                    <a asp-controller="Profile" asp-action="Index" class="px-4 py-2 rounded-2xl text-sm text-gray-300 hover:text-white hover:bg-white/5 transition">
+                        <i class="fa-solid fa-user w-5"></i> Profile
+                    </a>
                     <a asp-controller="Settings" asp-action="Index" class="px-4 py-2 rounded-2xl text-sm text-gray-300 hover:text-white hover:bg-white/5 transition">
                         <i class="fa-solid fa-gear w-5"></i> Settings
                     </a>

@@ -1,0 +1,307 @@
+@model TrailGuard.Models.ProfileViewModel
+@using TrailGuard.Services
+@{
+    ViewData["Title"] = Model.FullName;
+
+    var achievementWord = Model.TotalAchievementCount == 1 ? "achievement" : "achievements";
+    var hikerWord = Model.RankedParticipantCount == 1 ? "ranked hiker" : "ranked hikers";
+    var isAdminViewingInactive = !Model.TargetIsActive; // ProfileAccessService only ever allows this for an Admin viewer.
+}
+
+<div class="pt-24 px-4 max-w-6xl mx-auto min-h-screen text-white pb-12">
+
+    @* ============================= Hero ============================= *@
+    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 sm:p-8 mb-6">
+        <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6 text-center sm:text-left">
+            <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-accent flex items-center justify-center text-white text-3xl font-bold shrink-0 overflow-hidden">
+                @if (!string.IsNullOrEmpty(Model.ProfilePictureUrl))
+                {
+                    <img src="@Model.ProfilePictureUrl" alt="" class="w-full h-full object-cover" />
+                }
+                else
+                {
+                    @Model.Initials
+                }
+            </div>
+
+            <div class="min-w-0 flex-1">
+                <h1 class="text-3xl font-bold text-white wrap-break-word">@Model.FullName</h1>
+                <p class="text-accent font-semibold mt-1">@Model.Tier</p>
+                <p class="text-gray-400 text-sm mt-1">
+                    <i class="fa-regular fa-calendar mr-1.5" aria-hidden="true"></i>Member since @Model.MemberSince.ToString("MMMM yyyy")
+                </p>
+
+                @if (isAdminViewingInactive)
+                {
+                    <p class="text-amber-400 text-xs mt-2">
+                        <i class="fa-solid fa-circle-info mr-1" aria-hidden="true"></i>This account is currently disabled. Historical activity remains visible; it is not ranked while disabled.
+                    </p>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Model.Bio))
+                {
+                    <p class="text-gray-300 text-sm mt-3 max-w-2xl wrap-break-word">@Model.Bio</p>
+                }
+                else if (Model.IsOwner)
+                {
+                    <p class="text-gray-500 text-sm italic mt-3">Add a short bio from Settings.</p>
+                }
+                else
+                {
+                    <p class="text-gray-500 text-sm italic mt-3">No bio added.</p>
+                }
+            </div>
+
+            @if (Model.IsOwner)
+            {
+                <div class="shrink-0">
+                    <a asp-controller="Settings" asp-action="Index"
+                       class="inline-flex items-center gap-2 rounded-full text-gray-300 hover:text-white text-sm font-medium bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-colors px-4 py-2 focus:outline-none focus:ring-2 focus:ring-accent">
+                        <i class="fa-solid fa-pen" aria-hidden="true"></i> Edit Profile
+                    </a>
+                </div>
+            }
+        </div>
+    </div>
+
+    @* ============================= Summary cards ============================= *@
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="h-full min-w-0 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4 text-center flex flex-col justify-center items-center gap-1">
+            <i class="fa-solid fa-mountain text-accent" aria-hidden="true"></i>
+            <p class="text-2xl font-bold text-white">@Model.CompletedAdventures</p>
+            <p class="text-gray-400 text-xs">Completed Adventures</p>
+        </div>
+        <div class="h-full min-w-0 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4 text-center flex flex-col justify-center items-center gap-1">
+            <i class="fa-solid fa-route text-accent" aria-hidden="true"></i>
+            <p class="text-2xl font-bold text-white">@Model.UniqueTrails</p>
+            <p class="text-gray-400 text-xs">Unique Trails</p>
+        </div>
+        <div class="h-full min-w-0 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4 text-center flex flex-col justify-center items-center gap-1">
+            <i class="fa-solid fa-trophy text-accent" aria-hidden="true"></i>
+            <p class="text-2xl font-bold text-white">@Model.EarnedAchievementCount <span class="text-gray-500 text-base font-normal">/ @Model.TotalAchievementCount</span></p>
+            <p class="text-gray-400 text-xs">Achievements Earned</p>
+        </div>
+        <div class="h-full min-w-0 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4 text-center flex flex-col justify-center items-center gap-1">
+            <i class="fa-solid fa-star text-accent" aria-hidden="true"></i>
+            <p class="text-2xl font-bold text-white">@Model.TrailPoints</p>
+            <p class="text-gray-400 text-xs">Trail Points</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+
+        @* ============================= Rank progress ============================= *@
+        <div class="lg:col-span-1 h-full min-w-0 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+            <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-ranking-star text-accent" aria-hidden="true"></i> Rank Progress
+            </h2>
+
+            <div class="flex justify-between items-center mb-1">
+                <span class="text-gray-400 text-sm">Current Tier</span>
+                <span class="text-white font-semibold">@Model.Tier</span>
+            </div>
+            <div class="flex justify-between items-center mb-4">
+                <span class="text-gray-400 text-sm">Trail Points</span>
+                <span class="text-white font-semibold">@Model.TrailPoints</span>
+            </div>
+
+            @if (Model.IsRanked)
+            {
+                <div class="mb-4 pb-4 border-b border-white/10">
+                    <p class="text-white font-semibold">#@Model.Rank of @Model.RankedParticipantCount @hikerWord</p>
+                    <p class="text-gray-500 text-xs mt-1">All-time Trail Points leaderboard placement.</p>
+                </div>
+            }
+            else if (isAdminViewingInactive)
+            {
+                <div class="mb-4 pb-4 border-b border-white/10">
+                    <p class="text-gray-400 text-sm">Not currently ranked - this account is disabled.</p>
+                </div>
+            }
+            else
+            {
+                <div class="mb-4 pb-4 border-b border-white/10">
+                    <p class="text-gray-400 text-sm">Not yet ranked.</p>
+                    <p class="text-gray-500 text-xs mt-1">Complete your first TrailGuard adventure to join the rankings.</p>
+                </div>
+            }
+
+            <div>
+                @if (Model.IsTopTier)
+                {
+                    <p class="text-gray-300 text-sm mb-2"><i class="fa-solid fa-crown text-accent mr-1.5" aria-hidden="true"></i>Highest tier reached.</p>
+                }
+                else
+                {
+                    <p class="text-gray-300 text-sm mb-2">@Model.PointsToNextTier points to @Model.NextTierName</p>
+                }
+                <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden"
+                     role="progressbar" aria-valuenow="@Model.TierProgressPercent" aria-valuemin="0" aria-valuemax="100"
+                     aria-label="Progress toward @(Model.IsTopTier ? "the top tier" : Model.NextTierName)">
+                    <div class="h-full bg-accent rounded-full transition-all duration-500" style="width: @Model.TierProgressPercent%"></div>
+                </div>
+            </div>
+
+            <details class="mt-5 text-xs text-gray-400">
+                <summary class="cursor-pointer text-gray-300 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded">
+                    How are Trail Points calculated?
+                </summary>
+                <p class="mt-2 leading-relaxed">
+                    Trail Points are based on TrailGuard-recognized completed participation: 10 points per distinct completed Event plus 5 points per distinct Trail.
+                </p>
+            </details>
+        </div>
+
+        @* ============================= Achievements ============================= *@
+        <div class="lg:col-span-2 h-full min-w-0 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+            <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-award text-accent" aria-hidden="true"></i> Achievements
+                <span class="text-xs font-normal text-gray-500">(@Model.EarnedAchievementCount of @Model.TotalAchievementCount @achievementWord)</span>
+            </h2>
+
+            @if (Model.Achievements.Count == 0)
+            {
+                <div class="text-center py-10">
+                    <i class="fa-regular fa-face-smile text-3xl text-slate-600 mb-3 block" aria-hidden="true"></i>
+                    <p class="text-gray-400 text-sm">No achievements earned yet.</p>
+                </div>
+            }
+            else
+            {
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    @foreach (var achievement in Model.Achievements)
+                    {
+                        <div class="h-full min-w-0 rounded-xl border p-4 flex flex-col gap-2 @(achievement.IsUnlocked ? "bg-accent/10 border-accent/30" : "bg-white/5 border-white/10")"
+                             role="group" aria-label="@achievement.Name, @(achievement.IsUnlocked ? "earned" : $"locked, {achievement.ClampedProgress} of {achievement.TargetValue}")">
+                            <div class="flex items-start gap-3">
+                                <span class="w-9 h-9 rounded-full flex items-center justify-center shrink-0 @(achievement.IsUnlocked ? "bg-accent/20 text-accent" : "bg-white/10 text-gray-500")" aria-hidden="true">
+                                    <i class="@achievement.IconClass text-sm"></i>
+                                </span>
+                                <div class="min-w-0">
+                                    <p class="font-semibold wrap-break-word @(achievement.IsUnlocked ? "text-white" : "text-gray-400")">@achievement.Name</p>
+                                    <p class="text-xs text-gray-500 wrap-break-word">@achievement.Description</p>
+                                </div>
+                            </div>
+
+                            @if (achievement.IsUnlocked)
+                            {
+                                <p class="text-xs text-accent font-medium mt-1">
+                                    <i class="fa-solid fa-circle-check mr-1" aria-hidden="true"></i>Earned @achievement.EarnedAt?.ToString("MMM dd, yyyy")
+                                </p>
+                            }
+                            else
+                            {
+                                <div class="mt-1">
+                                    <p class="text-xs text-gray-500 mb-1">Locked - @achievement.ClampedProgress of @achievement.TargetValue</p>
+                                    <div class="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden"
+                                         role="progressbar" aria-valuenow="@achievement.ProgressPercent" aria-valuemin="0" aria-valuemax="100"
+                                         aria-label="@achievement.Name progress">
+                                        <div class="h-full bg-gray-500 rounded-full" style="width: @achievement.ProgressPercent%"></div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
+    @* ============================= Recent Adventures ============================= *@
+    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
+        <div class="px-6 py-4 border-b border-white/10">
+            <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+                <i class="fa-regular fa-calendar-check text-accent" aria-hidden="true"></i> Recent Adventures
+            </h2>
+        </div>
+
+        @if (Model.RecentAdventures.Count == 0)
+        {
+            <div class="text-center py-12 px-6">
+                <i class="fa-regular fa-compass text-3xl text-slate-600 mb-3 block" aria-hidden="true"></i>
+                <p class="text-gray-400 text-sm">No completed adventures yet.</p>
+            </div>
+        }
+        else
+        {
+            <div class="relative">
+                <ul id="recentAdventuresList" role="list" aria-label="Recent completed adventures"
+                    class="tg-records-scroll list-none m-0 p-0 divide-y divide-white/10 overflow-y-auto">
+                    @foreach (var adventure in Model.RecentAdventures)
+                    {
+                        var difficultyClass = DifficultyCalculator.BadgeClass(adventure.Difficulty);
+                        <li class="flex items-center justify-between gap-4 px-6 py-4">
+                            <div class="min-w-0">
+                                <p class="text-white font-medium wrap-break-word">@adventure.EventTitle</p>
+                                <p class="text-gray-400 text-sm wrap-break-word">@adventure.TrailName</p>
+                                <p class="text-gray-500 text-xs mt-1">
+                                    <i class="fa-regular fa-calendar mr-1" aria-hidden="true"></i>@adventure.EventDate.ToString("MMM dd, yyyy")
+                                    <span class="mx-1">&bull;</span>
+                                    <i class="fa-solid fa-user-tie mr-1" aria-hidden="true"></i>@adventure.OrganizerDisplayName
+                                </p>
+                            </div>
+                            <span class="shrink-0 px-2.5 py-1 rounded-full text-xs font-medium @difficultyClass">
+                                @(string.IsNullOrEmpty(adventure.Difficulty) ? "Unknown" : adventure.Difficulty)
+                            </span>
+                        </li>
+                    }
+                </ul>
+                <div id="recentAdventuresCue" class="tg-records-cue" aria-hidden="true">
+                    <span>Scroll for more <i class="fa-solid fa-chevron-down ml-1" aria-hidden="true"></i></span>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Reuses Views/Records/Index.cshtml's measured-viewport + bottom-only scroll
+        // cue recipe verbatim (row heights vary with wrapped titles/trail names, so
+        // the viewport height is measured from actual rendered content rather than a
+        // fixed pixel guess) - see wwwroot/css/input.css, .tg-records-scroll /
+        // .tg-records-cue.
+        var list = document.getElementById('recentAdventuresList');
+        var cue = document.getElementById('recentAdventuresCue');
+        if (!list) return;
+
+        function updateCue() {
+            if (!cue) return;
+            var hasOverflow = list.scrollHeight > list.clientHeight + 1;
+            var atBottom = Math.ceil(list.scrollTop + list.clientHeight) >= list.scrollHeight - 1;
+            cue.classList.toggle('is-visible', hasOverflow && !atBottom);
+        }
+
+        function recalc() {
+            var rows = 5;
+            var visible = Array.prototype.filter.call(list.children, function (el) {
+                return el.style.display !== 'none';
+            });
+
+            if (visible.length <= rows) {
+                list.style.maxHeight = '';
+                updateCue();
+                return;
+            }
+
+            var containerTop = list.getBoundingClientRect().top;
+            var afterRowsTop = visible[rows].getBoundingClientRect().top;
+            list.style.maxHeight = (afterRowsTop - containerTop) + 'px';
+            updateCue();
+        }
+
+        var scheduled = false;
+        function scheduleRecalc() {
+            if (scheduled) return;
+            scheduled = true;
+            requestAnimationFrame(function () {
+                scheduled = false;
+                recalc();
+            });
+        }
+
+        list.addEventListener('scroll', updateCue, { passive: true });
+        window.addEventListener('resize', scheduleRecalc);
+        recalc();
+    });
+</script>

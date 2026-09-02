@@ -21,6 +21,7 @@ namespace TrailGuard.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly WeatherService _weatherService;
         private readonly ILogger<EventController> _logger;
+        private readonly RoleAssignmentService _roleAssignmentService;
 
         public const string DefaultSortOrder = "date_asc";
 
@@ -40,13 +41,14 @@ namespace TrailGuard.Controllers
         // has it, so the listing never invents a status nobody has.
         private static readonly string[] FixedStatusPriority = { "Upcoming", "Completed" };
 
-        public EventController(ApplicationDbContext context, IWebHostEnvironment webHostEnvironment, UserManager<ApplicationUser> userManager, WeatherService weatherService, ILogger<EventController> logger)
+        public EventController(ApplicationDbContext context, IWebHostEnvironment webHostEnvironment, UserManager<ApplicationUser> userManager, WeatherService weatherService, ILogger<EventController> logger, RoleAssignmentService roleAssignmentService)
         {
             _context = context;
             _webHostEnvironment = webHostEnvironment;
             _userManager = userManager;
             _weatherService = weatherService;
             _logger = logger;
+            _roleAssignmentService = roleAssignmentService;
         }
 
         // Single ownership rule for every Organizer-facing Event action in
@@ -534,6 +536,60 @@ namespace TrailGuard.Controllers
             ViewBag.Registrations = allRegistrations;
             ViewBag.RegisteredCount = capacityRegistrations.Count;
             ViewBag.AvailableSlots = eventItem.Capacity - capacityRegistrations.Count;
+
+            // Registered Participants card (Views/Event/Details.cshtml): same
+            // Accepted/Pending-only, RegisteredAt-ascending set this page has always
+            // shown - built here, not in the view, so the same pass that decides what
+            // renders also decides each row's Profile-link eligibility from one
+            // bounded role lookup, never a query (or a ProfileAccessService.ResolveAsync
+            // call) per row.
+            var joinedRegistrations = allRegistrations
+                .Where(r => r.Status == "Accepted" || r.Status == "Pending")
+                .OrderBy(r => r.RegisteredAt)
+                .ToList();
+
+            // One check for the viewer (not per row). CanManageEventAsync above
+            // already confirms this viewer is Admin, or the Organizer who owns this
+            // Event - a conflicted Admin+Organizer account still evaluates to a
+            // single clean status here since OperationalRolePolicy.Evaluate treats
+            // "holds more than one operational role" as Conflict, which grants no
+            // Profile-link privilege below (matching ProfileAccessService).
+            var viewerIntegrity = OperationalRolePolicy.Evaluate(await _userManager.GetRolesAsync(currentUser));
+
+            var targetUserIds = joinedRegistrations
+                .Where(r => r.User != null)
+                .Select(r => r.UserId)
+                .Distinct()
+                .ToList();
+
+            var targetIntegrities = await _roleAssignmentService.GetRoleIntegrityStatusesAsync(targetUserIds);
+
+            var participantRows = joinedRegistrations.Select(r =>
+            {
+                var canView = false;
+                if (r.User != null &&
+                    targetIntegrities.TryGetValue(r.UserId, out var targetStatus) &&
+                    targetStatus == RoleIntegrityStatus.Participant)
+                {
+                    canView = viewerIntegrity.Status switch
+                    {
+                        RoleIntegrityStatus.Admin => true,
+                        RoleIntegrityStatus.Organizer => r.User.IsActive && ProfileAccessPolicy.AllowsOrganizerRelationship(r.Status),
+                        _ => false
+                    };
+                }
+
+                return new EventParticipantRowViewModel
+                {
+                    ParticipantName = r.ParticipantName,
+                    ProfilePictureUrl = r.User?.ProfilePictureUrl,
+                    Status = r.Status,
+                    PublicProfileId = r.User?.PublicProfileId ?? Guid.Empty,
+                    CanViewProfile = canView
+                };
+            }).ToList();
+
+            ViewBag.ParticipantRows = participantRows;
 
             if (!string.IsNullOrEmpty(eventItem.OrganizedBy))
             {

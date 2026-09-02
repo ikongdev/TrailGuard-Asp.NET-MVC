@@ -623,6 +623,43 @@ namespace TrailGuard.Services
             return result;
         }
 
+        // Bounded, read-only role-integrity lookup for a specific, already-known set
+        // of target ids - built for EventController.Details' Registered Participants
+        // list, where the Profile-link eligibility of every row on the page must be
+        // decided without a role query per row. One query total (UserRoles joined to
+        // Roles, filtered to just these ids), regardless of how many ids are passed,
+        // rather than GetRolesAsync per target. Never mutates anything, and (unlike
+        // GetActiveUserIdsInSingleRoleAsync) does not filter or care about IsActive -
+        // callers that need that also have the target's IsActive already loaded from
+        // whatever query produced these ids.
+        public async Task<IReadOnlyDictionary<string, RoleIntegrityStatus>> GetRoleIntegrityStatusesAsync(IReadOnlyCollection<string> userIds)
+        {
+            var distinctIds = userIds.Distinct(StringComparer.Ordinal).ToList();
+            if (distinctIds.Count == 0)
+            {
+                return new Dictionary<string, RoleIntegrityStatus>(StringComparer.Ordinal);
+            }
+
+            var userRoleNames = await (
+                from ur in _context.UserRoles.AsNoTracking()
+                where distinctIds.Contains(ur.UserId)
+                join r in _context.Roles.AsNoTracking() on ur.RoleId equals r.Id
+                select new { ur.UserId, RoleName = r.Name }
+            ).ToListAsync();
+
+            var rolesByUserId = userRoleNames
+                .GroupBy(x => x.UserId)
+                .ToDictionary(g => g.Key, g => g.Select(x => x.RoleName!).ToList());
+
+            var result = new Dictionary<string, RoleIntegrityStatus>(StringComparer.Ordinal);
+            foreach (var userId in distinctIds)
+            {
+                var roles = rolesByUserId.TryGetValue(userId, out var found) ? found : new List<string>();
+                result[userId] = OperationalRolePolicy.Evaluate(roles).Status;
+            }
+            return result;
+        }
+
         // Single definition of "a fallback Admin that can genuinely act as
         // one right now", shared by both ReplaceRoleAsync and
         // SetAccountActiveAsync (each call site is what excludeUserId is for

@@ -15,13 +15,15 @@ namespace TrailGuard.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IWebHostEnvironment _webHostEnvironment;
         private readonly ILogger<OrganizerController> _logger;
+        private readonly ProfileAccessService _profileAccessService;
 
-        public OrganizerController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, IWebHostEnvironment webHostEnvironment, ILogger<OrganizerController> logger)
+        public OrganizerController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, IWebHostEnvironment webHostEnvironment, ILogger<OrganizerController> logger, ProfileAccessService profileAccessService)
         {
             _context = context;
             _userManager = userManager;
             _webHostEnvironment = webHostEnvironment;
             _logger = logger;
+            _profileAccessService = profileAccessService;
         }
 
         public async Task<IActionResult> Index()
@@ -307,6 +309,29 @@ namespace TrailGuard.Controllers
                 _webHostEnvironment.WebRootPath, RegistrationDocumentKind.Clearance, registration.MedicalClearanceUrl);
             ViewBag.ClearanceAvailable = clearanceResolved != null;
             ViewBag.ClearanceIsImage = clearanceResolved != null && DocumentFileSignature.IsImageType(clearanceResolved.Type);
+
+            // Registration Details' "View Profile" discoverability link -
+            // ProfileAccessService is the only authority on whether this Organizer may
+            // link to this participant's Profile; nothing here re-derives the five
+            // relationship statuses, target role/active state, or ownership itself.
+            // OwnsEvent above already guarantees currentUser owns this Event, so
+            // ProfileAccessService's own Organizer-branch relationship check is what
+            // ultimately decides this - a Rejected/Cancelled/Voided-only registration,
+            // an inactive participant, or a conflicted/missing-role target all resolve
+            // to the same denial and simply produce no link, exactly as
+            // GET /Profile/{publicProfileId} itself would deny them. Only the boolean
+            // and the already-public PublicProfileId reach the view - never the
+            // participant's internal Identity Id.
+            ViewBag.CanViewParticipantProfile = false;
+            if (registration.User != null)
+            {
+                var profileAccess = await _profileAccessService.ResolveAsync(currentUser, registration.User.PublicProfileId);
+                if (profileAccess.Succeeded)
+                {
+                    ViewBag.CanViewParticipantProfile = true;
+                    ViewBag.ParticipantPublicProfileId = profileAccess.TargetPublicProfileId;
+                }
+            }
 
             return View(registration);
         }

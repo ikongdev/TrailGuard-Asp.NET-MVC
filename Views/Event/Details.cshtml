@@ -12,11 +12,12 @@
     var isCancelled = Model.Status == "Cancelled";
     var isUpcoming = Model.Status == "Upcoming";
 
-    var joinedParticipants = registrations
-        .Where(r => r.Status == "Accepted" || r.Status == "Pending")
-        .OrderBy(r => r.RegisteredAt)
-        .ToList();
-    var totalJoined = joinedParticipants.Count;
+    // Built server-side in EventController.Details (same Accepted/Pending-only,
+    // RegisteredAt-ascending set as before) alongside each row's Profile-link
+    // eligibility - see EventParticipantRowViewModel. This view never re-derives
+    // that filter or calls into role/authorization logic itself.
+    var participantRows = ViewBag.ParticipantRows as List<EventParticipantRowViewModel> ?? new List<EventParticipantRowViewModel>();
+    var totalJoined = participantRows.Count;
     var hasMoreParticipants = totalJoined > 5;
 
     string statusSelectClasses = Model.Status switch
@@ -420,40 +421,78 @@
                     <span class="text-sm font-normal text-gray-400 ml-2">(@totalJoined)</span>
                 </h2>
                 <div class="max-h-125 overflow-y-auto custom-scrollbar">
-                    @if (joinedParticipants.Any())
+                    @if (participantRows.Any())
                     {
                         <div class="space-y-3">
-                            @foreach (var reg in joinedParticipants.Take(5))
+                            @foreach (var row in participantRows.Take(5))
                             {
-                                <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors">
-                                    <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden shrink-0">
-                                        @if (!string.IsNullOrEmpty(reg.User?.ProfilePictureUrl))
-                                        {
-                                            <img src="@reg.User.ProfilePictureUrl" alt="Participant" class="w-8 h-8 rounded-full object-cover">
-                                        }
-                                        else
-                                        {
-                                            <i class="fa-solid fa-user text-gray-400 text-xs"></i>
-                                        }
+                                @if (row.CanViewProfile)
+                                {
+                                    <a asp-controller="Profile" asp-action="Index" asp-route-publicProfileId="@row.PublicProfileId"
+                                       aria-label="View @(row.ParticipantName)'s participant profile"
+                                       class="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                                        <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden shrink-0">
+                                            @if (!string.IsNullOrEmpty(row.ProfilePictureUrl))
+                                            {
+                                                <img src="@row.ProfilePictureUrl" alt="" class="w-8 h-8 rounded-full object-cover">
+                                            }
+                                            else
+                                            {
+                                                <i class="fa-solid fa-user text-gray-400 text-xs" aria-hidden="true"></i>
+                                            }
+                                        </div>
+                                        <div class="min-w-0 flex-1">
+                                            <p class="text-white text-sm font-medium truncate">@row.ParticipantName</p>
+                                            <p class="text-gray-500 text-xs">
+                                                @if (row.Status == "Accepted")
+                                                {
+                                                    <span class="text-green-400"><i class="fa-solid fa-check-circle" aria-hidden="true"></i> Confirmed</span>
+                                                }
+                                                else if (row.Status == "Pending")
+                                                {
+                                                    <span class="text-yellow-400"><i class="fa-solid fa-clock" aria-hidden="true"></i> Pending</span>
+                                                }
+                                                else if (row.Status == "Rejected")
+                                                {
+                                                    <span class="text-red-400"><i class="fa-solid fa-xmark-circle"></i> Rejected</span>
+                                                }
+                                            </p>
+                                        </div>
+                                        <i class="fa-solid fa-chevron-right text-gray-500 text-xs shrink-0" aria-hidden="true"></i>
+                                    </a>
+                                }
+                                else
+                                {
+                                    <div class="flex items-center gap-3 p-2 rounded-lg">
+                                        <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden shrink-0">
+                                            @if (!string.IsNullOrEmpty(row.ProfilePictureUrl))
+                                            {
+                                                <img src="@row.ProfilePictureUrl" alt="" class="w-8 h-8 rounded-full object-cover">
+                                            }
+                                            else
+                                            {
+                                                <i class="fa-solid fa-user text-gray-400 text-xs" aria-hidden="true"></i>
+                                            }
+                                        </div>
+                                        <div class="min-w-0 flex-1">
+                                            <p class="text-white text-sm font-medium truncate">@row.ParticipantName</p>
+                                            <p class="text-gray-500 text-xs">
+                                                @if (row.Status == "Accepted")
+                                                {
+                                                    <span class="text-green-400"><i class="fa-solid fa-check-circle" aria-hidden="true"></i> Confirmed</span>
+                                                }
+                                                else if (row.Status == "Pending")
+                                                {
+                                                    <span class="text-yellow-400"><i class="fa-solid fa-clock" aria-hidden="true"></i> Pending</span>
+                                                }
+                                                else if (row.Status == "Rejected")
+                                                {
+                                                    <span class="text-red-400"><i class="fa-solid fa-xmark-circle"></i> Rejected</span>
+                                                }
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div class="min-w-0 flex-1">
-                                        <p class="text-white text-sm font-medium truncate">@reg.ParticipantName</p>
-                                        <p class="text-gray-500 text-xs">
-                                            @if (reg.Status == "Accepted")
-                                            {
-                                                <span class="text-green-400"><i class="fa-solid fa-check-circle"></i> Confirmed</span>
-                                            }
-                                            else if (reg.Status == "Pending")
-                                            {
-                                                <span class="text-yellow-400"><i class="fa-solid fa-clock"></i> Pending</span>
-                                            }
-                                            else if (reg.Status == "Rejected")
-                                            {
-                                                <span class="text-red-400"><i class="fa-solid fa-xmark-circle"></i> Rejected</span>
-                                            }
-                                        </p>
-                                    </div>
-                                </div>
+                                }
                             }
 
                             @if (hasMoreParticipants)

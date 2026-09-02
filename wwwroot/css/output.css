@@ -3731,11 +3731,17 @@
     .sm\:block {
       display: block;
     }
+    .sm\:h-28 {
+      height: calc(var(--spacing) * 28);
+    }
     .sm\:h-56 {
       height: calc(var(--spacing) * 56);
     }
     .sm\:h-80 {
       height: calc(var(--spacing) * 80);
+    }
+    .sm\:w-28 {
+      width: calc(var(--spacing) * 28);
     }
     .sm\:w-36 {
       width: calc(var(--spacing) * 36);
@@ -3773,8 +3779,14 @@
     .sm\:items-center {
       align-items: center;
     }
+    .sm\:items-start {
+      align-items: flex-start;
+    }
     .sm\:justify-between {
       justify-content: space-between;
+    }
+    .sm\:p-8 {
+      padding: calc(var(--spacing) * 8);
     }
     .sm\:p-10 {
       padding: calc(var(--spacing) * 10);
@@ -3787,6 +3799,9 @@
     }
     .sm\:px-8 {
       padding-inline: calc(var(--spacing) * 8);
+    }
+    .sm\:text-left {
+      text-align: left;
     }
     .sm\:text-xs {
       font-size: var(--text-xs);
