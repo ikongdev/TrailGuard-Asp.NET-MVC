@@ -54,8 +54,11 @@ namespace TrailGuard.Services
                     // The organizer looked at this participant and this trail and steered them
                     // elsewhere. Reversing that should take more than one click from a listing
                     // page - point them at My Registrations, where the suggested event and the
-                    // organizer's reason are actually shown.
-                    return new RegisterButtonState("Alternative Suggested", RegisterButtonStyle.Muted, RegisterButtonTarget.MyRegistrations);
+                    // organizer's reason are actually shown. Views/Participant/Events.cshtml no
+                    // longer renders this as a button at all (it shows plain status text plus a
+                    // single View Details action instead - a two-button row with this label wraps
+                    // to two lines), but the case stays correct here for any other caller.
+                    return new RegisterButtonState("Alternative Recommended", RegisterButtonStyle.Muted, RegisterButtonTarget.MyRegistrations);
 
                 default:
                     return new RegisterButtonState(registrationStatus, RegisterButtonStyle.Disabled, RegisterButtonTarget.None);

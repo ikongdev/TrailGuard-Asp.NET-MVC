@@ -84,6 +84,7 @@
                 var diffBadge = DifficultyCalculator.BadgeClass(eventItem.Difficulty);
                 var slotsLeft = eventItem.Capacity - eventItem.RegisteredCount;
                 var adjustedRating = eventItem.Trail != null ? DifficultyCalculator.ComputeAdjustedRating(eventItem.Trail) : 0;
+                var isAlternativeRecommended = card.RegistrationStatus == "Alternative Recommended";
                 var buttonState = RegistrationButtonHelper.GetState(card.RegistrationStatus, slotsLeft <= 0);
 
                 var buttonClasses = buttonState.Style switch
@@ -137,30 +138,45 @@
                             </span>
                         </div>
 
+                        @if (isAlternativeRecommended)
+                        {
+                            <p class="text-blue-400 font-semibold text-sm mb-3">Alternative Recommended</p>
+                        }
+
                         <div class="flex gap-2 mt-auto">
-                            <a asp-controller="Participant" asp-action="Details" asp-route-id="@eventItem.Id"
-                               class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-2">
-                                <i class="fa-regular fa-eye"></i> View
-                            </a>
-                            @if (buttonState.Target == RegisterButtonTarget.Assessment)
+                            @if (isAlternativeRecommended)
                             {
-                                <a asp-controller="Assessment" asp-action="Form" asp-route-eventId="@eventItem.Id"
-                                   class="@buttonClasses">
-                                    <i class="fa-regular fa-clipboard"></i> @buttonState.Label
-                                </a>
-                            }
-                            else if (buttonState.Target == RegisterButtonTarget.MyRegistrations)
-                            {
-                                <a asp-controller="Registration" asp-action="MyRegistrations"
-                                   class="@buttonClasses">
-                                    <i class="fa-regular fa-clipboard"></i> @buttonState.Label
+                                <a asp-controller="Participant" asp-action="Details" asp-route-id="@eventItem.Id"
+                                   class="w-full bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+                                    <i class="fa-regular fa-eye"></i> View Details
                                 </a>
                             }
                             else
                             {
-                                <span class="@buttonClasses">
-                                    <i class="fa-regular fa-clipboard"></i> @buttonState.Label
-                                </span>
+                                <a asp-controller="Participant" asp-action="Details" asp-route-id="@eventItem.Id"
+                                   class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+                                    <i class="fa-regular fa-eye"></i> View
+                                </a>
+                                @if (buttonState.Target == RegisterButtonTarget.Assessment)
+                                {
+                                    <a asp-controller="Assessment" asp-action="Form" asp-route-eventId="@eventItem.Id"
+                                       class="@buttonClasses">
+                                        <i class="fa-regular fa-clipboard"></i> @buttonState.Label
+                                    </a>
+                                }
+                                else if (buttonState.Target == RegisterButtonTarget.MyRegistrations)
+                                {
+                                    <a asp-controller="Registration" asp-action="MyRegistrations"
+                                       class="@buttonClasses">
+                                        <i class="fa-regular fa-clipboard"></i> @buttonState.Label
+                                    </a>
+                                }
+                                else
+                                {
+                                    <span class="@buttonClasses">
+                                        <i class="fa-regular fa-clipboard"></i> @buttonState.Label
+                                    </span>
+                                }
                             }
                         </div>
                     </div>

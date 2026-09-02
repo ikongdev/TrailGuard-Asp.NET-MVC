@@ -39,6 +39,7 @@
     --color-emerald-950: oklch(26.2% 0.051 172.552);
     --color-cyan-500: oklch(71.5% 0.143 215.221);
     --color-blue-100: oklch(93.2% 0.032 255.585);
+    --color-blue-200: oklch(88.2% 0.059 254.128);
     --color-blue-300: oklch(80.9% 0.105 251.813);
     --color-blue-400: oklch(70.7% 0.165 254.624);
     --color-blue-500: oklch(62.3% 0.214 259.815);
@@ -2741,6 +2742,9 @@
   }
   .text-blue-100 {
     color: var(--color-blue-100);
+  }
+  .text-blue-200 {
+    color: var(--color-blue-200);
   }
   .text-blue-300 {
     color: var(--color-blue-300);

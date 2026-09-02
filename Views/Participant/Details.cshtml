@@ -14,9 +14,27 @@
     var isCancelled = Model.Status == "Cancelled";
     var isUpcoming = Model.Status == "Upcoming";
 
-    var userRegistration = registrations.FirstOrDefault(r => r.UserId == userId);
+    // Resolved server-side against the authenticated user's own stable ID
+    // (see ParticipantController.Details) - never against a client-supplied
+    // ID, and never a plain FirstOrDefault over every participant's rows.
+    var userRegistration = ViewBag.UserRegistration as EventRegistration;
     var isRegistered = userRegistration != null;
     var registrationStatus = userRegistration?.Status ?? "";
+    var isAlternativeRecommended = registrationStatus == "Alternative Recommended";
+
+    // Alternative Recommended is a closed door back to the original event -
+    // the recommendation panel below owns every action for this state, so
+    // each branch that renders an action in the bottom capacity strip
+    // excludes it directly rather than relying on an empty branch to swallow
+    // it before the others run.
+    var showRegistrationStatusAction = isRegistered
+        && registrationStatus != "Cancelled" && registrationStatus != "Rejected" && registrationStatus != "Voided"
+        && !isAlternativeRecommended;
+    var showRegisterAction = isUpcoming && !isAlternativeRecommended;
+
+    var hasAlternativeEventId = userRegistration?.AlternativeEventId != null;
+    var alternativeEvent = userRegistration?.AlternativeEvent;
+    var alternativeEventAvailable = alternativeEvent != null && TrailGuard.Services.EventJoinabilityHelper.IsJoinable(alternativeEvent);
 
     var joinedParticipants = registrations
         .Where(r => r.Status == "Accepted")
@@ -364,6 +382,49 @@
         </div>
     </div>
 
+    @if (isAlternativeRecommended)
+    {
+        <div class="mt-8 bg-blue-500/10 border border-blue-500/20 rounded-xl p-6" role="region" aria-labelledby="alt-event-heading">
+            <h2 id="alt-event-heading" class="text-lg font-bold text-white mb-2 flex items-center gap-2">
+                <i class="fa-solid fa-arrows-rotate text-blue-400" aria-hidden="true"></i>
+                Alternative event recommended
+            </h2>
+            <p class="text-blue-200 text-sm leading-relaxed mb-3">
+                @(hasAlternativeEventId
+                    ? "The organizer suggested another event that may be a better match for you."
+                    : "The organizer recommended choosing a different event that may be a better match for you.")
+            </p>
+
+            @if (!string.IsNullOrWhiteSpace(userRegistration!.DecisionReason))
+            {
+                <p class="text-gray-300 text-sm bg-black/20 rounded-lg p-3 mb-4 wrap-break-word">
+                    <span class="text-gray-500">Organizer's note:</span> @userRegistration.DecisionReason
+                </p>
+            }
+
+            @if (hasAlternativeEventId && !alternativeEventAvailable)
+            {
+                <p class="text-gray-400 text-sm mb-4">The recommended event is no longer available.</p>
+            }
+
+            <div class="flex flex-wrap gap-3">
+                @if (hasAlternativeEventId && alternativeEventAvailable)
+                {
+                    <a asp-controller="Participant" asp-action="Details" asp-route-id="@userRegistration.AlternativeEventId"
+                       class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-medium bg-accent hover:bg-accent/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base transition-colors">
+                        <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+                        View Recommended Event
+                    </a>
+                }
+                <a asp-controller="Registration" asp-action="MyRegistrations"
+                   class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-gray-300 font-medium bg-white/5 border border-white/10 hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base transition-colors">
+                    <i class="fa-regular fa-file-lines" aria-hidden="true"></i>
+                    View My Registrations
+                </a>
+            </div>
+        </div>
+    }
+
     <div class="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-6">
         <p class="text-gray-400 text-sm">
             <i class="fa-solid fa-users text-accent mr-2"></i>
@@ -394,26 +455,26 @@
                     <i class="fa-solid fa-right-to-bracket"></i> Login to Register
                 </a>
             }
-            else if (isRegistered && registrationStatus != "Cancelled" && registrationStatus != "Rejected" && registrationStatus != "Voided")
+            else if (showRegistrationStatusAction)
             {
                 <a asp-controller="Registration" asp-action="MyRegistrations"
                    class="px-8 py-3 rounded-full text-gray-300 font-semibold bg-white/5 border border-white/10 hover:bg-white/10 hover:text-white transition-colors flex items-center gap-2">
                     <i class="fa-solid @regBadgeIcon"></i> @regBadgeText
                 </a>
             }
-            else if (isFull && isUpcoming)
+            else if (isFull && isUpcoming && !isAlternativeRecommended)
             {
                 <button disabled class="px-8 py-3 rounded-full text-gray-500 font-semibold bg-white/5 border border-white/10 cursor-not-allowed flex items-center gap-2">
                     <i class="fa-solid fa-ban"></i> Event Full
                 </button>
             }
-            else if (isCompleted || isCancelled)
+            else if ((isCompleted || isCancelled) && !isAlternativeRecommended)
             {
                 <button disabled class="px-8 py-3 rounded-full text-gray-500 font-semibold bg-white/5 border border-white/10 cursor-not-allowed flex items-center gap-2">
                     <i class="fa-solid fa-lock"></i> Registration Closed
                 </button>
             }
-            else if (isUpcoming)
+            else if (showRegisterAction)
             {
                 <a asp-controller="Assessment" asp-action="Form" asp-route-eventId="@Model.Id"
                    class="px-8 py-3 rounded-full text-white font-semibold bg-linear-to-r from-orange-500 via-pink-500 to-violet-500 hover:brightness-110 hover:scale-[1.02] transition duration-200 ease-out flex items-center gap-2">

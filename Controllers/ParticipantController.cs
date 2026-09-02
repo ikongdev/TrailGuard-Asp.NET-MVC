@@ -386,7 +386,7 @@ namespace TrailGuard.Controllers
             if (!string.IsNullOrEmpty(eventItem.OrganizedBy))
             {
                 var organizer = await _context.Users
-                    .FirstOrDefaultAsync(u => 
+                    .FirstOrDefaultAsync(u =>
                         (u.FirstName + " " + u.LastName) == eventItem.OrganizedBy ||
                         (u.FirstName + " " + u.MiddleName + " " + u.LastName) == eventItem.OrganizedBy ||
                         u.Email == eventItem.OrganizedBy ||
@@ -395,8 +395,31 @@ namespace TrailGuard.Controllers
                 ViewBag.Organizer = organizer;
             }
 
-            // ✅ I-check kung nagbigay na ng feedback ang participant
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+            // Scoped to this event and the authenticated user's own stable ID -
+            // never a client-supplied ID - so this can never surface another
+            // participant's recommendation. Includes AlternativeEvent (not
+            // needed by allRegistrations above, which only drives the public
+            // Joined Participants list) so the recommendation panel can render
+            // without a second round-trip. A participant can hold more than one
+            // row for this event (cancel, then register again), so this can't
+            // be a plain FirstOrDefault - the row that's still "live" (active,
+            // or the organizer's Alternative Recommended decision) wins, same
+            // rule ParticipantController.Events already applies per-card.
+            var ownRegistrations = await _context.EventRegistrations
+                .Include(r => r.AlternativeEvent)
+                .Where(r => r.EventId == id && r.UserId == userId)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var userRegistration = ownRegistrations.FirstOrDefault(r =>
+                    RegistrationStatusHelper.ActiveStatuses.Contains(r.Status) || r.Status == "Alternative Recommended")
+                ?? ownRegistrations.OrderByDescending(r => r.RegisteredAt).FirstOrDefault();
+
+            ViewBag.UserRegistration = userRegistration;
+
+            // ✅ I-check kung nagbigay na ng feedback ang participant
             var hasGivenFeedback = false;
             if (userId != null && eventItem.Status == "Completed")
             {
