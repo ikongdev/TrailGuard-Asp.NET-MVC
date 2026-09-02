@@ -461,9 +461,9 @@ The navbar's Admin-first role check (`Views/Shared/_Layout.cshtml`: `User.IsInRo
 
 ---
 
-## Participant Progress, Ranking, and Profile (Phase 1)
+## Participant Progress, Ranking, and Achievements
 
-Foundation only. There is **no Profile page, no achievement system, and no public leaderboard yet** — this section documents what Phase 1 actually implemented: a shared progress/ranking calculation and a Profile authorization service with nothing routed to it.
+Foundation only. There is **no Profile page and no public leaderboard yet** — this section documents what's actually implemented: a shared progress/ranking calculation, dynamic achievement evaluation, and a Profile authorization service with nothing routed to it.
 
 ### Canonical participation rule
 
@@ -508,9 +508,32 @@ Equal Trail Points share the same rank; there is no tie-breaker. `RoleAssignment
 
 `ParticipantProgressService.GetProgressAsync(userId)` takes no caller-supplied leaderboard flag — eligibility is decided entirely inside the service (`activeValidParticipantIds.Contains(userId) && distinctCompletedEventCount > 0`, where `activeValidParticipantIds` comes from `RoleAssignmentService.GetActiveUserIdsInSingleRoleAsync("Participant")`), so no caller can accidentally rank an inactive, conflicted, missing-role, Admin, or Organizer account. An inactive clean Participant (an Admin viewing historical data, once a Profile page exists) still gets a computed tier and history, but never a rank — `IsRanked` is `false` and `Rank`/`RankedParticipantCount` carry no placement. This never affects the Dashboard itself, since a disabled account cannot sign in (see Account Roles) and therefore never reaches it.
 
+### Achievements
+
+Eight fixed, code-defined achievements (`ParticipantAchievementCatalog.Definitions`) — never database rows, never written or unlocked anywhere. `ParticipantAchievementEvaluator.Evaluate` is a pure function: no database access, no persistence, no notion of "already unlocked" carried between calls. Every call recomputes all eight results from scratch against the same deduplicated qualifying history `ParticipantProgressService.GetProgressAsync` already loaded for Trail Points/tier/rank — there is no second history query, and no per-achievement query.
+
+| Code | Name | Category | Criterion |
+|---|---|---|---|
+| `first_adventure` | First Adventure | Milestone | 1 distinct qualifying Event |
+| `five_adventures` | Five Adventures | Milestone | 5 distinct qualifying Events |
+| `double_digits` | Double Digits | Milestone | 10 distinct qualifying Events |
+| `new_ground` | New Ground | Exploration | 3 distinct Trails across qualifying Events |
+| `trail_collector` | Trail Collector | Exploration | 5 distinct Trails across qualifying Events |
+| `steady_steps` | Steady Steps | Consistency | Qualifying Events in 3 distinct calendar months |
+| `seasoned_explorer` | Seasoned Explorer | Consistency | Qualifying Events in 6 distinct calendar months |
+| `technical_explorer` | Technical Explorer | Variety | Qualifying Events across 3 distinct valid (1–4) Trail Classes |
+
+Distinct months need not be consecutive — this is never described as a streak. Trail Class is described accurately as technical trail metadata (`Trail.TrailClass`), never as "Event Difficulty." None of the eight touch payment state, medical data, assessment/suitability/ML/SHAP results, organizer approval rate, cancellation behavior, self-entered profile fields, or a specific Trail Class/Event difficulty/speed/distance/elevation threshold — the achievement system must never pressure a Participant toward a harder or less suitable Event just to earn a badge.
+
+**Dynamic, non-persisted design.** Nothing is written when a Dashboard or future Profile is viewed, by anyone — including an Organizer/Admin viewing a Participant's Profile. No migration or backfill exists or is needed: existing history is automatically reflected the first time this runs, a corrected Registration or Event status changes achievement progress on the very next read, and an achievement **re-locks** if the qualifying history that satisfied it no longer does. Do not describe an unlocked achievement as a permanent certificate — it is a live reflection of current history, not an award record.
+
+**Earned dates** use the qualifying Event's own `EventDate` — never the administrative `CompletedAt` timestamp — derived by walking the same chronological history (ordered by `EventDate` ascending, then `EventId` ascending as a deterministic tie-breaker for same-day Events) once: a completion milestone's date is the Nth distinct qualifying Event's `EventDate`; a distinct-Trail/month/Trail-Class milestone's date is the `EventDate` of the qualifying Event on which that Trail/month/Trail Class was *first* seen — repeating an already-seen Trail, month, or Trail Class advances the completed-Event count but never that achievement's progress.
+
 ### Participant Dashboard
 
 `ParticipantController.Index()` no longer runs its own grouped ranking query. Completed-hike count, Trail Points, rank, the ranked-hiker denominator, and ranked/unranked state all come from `ParticipantProgressService`. The personal-best difficulty/distance/elevation figures shown alongside them remain a separate, controller-local `Max`/`OrderByDescending` selection over the same Accepted+Completed registrations — safe to leave separate because a duplicate row for the same Event cannot change a maximum, only a plain count would need the shared service's deduplication.
+
+The Dashboard's `ParticipantProgressResult` now also carries `Achievements`/`EarnedAchievementCount`/`TotalAchievementCount`, but nothing on the Dashboard renders them yet — no achievement badges, locked-progress list, or count appears anywhere in the UI.
 
 ### Public Profile identifier
 

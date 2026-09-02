@@ -13,12 +13,15 @@ namespace TrailGuard.Services
         public int DistinctCompletedEventCount { get; init; }
         public int DistinctCompletedTrailCount { get; init; }
 
-        // Distinct (year, month) of qualifying completions - for a future "active N
-        // different months" consistency achievement. Not surfaced anywhere yet.
+        // Distinct (year, month) of qualifying completions - the same figure the
+        // Steady Steps/Seasoned Explorer achievements' CurrentValue reaches once every
+        // Event has been walked. A standalone diagnostic aggregate; no view renders it
+        // directly.
         public int DistinctCompletionMonthCount { get; init; }
 
-        // Distinct Trail.TrailClass values across qualifying completions - for a future
-        // terrain-variety achievement. Not surfaced anywhere yet.
+        // Distinct valid (1-4) Trail.TrailClass values across qualifying completions -
+        // the same figure the Technical Explorer achievement's CurrentValue reaches. A
+        // standalone diagnostic aggregate; no view renders it directly.
         public IReadOnlyList<int> DistinctCompletedTrailClasses { get; init; } = Array.Empty<int>();
 
         public int TrailPoints { get; init; }
@@ -35,6 +38,22 @@ namespace TrailGuard.Services
         public int? Rank { get; init; }
         public int RankedParticipantCount { get; init; }
         public bool IsRanked { get; init; }
+
+        // Dynamic achievement results - see ParticipantAchievementEvaluator. Computed
+        // fresh from the same deduplicated qualifying history as everything above on
+        // every call; nothing here is ever written or persisted, so a target with zero
+        // qualifying completions still gets all eight results (every one locked at
+        // CurrentValue 0), and a corrected Registration/Event status changes this the
+        // very next time GetProgressAsync runs. Always in the catalog's fixed display
+        // order.
+        public IReadOnlyList<ParticipantAchievementResult> Achievements { get; init; } = Array.Empty<ParticipantAchievementResult>();
+        public int EarnedAchievementCount { get; init; }
+        public int TotalAchievementCount { get; init; }
+
+        // Safe derived views for a future Profile UI - computed on read, not
+        // duplicated/stored lists, so they can never drift from Achievements itself.
+        public IEnumerable<ParticipantAchievementResult> EarnedAchievements => Achievements.Where(a => a.IsUnlocked);
+        public IEnumerable<ParticipantAchievementResult> LockedAchievements => Achievements.Where(a => !a.IsUnlocked);
     }
 
     // The sole source for Participant progress and all-time leaderboard ranking -
@@ -66,46 +85,74 @@ namespace TrailGuard.Services
         // Rank/IsRanked/RankedParticipantCount depend on it.
         public async Task<ParticipantProgressResult> GetProgressAsync(string userId)
         {
-            // One query for this Participant's own qualifying history. Duplicate
-            // Accepted+Completed rows for the same EventId shouldn't exist in practice
-            // (RegistrationStatusHelper.ActiveStatuses blocks a second active
+            // One query for this Participant's own qualifying history - the single
+            // shared source for every stat below AND for achievement evaluation
+            // (ParticipantAchievementEvaluator.Evaluate takes this same list; no
+            // second history query exists anywhere in this method).
+            //
+            // Duplicate Accepted+Completed rows for the same EventId shouldn't exist in
+            // practice (RegistrationStatusHelper.ActiveStatuses blocks a second active
             // registration for the same event) but the schema doesn't forbid it at the
             // database level (see CLAUDE.md, "Resolve a registration by status, never
-            // FirstOrDefault alone") - the GroupBy below is the deduplication step that
-            // makes every count that follows safe regardless.
-            var ownRows = await _context.EventRegistrations
+            // FirstOrDefault alone"). Deduplication below handles it regardless -
+            // EventId, TrailId, EventDate, and TrailClass are all derived from Event
+            // (never from the registration row itself), so two duplicate rows for the
+            // same EventId always project to an identical QualifyingEventRecord, and a
+            // plain value-equality Distinct() collapses them with no dependency on
+            // which row the database happens to return first - a stricter, more
+            // deterministic replacement for a GroupBy(...).First().
+            var qualifyingRows = await _context.EventRegistrations
                 .AsNoTracking()
                 .Where(r => r.UserId == userId
                     && r.Status == ParticipantProgressPolicy.QualifyingRegistrationStatus
                     && r.Event != null
                     && r.Event.Status == ParticipantProgressPolicy.QualifyingEventStatus)
-                .Select(r => new
-                {
+                .Select(r => new QualifyingEventRecord(
                     r.EventId,
                     r.Event!.TrailId,
-                    r.Event.CompletedAt,
                     r.Event.EventDate,
-                    TrailClass = r.Event.Trail != null ? r.Event.Trail.TrailClass : (int?)null
-                })
+                    r.Event.Trail != null ? r.Event.Trail.TrailClass : (int?)null))
                 .ToListAsync();
 
-            var distinctEvents = ownRows
-                .GroupBy(r => r.EventId)
-                .Select(g => g.First())
+            // Chronological order for achievement earned-date derivation: Event date
+            // ascending, then Event ID ascending as a deterministic secondary key for
+            // same-day Events (this can only affect which of two same-day Events is
+            // "first" for tie-breaking purposes, never which calendar month/Trail/Trail
+            // Class is considered first - see ParticipantAchievementEvaluator).
+            var chronologicalHistory = qualifyingRows
+                .Distinct()
+                .OrderBy(e => e.EventDate)
+                .ThenBy(e => e.EventId)
                 .ToList();
 
-            var distinctCompletedEventCount = distinctEvents.Count;
-            var distinctCompletedTrailCount = distinctEvents.Select(e => e.TrailId).Distinct().Count();
-            var distinctCompletionMonthCount = distinctEvents
-                .Select(e => (e.CompletedAt ?? e.EventDate).ToString("yyyy-MM"))
+            var distinctCompletedEventCount = chronologicalHistory.Count;
+            var distinctCompletedTrailCount = chronologicalHistory.Select(e => e.TrailId).Distinct().Count();
+
+            // Calendar year+month of the Event's own EventDate only - never
+            // CompletedAt - so this always agrees with Steady Steps/Seasoned
+            // Explorer's month-membership rule below.
+            var distinctCompletionMonthCount = chronologicalHistory
+                .Select(e => (e.EventDate.Year, e.EventDate.Month))
                 .Distinct()
                 .Count();
-            var distinctCompletedTrailClasses = distinctEvents
-                .Where(e => e.TrailClass.HasValue)
+
+            // Valid canonical Trail Classes only (1-4 - see
+            // ParticipantAchievementEvaluator.IsValidTrailClass), matching Technical
+            // Explorer's own validity rule so this diagnostic aggregate can never
+            // disagree with the achievement built from the same data.
+            var distinctCompletedTrailClasses = chronologicalHistory
+                .Where(e => e.TrailClass is >= 1 and <= 4)
                 .Select(e => e.TrailClass!.Value)
                 .Distinct()
                 .OrderBy(c => c)
                 .ToList();
+
+            // Pure, in-memory evaluation against the exact same deduplicated
+            // chronological history above - zero additional database queries, and no
+            // per-achievement query or loop (a single O(n) pass inside Evaluate builds
+            // every achievement's progress and earned date together).
+            var achievements = ParticipantAchievementEvaluator.Evaluate(chronologicalHistory);
+            var earnedAchievementCount = achievements.Count(a => a.IsUnlocked);
 
             var trailPoints = ParticipantProgressPolicy.ComputeTrailPoints(distinctCompletedEventCount, distinctCompletedTrailCount);
             var tier = ParticipantProgressPolicy.TierFor(trailPoints);
@@ -181,7 +228,10 @@ namespace TrailGuard.Services
                 HasNextTier = pointsToNextTier != null,
                 Rank = rank,
                 RankedParticipantCount = rankedParticipantCount,
-                IsRanked = isRanked
+                IsRanked = isRanked,
+                Achievements = achievements,
+                EarnedAchievementCount = earnedAchievementCount,
+                TotalAchievementCount = ParticipantAchievementCatalog.Definitions.Count
             };
         }
     }
