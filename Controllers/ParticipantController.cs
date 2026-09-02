@@ -12,12 +12,14 @@ namespace TrailGuard.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly WeatherService _weatherService;
+        private readonly ParticipantProgressService _participantProgressService;
 
 
-        public ParticipantController(ApplicationDbContext context, WeatherService weatherService)
+        public ParticipantController(ApplicationDbContext context, WeatherService weatherService, ParticipantProgressService participantProgressService)
         {
             _context = context;
             _weatherService = weatherService;
+            _participantProgressService = participantProgressService;
         }
 
         public async Task<IActionResult> Index()
@@ -39,10 +41,16 @@ namespace TrailGuard.Controllers
                 .Where(e => e != null && e.EventDate >= DateTime.Today && e.Status == "Upcoming")
                 .ToList();
 
+            // Personal-best difficulty/distance/elevation below stay on this
+            // already-loaded, per-user registrations list rather than moving to
+            // ParticipantProgressService - Max/OrderByDescending selections are
+            // unaffected by a duplicate Accepted+Completed row for the same Event, so
+            // this list needs no separate GroupBy-by-EventId deduplication step to stay
+            // correct. CompletedHikes below, by contrast, is a plain count, so it comes
+            // from the shared service instead of registrations.Count.
             var completedRegistrations = registrations
                 .Where(r => r.Status == "Accepted" && r.Event != null && r.Event.Status == "Completed")
                 .ToList();
-            var completedHikes = completedRegistrations.Count;
 
             var needsAction = registrations
                 .Count(r => r.Status == "Pending" || r.Status == "Awaiting Payment");
@@ -104,20 +112,18 @@ namespace TrailGuard.Controllers
                 personalBestElevationMeters = hikesWithTrail.Max(r => r.Event!.Trail!.ElevationGainMeters);
             }
 
-            var hikeCounts = await _context.EventRegistrations
-                .Where(r => r.Status == "Accepted" && r.Event!.Status == "Completed")
-                .GroupBy(r => r.UserId)
-                .Select(g => new { UserId = g.Key, Count = g.Count() })
-                .ToListAsync();
-
-            var rank = hikeCounts.Count(x => x.Count > completedHikes) + 1;
-            var totalHikers = hikeCounts.Count;
-            var isRanked = completedHikes > 0 && rank <= 10;
+            // Sole source for the completed-hike count and all-time Trail Points
+            // ranking - see ParticipantProgressService/ParticipantProgressPolicy.
+            // Leaderboard eligibility is decided entirely inside the service; the
+            // controller has no say in whether this account gets ranked.
+            var progress = string.IsNullOrEmpty(userId)
+                ? new ParticipantProgressResult()
+                : await _participantProgressService.GetProgressAsync(userId);
 
             var viewModel = new ParticipantDashboardViewModel
             {
                 UpcomingEventsCount = upcomingEvents.Count,
-                CompletedHikes = completedHikes,
+                CompletedHikes = progress.DistinctCompletedEventCount,
                 PendingRegistrations = needsAction,
                 TotalRegistrations = activeRegistrations,
                 UpcomingEvents = upcomingEvents!,
@@ -126,9 +132,10 @@ namespace TrailGuard.Controllers
                 PersonalBestDifficulty = personalBestDifficulty,
                 PersonalBestDistanceKm = personalBestDistanceKm,
                 PersonalBestElevationMeters = personalBestElevationMeters,
-                Rank = rank,
-                TotalHikers = totalHikers,
-                IsRanked = isRanked
+                TrailPoints = progress.TrailPoints,
+                Rank = progress.Rank ?? 0,
+                TotalHikers = progress.RankedParticipantCount,
+                IsRanked = progress.IsRanked
             };
 
             return View(viewModel);

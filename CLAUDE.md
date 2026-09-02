@@ -461,6 +461,69 @@ The navbar's Admin-first role check (`Views/Shared/_Layout.cshtml`: `User.IsInRo
 
 ---
 
+## Participant Progress, Ranking, and Profile (Phase 1)
+
+Foundation only. There is **no Profile page, no achievement system, and no public leaderboard yet** — this section documents what Phase 1 actually implemented: a shared progress/ranking calculation and a Profile authorization service with nothing routed to it.
+
+### Canonical participation rule
+
+TrailGuard-recognized participation (not independently verified physical attendance — the system has no attendance marker beyond this) is:
+
+```
+EventRegistration.Status == "Accepted"
+AND Event.Status == "Completed"
+```
+
+Because a participant can cancel and re-register for the same Event, and the schema does not forbid more than one historical row reaching this state, every qualifying count is **by distinct `EventId`**, never by raw registration-row count. `ParticipantProgressService.GetProgressAsync` collapses duplicate rows for the same `EventId` before counting anything.
+
+### Trail Points and tiers
+
+`ParticipantProgressPolicy` is the single source for the formula, the tier table, and competition-rank math — nothing here is duplicated in a controller, service, or view.
+
+```
+TrailPoints = (DistinctCompletedEventCount × 10) + (DistinctCompletedTrailCount × 5)
+```
+
+No payment state, assessment outcome, suitability result, ML/SHAP data, feedback, medical data, cancellation behavior, or editable profile field feeds this — only `EventRegistration.Status`, `Event.Status`, `Event.TrailId`.
+
+| Tier | Trail Points |
+|---|---|
+| Trail Starter | 0–14 |
+| Pathfinder | 15–74 |
+| Trail Explorer | 75–149 |
+| Summit Seeker | 150–299 |
+| Trailblazer | 300+ |
+
+A clean, active Participant with zero qualifying completions is `Trail Starter` but is never ranked.
+
+### Leaderboard eligibility and ranking
+
+All-time only; nothing seasonal exists. Eligible for ranking means: active, exactly one operational role (`OperationalRolePolicy.Evaluate`), that role is `Participant`, and at least one qualifying completed Event. Admins, Organizers, inactive accounts, conflicted/missing-role accounts, and zero-completion Participants are excluded from the ranked population entirely — they don't count toward the denominator either.
+
+```
+rank = (number of eligible participants with strictly higher Trail Points) + 1
+```
+
+Equal Trail Points share the same rank; there is no tie-breaker. `RoleAssignmentService.GetActiveUserIdsInSingleRoleAsync` is the bounded (constant-query-count), read-only helper that supplies the eligible population — it reuses `OperationalRolePolicy.Evaluate` rather than calling `GetRolesAsync` per account, the same shape `AuditRoleIntegrityAsync` already uses.
+
+`ParticipantProgressService.GetProgressAsync(userId)` takes no caller-supplied leaderboard flag — eligibility is decided entirely inside the service (`activeValidParticipantIds.Contains(userId) && distinctCompletedEventCount > 0`, where `activeValidParticipantIds` comes from `RoleAssignmentService.GetActiveUserIdsInSingleRoleAsync("Participant")`), so no caller can accidentally rank an inactive, conflicted, missing-role, Admin, or Organizer account. An inactive clean Participant (an Admin viewing historical data, once a Profile page exists) still gets a computed tier and history, but never a rank — `IsRanked` is `false` and `Rank`/`RankedParticipantCount` carry no placement. This never affects the Dashboard itself, since a disabled account cannot sign in (see Account Roles) and therefore never reaches it.
+
+### Participant Dashboard
+
+`ParticipantController.Index()` no longer runs its own grouped ranking query. Completed-hike count, Trail Points, rank, the ranked-hiker denominator, and ranked/unranked state all come from `ParticipantProgressService`. The personal-best difficulty/distance/elevation figures shown alongside them remain a separate, controller-local `Max`/`OrderByDescending` selection over the same Accepted+Completed registrations — safe to leave separate because a duplicate row for the same Event cannot change a maximum, only a plain count would need the shared service's deduplication.
+
+### Public Profile identifier
+
+`ApplicationUser.PublicProfileId` (`Guid`, non-null, unique-indexed) exists for the future `GET /Profile/{publicProfileId:guid}` route — **not routed yet**. It is never derived from email, name, or the internal Identity `Id`, and is assigned via a C# property initializer (`= Guid.NewGuid()`) on every `new ApplicationUser` construction, so every existing creation path (`AccountController.Register`, `AdminController.AddAccount`, `DbSeeder`) gets one automatically with no controller-specific assignment. Existing rows are backfilled by migration `AddPublicProfileIdToUsers` (nullable column → per-row `gen_random_uuid()` backfill → `NOT NULL` → unique index) — never a single baked-in default applied to every row. The internal Identity `Id` must never be exposed through a Profile-facing response, log line, or view.
+
+### Profile authorization
+
+`ProfileAccessService` is the authorization foundation for the future Profile routes — there is no `ProfileController` yet, and no Profile link exists anywhere in the UI. It resolves a viewer/target pair into one of: Owner, Admin, or Organizer access, or a single generic denial (`ProfileAccessResult.Denied`) for every rejected or unresolvable case — unknown public id, non-Participant target, unauthorized Participant viewer, unrelated Organizer, an inactive target viewed by an Organizer, or a conflicted/missing-role viewer. The denial is intentionally undifferentiated so a future controller can never leak which case occurred.
+
+Organizer access requires an owned Event (`Event.OrganizerId == organizer.Id`) and a registration from the target Participant in one of exactly five statuses — `Pending`, `Awaiting Payment`, `For Payment Verification`, `Alternative Recommended`, `Accepted`. This is a **separate, private list** from `RegistrationStatusHelper.ActiveStatuses`: the two overlap but answer different questions (capacity/duplicate-registration vs. Profile visibility) and must never be collapsed into one. `Rejected`, `Cancelled`, and `Voided` never grant Profile access. Admin access requires the viewer to be a clean, single-role Admin, and may reach both active and inactive clean Participants; it can never resolve an Organizer or Admin account as a Participant Profile. A role-conflicted or role-missing viewer gets no Profile privilege regardless of which raw role rows it holds — the navbar's Admin-first fallback (see Account Roles) is display convenience only and is never treated as authorization here.
+
+---
+
 ## Security
 
 Participant endpoints that take a registration ID **must** verify ownership before acting. `CancelRegistration`, `UpdatePaymentReceipt`, and `GetRegistrationDetails` all previously acted on any ID — any participant could cancel or attach a receipt to someone else's registration by incrementing a number.

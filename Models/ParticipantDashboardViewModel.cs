@@ -22,7 +22,12 @@ namespace TrailGuard.Models
         public double? PersonalBestDistanceKm { get; set; }
         public int? PersonalBestElevationMeters { get; set; }
 
-        // Progress & Achievements — rank
+        // Progress & Achievements — Trail Points and rank, both sourced from
+        // ParticipantProgressService. TotalHikers is the ranked-Participant
+        // denominator (eligible, active, single-role Participant, >= 1 qualifying
+        // completion) - not every account in the system. See
+        // ParticipantProgressPolicy/ParticipantProgressService.
+        public int TrailPoints { get; set; }
         public int Rank { get; set; }
         public int TotalHikers { get; set; }
         public bool IsRanked { get; set; }

@@ -40,6 +40,19 @@ namespace TrailGuard.Data
                 .HasIndex(f => f.RegistrationId)
                 .IsUnique();
 
+            // Public Profile lookup key (GET /Profile/{publicProfileId:guid}, not yet
+            // routed) - unique so a collision can never resolve to the wrong account.
+            // No database-level default: every code path constructs ApplicationUser via
+            // `new ApplicationUser { ... }`, so the C# property initializer
+            // (Guid.NewGuid()) already supplies a value before SaveChanges for every new
+            // row. Existing rows are backfilled explicitly by the migration that adds
+            // this column, in three separate steps precisely so this index is never
+            // created while more than one existing row still shares the CLR default
+            // Guid.Empty.
+            builder.Entity<ApplicationUser>()
+                .HasIndex(u => u.PublicProfileId)
+                .IsUnique();
+
             // Trail is a shared catalog entity, not owned by any single event - deleting
             // an event must never take a trail's other events down with it, and (more to
             // the point here) deleting a trail must never cascade into the events still

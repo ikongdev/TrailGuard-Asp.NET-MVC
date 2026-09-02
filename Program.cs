@@ -24,6 +24,8 @@ builder.Services.ConfigureApplicationCookie(options =>
 
 builder.Services.AddControllersWithViews();
 builder.Services.AddScoped<RoleAssignmentService>();
+builder.Services.AddScoped<ParticipantProgressService>();
+builder.Services.AddScoped<ProfileAccessService>();
 // HeaderName lets fetch()-based POSTs (JSON or FormData, both use this - see
 // postJson/postForm in site.js) authenticate with a header instead of a form
 // field, since neither request shape carries the usual hidden form input.

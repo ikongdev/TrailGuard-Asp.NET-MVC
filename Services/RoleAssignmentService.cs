@@ -578,6 +578,51 @@ namespace TrailGuard.Services
             return audit;
         }
 
+        // Bounded, read-only eligibility lookup for ParticipantProgressService's
+        // leaderboard population - every active account holding exactly one
+        // operational role, that role being `role`. Same two-query shape as
+        // AuditRoleIntegrityAsync (all account ids once, all UserRole-to-Role-name rows
+        // once) rather than GetRolesAsync per account, since this runs on every
+        // Dashboard/Profile progress read, not just a startup audit. Returns bare
+        // internal ids only - never a full ApplicationUser - and never mutates
+        // anything, so it carries none of ReplaceRoleAsync/SetAccountActiveAsync's
+        // transactional or last-Admin concerns.
+        public async Task<IReadOnlyList<string>> GetActiveUserIdsInSingleRoleAsync(string role)
+        {
+            if (!OperationalRolePolicy.IsAllowedRole(role))
+            {
+                throw new ArgumentException($"'{role}' is not an operational role.", nameof(role));
+            }
+
+            var activeUserIds = await _context.Users
+                .AsNoTracking()
+                .Where(u => u.IsActive)
+                .Select(u => u.Id)
+                .ToListAsync();
+
+            var userRoleNames = await (
+                from ur in _context.UserRoles.AsNoTracking()
+                join r in _context.Roles.AsNoTracking() on ur.RoleId equals r.Id
+                select new { ur.UserId, RoleName = r.Name }
+            ).ToListAsync();
+
+            var rolesByUserId = userRoleNames
+                .GroupBy(x => x.UserId)
+                .ToDictionary(g => g.Key, g => g.Select(x => x.RoleName!).ToList());
+
+            var targetStatus = OperationalRolePolicy.StatusFor(role);
+            var result = new List<string>();
+            foreach (var userId in activeUserIds)
+            {
+                var roles = rolesByUserId.TryGetValue(userId, out var found) ? found : new List<string>();
+                if (OperationalRolePolicy.Evaluate(roles).Status == targetStatus)
+                {
+                    result.Add(userId);
+                }
+            }
+            return result;
+        }
+
         // Single definition of "a fallback Admin that can genuinely act as
         // one right now", shared by both ReplaceRoleAsync and
         // SetAccountActiveAsync (each call site is what excludeUserId is for
