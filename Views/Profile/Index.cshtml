@@ -10,55 +10,320 @@
 
 <div class="pt-24 px-4 max-w-6xl mx-auto min-h-screen text-white pb-12">
 
-    @* ============================= Hero ============================= *@
-    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 sm:p-8 mb-6">
-        <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6 text-center sm:text-left">
-            <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-accent flex items-center justify-center text-white text-3xl font-bold shrink-0 overflow-hidden">
-                @if (!string.IsNullOrEmpty(Model.ProfilePictureUrl))
-                {
-                    <img src="@Model.ProfilePictureUrl" alt="" class="w-full h-full object-cover" />
-                }
-                else
-                {
-                    @Model.Initials
-                }
+    @* ============================= Top row: Profile + Tier Progress ============================= *@
+    @* Mobile/tablet (grid-cols-1): items-start, so each stacked card keeps its own
+       natural content height - there is only ever one item per row, so "stretch"
+       would have had no visible effect anyway, but this keeps the default explicit.
+       Desktop (lg:grid-cols-2): lg:items-stretch restores equal-height siblings -
+       both card divs are direct, unwrapped grid items with no explicit height of
+       their own, so CSS Grid's stretch alignment alone makes the shorter card's
+       box grow to match the taller one; no additional h-full is needed on either
+       card for this to work. *@
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 items-start lg:items-stretch">
+
+        @* ----------------------------- Profile card ----------------------------- *@
+        @* flex flex-col (no lg:h-full needed): this div is the direct, unwrapped
+           lg:items-stretch grid item from the row above, so CSS Grid's stretch
+           alignment already sets its used height to match the taller sibling at
+           lg+ regardless of its own display value; flex-col only changes how ITS
+           children distribute within that already-established height, letting the
+           owner-only Edit Profile action's mt-auto (below) anchor to the bottom
+           whenever there's leftover stretched space. *@
+        <div class="flex flex-col bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl px-6 sm:px-8 py-5 sm:py-6">
+
+            @* Header - visually aligned with the Tier Progress card's own heading
+               (same text-sm/font-semibold/icon-scale/gap treatment). "Participant"
+               names the profile's subject, not the viewer - every Profile route
+               only ever resolves a Participant target (ProfileAccessService can
+               never resolve an Organizer/Admin account as a Profile subject), so
+               this is a safe fixed label, not a role read from the model. *@
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-user text-accent" aria-hidden="true"></i> Profile
+                </h2>
+                <span class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Participant</span>
             </div>
 
-            <div class="min-w-0 flex-1">
-                <h1 class="text-3xl font-bold text-white wrap-break-word">@Model.FullName</h1>
-                <p class="text-accent font-semibold mt-1">@Model.Tier</p>
-                <p class="text-gray-400 text-sm mt-1">
-                    <i class="fa-regular fa-calendar mr-1.5" aria-hidden="true"></i>Member since @Model.MemberSince.ToString("MMMM yyyy")
-                </p>
+            @* Horizontal identity block - avatar left, name/Member Since/Bio right at
+               sm+ (matching this card's own sm breakpoint elsewhere); stacks and
+               centers below sm so a long name is never squeezed into a narrow
+               column instead of simply wrapping. *@
+            <div class="flex flex-col items-center text-center gap-3 sm:flex-row sm:items-start sm:text-left sm:gap-4">
+                <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-accent flex items-center justify-center text-white text-3xl font-bold shrink-0 overflow-hidden">
+                    @if (!string.IsNullOrEmpty(Model.ProfilePictureUrl))
+                    {
+                        <img src="@Model.ProfilePictureUrl" alt="" class="w-full h-full object-cover" />
+                    }
+                    else
+                    {
+                        @Model.Initials
+                    }
+                </div>
 
-                @if (isAdminViewingInactive)
-                {
-                    <p class="text-amber-400 text-xs mt-2">
-                        <i class="fa-solid fa-circle-info mr-1" aria-hidden="true"></i>This account is currently disabled. Historical activity remains visible; it is not ranked while disabled.
+                <div class="min-w-0 flex-1">
+                    <h1 class="text-2xl sm:text-3xl font-bold text-white wrap-break-word">@Model.FullName</h1>
+
+                    <p class="text-gray-400 text-sm mt-1 flex items-center justify-center gap-1.5 sm:justify-start">
+                        <i class="fa-regular fa-calendar" aria-hidden="true"></i> Member since @Model.MemberSince.ToString("MMMM yyyy")
                     </p>
-                }
 
-                @if (!string.IsNullOrWhiteSpace(Model.Bio))
-                {
-                    <p class="text-gray-300 text-sm mt-3 max-w-2xl wrap-break-word">@Model.Bio</p>
-                }
-                else if (Model.IsOwner)
-                {
-                    <p class="text-gray-500 text-sm italic mt-3">Add a short bio from Settings.</p>
-                }
-                else
-                {
-                    <p class="text-gray-500 text-sm italic mt-3">No bio added.</p>
-                }
+                    @if (isAdminViewingInactive)
+                    {
+                        <p class="text-amber-400 text-xs mt-2">
+                            <i class="fa-solid fa-circle-info mr-1" aria-hidden="true"></i>This account is currently disabled. Historical activity remains visible; it is not ranked while disabled.
+                        </p>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(Model.Bio))
+                    {
+                        <p class="text-gray-300 text-sm mt-3 wrap-break-word">@Model.Bio</p>
+                    }
+                    else if (Model.IsOwner)
+                    {
+                        <p class="text-gray-500 text-sm italic mt-3">Add a short bio from Settings.</p>
+                    }
+                    else
+                    {
+                        <p class="text-gray-500 text-sm italic mt-3">No bio added.</p>
+                    }
+                </div>
+            </div>
+
+            @* Contact Details - unframed group (a divider between rows, not three
+               separate nested cards), already-authorized Profile fields only, plain
+               text/attribute interpolation throughout (Razor's default encoding),
+               never Html.Raw. *@
+            <div class="mt-5 pt-4 border-t border-white/10">
+                <p class="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-3">Contact Details</p>
+
+                <div class="divide-y divide-white/10 text-sm text-left">
+                    <div class="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0">
+                        <span class="w-7 h-7 rounded-lg bg-accent/10 text-accent flex items-center justify-center shrink-0" aria-hidden="true">
+                            <i class="fa-regular fa-envelope text-xs"></i>
+                        </span>
+                        <div class="min-w-0">
+                            <p class="text-gray-400 text-xs">Email</p>
+                            <p class="text-gray-200 wrap-break-word break-all">@(string.IsNullOrWhiteSpace(Model.Email) ? "Not provided" : Model.Email)</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0">
+                        <span class="w-7 h-7 rounded-lg bg-accent/10 text-accent flex items-center justify-center shrink-0" aria-hidden="true">
+                            <i class="fa-solid fa-phone text-xs"></i>
+                        </span>
+                        <div class="min-w-0">
+                            <p class="text-gray-400 text-xs">Contact Number</p>
+                            <p class="text-gray-200 wrap-break-word">@(string.IsNullOrWhiteSpace(Model.PhoneNumber) ? "Not provided" : Model.PhoneNumber)</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0">
+                        <span class="w-7 h-7 rounded-lg bg-accent/10 text-accent flex items-center justify-center shrink-0" aria-hidden="true">
+                            <i class="fa-brands fa-facebook text-xs"></i>
+                        </span>
+                        <div class="min-w-0">
+                            <p class="text-gray-400 text-xs">Facebook</p>
+                            @if (Model.SafeFacebookLink != null)
+                            {
+                                <a href="@Model.SafeFacebookLink" target="_blank" rel="noopener noreferrer" class="text-accent hover:brightness-125 wrap-break-word break-all">@Model.SafeFacebookLink</a>
+                            }
+                            else
+                            {
+                                <p class="text-gray-200 wrap-break-word">Not provided</p>
+                            }
+                        </div>
+                    </div>
+                </div>
             </div>
 
             @if (Model.IsOwner)
             {
-                <div class="shrink-0">
+                <div class="mt-5 lg:mt-auto">
                     <a asp-controller="Settings" asp-action="Index"
-                       class="inline-flex items-center gap-2 rounded-full text-gray-300 hover:text-white text-sm font-medium bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-colors px-4 py-2 focus:outline-none focus:ring-2 focus:ring-accent">
+                       class="inline-flex items-center gap-2 rounded-full text-gray-300 hover:text-white text-sm font-medium bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-colors px-4 py-2 min-h-10 focus:outline-none focus:ring-2 focus:ring-accent">
                         <i class="fa-solid fa-pen" aria-hidden="true"></i> Edit Profile
                     </a>
+                </div>
+            }
+        </div>
+
+        @* ----------------------------- Tier Progress card ----------------------------- *@
+        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl px-6 sm:px-8 py-5 sm:py-6">
+            <h2 class="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                <i class="fa-solid fa-ranking-star text-accent" aria-hidden="true"></i> Tier Progress
+            </h2>
+
+            <div class="flex justify-between items-center mb-4">
+                <span class="text-gray-400 text-sm">Current Tier</span>
+                <span class="text-white font-semibold">@Model.Tier</span>
+            </div>
+
+            @if (Model.IsOwner)
+            {
+                @* Manual preview carousel, owner-only - browsing it never changes the
+                   participant's actual progression data below. Every slide (emblem +
+                   name + lock status, animated together as one unit) for all five
+                   tiers is fully server-rendered up front; JavaScript only toggles
+                   which one is visible/settled by index (see
+                   wwwroot/js/profile-tier-carousel.js). Without JavaScript, the actual
+                   current tier's slide/disabled state is already the correct,
+                   meaningful presentation - nothing here depends on script execution
+                   to be truthful. *@
+                <div data-tier-carousel
+                     data-initial-index="@Model.CurrentTierIndex"
+                     role="group" aria-label="Tier emblem preview" tabindex="0">
+                    <div class="flex items-center justify-center gap-3 sm:gap-4">
+                        <button type="button" data-tier-prev aria-label="View previous tier"
+                                disabled="@(Model.CurrentTierIndex <= 0 ? "disabled" : null)"
+                                class="w-10 h-10 shrink-0 flex items-center justify-center rounded-full text-gray-300 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-gray-300 focus:outline-none focus:ring-2 focus:ring-accent">
+                            <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+                        </button>
+
+                        <div data-tier-stage class="w-28 sm:w-32 lg:w-36 shrink-0 overflow-hidden" aria-live="polite">
+                            @for (var i = 0; i < Model.TierPreviewEntries.Count; i++)
+                            {
+                                var entry = Model.TierPreviewEntries[i];
+                                var lockedTreatment = entry.IsUnlocked ? "" : " grayscale opacity-40";
+                                var statusLabel = entry.IsCurrent ? "Current Tier" : entry.IsUnlocked ? "Unlocked" : "Locked";
+                                var statusClass = entry.IsCurrent ? "text-accent" : entry.IsUnlocked ? "text-gray-300" : "text-gray-500";
+                                <div data-tier-slide="@i"
+                                     class="flex flex-col items-center gap-1 opacity-100 translate-x-0 transition-all duration-100 ease-out @(i == Model.CurrentTierIndex ? "" : "hidden")">
+                                    <img src="/images/tiers/tier-@(entry.Key).webp"
+                                         width="512" height="512"
+                                         alt="" aria-hidden="true"
+                                         class="w-24 h-24 sm:w-32 sm:h-32 lg:w-36 lg:h-36 object-contain@(lockedTreatment)" />
+                                    <p class="text-sm text-center">
+                                        <span class="text-white font-semibold">@entry.Name</span>
+                                        <span class="block text-xs @statusClass mt-0.5">@statusLabel</span>
+                                    </p>
+                                </div>
+                            }
+                        </div>
+
+                        <button type="button" data-tier-next aria-label="View next tier"
+                                disabled="@(Model.CurrentTierIndex >= Model.TierPreviewEntries.Count - 1 ? "disabled" : null)"
+                                class="w-10 h-10 shrink-0 flex items-center justify-center rounded-full text-gray-300 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-gray-300 focus:outline-none focus:ring-2 focus:ring-accent">
+                            <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+
+                @* Actual progress - always describes the participant's real current-to-
+                   next tier, regardless of which slide is currently previewed above.
+                   Owner-only, same as the carousel above it. *@
+                <div class="mt-4 pt-4 border-t border-white/10">
+                    <p class="text-gray-400 text-xs uppercase tracking-wide mb-2">Your Progress</p>
+                    @if (Model.IsTopTier)
+                    {
+                        <p class="text-gray-300 text-sm mb-2"><i class="fa-solid fa-crown text-accent mr-1.5" aria-hidden="true"></i>Highest tier reached.</p>
+                    }
+                    else
+                    {
+                        <p class="text-gray-300 text-sm mb-2">@Model.PointsToNextTier points to @Model.NextTierName</p>
+                    }
+                    <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden"
+                         role="progressbar" aria-valuenow="@Model.TierProgressPercent" aria-valuemin="0" aria-valuemax="100"
+                         aria-label="Progress toward @(Model.IsTopTier ? "the top tier" : Model.NextTierName)">
+                        <div class="h-full bg-accent rounded-full transition-all duration-500" style="width: @Model.TierProgressPercent%"></div>
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-gray-400 text-sm">Trail Points</span>
+                        <span class="text-white font-semibold">@Model.TrailPoints</span>
+                    </div>
+
+                    @if (Model.IsRanked)
+                    {
+                        <div class="mt-3 pt-3 border-t border-white/10">
+                            <p class="text-white font-semibold">#@Model.Rank of @Model.RankedParticipantCount @hikerWord</p>
+                            <p class="text-gray-400 text-xs mt-1">All-time Trail Points leaderboard placement.</p>
+                        </div>
+                    }
+                    else if (isAdminViewingInactive)
+                    {
+                        <div class="mt-3 pt-3 border-t border-white/10">
+                            <p class="text-gray-400 text-sm">Not currently ranked - this account is disabled.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="mt-3 pt-3 border-t border-white/10">
+                            <p class="text-gray-400 text-sm">Not yet ranked.</p>
+                            <p class="text-gray-400 text-xs mt-1">Complete your first TrailGuard adventure to join the rankings.</p>
+                        </div>
+                    }
+
+                    <details class="mt-4 text-xs text-gray-400">
+                        <summary class="cursor-pointer text-gray-300 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded">
+                            How are Trail Points calculated?
+                        </summary>
+                        <p class="mt-2 leading-relaxed">
+                            Trail Points are based on TrailGuard-recognized completed participation: 10 points per distinct completed Event plus 5 points per distinct Trail.
+                        </p>
+                    </details>
+                </div>
+            }
+            else
+            {
+                @* Static current-Tier-only emblem for an authorized Organizer/Admin
+                   visitor - no carousel, no other Tier previews. Excluded server-
+                   side (not merely hidden), so profile-tier-carousel.js has no
+                   [data-tier-carousel] element to find here and safely does
+                   nothing. TierKey is already the controller's SafeTierKey-
+                   validated value - never derived from display text or any user-
+                   controlled value. *@
+                <div class="flex flex-col items-center gap-1">
+                    <img src="/images/tiers/tier-@(Model.TierKey).webp"
+                         width="512" height="512"
+                         alt="" aria-hidden="true"
+                         class="w-24 h-24 sm:w-32 sm:h-32 lg:w-36 lg:h-36 object-contain" />
+                    <p class="text-white font-semibold text-sm text-center">@Model.Tier</p>
+                </div>
+
+                @* Trail Points and rank ARE shown to an authorized visitor (same
+                   server-computed values the owner sees) - only the next-tier
+                   progress detail (the "Your Progress" block above, owner-only) is
+                   excluded here. This block otherwise mirrors that block's own
+                   Trail Points/rank/disclosure markup exactly, since a visitor sees
+                   identical values, just without the carousel's progress-bar box
+                   supplying a divider above it. *@
+                <div class="mt-4 pt-4 border-t border-white/10">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-gray-400 text-sm">Trail Points</span>
+                        <span class="text-white font-semibold">@Model.TrailPoints</span>
+                    </div>
+
+                    @if (Model.IsRanked)
+                    {
+                        <div class="mt-3 pt-3 border-t border-white/10">
+                            <p class="text-white font-semibold">#@Model.Rank of @Model.RankedParticipantCount @hikerWord</p>
+                            <p class="text-gray-400 text-xs mt-1">All-time Trail Points leaderboard placement.</p>
+                        </div>
+                    }
+                    else if (isAdminViewingInactive)
+                    {
+                        <div class="mt-3 pt-3 border-t border-white/10">
+                            <p class="text-gray-400 text-sm">Not currently ranked - this account is disabled.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="mt-3 pt-3 border-t border-white/10">
+                            <p class="text-gray-400 text-sm">Not yet ranked.</p>
+                            <p class="text-gray-400 text-xs mt-1">Complete your first TrailGuard adventure to join the rankings.</p>
+                        </div>
+                    }
+
+                    <details class="mt-4 text-xs text-gray-400">
+                        <summary class="cursor-pointer text-gray-300 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded">
+                            How are Trail Points calculated?
+                        </summary>
+                        <p class="mt-2 leading-relaxed">
+                            Trail Points are based on TrailGuard-recognized completed participation: 10 points per distinct completed Event plus 5 points per distinct Trail.
+                        </p>
+                    </details>
                 </div>
             }
         </div>
@@ -88,72 +353,57 @@
         </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    @* ============================= Lower row: Recent Hikes + Achievements ============================= *@
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        @* ============================= Rank progress ============================= *@
-        <div class="lg:col-span-1 h-full min-w-0 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-            <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-                <i class="fa-solid fa-ranking-star text-accent" aria-hidden="true"></i> Rank Progress
-            </h2>
-
-            <div class="flex justify-between items-center mb-1">
-                <span class="text-gray-400 text-sm">Current Tier</span>
-                <span class="text-white font-semibold">@Model.Tier</span>
-            </div>
-            <div class="flex justify-between items-center mb-4">
-                <span class="text-gray-400 text-sm">Trail Points</span>
-                <span class="text-white font-semibold">@Model.TrailPoints</span>
+        @* ----------------------------- Recent Hikes (1/3 desktop) ----------------------------- *@
+        <div class="lg:col-span-1 h-full bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden flex flex-col">
+            <div class="px-6 py-4 border-b border-white/10">
+                <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+                    <i class="fa-regular fa-calendar-check text-accent" aria-hidden="true"></i> Recent Hikes
+                </h2>
             </div>
 
-            @if (Model.IsRanked)
+            @if (Model.RecentAdventures.Count == 0)
             {
-                <div class="mb-4 pb-4 border-b border-white/10">
-                    <p class="text-white font-semibold">#@Model.Rank of @Model.RankedParticipantCount @hikerWord</p>
-                    <p class="text-gray-500 text-xs mt-1">All-time Trail Points leaderboard placement.</p>
-                </div>
-            }
-            else if (isAdminViewingInactive)
-            {
-                <div class="mb-4 pb-4 border-b border-white/10">
-                    <p class="text-gray-400 text-sm">Not currently ranked - this account is disabled.</p>
+                <div class="text-center py-12 px-6">
+                    <i class="fa-regular fa-compass text-3xl text-slate-600 mb-3 block" aria-hidden="true"></i>
+                    <p class="text-gray-400 text-sm">No completed adventures yet.</p>
                 </div>
             }
             else
             {
-                <div class="mb-4 pb-4 border-b border-white/10">
-                    <p class="text-gray-400 text-sm">Not yet ranked.</p>
-                    <p class="text-gray-500 text-xs mt-1">Complete your first TrailGuard adventure to join the rankings.</p>
+                <div class="relative">
+                    <ul id="recentAdventuresList" role="list" aria-label="Recent completed adventures"
+                        class="tg-records-scroll list-none m-0 p-0 divide-y divide-white/10 overflow-y-auto">
+                        @foreach (var adventure in Model.RecentAdventures)
+                        {
+                            var difficultyClass = DifficultyCalculator.BadgeClass(adventure.Difficulty);
+                            <li class="flex items-center justify-between gap-4 px-6 py-4">
+                                <div class="min-w-0">
+                                    <p class="text-white font-medium wrap-break-word">@adventure.EventTitle</p>
+                                    <p class="text-gray-400 text-sm wrap-break-word">@adventure.TrailName</p>
+                                    <p class="text-gray-500 text-xs mt-1">
+                                        <i class="fa-regular fa-calendar mr-1" aria-hidden="true"></i>@adventure.EventDate.ToString("MMM dd, yyyy")
+                                        <span class="mx-1">&bull;</span>
+                                        <i class="fa-solid fa-user-tie mr-1" aria-hidden="true"></i>@adventure.OrganizerDisplayName
+                                    </p>
+                                </div>
+                                <span class="shrink-0 px-2.5 py-1 rounded-full text-xs font-medium @difficultyClass">
+                                    @(string.IsNullOrEmpty(adventure.Difficulty) ? "Unknown" : adventure.Difficulty)
+                                </span>
+                            </li>
+                        }
+                    </ul>
+                    <div id="recentAdventuresCue" class="tg-records-cue" aria-hidden="true">
+                        <span>Scroll for more <i class="fa-solid fa-chevron-down ml-1" aria-hidden="true"></i></span>
+                    </div>
                 </div>
             }
-
-            <div>
-                @if (Model.IsTopTier)
-                {
-                    <p class="text-gray-300 text-sm mb-2"><i class="fa-solid fa-crown text-accent mr-1.5" aria-hidden="true"></i>Highest tier reached.</p>
-                }
-                else
-                {
-                    <p class="text-gray-300 text-sm mb-2">@Model.PointsToNextTier points to @Model.NextTierName</p>
-                }
-                <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden"
-                     role="progressbar" aria-valuenow="@Model.TierProgressPercent" aria-valuemin="0" aria-valuemax="100"
-                     aria-label="Progress toward @(Model.IsTopTier ? "the top tier" : Model.NextTierName)">
-                    <div class="h-full bg-accent rounded-full transition-all duration-500" style="width: @Model.TierProgressPercent%"></div>
-                </div>
-            </div>
-
-            <details class="mt-5 text-xs text-gray-400">
-                <summary class="cursor-pointer text-gray-300 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded">
-                    How are Trail Points calculated?
-                </summary>
-                <p class="mt-2 leading-relaxed">
-                    Trail Points are based on TrailGuard-recognized completed participation: 10 points per distinct completed Event plus 5 points per distinct Trail.
-                </p>
-            </details>
         </div>
 
-        @* ============================= Achievements ============================= *@
-        <div class="lg:col-span-2 h-full min-w-0 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+        @* ----------------------------- Achievements (2/3 desktop) ----------------------------- *@
+        <div class="lg:col-span-2 h-full bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
             <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
                 <i class="fa-solid fa-award text-accent" aria-hidden="true"></i> Achievements
                 <span class="text-xs font-normal text-gray-500">(@Model.EarnedAchievementCount of @Model.TotalAchievementCount @achievementWord)</span>
@@ -205,52 +455,6 @@
                 </div>
             }
         </div>
-    </div>
-
-    @* ============================= Recent Adventures ============================= *@
-    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
-        <div class="px-6 py-4 border-b border-white/10">
-            <h2 class="text-sm font-semibold text-white flex items-center gap-2">
-                <i class="fa-regular fa-calendar-check text-accent" aria-hidden="true"></i> Recent Adventures
-            </h2>
-        </div>
-
-        @if (Model.RecentAdventures.Count == 0)
-        {
-            <div class="text-center py-12 px-6">
-                <i class="fa-regular fa-compass text-3xl text-slate-600 mb-3 block" aria-hidden="true"></i>
-                <p class="text-gray-400 text-sm">No completed adventures yet.</p>
-            </div>
-        }
-        else
-        {
-            <div class="relative">
-                <ul id="recentAdventuresList" role="list" aria-label="Recent completed adventures"
-                    class="tg-records-scroll list-none m-0 p-0 divide-y divide-white/10 overflow-y-auto">
-                    @foreach (var adventure in Model.RecentAdventures)
-                    {
-                        var difficultyClass = DifficultyCalculator.BadgeClass(adventure.Difficulty);
-                        <li class="flex items-center justify-between gap-4 px-6 py-4">
-                            <div class="min-w-0">
-                                <p class="text-white font-medium wrap-break-word">@adventure.EventTitle</p>
-                                <p class="text-gray-400 text-sm wrap-break-word">@adventure.TrailName</p>
-                                <p class="text-gray-500 text-xs mt-1">
-                                    <i class="fa-regular fa-calendar mr-1" aria-hidden="true"></i>@adventure.EventDate.ToString("MMM dd, yyyy")
-                                    <span class="mx-1">&bull;</span>
-                                    <i class="fa-solid fa-user-tie mr-1" aria-hidden="true"></i>@adventure.OrganizerDisplayName
-                                </p>
-                            </div>
-                            <span class="shrink-0 px-2.5 py-1 rounded-full text-xs font-medium @difficultyClass">
-                                @(string.IsNullOrEmpty(adventure.Difficulty) ? "Unknown" : adventure.Difficulty)
-                            </span>
-                        </li>
-                    }
-                </ul>
-                <div id="recentAdventuresCue" class="tg-records-cue" aria-hidden="true">
-                    <span>Scroll for more <i class="fa-solid fa-chevron-down ml-1" aria-hidden="true"></i></span>
-                </div>
-            </div>
-        }
     </div>
 </div>
 
@@ -305,3 +509,7 @@
         recalc();
     });
 </script>
+
+@section Scripts {
+    <script src="~/js/profile-tier-carousel.js" asp-append-version="true"></script>
+}

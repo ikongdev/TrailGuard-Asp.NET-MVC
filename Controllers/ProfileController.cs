@@ -72,7 +72,9 @@ namespace TrailGuard.Controllers
 
             // Safe identity projection only - selected fields, never the
             // ApplicationUser entity itself (which also carries PasswordHash,
-            // SecurityStamp, Email, PhoneNumber, FacebookLink, and the internal Id).
+            // SecurityStamp, and the internal Id). Email/PhoneNumber/FacebookLink are
+            // deliberately included here for the Profile card's contact rows - they are
+            // already-existing ApplicationUser/Settings fields, not new database state.
             var identity = await _userManager.Users
                 .AsNoTracking()
                 .Where(u => u.Id == access.TargetUserId)
@@ -83,7 +85,10 @@ namespace TrailGuard.Controllers
                     u.LastName,
                     u.ProfilePictureUrl,
                     u.Bio,
-                    u.DateCreated
+                    u.DateCreated,
+                    u.Email,
+                    u.PhoneNumber,
+                    u.FacebookLink
                 })
                 .FirstOrDefaultAsync();
 
@@ -122,6 +127,12 @@ namespace TrailGuard.Controllers
                 ? progress.Achievements
                 : progress.EarnedAchievements.ToList();
 
+            // Same fixed five-entry list the Tier preview carousel renders from -
+            // computed once here so the view never needs to search it for the
+            // currently-active slide itself.
+            var tierPreviewEntries = ParticipantProgressPolicy.TierPreviewEntriesFor(progress.TrailPoints);
+            var currentTierIndex = tierPreviewEntries.First(e => e.IsCurrent).Position;
+
             var viewModel = new ProfileViewModel
             {
                 FullName = fullName,
@@ -133,6 +144,10 @@ namespace TrailGuard.Controllers
                 TargetIsActive = access.TargetIsActive,
                 ViewerType = access.ViewerType,
 
+                Email = identity.Email,
+                PhoneNumber = identity.PhoneNumber,
+                SafeFacebookLink = SafeAbsoluteHttpUrl(identity.FacebookLink),
+
                 CompletedAdventures = progress.DistinctCompletedEventCount,
                 UniqueTrails = progress.DistinctCompletedTrailCount,
                 EarnedAchievementCount = progress.EarnedAchievementCount,
@@ -140,6 +155,9 @@ namespace TrailGuard.Controllers
                 TrailPoints = progress.TrailPoints,
 
                 Tier = progress.Tier,
+                TierKey = ParticipantProgressPolicy.SafeTierKey(progress.TierKey),
+                TierPreviewEntries = tierPreviewEntries,
+                CurrentTierIndex = currentTierIndex,
                 IsRanked = progress.IsRanked,
                 Rank = progress.Rank,
                 RankedParticipantCount = progress.RankedParticipantCount,
@@ -154,6 +172,18 @@ namespace TrailGuard.Controllers
             };
 
             return View(viewModel);
+        }
+
+        // Only ever renders as a clickable href when this returns non-null: an
+        // absolute http/https URI. Anything else (javascript:, data:, a bare
+        // relative string, malformed input, or nothing stored at all) resolves to
+        // null, and the view falls back to "Not provided" rather than emitting an
+        // unsafe href.
+        private static string? SafeAbsoluteHttpUrl(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return null;
+            if (!Uri.TryCreate(value, UriKind.Absolute, out var uri)) return null;
+            return uri.Scheme is "http" or "https" ? uri.ToString() : null;
         }
     }
 }

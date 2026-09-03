@@ -26,7 +26,13 @@ namespace TrailGuard.Services
         public IReadOnlyList<int> DistinctCompletedTrailClasses { get; init; } = Array.Empty<int>();
 
         public int TrailPoints { get; init; }
-        public string Tier { get; init; } = ParticipantProgressPolicy.TierNames[0];
+        public string Tier { get; init; } = ParticipantProgressPolicy.TierFor(0);
+
+        // Stable, code-defined tier identifier - always resolved together with Tier from
+        // the same TrailPoints value (ParticipantProgressPolicy.TierFor/TierKeyFor share
+        // one TierIndexFor lookup), never a second independent threshold chain. The only
+        // legal source for a Tier emblem asset filename.
+        public string TierKey { get; init; } = ParticipantProgressPolicy.TierKeyFor(0);
         public int PointsIntoTier { get; init; }
         public int? PointsToNextTier { get; init; }
         public bool HasNextTier { get; init; }
@@ -172,6 +178,7 @@ namespace TrailGuard.Services
 
             var trailPoints = ParticipantProgressPolicy.ComputeTrailPoints(distinctCompletedEventCount, distinctCompletedTrailCount);
             var tier = ParticipantProgressPolicy.TierFor(trailPoints);
+            var tierKey = ParticipantProgressPolicy.TierKeyFor(trailPoints);
             var pointsIntoTier = ParticipantProgressPolicy.PointsIntoTier(trailPoints);
             var pointsToNextTier = ParticipantProgressPolicy.PointsToNextTier(trailPoints);
 
@@ -239,6 +246,7 @@ namespace TrailGuard.Services
                 DistinctCompletedTrailClasses = distinctCompletedTrailClasses,
                 TrailPoints = trailPoints,
                 Tier = tier,
+                TierKey = tierKey,
                 PointsIntoTier = pointsIntoTier,
                 PointsToNextTier = pointsToNextTier,
                 HasNextTier = pointsToNextTier != null,

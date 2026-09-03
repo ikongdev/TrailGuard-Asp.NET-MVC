@@ -19,6 +19,20 @@ namespace TrailGuard.Models
         public bool TargetIsActive { get; set; }
         public ProfileViewerType ViewerType { get; set; }
 
+        // ---- Contact ----
+        // Plain display fields only - never rendered as raw HTML, never an
+        // authentication claim/route/internal id. ProfileController projects these
+        // straight from ApplicationUser (Email/PhoneNumber are already used for
+        // sign-in, not introduced here); nothing here is new database state.
+        public string? Email { get; set; }
+        public string? PhoneNumber { get; set; }
+
+        // Already validated by ProfileController (absolute http/https only) - null
+        // whenever the stored value is missing or unsafe, so the view never needs to
+        // re-validate a URI scheme itself. Razor's default encoding still applies when
+        // this is written into the href/text, same as every other field here.
+        public string? SafeFacebookLink { get; set; }
+
         // ---- Summary ----
         public int CompletedAdventures { get; set; }
         public int UniqueTrails { get; set; }
@@ -27,7 +41,23 @@ namespace TrailGuard.Models
         public int TrailPoints { get; set; }
 
         // ---- Rank ----
-        public string Tier { get; set; } = ParticipantProgressPolicy.TierNames[0];
+        public string Tier { get; set; } = ParticipantProgressPolicy.TierFor(0);
+
+        // Stable, policy-resolved tier identifier for the Tier emblem asset -
+        // ProfileController always assigns this through
+        // ParticipantProgressPolicy.SafeTierKey, so the view never needs to derive,
+        // validate, or transform it itself. The only legal source for
+        // `/images/tiers/tier-{key}.webp`.
+        public string TierKey { get; set; } = ParticipantProgressPolicy.TierKeyFor(0);
+
+        // All five tiers, in fixed catalog order, for the Profile Tier preview
+        // carousel - always ParticipantProgressPolicy.TierPreviewEntriesFor(TrailPoints),
+        // never a second, view-local list of tier names/keys/thresholds. CurrentTierIndex
+        // is that same list's IsCurrent entry's Position, handed over pre-computed so
+        // Razor never needs a LINQ lookup to find it.
+        public IReadOnlyList<ParticipantProgressPolicy.ParticipantTierPreviewEntry> TierPreviewEntries { get; set; } =
+            Array.Empty<ParticipantProgressPolicy.ParticipantTierPreviewEntry>();
+        public int CurrentTierIndex { get; set; }
         public bool IsRanked { get; set; }
         public int? Rank { get; set; }
         public int RankedParticipantCount { get; set; }
