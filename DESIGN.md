@@ -302,6 +302,27 @@ Disabled state, from `Participant/Details.cshtml` 432, 438, 455: `text-gray-500`
 
 **Not yet built as a partial.** See Known Cleanup.
 
+### Deactivate / Activate (reversible, not destructive)
+
+A third semantic distinct from both Secondary and the red Delete treatment: **restrained amber for Deactivate**, **solid accent for Activate** — never gradient, never the trash icon, never Delete's red. Both are reversible, one-step actions and must not visually imply data loss the way Delete does. From `Trail/Index.cshtml`'s Trail Management cards and Deactivated Trails modal:
+
+```
+/* Deactivate (icon-only, sits with View/Edit/Delete on an Active card) */
+bg-amber-500/15 hover:bg-amber-500/25
+border border-amber-500/30 hover:border-amber-500/50
+text-amber-400 hover:text-amber-300
+
+/* Deactivate confirmation modal's confirm button (labelled, not icon-only) */
+bg-amber-900/60 hover:bg-amber-800/80
+border border-amber-500/40 hover:border-amber-400/60
+text-amber-100 hover:text-white
+
+/* Activate (Deactivated Trails modal row) */
+bg-accent hover:bg-accent/90 text-white
+```
+
+Activate reuses the Solid-accent exception above (no gradient, no hover-scale) since it lives inside a modal list row, not a page-level primary action. The Deactivate confirmation modal itself follows the standard Modals shell but is deliberately not styled as a Delete-style destructive dialog — see Modals, Deactivate Trail / Deactivated Trails, below.
+
 ### Progress bars
 
 ```
@@ -433,6 +454,14 @@ Toggle visibility with Tailwind's `hidden` / `flex`. Don't introduce a second me
 `Participant/Trails.cshtml`'s Trail Details modal is a read-only Participant adaptation of the approved Trail Management View modal (`Views/Trail/Index.cshtml`): same `max-w-4xl`/`max-h-[calc(100vh-2rem)]` shell, `h-40 sm:h-56` hero with the same reusable-`<img>` + sibling-placeholder pattern, terrain chips, and Additional Photos gallery. It previously used `z-100` (the dead-class bug above) on the outer wrapper plus an inline `style="z-index: 10;"` on the inner panel, and the page-specific `.modal-hidden`/`.modal-visible` pair instead of `hidden`/`flex` — both fixed to match this page's own documented convention. It adds one Participant-only section neither Trail Management nor its C# model needs: "Upcoming Events on This Trail", fed by `ParticipantController.GetTrailEvents` and rendered through safe DOM construction (`document.createElement`/`textContent`), not the interpolated `innerHTML` template it used before. Its Additional Photos gallery calls a separate, narrow, Participant-authorized endpoint (`ParticipantController.GetTrailPhotos`, returning photo URL only) rather than the Admin/Organizer-only `Trail/GetTrailPhotos`. The footer's second action is "Browse All Events" (solid accent, see Buttons above) — never an Edit Trail action, which stays Organizer/Admin-only.
 
 Technical Trail Class (`Class N — Label`, mirroring `DifficultyCalculator.TrailClassLabel`) and Terrain (chips) are kept visually and semantically separate — the modal never collapses them into one metadata string.
+
+### Deactivate Trail / Deactivated Trails
+
+Both live in `Trail/Index.cshtml`, opened through the same shared `TrailModal` open/close/focus-trap/inert instance the page's View/Add/Edit modals already use — no second, competing modal manager.
+
+**Deactivate Trail** is a small (`max-w-md`) confirmation dialog, not a native `confirm()` and not styled like the Delete confirmation it sits next to conceptually — see Buttons, Deactivate / Activate, for why. It states plainly that the Trail will be hidden from Browse Trails and unavailable for new Events, that existing Events and historical records won't change, and shows the Total linked Event count plus (only when greater than zero) the Upcoming count with a note that Upcoming Events won't be cancelled or modified. Actions are `Keep Active` (Secondary Variant A) and `Deactivate Trail` (the amber treatment above).
+
+**Deactivated Trails** is a `max-w-4xl` read-only list modal (same shell proportions as the View Trail modal), each row showing name, location, a `Deactivated` status pill, and per-status Event counts as a compact definition list — Upcoming/Completed/Cancelled always rendered even at zero, `Other` only when greater than zero, `Total Events` always last. No Edit or Delete action exists in this modal; the only control per row is `Activate`. Its scrollable body uses its own id-scoped scrollbar rule (`#deactivatedTrailsModalBody` in `input.css`), following `#viewTrailModalBody`'s existing pattern — never the page-local `.custom-scrollbar` class already defined for this page's other modals, and never `.tg-custom-select-scrollbar`, which is reserved for custom-select.js listbox menus.
 
 ---
 

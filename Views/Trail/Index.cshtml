@@ -1,9 +1,8 @@
-@model IEnumerable<TrailGuard.Models.Trail>
+@model TrailGuard.Models.TrailManagementViewModel
 @{
     ViewData["Title"] = "Trail Management";
     var currentFilter = ViewData["CurrentFilter"] as string ?? string.Empty;
     var currentSort = ViewData["CurrentSort"] as string ?? TrailGuard.Controllers.TrailController.DefaultSortOrder;
-    var totalTrailCount = Model.Count();
 }
 
 @* Success/Error feedback for this page now goes through the canonical global
@@ -21,8 +20,16 @@
 
             <div class="flex flex-wrap items-center gap-2">
                 <span class="bg-white/5 border border-white/10 px-4 py-2 rounded-full text-sm text-gray-300">
-                    <i class="fa-solid fa-mountain text-accent mr-2" aria-hidden="true"></i>Total Trails: <strong class="text-white">@totalTrailCount</strong>
+                    <i class="fa-solid fa-mountain text-accent mr-2" aria-hidden="true"></i>Active Trails: <strong class="text-white" id="activeTrailCountBadge">@Model.ActiveTrailCount</strong>
                 </span>
+
+                <button type="button" id="openDeactivatedTrailsModalBtn" onclick="openDeactivatedTrailsModal()"
+                        aria-label="View @Model.DeactivatedTrailCount deactivated trail@(Model.DeactivatedTrailCount == 1 ? "" : "s")"
+                        class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-base min-h-10">
+                    <i class="fa-solid fa-box-archive" aria-hidden="true"></i>
+                    Deactivated Trails
+                    <span id="deactivatedTrailCountBadge" class="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-white/10 text-xs font-semibold text-gray-200">@Model.DeactivatedTrailCount</span>
+                </button>
 
                 <button type="button" onclick="openAddTrailModal()" class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white bg-linear-to-r from-orange-500 via-pink-500 to-violet-500 hover:brightness-110 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-base transition duration-200 ease-out">
                     <i class="fa-solid fa-plus" aria-hidden="true"></i>Add Trail
@@ -81,12 +88,20 @@
         <p id="resultCountAnnouncer" class="sr-only" role="status" aria-live="polite"></p>
 
         <div id="trailCardGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            @if (!Model.Any())
+            @if (!Model.ActiveTrails.Any())
             {
                 <div class="col-span-full text-center py-20 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl">
                     <i class="fa-solid fa-mountain text-4xl text-slate-600 mb-4" aria-hidden="true"></i>
-                    <h3 class="text-xl font-bold text-gray-300">No trails yet</h3>
-                    <p class="text-gray-500 mt-2">Add your first trail to start building the catalog.</p>
+                    @if (Model.DeactivatedTrailCount > 0)
+                    {
+                        <h3 class="text-xl font-bold text-gray-300">No active trails</h3>
+                        <p class="text-gray-500 mt-2">Reactivate a trail or add a new one.</p>
+                    }
+                    else
+                    {
+                        <h3 class="text-xl font-bold text-gray-300">No active trails yet</h3>
+                        <p class="text-gray-500 mt-2">Add your first trail to start building the catalog.</p>
+                    }
                     <button type="button" onclick="openAddTrailModal()" class="inline-block mt-4 text-accent text-sm font-medium hover:brightness-125 focus:outline-none focus:ring-2 focus:ring-accent rounded">
                         Add Trail <i class="fa-solid fa-plus ml-1" aria-hidden="true"></i>
                     </button>
@@ -94,7 +109,7 @@
             }
             else
             {
-                @foreach (var trail in Model)
+                @foreach (var trail in Model.ActiveTrails)
                 {
                     <div class="trail-card group bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden hover:border-white/20 transition-colors flex flex-col"
                          data-search="@trail.Name @trail.Location">
@@ -176,8 +191,15 @@
                                 <button type="button"
                                         data-trail-id="@trail.Id"
                                         data-trail-name="@trail.Name"
+                                        aria-label="Deactivate @trail.Name"
+                                        class="deactivate-trail-btn bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 hover:border-amber-500/50 text-amber-400 hover:text-amber-300 py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center w-12 min-h-10">
+                                    <i class="fa-solid fa-box-archive" aria-hidden="true"></i>
+                                </button>
+                                <button type="button"
+                                        data-trail-id="@trail.Id"
+                                        data-trail-name="@trail.Name"
                                         aria-label="Delete @trail.Name"
-                                        class="delete-trail-btn bg-red-500/20 hover:bg-red-500 border border-red-500/30 hover:border-red-500 text-red-400 hover:text-white py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center w-12">
+                                        class="delete-trail-btn bg-red-500/20 hover:bg-red-500 border border-red-500/30 hover:border-red-500 text-red-400 hover:text-white py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center w-12 min-h-10">
                                     <i class="fa-solid fa-trash" aria-hidden="true"></i>
                                 </button>
                             </div>
@@ -525,6 +547,151 @@
         </div>
     </div>
 
+    <div id="deactivateTrailModal" class="fixed inset-0 z-60 hidden items-center justify-center p-4">
+        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm z-60" onclick="closeDeactivateTrailModal()" aria-hidden="true"></div>
+        <div role="dialog" aria-modal="true" aria-labelledby="deactivateTrailModalTitle"
+             class="relative bg-surface-card border border-white/10 rounded-xl shadow-2xl w-full max-w-md max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col z-60">
+
+            <div class="flex items-start justify-between gap-4 px-6 py-4 border-b border-white/10 shrink-0">
+                <div class="flex items-center gap-3 min-w-0">
+                    <span class="w-9 h-9 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0" aria-hidden="true">
+                        <i class="fa-solid fa-box-archive text-amber-400 text-sm"></i>
+                    </span>
+                    <div class="min-w-0">
+                        <h2 id="deactivateTrailModalTitle" class="text-lg font-bold text-white">Deactivate Trail</h2>
+                        <p id="deactivateTrailModalSubtitle" class="text-xs text-gray-400 wrap-break-word"></p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeDeactivateTrailModal()" aria-label="Close" class="shrink-0 text-gray-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded">
+                    <i class="fa-solid fa-xmark text-xl" aria-hidden="true"></i>
+                </button>
+            </div>
+
+            <div class="overflow-y-auto custom-scrollbar flex-1 p-6 space-y-4">
+                <p class="text-gray-300 text-sm leading-relaxed">
+                    This trail will be hidden from Browse Trails and unavailable for new events.
+                    Existing events and historical records will not be changed.
+                </p>
+
+                <div class="rounded-xl bg-white/5 border border-white/10 p-4 space-y-2 text-sm">
+                    <div class="flex justify-between gap-3">
+                        <span class="text-gray-400">Total linked events</span>
+                        <span id="deactivateTrailTotalCount" class="text-white font-semibold">&mdash;</span>
+                    </div>
+                    <div id="deactivateTrailUpcomingRow" class="flex justify-between gap-3" hidden>
+                        <span class="text-gray-400">Upcoming events</span>
+                        <span id="deactivateTrailUpcomingCount" class="text-amber-300 font-semibold">0</span>
+                    </div>
+                </div>
+
+                <p id="deactivateTrailUpcomingNote" class="text-amber-300 text-xs flex items-start gap-1.5" hidden>
+                    <i class="fa-solid fa-circle-info mt-0.5 shrink-0" aria-hidden="true"></i>
+                    <span>Upcoming events on this trail will not be cancelled or modified.</span>
+                </p>
+            </div>
+
+            <div class="flex gap-3 px-6 py-4 border-t border-white/10 shrink-0">
+                <button type="button" onclick="closeDeactivateTrailModal()"
+                        class="flex-1 px-4 py-2.5 rounded-full text-gray-300 hover:text-white text-sm font-medium bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-accent">
+                    Keep Active
+                </button>
+                <button type="button" id="confirmDeactivateTrailBtn" onclick="confirmDeactivateTrail()"
+                        class="flex-1 px-4 py-2.5 rounded-full text-amber-100 hover:text-white text-sm font-semibold bg-amber-900/60 hover:bg-amber-800/80 border border-amber-500/40 hover:border-amber-400/60 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500/60 focus:ring-offset-2 focus:ring-offset-surface-card disabled:opacity-60 disabled:pointer-events-none">
+                    <span id="confirmDeactivateTrailBtnLabel">Deactivate Trail</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="deactivatedTrailsModal" class="fixed inset-0 z-60 hidden items-center justify-center p-4">
+        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm z-60" onclick="closeDeactivatedTrailsModal()" aria-hidden="true"></div>
+        <div role="dialog" aria-modal="true" aria-labelledby="deactivatedTrailsModalTitle"
+             class="relative bg-surface-card border border-white/10 rounded-xl shadow-2xl w-full max-w-4xl max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col z-60">
+
+            <div class="flex justify-between items-center px-5 py-3 border-b border-white/10 shrink-0">
+                <h2 id="deactivatedTrailsModalTitle" class="text-base font-semibold text-white flex items-center gap-2 flex-wrap">
+                    <i class="fa-solid fa-box-archive text-accent" aria-hidden="true"></i>
+                    Deactivated Trails
+                    <span class="text-xs font-normal text-gray-400">(@Model.DeactivatedTrailCount trail@(Model.DeactivatedTrailCount == 1 ? "" : "s"))</span>
+                </h2>
+                <button type="button" onclick="closeDeactivatedTrailsModal()" aria-label="Close" class="text-gray-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded">
+                    <i class="fa-solid fa-xmark text-xl" aria-hidden="true"></i>
+                </button>
+            </div>
+
+            <div id="deactivatedTrailsModalBody" class="overflow-y-auto flex-1 p-5">
+                @if (Model.DeactivatedTrails.Count == 0)
+                {
+                    <div class="text-center py-16">
+                        <i class="fa-solid fa-box-archive text-4xl text-slate-600 mb-4" aria-hidden="true"></i>
+                        <h3 class="text-lg font-bold text-gray-300">No deactivated trails</h3>
+                        <p class="text-gray-500 mt-2 text-sm">All trails are currently active.</p>
+                    </div>
+                }
+                else
+                {
+                    <ul class="space-y-3">
+                        @foreach (var row in Model.DeactivatedTrails)
+                        {
+                            <li class="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-4">
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex flex-wrap items-center gap-2 mb-1">
+                                        <h3 class="text-white font-semibold wrap-break-word">@row.Name</h3>
+                                        <span class="px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-500/20 text-gray-300 border border-gray-500/30">Deactivated</span>
+                                    </div>
+                                    <p class="text-gray-400 text-sm flex items-center gap-1.5 wrap-break-word">
+                                        <i class="fa-solid fa-location-dot text-gray-500 shrink-0" aria-hidden="true"></i> @row.Location
+                                    </p>
+                                    <dl class="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-xs">
+                                        <div class="flex items-center gap-1.5">
+                                            <dt class="text-gray-500">Upcoming:</dt>
+                                            <dd class="text-gray-200 font-medium">@row.UpcomingCount</dd>
+                                        </div>
+                                        <div class="flex items-center gap-1.5">
+                                            <dt class="text-gray-500">Completed:</dt>
+                                            <dd class="text-emerald-300 font-medium">@row.CompletedCount</dd>
+                                        </div>
+                                        <div class="flex items-center gap-1.5">
+                                            <dt class="text-gray-500">Cancelled:</dt>
+                                            <dd class="text-red-300 font-medium">@row.CancelledCount</dd>
+                                        </div>
+                                        @if (row.OtherCount > 0)
+                                        {
+                                            <div class="flex items-center gap-1.5">
+                                                <dt class="text-gray-500">Other:</dt>
+                                                <dd class="text-gray-200 font-medium">@row.OtherCount</dd>
+                                            </div>
+                                        }
+                                        <div class="flex items-center gap-1.5">
+                                            <dt class="text-gray-500">Total Events:</dt>
+                                            <dd class="text-white font-semibold">@row.TotalCount</dd>
+                                        </div>
+                                    </dl>
+                                </div>
+                                <div class="shrink-0">
+                                    <button type="button"
+                                            data-trail-id="@row.TrailId"
+                                            data-trail-name="@row.Name"
+                                            aria-label="Activate @row.Name"
+                                            class="activate-trail-btn inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold text-white bg-accent hover:bg-accent/90 transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-card disabled:opacity-60 disabled:pointer-events-none min-h-10">
+                                        <i class="fa-solid fa-arrow-rotate-left activate-trail-btn-icon" aria-hidden="true"></i>
+                                        <span class="activate-trail-btn-label">Activate</span>
+                                    </button>
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+
+            <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10 shrink-0">
+                <button type="button" onclick="closeDeactivatedTrailsModal()" class="px-5 py-2.5 rounded-full text-sm font-semibold text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-accent">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
     <style>
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
@@ -749,7 +916,7 @@
             const clearSearchBtn = document.getElementById('clearSearchBtn');
             if (!searchInput || !cardGrid) return;
 
-            const totalTrailCount = @totalTrailCount;
+            const totalTrailCount = @Model.ActiveTrailCount;
             let debounceTimer = null;
 
             function getTrailCards() {
@@ -1365,6 +1532,131 @@
             }
         }
 
+        // ---- Deactivate / Activate (reversible - never uses the Delete modal,
+        // language, or icon; see CLAUDE.md, "Trail Deactivation") -------------
+
+        function openDeactivatedTrailsModal() {
+            TrailModal.open('deactivatedTrailsModal');
+        }
+
+        function closeDeactivatedTrailsModal() {
+            TrailModal.close('deactivatedTrailsModal');
+        }
+
+        // Bumped on every open so a slow/late GetTrailEventCounts response for a
+        // previously opened trail can never populate a since-opened one's counts.
+        let pendingDeactivateTrailId = null;
+        let deactivateCountsToken = 0;
+
+        async function openDeactivateTrailModal(button) {
+            const id = Number(button.getAttribute('data-trail-id'));
+            const name = button.getAttribute('data-trail-name') || '';
+            if (!Number.isInteger(id) || id <= 0) return;
+
+            pendingDeactivateTrailId = id;
+            const token = ++deactivateCountsToken;
+
+            document.getElementById('deactivateTrailModalSubtitle').textContent = name;
+            document.getElementById('deactivateTrailTotalCount').textContent = '…';
+            document.getElementById('deactivateTrailUpcomingRow').hidden = true;
+            document.getElementById('deactivateTrailUpcomingNote').hidden = true;
+            resetSubmitButton('confirmDeactivateTrailBtn', 'confirmDeactivateTrailBtnLabel', 'Deactivate Trail');
+
+            TrailModal.open('deactivateTrailModal');
+
+            try {
+                const response = await fetch(`/Trail/GetTrailEventCounts?trailId=${id}`);
+                const data = await response.json();
+                if (token !== deactivateCountsToken) return;
+
+                if (data.success) {
+                    document.getElementById('deactivateTrailTotalCount').textContent = data.total;
+                    if (data.upcoming > 0) {
+                        document.getElementById('deactivateTrailUpcomingCount').textContent = data.upcoming;
+                        document.getElementById('deactivateTrailUpcomingRow').hidden = false;
+                        document.getElementById('deactivateTrailUpcomingNote').hidden = false;
+                    }
+                } else {
+                    document.getElementById('deactivateTrailTotalCount').textContent = '—';
+                }
+            } catch (error) {
+                console.error('Error loading trail event counts:', error);
+                if (token === deactivateCountsToken) {
+                    document.getElementById('deactivateTrailTotalCount').textContent = '—';
+                }
+            }
+        }
+
+        function closeDeactivateTrailModal() {
+            TrailModal.close('deactivateTrailModal');
+            pendingDeactivateTrailId = null;
+            deactivateCountsToken++;
+        }
+
+        async function confirmDeactivateTrail() {
+            if (!pendingDeactivateTrailId) return;
+            const id = pendingDeactivateTrailId;
+
+            const btn = document.getElementById('confirmDeactivateTrailBtn');
+            const label = document.getElementById('confirmDeactivateTrailBtnLabel');
+            if (btn && btn.disabled) return;
+            if (btn) btn.disabled = true;
+            if (label) label.textContent = 'Deactivating...';
+
+            try {
+                const response = await postJson('/Trail/DeactivateTrail', { id: id });
+                const result = await response.json();
+
+                if (result.success) {
+                    showToast(result.message || 'Trail deactivated successfully', 'success');
+                    closeDeactivateTrailModal();
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast(result.message || 'Unable to deactivate this trail.', 'error');
+                    resetSubmitButton('confirmDeactivateTrailBtn', 'confirmDeactivateTrailBtnLabel', 'Deactivate Trail');
+                }
+            } catch (error) {
+                console.error('Error deactivating trail:', error);
+                showToast('Unable to deactivate this trail. Please try again.', 'error');
+                resetSubmitButton('confirmDeactivateTrailBtn', 'confirmDeactivateTrailBtnLabel', 'Deactivate Trail');
+            }
+        }
+
+        async function activateTrail(button) {
+            const id = Number(button.getAttribute('data-trail-id'));
+            if (!Number.isInteger(id) || id <= 0) return;
+            if (button.disabled) return;
+
+            const label = button.querySelector('.activate-trail-btn-label');
+            const icon = button.querySelector('.activate-trail-btn-icon');
+            button.disabled = true;
+            if (icon) icon.className = 'fa-solid fa-spinner fa-spin motion-reduce:animate-none activate-trail-btn-icon';
+            if (label) label.textContent = 'Activating...';
+
+            function restoreButton() {
+                button.disabled = false;
+                if (icon) icon.className = 'fa-solid fa-arrow-rotate-left activate-trail-btn-icon';
+                if (label) label.textContent = 'Activate';
+            }
+
+            try {
+                const response = await postJson('/Trail/ActivateTrail', { id: id });
+                const result = await response.json();
+
+                if (result.success) {
+                    showToast(result.message || 'Trail activated successfully', 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast(result.message || 'Unable to activate this trail.', 'error');
+                    restoreButton();
+                }
+            } catch (error) {
+                console.error('Error activating trail:', error);
+                showToast('Unable to activate this trail. Please try again.', 'error');
+                restoreButton();
+            }
+        }
+
         // showToast(message, type) is now the canonical implementation in
         // wwwroot/js/toast.js, loaded globally from _Layout.cshtml.
 
@@ -1386,6 +1678,19 @@
                 const trailId = Number(deleteTrailBtn.getAttribute('data-trail-id'));
                 const trailName = deleteTrailBtn.getAttribute('data-trail-name') || '';
                 deleteTrail(trailId, trailName);
+                return;
+            }
+
+            const deactivateTrailBtn = e.target.closest('.deactivate-trail-btn');
+            if (deactivateTrailBtn) {
+                openDeactivateTrailModal(deactivateTrailBtn);
+                return;
+            }
+
+            const activateTrailBtn = e.target.closest('.activate-trail-btn');
+            if (activateTrailBtn) {
+                activateTrail(activateTrailBtn);
+                return;
             }
         });
 

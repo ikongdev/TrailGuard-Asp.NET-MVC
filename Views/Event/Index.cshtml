@@ -338,7 +338,10 @@
                                 class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm appearance-none cursor-pointer">
                             <option value="" disabled selected>-- Select a trail --</option>
                             @{
-                                var trails = ViewBag.Trails as List<TrailGuard.Models.Trail>;
+                                // Active Trails only - a deactivated Trail can never be
+                                // selected for a new Event. See CLAUDE.md, "Trail
+                                // Deactivation".
+                                var trails = ViewBag.ActiveTrails as List<TrailGuard.Models.Trail>;
                                 if (trails != null)
                                 {
                                     foreach (var trail in trails)
@@ -715,7 +718,15 @@
                                 class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm appearance-none cursor-pointer">
                             <option value="" disabled selected>-- Select a trail --</option>
                             @{
-                                var editTrails = ViewBag.Trails as List<TrailGuard.Models.Trail>;
+                                // Active Trails only - a deactivated Trail can never be
+                                // selected as a replacement for another Event. If this
+                                // Event's own current Trail has since been deactivated,
+                                // populateEditEventForm injects one temporary option for
+                                // it on open (see the script below) - never rendered
+                                // here, since that would make it a selectable
+                                // replacement for every other Event too. See CLAUDE.md,
+                                // "Trail Deactivation".
+                                var editTrails = ViewBag.ActiveTrails as List<TrailGuard.Models.Trail>;
                                 if (editTrails != null)
                                 {
                                     foreach (var trail in editTrails)
@@ -725,6 +736,10 @@
                                 }
                             }
                         </select>
+                        <p id="editEventTrailDeactivatedNote" hidden class="text-xs text-amber-400 mt-2 flex items-start gap-1.5">
+                            <i class="fa-solid fa-box-archive mt-0.5 shrink-0" aria-hidden="true"></i>
+                            <span>This trail has been deactivated. It remains linked to this event and does not need to be changed.</span>
+                        </p>
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
@@ -3102,6 +3117,22 @@
         document.getElementById('editPreviewTerrainType').textContent = '-';
     }
 
+    // #editEventTrailId's own <option> list only ever contains Active Trails
+    // (see the Razor markup above) - if the Event being edited currently
+    // points at a Trail that's since been deactivated, populateEditEventForm
+    // injects exactly one temporary <option> for it (marked with this data
+    // attribute) so the select can display/keep it selected without ever
+    // offering it as a reusable choice for a different Event. Removed here
+    // before either a fresh populate or the modal closing, so it can never
+    // accumulate across opens or leak into an unrelated Event's dropdown. See
+    // CLAUDE.md, "Trail Deactivation".
+    function removeInjectedCurrentTrailOption() {
+        const select = document.getElementById('editEventTrailId');
+        if (!select) return;
+        const injected = select.querySelector('option[data-injected-current-trail]');
+        if (injected) injected.remove();
+    }
+
     // Bound once to #editEventTrailId's native 'change' event - only ever
     // fires for a deliberate user selection, never during hydration.
     // populateEditEventForm sets the select's value directly and resyncs via
@@ -3110,6 +3141,14 @@
     async function handleEditEventTrailChange() {
         const trailId = this.value;
         if (!trailId) return;
+
+        // The "Deactivated" note only applies while the injected current-Trail
+        // option is the one actually selected - toggled here (not just left
+        // from hydration) so re-selecting an Active Trail clears it, and
+        // re-selecting back to the injected option restores it.
+        const selectedOption = this.options[this.selectedIndex];
+        const isInjectedCurrentTrail = !!(selectedOption && selectedOption.hasAttribute('data-injected-current-trail'));
+        document.getElementById('editEventTrailDeactivatedNote')?.toggleAttribute('hidden', !isInjectedCurrentTrail);
 
         try {
             const response = await fetch(`/Event/GetTrailDetails?trailId=${trailId}`);
@@ -3332,6 +3371,16 @@
         resetEditEventWeatherDisplay();
         resetEditEventPickupSchedules();
         document.getElementById('editEventOrganizerAmbiguousWarning')?.setAttribute('hidden', '');
+
+        // Covers both call sites: before a fresh populate (openEditModal) and on
+        // modal close (closeEditEventModal) - either way, no injected
+        // current-Trail option or "Deactivated" note may survive into the next
+        // state. CustomSelect.refresh() resyncs the visible trigger/listbox
+        // since removing the option changes the native select's option count.
+        removeInjectedCurrentTrailOption();
+        document.getElementById('editEventTrailDeactivatedNote')?.setAttribute('hidden', '');
+        const trailSelect = document.getElementById('editEventTrailId');
+        if (trailSelect && window.CustomSelect) window.CustomSelect.refresh(trailSelect);
     }
 
     // Populates every field from a validated GetEvent response. Only called
@@ -3357,11 +3406,33 @@
         // preview cards below are filled directly from this same GetEvent
         // response instead, so no extra request is needed at all, and
         // duration/capacity (already set above) are never touched by one.
+        //
+        // #editEventTrailId's own options only ever list Active Trails - if
+        // this Event's current Trail is deactivated (data.trailIsActive ===
+        // false), assigning trailSelect.value directly would match no
+        // <option> and leave nothing selected. A single temporary option is
+        // injected first so it can still be shown/kept selected, labelled
+        // with this Event's own snapshot name (never a live Trail read) plus
+        // a clear "Deactivated" suffix - removed again before this function
+        // (or the modal close handler) runs next, so it can never leak into
+        // another Event's dropdown as a reusable replacement choice. See
+        // CLAUDE.md, "Trail Deactivation".
+        removeInjectedCurrentTrailOption();
         const trailSelect = document.getElementById('editEventTrailId');
+        const deactivatedNote = document.getElementById('editEventTrailDeactivatedNote');
         if (trailSelect) {
+            if (data.trailIsActive === false) {
+                const injectedOption = document.createElement('option');
+                injectedOption.value = String(data.trailId);
+                injectedOption.textContent = (data.trailName || 'Unknown Trail') + ' — Deactivated';
+                injectedOption.setAttribute('data-injected-current-trail', 'true');
+                injectedOption.className = 'bg-surface-card';
+                trailSelect.appendChild(injectedOption);
+            }
             trailSelect.value = String(data.trailId);
             if (window.CustomSelect) window.CustomSelect.refresh(trailSelect);
         }
+        deactivatedNote?.toggleAttribute('hidden', data.trailIsActive !== false);
 
         document.getElementById('editPreviewDifficulty').textContent = data.trailDifficulty || '-';
         document.getElementById('editPreviewDistance').textContent = (data.trailDistanceKm != null ? data.trailDistanceKm + ' km' : '-');

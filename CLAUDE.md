@@ -327,9 +327,66 @@ Migration `AddEventTrailSnapshot` adds the seven snapshot columns and backfills 
 
 **Limitation:** existing Events can only be backfilled from the Trail values available at migration time. If a Trail was edited between an Event's original creation and this migration running, the Trail's values *at original creation* cannot be reconstructed — nothing in the schema recorded them before this feature existed. The backfilled values become frozen (immutable) from that point forward, same as any newly captured snapshot.
 
-### Deferred: Deactivate/Activate Trail
+### Milestone 2: Trail Deactivation
 
-Trail Deactivate/Activate, the Deactivated Trails modal/count, and active-only Add/Edit Event and Browse Trails filtering are **Milestone 2**, not implemented here. This snapshot feature is its prerequisite — once Trail-derived Event data is immutable, deactivating a Trail can safely stop it from appearing in new-Event pickers without touching any existing Event.
+Trail Deactivate/Activate, the Deactivated Trails modal, and active-only Add/Edit Event and Browse Trails filtering — deferred above as Milestone 2 — are now implemented. See "Trail Deactivation" below.
+
+---
+
+## Trail Deactivation
+
+A Trail has two catalog states, tracked by the existing `Trail.IsActive` boolean (no migration was needed — the column already existed, unused, before this feature):
+
+```
+Active       → selectable for a new Event or as an Edit Event replacement Trail; appears in Trail Management's main grid and Participant Browse Trails; editable
+Deactivated  → hidden from all of the above; remains stored, keeps its photos, stays linked through TrailId; reversible via Activate
+```
+
+Deactivation changes **future catalog availability only**. It never touches an Event, a Trail Snapshot (see "Event Trail Snapshot" above), a registration, an assessment, an image file, or a TrailPhoto — and it never cancels an Upcoming Event on that Trail.
+
+### Trail Management
+
+`TrailController.Index` returns a `TrailManagementViewModel` (replacing the old bare `IEnumerable<Trail>`): `ActiveTrails`/`ActiveTrailCount` for the main grid and header badge, plus `DeactivatedTrailCount`/`DeactivatedTrails` (a `DeactivatedTrailRowViewModel` list: name, location, and Upcoming/Completed/Cancelled/Other/Total Event counts) for the read-only Deactivated Trails modal. The header renders `Active Trails: N` → `Deactivated Trails: N` (button, opens the modal) → `Add Trail`, in that order. `ActiveTrailCount` is the unfiltered active count — Trail Management's Search is client-side and must not change this badge while typing (matches the pre-existing "Total Trails" badge's own behavior, just renamed and scoped to Active).
+
+Per-status Event counts for the Deactivated Trails modal come from **one** consolidated grouped query (`GroupBy(TrailId, Status)`) covering every deactivated Trail at once — never a query per row. `TrailController.BucketEventStatusCounts` is the single place that turns a Trail's raw per-status rows into Upcoming/Completed/Cancelled/Other, shared by that query and by `GetTrailEventCounts` (a narrow, on-demand, single-Trail endpoint that backs the Deactivate confirmation dialog's Total/Upcoming display — fetching this only when that dialog opens, rather than for every Active Trail on every page load, since most Active Trails are never deactivated).
+
+Each Active Trail card gets a `Deactivate` action (archive-box icon, restrained amber treatment — never the trash icon or red Delete styling, since this is reversible) alongside the existing View/Edit/Delete. It opens an accessible confirmation modal (not `confirm()`) built on the page's existing `TrailModal` open/close/focus-trap/inert machinery, showing the Trail's Total linked Event count and (when greater than zero) its Upcoming count with a note that Upcoming Events won't be touched. The Deactivated Trails modal itself lists name/location/status/counts per row with a single `Activate` action — no Edit or Delete there.
+
+`TrailController.DeactivateTrail`/`ActivateTrail` (`[HttpPost]`, `[ValidateAntiForgeryToken]`, authorization inherited from the controller) each take a `TrailIdRequest` (Trail ID only), re-check the *persisted* `IsActive` value, and change only that one field. Both are **idempotent no-ops that still report success** — deactivating an already-deactivated Trail (or activating an already-active one) mutates nothing and returns the same success shape, rather than treating a double-click or a race with another admin as an error.
+
+### Editing is blocked while deactivated
+
+`EditTrail` independently re-checks the persisted `Trail.IsActive` (never a client-supplied state) and rejects the request — no field, image, photo, or file mutation happens — before doing anything else. The UI never offers Edit for a Deactivated Trail (it only appears in the read-only modal), but this server-side check is what actually stops a stale card or a crafted direct request.
+
+### Active-only Trail selection, with one documented exception
+
+Three call sites read `Trail.IsActive`; every other Trail query keeps seeing every Trail regardless of status — see "Query classification" below.
+
+- **Participant Browse Trails** (`ParticipantController.Trails`) — Active only.
+- **Add Event's Trail select** (`EventController.Index`'s `ViewBag.ActiveTrails`, rendered into `#eventTrailId`) — Active only. `EventController.AddEvent` independently re-validates the posted `TrailId`'s `IsActive` server-side — the dropdown is a convenience, not the authority.
+- **Edit Event's Trail select** (`#editEventTrailId`, same `ViewBag.ActiveTrails`) — Active only, **except** the Event's own current Trail is preserved even if it has since been deactivated: same `TrailId` submitted → the existing snapshot is kept untouched and no reactivation is required (see "Event Trail Snapshot" above — this is that rule's Deactivation counterpart). `EventController.EditEvent` only rejects a deactivated Trail when `existingEvent.TrailId != model.TrailId` — a *deliberate* switch to a different Trail, which must be Active.
+
+  Since `#editEventTrailId`'s own `<option>` list is Active-only, hydrating an Event whose current Trail is deactivated would otherwise select nothing. `EventController.GetEvent` returns `trailIsActive` (a live read of the Trail's *current* state — not part of the frozen snapshot, since catalog availability isn't a historical fact); when false, `Views/Event/Index.cshtml`'s `populateEditEventForm` injects exactly one temporary `<option>` (marked `data-injected-current-trail`, labelled with the Event's own `TrailNameSnapshot` plus a "Deactivated" suffix, resynced through `CustomSelect.refresh()` — never a second, competing option-list implementation) and shows an inline note. That option is removed again before every fresh populate and on modal close, so it can never leak into another Event's dropdown as a reusable replacement choice.
+
+**Query classification — every other `_context.Trails` read stays unfiltered, deliberately:**
+
+| Query | Why it still sees every Trail |
+|---|---|
+| `EventController.Index`'s `ViewBag.Trails` (Event Management's history filter) | An organizer must still be able to find existing Events linked to a deactivated Trail |
+| `ParticipantController.Events`'s `ViewBag.Trails` (Browse Events' filter) | Same reasoning — an Upcoming Event on a deactivated Trail is still visible and still needs to be filterable |
+| `EventController.GetTrailDetails`/`GetCalculatedDifficulty` | Pre-save picker/preview of a Trail already offered by an Active-only `<option>` list, or (in Edit) the one injected current-Trail exception above |
+| `RecordsController.BuildEventHistoryAsync`/`BuildTrailUsageAsync`, `ReportsController`, `ParticipantProgressService`, Achievements | Historical/identity data — see "Event Trail Snapshot" and "Records, History, Analytics" below; deactivation is a catalog-availability concept with no bearing on any of these |
+| `AdminController`'s `TotalTrails` | An administrative total across the whole catalog — retains its pre-existing meaning, not silently narrowed to Active-only |
+| `TrailController.DeleteTrail`'s hard-delete-protection check | Independent of `IsActive` entirely — see "Hard-delete policy stays separate" below |
+| `Data/DbSeeder.cs` | Only ever adds Trails when none exist yet; every seeded Trail already sets `IsActive = true` explicitly and no existing row is ever touched |
+
+### Existing Events, Records, History, Analytics, and progress are unaffected
+
+Deactivating a Trail never hides, cancels, or modifies an existing Event — Browse Events, Event Details, My Registrations, registration eligibility, assessments, weather, pickup schedules, Organizer/Admin dashboards, Event Management, Records, the Reports aggregate breakdowns, post-event assessment, and Event comparison all keep working exactly as before, since none of them read `Trail.IsActive`. `ParticipantProgressService`/`ParticipantAchievementEvaluator` (Trail Points, Tier, Rank, and all nine Achievements) already read each Event's own frozen `Trail*Snapshot` fields, never a live Trail lookup (see "Event Trail Snapshot"), so a Trail's active state has no bearing on them either.
+
+### Hard-delete policy stays separate
+
+`TrailController.DeleteTrail`'s existing protection — a Trail linked to any Event cannot be hard-deleted — is unrelated to `IsActive` and unchanged by this feature. A Deactivated Trail with linked Events remains just as non-deletable as an Active one; a never-used Trail's delete eligibility doesn't change based on its active state either. Deactivating a Trail never triggers or substitutes for deletion.
 
 ---
 
@@ -733,7 +790,7 @@ There is **no global antiforgery filter** — `Program.cs` registers a bare `Add
 
 The pre-capstone App Dev feature set (result-based registration workflow, event completion with persisted final labels, organizer decision reason, notes & reminders, weather risk level as a separate field, three-section feedback) is complete and working end-to-end, along with trail/event CRUD, organizer approve/reject, alternative event recommendation, and post-event assessment. This is no longer usefully described as a gap list — see "Known Cleanup / Outstanding Work" below for what's actually unresolved.
 
-Since then, the ML pipeline has been migrated to v2 (ACSM gate, NPS-based difficulty, Trail Class), the rule-based fallback has been removed, the Reports aggregate-validation page has been added, and Event Trail data is now an immutable per-Event snapshot (see "Event Trail Snapshot") rather than a live read through `Event.Trail` — Milestone 1 of Trail Deactivate/Activate; Milestone 2 itself (the deactivate/activate feature) is not yet implemented.
+Since then, the ML pipeline has been migrated to v2 (ACSM gate, NPS-based difficulty, Trail Class), the rule-based fallback has been removed, the Reports aggregate-validation page has been added, Event Trail data is now an immutable per-Event snapshot (see "Event Trail Snapshot") rather than a live read through `Event.Trail`, and Trails can now be deactivated/reactivated without deleting them or affecting any existing Event (see "Trail Deactivation").
 
 ### UI/UX pass
 
@@ -766,7 +823,6 @@ Note: `Organizer/RegistrationDetails.cshtml` has a SHAP panel added during earli
 - **The joint-injury ACSM gate rule** has no clinical source (`PENDING EXPERT ELICITATION` in `generate_synthetic_dataset.py`), as do the readiness component weights, the capacity range, and the decision thresholds
 - **Manuscript realignment** — the approved proposal specified Laravel/PHP/MySQL; the system is ASP.NET Core/C#/PostgreSQL. Chapter 3 needs updating, along with the documented age-range limitation and the v1→v2 model change
 - **`ParticipantController.Events`'s `searchString`/`difficulty`/`trailFilter`/`sortOrder` query parameters and their `ViewData["Current*"]` entries are dead** — Browse Events filters entirely client-side and no caller (navbar, dashboard, Trails, event/assessment "back" links) passes any of these on the route, so the controller's server-side filter/sort logic and the corresponding `ViewData` are unreachable from the UI. Confirmed by search, not removed in the Event Management alignment pass (a narrower, in-scope fix instead: the malformed-`trailFilter` `int.Parse` that could throw on manual/malformed input was replaced with the `int.TryParse` convention `EventController.Index` already uses). A broader cleanup — deleting the dead parameters and `ViewData`, or wiring them up as real deep-link entry points — is future work, not done here
-- **Milestone 2 (Deactivate/Activate Trail)** is not implemented — see "Event Trail Snapshot" for what it depends on and what's deferred
 
 ---
 

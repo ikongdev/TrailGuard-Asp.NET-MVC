@@ -241,7 +241,12 @@ namespace TrailGuard.Controllers
         }
         public async Task<IActionResult> Trails()
         {
+            // Active Trails only - a deactivated Trail must disappear from Browse
+            // Trails, though it remains fully intact in the database and on any
+            // Event that already references it. See CLAUDE.md, "Trail
+            // Deactivation".
             var trails = await _context.Trails
+                .Where(t => t.IsActive)
                 .OrderByDescending(t => t.DateAdded)
                 .ToListAsync();
 
@@ -383,12 +388,15 @@ namespace TrailGuard.Controllers
         // TrailPhoto.Id (that's a delete target on the Organizer side and this gallery
         // has no delete capability), no uploader/account data, no file-system path.
         //
-        // Browse Trails (ParticipantController.Trails, above) applies no IsActive
-        // filter - every trail is shown to Participants regardless of that flag - so
-        // this endpoint deliberately doesn't filter on it either. Doing so here only
-        // would make the gallery silently empty for a trail the participant can still
-        // see and open the modal for, which is a worse inconsistency than the one
-        // IsActive is meant to prevent.
+        // Browse Trails (ParticipantController.Trails, above) now lists Active
+        // Trails only, so a normal click-through never reaches this for a
+        // deactivated Trail - but this endpoint deliberately still doesn't filter
+        // on IsActive itself. A deactivated Trail retains its photos (see
+        // CLAUDE.md, "Trail Deactivation") and this is a narrow, read-only,
+        // already-Participant-authorized lookup with nothing sensitive to
+        // protect; gating it here would only add a second, easily-drifting
+        // definition of "visible" without serving any actual catalog-visibility
+        // purpose Browse Trails' own filtering doesn't already cover.
         [HttpGet]
         public async Task<JsonResult> GetTrailPhotos(int trailId)
         {

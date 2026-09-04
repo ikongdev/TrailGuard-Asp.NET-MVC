@@ -43,6 +43,11 @@ namespace TrailGuard.Controllers
         // in the requested server-side order; searchString is only carried through
         // to restore the search box after a Sort By navigation, never used to filter
         // the query here.
+        //
+        // Deactivated Trails are never mixed into the main grid - see CLAUDE.md,
+        // "Trail Deactivation". Their own summary (name/location/per-status Event
+        // counts) is built from a single consolidated grouped query, never one query
+        // per Trail.
         public async Task<IActionResult> Index(string searchString, string sortOrder)
         {
             var normalizedSearch = (searchString ?? string.Empty).Trim();
@@ -53,31 +58,144 @@ namespace TrailGuard.Controllers
             ViewData["CurrentFilter"] = normalizedSearch;
             ViewData["CurrentSort"] = normalizedSort;
 
-            IQueryable<Trail> trails = _context.Trails;
+            IQueryable<Trail> activeTrailsQuery = _context.Trails.Where(t => t.IsActive);
 
             // Every branch ends in ThenBy(Id) - two trails can share a name, distance,
             // elevation, or DateAdded, and without a tiebreaker their relative order is
             // whatever Postgres feels like on a given query plan, not a fixed sequence.
-            trails = normalizedSort switch
+            activeTrailsQuery = normalizedSort switch
             {
-                "name_desc" => trails.OrderByDescending(t => t.Name).ThenBy(t => t.Id),
-                "name_asc" => trails.OrderBy(t => t.Name).ThenBy(t => t.Id),
-                "distance_asc" => trails.OrderBy(t => t.DistanceKm).ThenBy(t => t.Id),
-                "distance_desc" => trails.OrderByDescending(t => t.DistanceKm).ThenBy(t => t.Id),
-                "elevation_asc" => trails.OrderBy(t => t.ElevationGainMeters).ThenBy(t => t.Id),
-                "elevation_desc" => trails.OrderByDescending(t => t.ElevationGainMeters).ThenBy(t => t.Id),
-                "oldest" => trails.OrderBy(t => t.DateAdded).ThenBy(t => t.Id),
-                "newest" => trails.OrderByDescending(t => t.DateAdded).ThenBy(t => t.Id),
-                _ => trails.OrderByDescending(t => t.DateAdded).ThenBy(t => t.Id),
+                "name_desc" => activeTrailsQuery.OrderByDescending(t => t.Name).ThenBy(t => t.Id),
+                "name_asc" => activeTrailsQuery.OrderBy(t => t.Name).ThenBy(t => t.Id),
+                "distance_asc" => activeTrailsQuery.OrderBy(t => t.DistanceKm).ThenBy(t => t.Id),
+                "distance_desc" => activeTrailsQuery.OrderByDescending(t => t.DistanceKm).ThenBy(t => t.Id),
+                "elevation_asc" => activeTrailsQuery.OrderBy(t => t.ElevationGainMeters).ThenBy(t => t.Id),
+                "elevation_desc" => activeTrailsQuery.OrderByDescending(t => t.ElevationGainMeters).ThenBy(t => t.Id),
+                "oldest" => activeTrailsQuery.OrderBy(t => t.DateAdded).ThenBy(t => t.Id),
+                "newest" => activeTrailsQuery.OrderByDescending(t => t.DateAdded).ThenBy(t => t.Id),
+                _ => activeTrailsQuery.OrderByDescending(t => t.DateAdded).ThenBy(t => t.Id),
             };
 
-            return View(await trails.ToListAsync());
+            var activeTrails = await activeTrailsQuery.ToListAsync();
+
+            var deactivatedTrails = await _context.Trails
+                .Where(t => !t.IsActive)
+                .OrderBy(t => t.Name).ThenBy(t => t.Id)
+                .ToListAsync();
+
+            var deactivatedTrailIds = deactivatedTrails.Select(t => t.Id).ToList();
+
+            // One grouped query covering every Event linked to any deactivated
+            // Trail - never a query per row. Counts include every linked Event
+            // regardless of the Trail's own active state, matching CLAUDE.md,
+            // "Trail Deactivation": deactivation changes catalog availability only,
+            // never historical/identity data.
+            var countsByTrail = new Dictionary<int, List<(string Status, int Count)>>();
+            if (deactivatedTrailIds.Count > 0)
+            {
+                var statusCounts = await _context.Events
+                    .Where(e => deactivatedTrailIds.Contains(e.TrailId))
+                    .GroupBy(e => new { e.TrailId, e.Status })
+                    .Select(g => new { g.Key.TrailId, g.Key.Status, Count = g.Count() })
+                    .ToListAsync();
+
+                countsByTrail = statusCounts
+                    .GroupBy(x => x.TrailId)
+                    .ToDictionary(g => g.Key, g => g.Select(x => (x.Status, x.Count)).ToList());
+            }
+
+            var deactivatedRows = deactivatedTrails.Select(t =>
+            {
+                var rows = countsByTrail.TryGetValue(t.Id, out var found) ? found : new List<(string Status, int Count)>();
+                var (upcoming, completed, cancelled, other, total) = BucketEventStatusCounts(rows);
+
+                return new DeactivatedTrailRowViewModel
+                {
+                    TrailId = t.Id,
+                    Name = t.Name,
+                    Location = t.Location,
+                    UpcomingCount = upcoming,
+                    CompletedCount = completed,
+                    CancelledCount = cancelled,
+                    OtherCount = other,
+                    TotalCount = total
+                };
+            }).ToList();
+
+            var viewModel = new TrailManagementViewModel
+            {
+                ActiveTrails = activeTrails,
+                ActiveTrailCount = activeTrails.Count,
+                DeactivatedTrailCount = deactivatedTrails.Count,
+                DeactivatedTrails = deactivatedRows
+            };
+
+            return View(viewModel);
+        }
+
+        // Shared bucketing rule for "Upcoming/Completed/Cancelled/Other" Event
+        // status counts against exact stored status strings - used by both the
+        // Deactivated Trails summary above (many Trails per call) and
+        // GetTrailEventCounts below (one Trail per call), so the two can never
+        // define "Other" differently. Total always equals the sum of all four.
+        private static (int Upcoming, int Completed, int Cancelled, int Other, int Total) BucketEventStatusCounts(
+            IEnumerable<(string Status, int Count)> rows)
+        {
+            var materialized = rows as ICollection<(string Status, int Count)> ?? rows.ToList();
+            var upcoming = materialized.Where(r => r.Status == "Upcoming").Sum(r => r.Count);
+            var completed = materialized.Where(r => r.Status == "Completed").Sum(r => r.Count);
+            var cancelled = materialized.Where(r => r.Status == "Cancelled").Sum(r => r.Count);
+            var other = materialized.Where(r => r.Status != "Upcoming" && r.Status != "Completed" && r.Status != "Cancelled").Sum(r => r.Count);
+            return (upcoming, completed, cancelled, other, upcoming + completed + cancelled + other);
+        }
+
+        // Backs the Deactivate confirmation modal's Total/Upcoming counts for the
+        // one Trail a caller is about to deactivate - a single-Trail, on-demand
+        // query is not the N+1 pattern the Deactivated Trails summary above avoids
+        // (that one lists every deactivated Trail at once); fetching this only when
+        // the confirmation dialog opens avoids computing Event counts for every
+        // Active Trail on every Trail Management page load.
+        [HttpGet]
+        public async Task<JsonResult> GetTrailEventCounts(int trailId)
+        {
+            if (trailId <= 0)
+            {
+                return Json(new { success = false });
+            }
+
+            var trailExists = await _context.Trails.AnyAsync(t => t.Id == trailId);
+            if (!trailExists)
+            {
+                return Json(new { success = false });
+            }
+
+            var statusCounts = await _context.Events
+                .Where(e => e.TrailId == trailId)
+                .GroupBy(e => e.Status)
+                .Select(g => new { Status = g.Key, Count = g.Count() })
+                .ToListAsync();
+
+            var (upcoming, completed, cancelled, other, total) = BucketEventStatusCounts(
+                statusCounts.Select(s => (s.Status, s.Count)));
+
+            return Json(new { success = true, total, upcoming, completed, cancelled, other });
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> AddTrail(Trail model, List<string>? TerrainValues)
         {
+            // model binds the full Trail entity, and Trail.IsActive is a plain
+            // bindable bool with no [BindNever] - the C# property initializer
+            // (= true) only survives if the posted form never mentions IsActive at
+            // all. The real Add Trail form has no Active/Inactive control and
+            // never does, but a crafted POST containing IsActive=false would
+            // otherwise bind straight through and create an already-deactivated
+            // Trail. Forced true here, unconditionally and before anything else
+            // runs, rather than trusted from the client. See CLAUDE.md, "Trail
+            // Deactivation".
+            model.IsActive = true;
+
             // Terrain is now a checkbox group (name="TerrainValues"), not a field
             // literally named "Terrain" - model.Terrain binds to nothing and fails
             // [Required] on its own, so clear that error and revalidate manually
@@ -159,6 +277,18 @@ namespace TrailGuard.Controllers
             if (existingTrail == null)
             {
                 TempData["Error"] = "Trail not found.";
+                return RedirectToAction("Index");
+            }
+
+            // A Deactivated Trail is never editable - checked against the
+            // persisted IsActive value re-read fresh above, not any client-side
+            // state, so a stale card (opened before deactivation) or a crafted
+            // direct request is rejected the same way. No field, image, photo, or
+            // file mutation happens below this point for such a request. See
+            // CLAUDE.md, "Trail Deactivation".
+            if (!existingTrail.IsActive)
+            {
+                TempData["Error"] = "This trail is deactivated and cannot be edited. Reactivate it first.";
                 return RedirectToAction("Index");
             }
 
@@ -408,6 +538,72 @@ namespace TrailGuard.Controllers
             return Json(new { success = true, message = "Trail deleted successfully" });
         }
 
+        // Removes a Trail from future catalog use (Trail Management's main grid,
+        // Participant Browse Trails, and new/replacement Event Trail selection)
+        // without touching anything else - no Event, snapshot, registration,
+        // assessment, image, or TrailPhoto is read or modified. See CLAUDE.md,
+        // "Trail Deactivation".
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<JsonResult> DeactivateTrail([FromBody] TrailIdRequest request)
+        {
+            if (request.Id <= 0)
+            {
+                return Json(new { success = false, message = "Trail not found" });
+            }
+
+            var trail = await _context.Trails.FindAsync(request.Id);
+            if (trail == null)
+            {
+                return Json(new { success = false, message = "Trail not found" });
+            }
+
+            // Idempotent: an already-deactivated Trail is left untouched and this
+            // still reports success, rather than treating a stale/duplicate
+            // request (e.g. a double-click, or another admin having already
+            // deactivated it) as an error. Checked against the persisted value
+            // just loaded above, never a client-supplied state.
+            if (!trail.IsActive)
+            {
+                return Json(new { success = true, message = "This trail is already deactivated." });
+            }
+
+            trail.IsActive = false;
+            await _context.SaveChangesAsync();
+
+            return Json(new { success = true, message = "Trail deactivated successfully." });
+        }
+
+        // Reverses DeactivateTrail. Equally narrow: only IsActive changes - no
+        // Event/snapshot is touched, no file is restored or deleted, and
+        // DateAdded is left exactly as it was.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<JsonResult> ActivateTrail([FromBody] TrailIdRequest request)
+        {
+            if (request.Id <= 0)
+            {
+                return Json(new { success = false, message = "Trail not found" });
+            }
+
+            var trail = await _context.Trails.FindAsync(request.Id);
+            if (trail == null)
+            {
+                return Json(new { success = false, message = "Trail not found" });
+            }
+
+            // Same idempotency convention as DeactivateTrail above.
+            if (trail.IsActive)
+            {
+                return Json(new { success = true, message = "This trail is already active." });
+            }
+
+            trail.IsActive = true;
+            await _context.SaveChangesAsync();
+
+            return Json(new { success = true, message = "Trail activated successfully." });
+        }
+
         // Resolves a stored "/images/trails/..." URL to an absolute path and confirms
         // it actually lands inside the trail uploads folder before anything is allowed
         // to delete it - a defensive check against a stored path containing ".." or an
@@ -430,6 +626,12 @@ namespace TrailGuard.Controllers
         }
 
         public class DeleteTrailRequest
+        {
+            public int Id { get; set; }
+        }
+
+        // Shared by DeactivateTrail/ActivateTrail - both need only a Trail ID.
+        public class TrailIdRequest
         {
             public int Id { get; set; }
         }

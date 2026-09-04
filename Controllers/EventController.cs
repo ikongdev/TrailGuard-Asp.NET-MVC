@@ -81,7 +81,14 @@ namespace TrailGuard.Controllers
             ViewData["CurrentDifficulty"] = normalizedDifficulty;
             ViewData["CurrentSort"] = normalizedSort;
 
+            // Two deliberately separate Trail lists - see CLAUDE.md, "Trail
+            // Deactivation": the history filter (below) must still let an
+            // organizer find Events linked to a deactivated Trail, so it keeps
+            // seeing every Trail; Add/Edit Event's own Trail selects use the
+            // Active-only list instead (never this one), since a deactivated
+            // Trail must not be selectable for a new Event or as a replacement.
             ViewBag.Trails = await _context.Trails.OrderBy(t => t.Name).ToListAsync();
+            ViewBag.ActiveTrails = await _context.Trails.Where(t => t.IsActive).OrderBy(t => t.Name).ToListAsync();
 
             var organizers = await _userManager.GetUsersInRoleAsync("Organizer");
             ViewBag.Organizers = organizers.ToList();
@@ -274,6 +281,17 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "Trail not found" });
                 }
 
+                // A deactivated Trail can never be selected for a new Event -
+                // checked against the persisted value just loaded above, never
+                // the dropdown the client posted from. Add Event's own Trail
+                // select only ever lists Active Trails (see CLAUDE.md, "Trail
+                // Deactivation"), so this only ever fires for a stale page or a
+                // crafted request.
+                if (!trail.IsActive)
+                {
+                    return Json(new { success = false, message = "The selected trail is no longer active. Please choose another trail." });
+                }
+
                 // Organizer assignment is resolved entirely server-side from the
                 // authenticated user's role - a client-submitted OrganizerId is
                 // only ever consulted for an Admin caller, and even then it must
@@ -417,6 +435,21 @@ namespace TrailGuard.Controllers
                 // renderer can consume either one.
                 var weatherSnapshot = WeatherSnapshotHelper.TryDeserialize(eventItem.WeatherSnapshotJson, _logger);
 
+                // The Edit modal's Trail select only lists Active Trails - if this
+                // Event's own current Trail has since been deactivated, the client
+                // injects one temporary option for it (labelled with this Event's
+                // own TrailNameSnapshot plus a "Deactivated" suffix) so the select
+                // can still show/keep it selected without offering it as a
+                // reusable choice for any other Event. A missing Trail row
+                // (should be impossible under the TrailId FK) defaults to true -
+                // no injected option, no alarming label - rather than treating an
+                // unrelated data problem as a deactivation state. See CLAUDE.md,
+                // "Trail Deactivation".
+                var trailIsActive = await _context.Trails
+                    .Where(t => t.Id == eventItem.TrailId)
+                    .Select(t => (bool?)t.IsActive)
+                    .FirstOrDefaultAsync() ?? true;
+
                 return Json(new
                 {
                     success = true,
@@ -427,6 +460,7 @@ namespace TrailGuard.Controllers
                     eventTime = eventItem.EventTime.ToString(),
                     trailId = eventItem.TrailId,
                     trailName = eventItem.TrailNameSnapshot,
+                    trailIsActive = trailIsActive,
                     // Trail preview fields the Edit Event modal's Step 1 cards
                     // show on open - the Event's own frozen snapshot, not a live
                     // read of the current Trail (see CLAUDE.md, "Event Trail
@@ -795,6 +829,18 @@ namespace TrailGuard.Controllers
                 if (trail == null)
                 {
                     return Json(new { success = false, message = "Trail not found" });
+                }
+
+                // A deactivated Trail is only rejected when the organizer is
+                // deliberately switching this Event to it. Keeping the Event on
+                // its own already-deactivated current Trail (TrailId unchanged)
+                // is explicitly allowed and requires no reactivation - see
+                // CLAUDE.md, "Trail Deactivation". Checked against the
+                // persisted existingEvent.TrailId, never model fields the client
+                // could shape to bypass this.
+                if (existingEvent.TrailId != model.TrailId && !trail.IsActive)
+                {
+                    return Json(new { success = false, message = "The selected trail is no longer active. Please choose another trail." });
                 }
 
                 // Organizer assignment is resolved the same way Add Event
