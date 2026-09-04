@@ -43,21 +43,24 @@ namespace TrailGuard.Controllers
             model.TotalRegistrations = await _context.EventRegistrations.CountAsync(r => r.AssessmentId != null);
             model.TotalAccepted = await _context.EventRegistrations.CountAsync(r => r.AssessmentId != null && r.Status == "Accepted");
 
+            // TrailClass comes from the Event's own frozen Trail Snapshot
+            // (TrailClassSnapshot), never a live join to Trails - a resolved
+            // label is a historical record, and reclassifying a Trail afterward
+            // must never shift which breakdown bucket a past label falls into.
+            // See CLAUDE.md, "Event Trail Snapshot".
             var rows = await (
                 from label in _context.FinalSuitabilityLabels
                 join sr in _context.SuitabilityResults on label.AssessmentId equals sr.AssessmentId into srJoin
                 from sr in srJoin.DefaultIfEmpty()
                 join ev in _context.Events on label.EventId equals ev.Id into evJoin
                 from ev in evJoin.DefaultIfEmpty()
-                join trail in _context.Trails on ev!.TrailId equals trail.Id into trailJoin
-                from trail in trailJoin.DefaultIfEmpty()
                 select new ReportRow
                 {
                     PreHikeLabel = label.PreHikeLabel,
                     ModelPreHikeLabel = label.ModelPreHikeLabel,
                     FinalLabel = label.FinalLabel,
                     NpsBand = sr != null ? sr.NpsBand : null,
-                    TrailClass = trail != null ? trail.TrailClass : (int?)null
+                    TrailClass = ev != null ? ev.TrailClassSnapshot : (int?)null
                 }
             ).ToListAsync();
 
@@ -113,6 +116,9 @@ namespace TrailGuard.Controllers
         [HttpGet]
         public async Task<IActionResult> Export()
         {
+            // Trail fields come from each resolved label's own Event Trail
+            // Snapshot, never a live join to Trails - see the Index() action's
+            // identical reasoning and CLAUDE.md, "Event Trail Snapshot".
             var rows = await (
                 from label in _context.FinalSuitabilityLabels
                 join reg in _context.EventRegistrations on label.RegistrationId equals reg.Id
@@ -121,18 +127,16 @@ namespace TrailGuard.Controllers
                 from sr in srJoin.DefaultIfEmpty()
                 join ev in _context.Events on label.EventId equals ev.Id into evJoin
                 from ev in evJoin.DefaultIfEmpty()
-                join trail in _context.Trails on ev!.TrailId equals trail.Id into trailJoin
-                from trail in trailJoin.DefaultIfEmpty()
                 orderby label.ResolvedAt descending
                 select new
                 {
                     label.Id,
                     label.EventId,
                     EventTitle = ev != null ? ev.EventTitle : "",
-                    TrailName = trail != null ? trail.Name : "",
-                    TrailDistanceKm = trail != null ? trail.DistanceKm : (double?)null,
-                    TrailElevationGainMeters = trail != null ? trail.ElevationGainMeters : (int?)null,
-                    TrailClass = trail != null ? trail.TrailClass : (int?)null,
+                    TrailName = ev != null ? ev.TrailNameSnapshot : "",
+                    TrailDistanceKm = ev != null ? ev.TrailDistanceKmSnapshot : (double?)null,
+                    TrailElevationGainMeters = ev != null ? ev.TrailElevationGainMetersSnapshot : (int?)null,
+                    TrailClass = ev != null ? ev.TrailClassSnapshot : (int?)null,
                     assessment.Age,
                     assessment.HeightCm,
                     assessment.WeightKg,

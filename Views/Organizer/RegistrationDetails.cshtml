@@ -174,22 +174,24 @@
                 </dl>
             </div>
             <div class="mt-4 pt-4 border-t border-white/10">
-                @if (Model.Event?.Trail != null)
+                @* Trail Snapshot fields (Event's own frozen copy), never a live
+                   Event.Trail read - see CLAUDE.md, "Event Trail Snapshot". *@
+                @if (Model.Event != null)
                 {
                     <p class="text-gray-500 text-[11px] uppercase tracking-wider">Trail</p>
-                    <p class="text-white font-semibold text-base wrap-break-word">@Model.Event.Trail.Name</p>
+                    <p class="text-white font-semibold text-base wrap-break-word">@Model.Event.TrailNameSnapshot</p>
                     <dl class="space-y-2 text-xs mt-2">
                         <div class="flex justify-between gap-3">
                             <dt class="text-gray-500 shrink-0">Distance</dt>
-                            <dd class="text-gray-100 font-medium text-right wrap-break-word">@Model.Event.Trail.DistanceKm km</dd>
+                            <dd class="text-gray-100 font-medium text-right wrap-break-word">@Model.Event.TrailDistanceKmSnapshot km</dd>
                         </div>
                         <div class="flex justify-between gap-3">
                             <dt class="text-gray-500 shrink-0">Elevation</dt>
-                            <dd class="text-gray-100 font-medium text-right wrap-break-word">@Model.Event.Trail.ElevationGainMeters m</dd>
+                            <dd class="text-gray-100 font-medium text-right wrap-break-word">@Model.Event.TrailElevationGainMetersSnapshot m</dd>
                         </div>
                         <div class="flex justify-between gap-3">
                             <dt class="text-gray-500 shrink-0">Terrain</dt>
-                            <dd class="text-gray-100 font-medium text-right wrap-break-word">@(string.IsNullOrEmpty(Model.Event.Trail.Terrain) ? "N/A" : Model.Event.Trail.Terrain)</dd>
+                            <dd class="text-gray-100 font-medium text-right wrap-break-word">@(string.IsNullOrEmpty(Model.Event.TrailTerrainSnapshot) ? "N/A" : Model.Event.TrailTerrainSnapshot)</dd>
                         </div>
                     </dl>
                 }

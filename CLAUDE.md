@@ -256,6 +256,83 @@ Sort and compare by the **adjusted** rating, not the plain one — ordering by t
 
 ---
 
+## Event Trail Snapshot
+
+Once an Event is created, its Trail-derived details belong to that Event and no longer change when the source Trail is edited later — this holds regardless of Event status (Upcoming, Cancelled, or Completed alike).
+
+```
+Event.TrailId
+    → stable relationship for identity, grouping, analytics, and referential integrity
+
+Event Trail Snapshot
+    → immutable copy of Trail details used by that particular Event
+```
+
+`Event.TrailId`/`Event.Trail` remain the stable relationship — used for identity, analytics grouping, delete-protection, and navigation to the Trail catalog. `Event.Location` and `Event.Difficulty` are the two original snapshot fields (predating this feature) and continue to serve that role. Alongside them, `Event` carries these scalar snapshot fields, all captured together:
+
+| Field | Meaning |
+|---|---|
+| `TrailNameSnapshot` | Trail name at capture time |
+| `TrailDistanceKmSnapshot` | Trail distance at capture time |
+| `TrailElevationGainMetersSnapshot` | Trail elevation gain at capture time |
+| `TrailTerrainSnapshot` | Trail terrain string at capture time |
+| `TrailClassSnapshot` | Trail Class (1–4) at capture time |
+| `TrailAdjustedRatingSnapshot` | The exact terrain-adjusted NPS rating used to compute `Difficulty` — sorting must read this, never a live recalculation |
+| `TrailThumbnailUrlSnapshot` | Trail thumbnail URL at capture time |
+
+There is deliberately no JSON blob and no second Trail navigation object — every field is a plain scalar column on `Event`.
+
+### Central capture
+
+`Services/EventTrailSnapshotHelper.CaptureSnapshot(Event, Trail)` is the single place that writes `TrailId`, `Location`, `Difficulty`, and every `Trail*Snapshot` field together, from a Trail already loaded fresh from the database — never from browser-posted values. It uses `DifficultyCalculator.ComputeAdjustedRating`/`LabelFor` rather than duplicating the difficulty formula. Every write site calls this rather than assigning the fields individually, so a captured snapshot can never be partial.
+
+- **Add Event** (`EventController.AddEvent`) always calls it against the newly selected Trail.
+- **Edit Event** (`EventController.EditEvent`): if the submitted `TrailId` equals the persisted `Event.TrailId`, the snapshot is left completely untouched — no live Trail read happens at all, even to "refresh" it. If the organizer deliberately submits a different `TrailId`, the full snapshot is recaptured atomically from the newly selected Trail. Editing any other Event field (title, date, capacity, weather, payment, pickup, etc.) never touches the snapshot.
+- **Completed Events** stay immutable under the existing rule (see "Completed Events are immutable" below) — `EditEvent`'s persisted-status guard runs before the Trail comparison, so a Completed Event's snapshot can never be recaptured through this path either.
+- `Data/DbSeeder.cs`'s seeded events call the same helper.
+
+### Trail edits no longer cascade
+
+`TrailController.EditTrail` updates only the Trail row. It no longer loops over linked Events recomputing `Difficulty`/`DateUpdated` — that cascade defeated immutability for the two original snapshot fields even before this feature existed, and has been removed. Editing a Trail only affects **future** Events (created or re-pointed at that Trail afterward); every existing Event keeps the exact snapshot it already captured.
+
+### Display, sorting, and progress all read the snapshot
+
+Every Event-history display (Event Management and Participant Details/cards, the assessment form and report, the registration flow, My Registrations, the Organizer Registration Details panel, Records, and the Reports aggregate breakdowns) reads `Event.Trail*Snapshot`, never a live `Event.Trail.*` navigation. Browse Events' difficulty sort (`EventController.Index`, `ParticipantController.Events`) orders by the stored `TrailAdjustedRatingSnapshot`, never a live `DifficultyCalculator.ComputeAdjustedRating(event.Trail)` recalculation — this applies even to Upcoming events, since an Event's own display must not shift just because its Trail was edited after creation.
+
+`ParticipantProgressService`/`ParticipantAchievementEvaluator` read `Event.TrailClassSnapshot` (via `QualifyingEventRecord`) for Technical Explorer and personal-best distance/elevation, never a live `Event.Trail.TrailClass`/`.DistanceKm`/`.ElevationGainMeters` — a Trail reclassified after the fact must never retroactively grant, revoke, or resize a participant's already-earned progress. `Event.Difficulty` (already-canonical) continues to drive Versatile Hiker exactly as before.
+
+### Assessment ML requests read the snapshot too
+
+`AssessmentController.BuildMlRequest` takes the whole `Event` (not a `Trail`) and reads `TrailDistanceKmSnapshot`/`TrailElevationGainMetersSnapshot`/`TrailClassSnapshot` for the three trail-side ML features it sends — never the live `Event.Trail`. The submitted request's serialized field names (`trail_distance_km`, `trail_elevation_gain_m`, `trail_terrain_type`) and the Python `FEATURE_COLUMNS` contract are unchanged; only the C# source of the three values moved from the live Trail to the Event's own immutable snapshot. `trail_terrain_type` continues to mean Technical Trail Class (1–4), now sourced from `TrailClassSnapshot`.
+
+This closes a real gap: before this correction, an Event's UI could show frozen snapshot values while its assessment silently sent newer live Trail values to the model — the same Event's ML request and its own displayed trail details could disagree if the Trail was edited in between. Trail Class validity is checked against `TrailClassSnapshot` (still 1–4); an out-of-range snapshot fails the submission safely (`AssessmentController.Form` POST catches it, logs the Event id and its own snapshot Trail name — never the raw exception — and redisplays the form with a generic error) rather than falling back to the live Trail or a default value.
+
+**Deliberate exceptions — genuine Trail-catalog/identity uses, not Event-history display:**
+- `EventController.GetTrailDetails`/`GetCalculatedDifficulty` — Add/Edit Event's live picker preview of a *newly selected* Trail, before any capture happens.
+- `RecordsController.BuildTrailUsageAsync` — groups Completed Events by `TrailId` and deliberately labels the aggregate with the Trail's **current** catalog name (not each Event's frozen snapshot name), since this widget is about Trail identity ("how much has this Trail, as it's called today, been used"), not per-Event historical display. Contrast with `BuildEventHistoryAsync`, whose per-row `TrailName` is the frozen snapshot.
+- Trail catalog pages themselves (Trail Management, Browse Trails, Trail Details) render `Trail` objects directly and are unaffected.
+
+### Thumbnail snapshot and file retention
+
+`TrailThumbnailUrlSnapshot` is what Event cards/details render — never `Event.Trail.ThumbnailUrl`. `EventTrailSnapshotHelper.IsThumbnailUrlReferencedByAnyEventAsync` checks whether any Event snapshot still references an exact stored thumbnail URL before that file is allowed to be deleted:
+
+- **Trail thumbnail replacement** (`TrailController.EditTrail`): the previous thumbnail file is deleted only if no Event snapshot references it.
+- **Trail deletion** (`TrailController.DeleteTrail`): hard-delete is still blocked outright while any Event's `TrailId` references the Trail (unchanged). The thumbnail file cleanup that runs once deletion is allowed has its own independent reference check, since an Event can have been deliberately re-pointed at a *different* Trail on Edit while its snapshot still references this Trail's old thumbnail file — a `TrailId`-based guard alone isn't sufficient for file safety.
+
+Additional Trail Photos remain Trail-owned and are **not** part of the Event snapshot — they were never captured, and Trail deletion's existing photo-file cleanup is unaffected by this feature.
+
+### Existing-Event migration and backfill
+
+Migration `AddEventTrailSnapshot` adds the seven snapshot columns and backfills every existing Event from its currently linked Trail in the same migration, via a raw SQL `UPDATE ... FROM` (provider-specific, PostgreSQL) that reproduces `DifficultyCalculator`'s formula and boundaries as a one-time backfill computation — not a third permanently-maintained implementation.
+
+**Limitation:** existing Events can only be backfilled from the Trail values available at migration time. If a Trail was edited between an Event's original creation and this migration running, the Trail's values *at original creation* cannot be reconstructed — nothing in the schema recorded them before this feature existed. The backfilled values become frozen (immutable) from that point forward, same as any newly captured snapshot.
+
+### Deferred: Deactivate/Activate Trail
+
+Trail Deactivate/Activate, the Deactivated Trails modal/count, and active-only Add/Edit Event and Browse Trails filtering are **Milestone 2**, not implemented here. This snapshot feature is its prerequisite — once Trail-derived Event data is immutable, deactivating a Trail can safely stop it from appearing in new-Event pickers without touching any existing Event.
+
+---
+
 ## Explainability
 
 Required, not optional. Every ML prediction is accompanied by an explanation when SHAP data exists.
@@ -656,7 +733,7 @@ There is **no global antiforgery filter** — `Program.cs` registers a bare `Add
 
 The pre-capstone App Dev feature set (result-based registration workflow, event completion with persisted final labels, organizer decision reason, notes & reminders, weather risk level as a separate field, three-section feedback) is complete and working end-to-end, along with trail/event CRUD, organizer approve/reject, alternative event recommendation, and post-event assessment. This is no longer usefully described as a gap list — see "Known Cleanup / Outstanding Work" below for what's actually unresolved.
 
-Since then, the ML pipeline has been migrated to v2 (ACSM gate, NPS-based difficulty, Trail Class), the rule-based fallback has been removed, and the Reports aggregate-validation page has been added.
+Since then, the ML pipeline has been migrated to v2 (ACSM gate, NPS-based difficulty, Trail Class), the rule-based fallback has been removed, the Reports aggregate-validation page has been added, and Event Trail data is now an immutable per-Event snapshot (see "Event Trail Snapshot") rather than a live read through `Event.Trail` — Milestone 1 of Trail Deactivate/Activate; Milestone 2 itself (the deactivate/activate feature) is not yet implemented.
 
 ### UI/UX pass
 
@@ -689,6 +766,7 @@ Note: `Organizer/RegistrationDetails.cshtml` has a SHAP panel added during earli
 - **The joint-injury ACSM gate rule** has no clinical source (`PENDING EXPERT ELICITATION` in `generate_synthetic_dataset.py`), as do the readiness component weights, the capacity range, and the decision thresholds
 - **Manuscript realignment** — the approved proposal specified Laravel/PHP/MySQL; the system is ASP.NET Core/C#/PostgreSQL. Chapter 3 needs updating, along with the documented age-range limitation and the v1→v2 model change
 - **`ParticipantController.Events`'s `searchString`/`difficulty`/`trailFilter`/`sortOrder` query parameters and their `ViewData["Current*"]` entries are dead** — Browse Events filters entirely client-side and no caller (navbar, dashboard, Trails, event/assessment "back" links) passes any of these on the route, so the controller's server-side filter/sort logic and the corresponding `ViewData` are unreachable from the UI. Confirmed by search, not removed in the Event Management alignment pass (a narrower, in-scope fix instead: the malformed-`trailFilter` `int.Parse` that could throw on manual/malformed input was replaced with the `int.TryParse` convention `EventController.Index` already uses). A broader cleanup — deleting the dead parameters and `ViewData`, or wiring them up as real deep-link entry points — is future work, not done here
+- **Milestone 2 (Deactivate/Activate Trail)** is not implemented — see "Event Trail Snapshot" for what it depends on and what's deferred
 
 ---
 

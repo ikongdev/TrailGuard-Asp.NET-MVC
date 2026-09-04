@@ -30,7 +30,6 @@ namespace TrailGuard.Controllers
 
             var registrations = await _context.EventRegistrations
                 .Include(r => r.Event)
-                .ThenInclude(e => e!.Trail)
                 .Include(r => r.Assessment)
                 .Where(r => r.UserId == userId && r.Status != "Cancelled")
                 .ToListAsync();
@@ -83,7 +82,7 @@ namespace TrailGuard.Controllers
                     AssessmentId = latestAssessment.Id,
                     EventId = latestEvent?.Id ?? 0,
                     EventTitle = latestEvent?.EventTitle ?? "",
-                    TrailName = latestEvent?.Trail?.Name ?? "",
+                    TrailName = latestEvent?.TrailNameSnapshot ?? "",
                     EventDifficulty = latestEvent?.Difficulty ?? ""
                 };
             }
@@ -100,16 +99,20 @@ namespace TrailGuard.Controllers
             double? personalBestDistanceKm = null;
             int? personalBestElevationMeters = null;
 
-            var hikesWithTrail = completedRegistrations.Where(r => r.Event!.Trail != null).ToList();
-            if (hikesWithTrail.Any())
+            // Personal bests read each completed hike's own frozen Trail
+            // Snapshot (TrailDistanceKmSnapshot/TrailElevationGainMetersSnapshot),
+            // never the live Trail - editing a Trail's distance/elevation must
+            // never retroactively change a participant's already-earned
+            // personal-best record. See CLAUDE.md, "Event Trail Snapshot".
+            if (completedRegistrations.Any())
             {
-                personalBestDifficulty = hikesWithTrail
+                personalBestDifficulty = completedRegistrations
                     .Select(r => r.Event!.Difficulty)
                     .OrderByDescending(d => Array.IndexOf(difficultyLevels, d))
                     .FirstOrDefault();
 
-                personalBestDistanceKm = hikesWithTrail.Max(r => r.Event!.Trail!.DistanceKm);
-                personalBestElevationMeters = hikesWithTrail.Max(r => r.Event!.Trail!.ElevationGainMeters);
+                personalBestDistanceKm = completedRegistrations.Max(r => r.Event!.TrailDistanceKmSnapshot);
+                personalBestElevationMeters = completedRegistrations.Max(r => r.Event!.TrailElevationGainMetersSnapshot);
             }
 
             // Sole source for the completed-hike count and all-time Trail Points
@@ -145,15 +148,17 @@ namespace TrailGuard.Controllers
         public async Task<IActionResult> GetEventWeather(int eventId)
         {
             var eventItem = await _context.Events
-                .Include(e => e.Trail)
                 .FirstOrDefaultAsync(e => e.Id == eventId);
 
-            if (eventItem == null || eventItem.Trail == null)
+            if (eventItem == null || string.IsNullOrEmpty(eventItem.Location))
             {
                 return Json(new { success = false, unavailableReason = "NoLocation" });
             }
 
-            var forecast = await _weatherService.GetWeatherForecastAsync(eventItem.Trail.Location, eventItem.EventDate);
+            // Event.Location is the Event's own canonical, immutable snapshot of
+            // the Trail's location at capture time - not a live read through
+            // Event.Trail. See CLAUDE.md, "Event Trail Snapshot".
+            var forecast = await _weatherService.GetWeatherForecastAsync(eventItem.Location, eventItem.EventDate);
 
             if (!string.IsNullOrEmpty(forecast.UnavailableReason))
             {
@@ -221,7 +226,6 @@ namespace TrailGuard.Controllers
             for (var i = targetIndex; i >= 0; i--)
             {
                 var events = await _context.Events
-                    .Include(e => e.Trail)
                     .Where(e => e.Status == "Upcoming"
                              && e.EventDate >= DateTime.Today
                              && e.Difficulty == levels[i]
@@ -256,7 +260,6 @@ namespace TrailGuard.Controllers
             ViewBag.Trails = await _context.Trails.OrderBy(t => t.Name).ToListAsync();
 
             var events = _context.Events
-                .Include(e => e.Trail)
                 .Where(e => e.Status == "Upcoming" && e.EventDate >= DateTime.Today)
                 .AsQueryable();
 
@@ -285,15 +288,16 @@ namespace TrailGuard.Controllers
                 // Event.Difficulty is a band name ("Easy", "Minor Climb", ...),
                 // not a rank - an alphabetical OrderBy on the string only happened to match
                 // severity order for today's exact band names and would silently break the
-                // moment a label changed. Sorting on the underlying adjusted rating (the
-                // same value the band is derived from) can't drift that way, and it's the
-                // only way to order two trails that share a band. The plain rating must not
-                // be used here - it ignores Trail Class entirely, so a short Class 4 trail
-                // would sort as though it were an easy walk.
-                eventsList = await events.ToListAsync();
+                // moment a label changed. Sorting on the stored adjusted-rating snapshot
+                // (TrailAdjustedRatingSnapshot - the same value the band was derived from at
+                // capture time) can't drift that way, and it's the only way to order two
+                // events that share a band. This must be the stored snapshot, never a live
+                // recalculation from the current Trail - see CLAUDE.md, "Event Trail
+                // Snapshot" and "Difficulty sorting": an Event's ordering must not change
+                // just because its Trail was edited afterward.
                 eventsList = sortOrder == "difficulty_asc"
-                    ? eventsList.OrderBy(e => e.Trail != null ? DifficultyCalculator.ComputeAdjustedRating(e.Trail) : 0).ToList()
-                    : eventsList.OrderByDescending(e => e.Trail != null ? DifficultyCalculator.ComputeAdjustedRating(e.Trail) : 0).ToList();
+                    ? await events.OrderBy(e => e.TrailAdjustedRatingSnapshot).ToListAsync()
+                    : await events.OrderByDescending(e => e.TrailAdjustedRatingSnapshot).ToListAsync();
             }
             else
             {
@@ -335,7 +339,6 @@ namespace TrailGuard.Controllers
                           ?? g.OrderByDescending(r => r.RegisteredAt).First()).Status);
 
             var cardViewModels = eventsList
-                .Where(e => e.Trail != null)
                 .Select(e => new EventBrowseCardViewModel
                 {
                     Event = e,
@@ -414,7 +417,6 @@ namespace TrailGuard.Controllers
             await RegistrationStatusHelper.ExpireOverdueRegistrations(_context);
 
             var eventItem = await _context.Events
-                .Include(e => e.Trail)
                 .FirstOrDefaultAsync(e => e.Id == id);
 
             if (eventItem == null)
@@ -480,8 +482,7 @@ namespace TrailGuard.Controllers
                     .AnyAsync(f => f.EventId == id && f.UserId == userId);
             }
             ViewBag.HasGivenFeedback = hasGivenFeedback;
-            
-            ViewBag.Trail = eventItem.Trail;
+
             return View(eventItem);
         }
 

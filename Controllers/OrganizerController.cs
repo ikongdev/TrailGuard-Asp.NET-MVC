@@ -252,7 +252,6 @@ namespace TrailGuard.Controllers
 
             var registration = await _context.EventRegistrations
                 .Include(r => r.Event)
-                .ThenInclude(e => e!.Trail)
                 .Include(r => r.Assessment)
                 .Include(r => r.User)
                 .Include(r => r.AlternativeEvent)
@@ -357,7 +356,6 @@ namespace TrailGuard.Controllers
 
             // Mirrors EventJoinabilityHelper.IsJoinable (inlined for EF SQL translation).
             return await _context.Events
-                .Include(e => e.Trail)
                 .Where(e =>
                     e.Id != eventId &&
                     e.Status == "Upcoming" &&
@@ -632,7 +630,6 @@ namespace TrailGuard.Controllers
             }
 
             var eventItem = await _context.Events
-                .Include(e => e.Trail)
                 .FirstOrDefaultAsync(e => e.Id == id);
 
             if (eventItem == null || !OwnsEvent(eventItem, currentUser))
@@ -654,7 +651,6 @@ namespace TrailGuard.Controllers
             ViewBag.Registrations = allRegistrations;
             ViewBag.RegisteredCount = capacityRegistrations.Count;
             ViewBag.AvailableSlots = eventItem.Capacity - capacityRegistrations.Count;
-            ViewBag.Trail = eventItem.Trail;
 
             return View(eventItem);
         }
@@ -698,7 +694,6 @@ namespace TrailGuard.Controllers
             }
 
             var eventItem = await _context.Events
-                .Include(e => e.Trail)
                 .FirstOrDefaultAsync(e => e.Id == eventId);
 
             if (eventItem == null || !await CanAssessEventAsync(eventItem, currentUser))
@@ -861,7 +856,6 @@ namespace TrailGuard.Controllers
             }
 
             var eventItem = await _context.Events
-                .Include(e => e.Trail)
                 .FirstOrDefaultAsync(e => e.Id == eventId);
 
             // A pure Organizer and a dual-role Admin+Organizer account are

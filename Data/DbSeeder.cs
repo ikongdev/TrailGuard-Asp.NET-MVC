@@ -275,6 +275,10 @@ namespace TrailGuard.Data
                         var batulaoTrail = trails.First(t => t.Name == "Mt. Batulao");
                         var daraitanTrail = trails.First(t => t.Name == "Mt. Daraitan");
 
+                        // TrailId/Location/Difficulty and every Trail*Snapshot field are
+                        // captured via EventTrailSnapshotHelper immediately below, the
+                        // same central helper Add Event/Edit Event use - see CLAUDE.md,
+                        // "Event Trail Snapshot".
                         var events = new List<Event>
                         {
                             new Event
@@ -283,9 +287,6 @@ namespace TrailGuard.Data
                                 Description = "Join us for an early morning hike to witness the beautiful sunrise at Mt. Ulap.",
                                 EventDate = DateTime.Now.AddDays(14),
                                 EventTime = new TimeSpan(4, 0, 0),
-                                TrailId = ulapTrail.Id,
-                                Location = "Itogon, Benguet",
-                                Difficulty = DifficultyCalculator.ComputeDifficulty(ulapTrail),
                                 EstimatedDuration = 5,
                                 Capacity = 20,
                                 OrganizedBy = organizerId,
@@ -303,9 +304,6 @@ namespace TrailGuard.Data
                                 Description = "A 2-day adventure to the highest peak in Luzon.",
                                 EventDate = DateTime.Now.AddDays(21),
                                 EventTime = new TimeSpan(6, 0, 0),
-                                TrailId = pulagTrail.Id,
-                                Location = "Kabayan, Benguet",
-                                Difficulty = DifficultyCalculator.ComputeDifficulty(pulagTrail),
                                 EstimatedDuration = 8,
                                 Capacity = 15,
                                 OrganizedBy = organizerId,
@@ -323,9 +321,6 @@ namespace TrailGuard.Data
                                 Description = "A quick day hike perfect for beginners.",
                                 EventDate = DateTime.Now.AddDays(7),
                                 EventTime = new TimeSpan(5, 30, 0),
-                                TrailId = batulaoTrail.Id,
-                                Location = "Nasugbu, Batangas",
-                                Difficulty = DifficultyCalculator.ComputeDifficulty(batulaoTrail),
                                 EstimatedDuration = 4,
                                 Capacity = 25,
                                 OrganizedBy = organizerId,
@@ -343,9 +338,6 @@ namespace TrailGuard.Data
                                 Description = "Experience the scenic river and limestone formations.",
                                 EventDate = DateTime.Now.AddDays(10),
                                 EventTime = new TimeSpan(5, 0, 0),
-                                TrailId = daraitanTrail.Id,
-                                Location = "Tanay, Rizal",
-                                Difficulty = DifficultyCalculator.ComputeDifficulty(daraitanTrail),
                                 EstimatedDuration = 4.5,
                                 Capacity = 20,
                                 OrganizedBy = organizerId,
@@ -358,6 +350,11 @@ namespace TrailGuard.Data
                                 DateUpdated = DateTime.Now
                             }
                         };
+
+                        EventTrailSnapshotHelper.CaptureSnapshot(events[0], ulapTrail);
+                        EventTrailSnapshotHelper.CaptureSnapshot(events[1], pulagTrail);
+                        EventTrailSnapshotHelper.CaptureSnapshot(events[2], batulaoTrail);
+                        EventTrailSnapshotHelper.CaptureSnapshot(events[3], daraitanTrail);
 
                         Console.WriteLine($"Adding {events.Count} events...");
                         await context.Events.AddRangeAsync(events);

@@ -12,11 +12,13 @@ namespace TrailGuard.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly SuitabilityApiClient _suitabilityApi;
+        private readonly ILogger<AssessmentController> _logger;
 
-        public AssessmentController(ApplicationDbContext context, SuitabilityApiClient suitabilityApi)
+        public AssessmentController(ApplicationDbContext context, SuitabilityApiClient suitabilityApi, ILogger<AssessmentController> logger)
         {
             _context = context;
             _suitabilityApi = suitabilityApi;
+            _logger = logger;
         }
 
         // Loads the event and sets ViewBag.Event / ViewBag.RetakeMode the same way
@@ -24,8 +26,9 @@ namespace TrailGuard.Controllers
         // paths can't drift apart. Returns null if the event doesn't exist.
         private async Task<Event?> PopulateAssessmentFormViewBagAsync(int eventId, string? userId)
         {
+            // Views/Assessment/Form.cshtml reads only Event's own Trail Snapshot
+            // fields, never the live Trail navigation - no Include needed here.
             var eventItem = await _context.Events
-                .Include(e => e.Trail)
                 .FirstOrDefaultAsync(e => e.Id == eventId);
 
             if (eventItem == null)
@@ -98,8 +101,9 @@ namespace TrailGuard.Controllers
         {
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
+            // ML feature construction reads only Event.Trail*Snapshot (via
+            // BuildMlRequest below) - no Include of the live Trail is needed here.
             var eventItem = await _context.Events
-                .Include(e => e.Trail)
                 .FirstOrDefaultAsync(e => e.Id == eventId);
 
             if (eventItem == null)
@@ -148,19 +152,30 @@ namespace TrailGuard.Controllers
 
             var totalScore = fitnessScore + experienceScore + healthScore + gearScore;
 
-            SuitabilityPredictionResponse? mlResponse = null;
-
-            if (eventItem.Trail != null)
+            SuitabilityPredictionRequest mlRequest;
+            try
             {
-                var mlRequest = BuildMlRequest(
+                mlRequest = BuildMlRequest(
                     heightCm, weightKg, medicalConditions,
                     exerciseFrequency, cardioEndurance, exerciseConsistency,
                     mountainsClimbed, recencyOfHike, trailDifficultyCompleted,
-                    gearItemsString, eventItem.Trail
+                    gearItemsString, eventItem
                 );
-
-                mlResponse = await _suitabilityApi.PredictAsync(mlRequest);
             }
+            catch (InvalidOperationException ex)
+            {
+                // eventItem.TrailClassSnapshot is invalid (outside 1-4) - never
+                // repaired or mutated here, and never repaired by falling back to
+                // the live Trail (see CLAUDE.md, "Event Trail Snapshot"). Only the
+                // Event id and its own snapshot Trail name are logged - the raw
+                // exception is never shown to the participant.
+                _logger.LogError(ex, "Assessment submission for Event {EventId} (Trail snapshot '{TrailNameSnapshot}') could not build an ML request: invalid TrailClassSnapshot.", eventItem.Id, eventItem.TrailNameSnapshot);
+                TempData["Error"] = "This event's trail details could not be validated. Please contact the organizer.";
+                await PopulateAssessmentFormViewBagAsync(eventId, userId);
+                return View();
+            }
+
+            var mlResponse = await _suitabilityApi.PredictAsync(mlRequest);
 
             // No rule-based fallback: GetResult() was a v1 heuristic with its own
             // notion of trail demand, agreeing with neither the model nor the ACSM/
@@ -254,7 +269,6 @@ namespace TrailGuard.Controllers
 
             var assessment = await _context.Assessments
                 .Include(a => a.Event)
-                .ThenInclude(e => e!.Trail)
                 .FirstOrDefaultAsync(a => a.Id == assessmentId && a.IsActive == true);
 
             if (assessment == null)
@@ -264,7 +278,6 @@ namespace TrailGuard.Controllers
             }
 
             var eventItem = assessment.Event;
-            var trail = eventItem?.Trail;
 
             var difficulty = eventItem?.Difficulty ?? "Moderate";
 
@@ -410,21 +423,34 @@ namespace TrailGuard.Controllers
                 .Count(g => !string.IsNullOrEmpty(g) && !g.Equals("None of the above", StringComparison.OrdinalIgnoreCase));
         }
 
+        // Trail-side ML inputs are sourced from the Event's own immutable Trail
+        // Snapshot (Event.Trail*Snapshot), never the live Trail navigation - see
+        // CLAUDE.md, "Event Trail Snapshot". Taking the whole Event rather than a
+        // Trail makes that dependency explicit at the call site: there is no live
+        // Trail parameter to accidentally pass here, and no competing fallback
+        // between a snapshot and a live value.
         private SuitabilityPredictionRequest BuildMlRequest(
             double? heightCm, double? weightKg,
             string? medicalConditions, string? exerciseFrequency, string? cardioEndurance,
             string? exerciseConsistency, string? mountainsClimbed, string? recencyOfHike,
-            string? trailDifficultyCompleted, string? gearItems, Trail trail)
+            string? trailDifficultyCompleted, string? gearItems, Event eventItem)
         {
             var h = heightCm ?? 165;
             var w = weightKg ?? 60;
             var heightM = h / 100;
             var bmi = heightM > 0 ? w / (heightM * heightM) : 22.0;
 
-            if (trail.TrailClass < 1 || trail.TrailClass > 4)
+            // Validated against the Event's own captured TrailClassSnapshot, not
+            // trail.TrailClass - the valid range (1-4) is unchanged. A snapshot
+            // value outside it (an unclassified Trail at capture time, or a
+            // pre-snapshot legacy Event whose backfill produced one) must fail
+            // here rather than silently falling back to the live Trail or a
+            // default value - the caller catches this and fails the submission
+            // safely without repairing or mutating the snapshot.
+            if (eventItem.TrailClassSnapshot < 1 || eventItem.TrailClassSnapshot > 4)
             {
                 throw new InvalidOperationException(
-                    $"Trail '{trail.Name}' (Id={trail.Id}) has an invalid TrailClass ({trail.TrailClass}); expected 1-4.");
+                    $"Event {eventItem.Id} (Trail snapshot '{eventItem.TrailNameSnapshot}') has an invalid TrailClassSnapshot ({eventItem.TrailClassSnapshot}); expected 1-4.");
             }
 
             return new SuitabilityPredictionRequest
@@ -443,12 +469,13 @@ namespace TrailGuard.Controllers
                 HasCvdSymptoms = (HasCondition(medicalConditions, "Vertigo")
                                 || HasCondition(medicalConditions, "Chest pain")
                                 || HasCondition(medicalConditions, "Shortness of breath")) ? 1 : 0,
-                TrailDistanceKm = trail.DistanceKm,
-                TrailElevationGainM = trail.ElevationGainMeters,
+                TrailDistanceKm = eventItem.TrailDistanceKmSnapshot,
+                TrailElevationGainM = eventItem.TrailElevationGainMetersSnapshot,
                 // The ML request field is still named TrailTerrainType/trail_terrain_type -
-                // that's the Python feature contract (FEATURE_COLUMNS, the trained model's
-                // column names), unrelated to what the C# Trail entity calls the value.
-                TrailTerrainType = trail.TrailClass,
+                // that's the unchanged Python feature contract (FEATURE_COLUMNS, the trained
+                // model's column names) and continues to mean Technical Trail Class; unrelated
+                // to the C# snapshot property name it's sourced from here.
+                TrailTerrainType = eventItem.TrailClassSnapshot,
             };
         }
 
@@ -650,7 +677,6 @@ namespace TrailGuard.Controllers
             for (var i = targetIndex; i >= 0; i--)
             {
                 var events = await _context.Events
-                    .Include(e => e.Trail)
                     .Where(e =>
                         e.Id != eventId &&
                         e.Status == "Upcoming" &&

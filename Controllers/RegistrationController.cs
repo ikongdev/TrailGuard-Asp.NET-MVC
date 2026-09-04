@@ -23,9 +23,8 @@ namespace TrailGuard.Controllers
         public async Task<IActionResult> Register(int eventId, int assessmentId)
         {
             var eventItem = await _context.Events
-                .Include(e => e.Trail)
                 .FirstOrDefaultAsync(e => e.Id == eventId);
-            
+
             if (eventItem == null)
             {
                 TempData["Error"] = "Event not found";
@@ -297,7 +296,6 @@ namespace TrailGuard.Controllers
 
             var registrations = await _context.EventRegistrations
                 .Include(r => r.Event)
-                .ThenInclude(e => e!.Trail)
                 .Include(r => r.Assessment)
                 .Include(r => r.AlternativeEvent)
                 .Where(r => r.UserId == userId)
@@ -435,10 +433,8 @@ namespace TrailGuard.Controllers
 
             var registration = await _context.EventRegistrations
                 .Include(r => r.Event)
-                .ThenInclude(e => e!.Trail)
                 .Include(r => r.Assessment)
                 .Include(r => r.AlternativeEvent)
-                .ThenInclude(e => e!.Trail)
                 .FirstOrDefaultAsync(r => r.Id == id);
 
             // Same message whether the ID doesn't exist or just isn't this user's —
@@ -473,10 +469,12 @@ namespace TrailGuard.Controllers
                     eventLocation = registration.Event?.Location,
                     eventDifficulty = registration.Event?.Difficulty,
                     eventDuration = registration.Event?.EstimatedDuration,
-                    trailName = registration.Event?.Trail?.Name,
-                    trailDistance = registration.Event?.Trail?.DistanceKm,
-                    trailElevation = registration.Event?.Trail?.ElevationGainMeters,
-                    trailTerrain = registration.Event?.Trail?.Terrain,
+                    // Trail Snapshot fields - never a live Event.Trail read. See
+                    // CLAUDE.md, "Event Trail Snapshot".
+                    trailName = registration.Event?.TrailNameSnapshot,
+                    trailDistance = registration.Event?.TrailDistanceKmSnapshot,
+                    trailElevation = registration.Event?.TrailElevationGainMetersSnapshot,
+                    trailTerrain = registration.Event?.TrailTerrainSnapshot,
                     participantName = registration.ParticipantName,
                     contactNumber = registration.ContactNumber,
                     email = registration.Email,

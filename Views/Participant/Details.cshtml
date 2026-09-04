@@ -2,7 +2,6 @@
 @using TrailGuard.Models
 @{
     ViewData["Title"] = Model.EventTitle;
-    var trail = ViewBag.Trail as TrailGuard.Models.Trail;
     var registrations = ViewBag.Registrations as List<EventRegistration> ?? new List<EventRegistration>();
     var registeredCount = ViewBag.RegisteredCount ?? 0;
     var availableSlots = ViewBag.AvailableSlots ?? 0;
@@ -79,9 +78,9 @@
     </div>
 
     <div class="relative rounded-xl overflow-hidden mb-8">
-        @if (!string.IsNullOrEmpty(trail?.ThumbnailUrl))
+        @if (!string.IsNullOrEmpty(Model.TrailThumbnailUrlSnapshot))
         {
-            <img src="@trail.ThumbnailUrl" alt="@trail.Name" class="w-full h-72 object-cover">
+            <img src="@Model.TrailThumbnailUrlSnapshot" alt="@Model.TrailNameSnapshot" class="w-full h-72 object-cover">
         }
         else
         {
@@ -125,19 +124,19 @@
                 <div class="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4">
                     <div>
                         <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Trail</p>
-                        <p class="text-white font-semibold text-sm">@trail?.Name</p>
+                        <p class="text-white font-semibold text-sm">@Model.TrailNameSnapshot</p>
                     </div>
                     <div>
                         <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Distance</p>
-                        <p class="text-white font-semibold text-sm">@trail?.DistanceKm km</p>
+                        <p class="text-white font-semibold text-sm">@Model.TrailDistanceKmSnapshot km</p>
                     </div>
                     <div>
                         <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Elevation Gain</p>
-                        <p class="text-white font-semibold text-sm">@trail?.ElevationGainMeters m</p>
+                        <p class="text-white font-semibold text-sm">@Model.TrailElevationGainMetersSnapshot m</p>
                     </div>
                     <div>
                         <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Trail Class</p>
-                        <p class="text-white font-semibold text-sm">@TrailGuard.Services.DifficultyCalculator.TrailClassLabel(trail?.TrailClass ?? 0)</p>
+                        <p class="text-white font-semibold text-sm">@TrailGuard.Services.DifficultyCalculator.TrailClassLabel(Model.TrailClassSnapshot)</p>
                     </div>
                     <div>
                         <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Duration</p>
@@ -145,7 +144,7 @@
                     </div>
                     <div>
                         <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Terrain</p>
-                        <p class="text-white font-semibold text-sm">@trail?.Terrain</p>
+                        <p class="text-white font-semibold text-sm">@Model.TrailTerrainSnapshot</p>
                     </div>
                 </div>
             </div>
@@ -256,7 +255,7 @@
                 <div class="space-y-3 text-sm">
                     <div class="flex justify-between gap-4">
                         <span class="text-gray-400">Trail</span>
-                        <span class="text-white font-semibold text-right">@trail?.Name</span>
+                        <span class="text-white font-semibold text-right">@Model.TrailNameSnapshot</span>
                     </div>
                     <div class="flex justify-between gap-4">
                         <span class="text-gray-400">Difficulty</span>

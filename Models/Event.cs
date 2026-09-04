@@ -33,11 +33,61 @@ namespace TrailGuard.Models
         [ForeignKey("TrailId")]
         public virtual Trail? Trail { get; set; }
 
+        // Location and Difficulty are the two original Trail Trail-derived
+        // snapshot fields on Event, predating the full snapshot below - see
+        // CLAUDE.md, "Event Trail Snapshot". Both are captured once (Add Event,
+        // or a deliberate Trail change on Edit Event) via
+        // Services/EventTrailSnapshotHelper.CaptureSnapshot and never
+        // recalculated from the live Trail afterward - not even when the Trail
+        // itself is later edited (see TrailController.EditTrail, which no
+        // longer cascades a recompute onto linked Events).
         [Display(Name = "Location")]
         public string Location { get; set; } = string.Empty;
 
         [Display(Name = "Difficulty")]
         public string Difficulty { get; set; } = string.Empty; // Auto-computed, hindi ini-input
+
+        // Trail Snapshot - immutable copy of the selected Trail's
+        // display/calculation-relevant fields, captured once by
+        // EventTrailSnapshotHelper.CaptureSnapshot at the same moments as
+        // Location/Difficulty above (Add Event, or a deliberate TrailId change
+        // on Edit Event). TrailId/Trail above remain the stable relationship
+        // for identity, grouping, analytics, and referential integrity - these
+        // fields are what every Event-history display, difficulty sort, and
+        // participant progress/Achievement calculation must read instead of
+        // the live Trail navigation, so that editing the source Trail later
+        // never rewrites what an already-created Event shows or has already
+        // counted toward a participant's history. See CLAUDE.md, "Event Trail
+        // Snapshot".
+        [MaxLength(200)]
+        [Display(Name = "Trail Name (Snapshot)")]
+        public string TrailNameSnapshot { get; set; } = string.Empty;
+
+        [Display(Name = "Trail Distance km (Snapshot)")]
+        public double TrailDistanceKmSnapshot { get; set; }
+
+        [Display(Name = "Trail Elevation Gain Meters (Snapshot)")]
+        public int TrailElevationGainMetersSnapshot { get; set; }
+
+        [MaxLength(500)]
+        [Display(Name = "Trail Terrain (Snapshot)")]
+        public string TrailTerrainSnapshot { get; set; } = string.Empty;
+
+        [Display(Name = "Trail Class (Snapshot)")]
+        public int TrailClassSnapshot { get; set; }
+
+        // The exact adjusted (terrain-multiplied) NPS rating used to compute
+        // Difficulty above at capture time - see
+        // Services/DifficultyCalculator.ComputeAdjustedRating. Difficulty
+        // sorting must use this stored value, never a live recalculation from
+        // the current Trail (see EventController.Index /
+        // ParticipantController.Events).
+        [Display(Name = "Trail Adjusted Rating (Snapshot)")]
+        public double TrailAdjustedRatingSnapshot { get; set; }
+
+        [MaxLength(300)]
+        [Display(Name = "Trail Thumbnail URL (Snapshot)")]
+        public string? TrailThumbnailUrlSnapshot { get; set; }
 
         [Required(ErrorMessage = "Estimated duration is required.")]
         [Display(Name = "Estimated Duration (hours)")]

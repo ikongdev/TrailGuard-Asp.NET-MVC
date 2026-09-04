@@ -129,12 +129,18 @@ namespace TrailGuard.Services
             // them with no dependency on which row the database happens to return
             // first - a stricter, more deterministic replacement for a
             // GroupBy(...).First().
+            // TrailClass comes from the Event's own frozen Trail Snapshot
+            // (TrailClassSnapshot), never a live Event.Trail read - reclassifying
+            // a Trail after the fact must never retroactively grant or revoke a
+            // participant's already-earned Technical Explorer progress. See
+            // CLAUDE.md, "Event Trail Snapshot" and "Participant Progress /
+            // Achievements".
             var qualifyingRows = await GetOwnQualifyingRegistrations(userId)
                 .Select(r => new QualifyingEventRecord(
                     r.EventId,
                     r.Event!.TrailId,
                     r.Event.EventDate,
-                    r.Event.Trail != null ? r.Event.Trail.TrailClass : (int?)null,
+                    r.Event.TrailClassSnapshot,
                     r.Event.Difficulty))
                 .ToListAsync();
 
@@ -277,7 +283,7 @@ namespace TrailGuard.Services
                 {
                     r.EventId,
                     r.Event!.EventTitle,
-                    TrailName = r.Event.Trail != null ? r.Event.Trail.Name : null,
+                    TrailName = r.Event.TrailNameSnapshot,
                     r.Event.EventDate,
                     r.Event.Difficulty,
                     r.Event.OrganizerId
@@ -313,7 +319,7 @@ namespace TrailGuard.Services
             return newestFirst.Select(e => new RecentAdventureResult
             {
                 EventTitle = e.EventTitle,
-                TrailName = e.TrailName ?? "Unknown Trail",
+                TrailName = string.IsNullOrEmpty(e.TrailName) ? "Unknown Trail" : e.TrailName,
                 EventDate = e.EventDate,
                 Difficulty = e.Difficulty,
                 OrganizerDisplayName = e.OrganizerId == null

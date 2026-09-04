@@ -182,18 +182,12 @@ namespace TrailGuard.Controllers
                 existingTrail.TrailClass = model.TrailClass;
                 existingTrail.Description = model.Description;
 
-                // Distance, elevation, or terrain may have just changed - every event
-                // still pointing at this trail was rated at the old values. Without
-                // this, an edited trail's events keep a stale Difficulty label until
-                // someone happens to re-save the event itself.
-                var affectedEvents = await _context.Events
-                    .Where(e => e.TrailId == id)
-                    .ToListAsync();
-                foreach (var affectedEvent in affectedEvents)
-                {
-                    affectedEvent.Difficulty = DifficultyCalculator.ComputeDifficulty(existingTrail);
-                    affectedEvent.DateUpdated = DateTime.Now;
-                }
+                // Editing a Trail updates only the Trail - it no longer
+                // recalculates or re-persists Difficulty/DateUpdated on Events
+                // that reference it. Each Event's Trail Snapshot (captured at
+                // Add Event, or a deliberate Trail change on Edit Event) is
+                // immutable once created; only future Events see these new
+                // Trail values. See CLAUDE.md, "Event Trail Snapshot".
 
                 if (ThumbnailImage != null && ThumbnailImage.Length > 0)
                 {
@@ -205,11 +199,26 @@ namespace TrailGuard.Controllers
 
                     if (!string.IsNullOrEmpty(existingTrail.ThumbnailUrl))
                     {
-                        string oldFilePath = Path.Combine(_webHostEnvironment.WebRootPath, 
-                            existingTrail.ThumbnailUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
-                        if (System.IO.File.Exists(oldFilePath))
+                        // The old thumbnail file is only deleted if no Event
+                        // snapshot still references this exact stored URL - an
+                        // Event created (or last pointed at this Trail) before
+                        // this replacement still shows that original photo, so
+                        // its backing file must survive this Trail's own
+                        // thumbnail change. See
+                        // EventTrailSnapshotHelper.IsThumbnailUrlReferencedByAnyEventAsync
+                        // and CLAUDE.md, "Event Trail Snapshot" (thumbnail
+                        // retention).
+                        var oldThumbnailReferenced = await EventTrailSnapshotHelper
+                            .IsThumbnailUrlReferencedByAnyEventAsync(_context, existingTrail.ThumbnailUrl);
+
+                        if (!oldThumbnailReferenced)
                         {
-                            System.IO.File.Delete(oldFilePath);
+                            string oldFilePath = Path.Combine(_webHostEnvironment.WebRootPath,
+                                existingTrail.ThumbnailUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+                            if (System.IO.File.Exists(oldFilePath))
+                            {
+                                System.IO.File.Delete(oldFilePath);
+                            }
                         }
                     }
 
@@ -331,7 +340,19 @@ namespace TrailGuard.Controllers
             // Resolve and validate file paths before touching the database, but don't
             // delete anything yet - if SaveChanges fails, the trail (and its images)
             // must still exist afterward.
-            var thumbnailPath = ResolveUploadPath(trail.ThumbnailUrl);
+            //
+            // hasLinkedEvents above already blocks this whole deletion while any
+            // Event's TrailId still points at this Trail, but an Event can have
+            // been deliberately moved to a different Trail on Edit while keeping
+            // this Trail's thumbnail in its own snapshot (TrailThumbnailUrlSnapshot)
+            // - so the thumbnail file itself still needs its own reference check
+            // before deletion, independent of that TrailId-based guard. Additional
+            // Trail Photos remain Trail-owned and are never part of an Event
+            // snapshot (see CLAUDE.md, "Event Trail Snapshot"), so no equivalent
+            // check applies to them.
+            var thumbnailReferencedByEvent = await EventTrailSnapshotHelper
+                .IsThumbnailUrlReferencedByAnyEventAsync(_context, trail.ThumbnailUrl);
+            var thumbnailPath = thumbnailReferencedByEvent ? null : ResolveUploadPath(trail.ThumbnailUrl);
             var photoPaths = (trail.TrailPhotos ?? Enumerable.Empty<TrailPhoto>())
                 .Select(p => ResolveUploadPath(p.ImageUrl))
                 .Where(p => p != null)

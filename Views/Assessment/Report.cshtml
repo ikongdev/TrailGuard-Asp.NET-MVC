@@ -11,7 +11,15 @@
     var donutColor = isGoodMatch ? "#34d399" : isBorderline ? "#fbbf24" : "#f87171";
 
     var eventItem = ViewBag.Assessment?.Event as TrailGuard.Models.Event;
-    var trail = eventItem?.Trail;
+
+    // Trail-derived figures come from the Event's own frozen Trail Snapshot,
+    // never a live read of Event.Trail - an assessment report is a historical
+    // record and must not change if the Trail is edited afterward. See
+    // CLAUDE.md, "Event Trail Snapshot".
+    var trailDistanceKm = eventItem?.TrailDistanceKmSnapshot ?? 0;
+    var trailElevationGainMeters = eventItem?.TrailElevationGainMetersSnapshot ?? 0;
+    var trailTerrain = eventItem != null ? eventItem.TrailTerrainSnapshot : null;
+    var trailName = eventItem != null ? eventItem.TrailNameSnapshot : null;
 
     var confidencePct = Math.Round((Model?.ConfidenceScore ?? 0) * 100, 1);
     var confidenceDisplay = confidencePct.ToString("0.0");
@@ -28,7 +36,7 @@
         ? "Your assessment flagged a health condition that needs medical clearance before you can register."
         : "This trail is significantly beyond your current readiness. Registration will require a medical clearance and a preparation plan.";
 
-    var trailClass = trail?.TrailClass ?? 0;
+    var trailClass = eventItem?.TrailClassSnapshot ?? 0;
     var terrainTypeLabel = TrailGuard.Services.DifficultyCalculator.TrailClassLabel(trailClass);
     var terrainTypeColor = trailClass switch
     {
@@ -143,21 +151,21 @@
                     <div>
                         <div class="flex justify-between text-sm mb-1">
                             <span class="text-gray-300">Distance</span>
-                            <span class="text-white font-semibold">@(trail?.DistanceKm ?? 0) km</span>
+                            <span class="text-white font-semibold">@(trailDistanceKm) km</span>
                         </div>
                         <div class="w-full h-2.5 bg-gray-700 rounded-full overflow-hidden">
-                            <div class="h-full rounded-full transition-all duration-700 @((trail?.DistanceKm ?? 0) >= 15 ? "bg-red-500" : (trail?.DistanceKm ?? 0) >= 10 ? "bg-yellow-500" : "bg-green-500")"
-                                 style="width: @(Math.Min(((trail?.DistanceKm ?? 0) / 20) * 100, 100))%"></div>
+                            <div class="h-full rounded-full transition-all duration-700 @((trailDistanceKm) >= 15 ? "bg-red-500" : (trailDistanceKm) >= 10 ? "bg-yellow-500" : "bg-green-500")"
+                                 style="width: @(Math.Min(((trailDistanceKm) / 20) * 100, 100))%"></div>
                         </div>
                     </div>
                     <div>
                         <div class="flex justify-between text-sm mb-1">
                             <span class="text-gray-300">Elevation Gain</span>
-                            <span class="text-white font-semibold">@(trail?.ElevationGainMeters ?? 0) m</span>
+                            <span class="text-white font-semibold">@(trailElevationGainMeters) m</span>
                         </div>
                         <div class="w-full h-2.5 bg-gray-700 rounded-full overflow-hidden">
-                            <div class="h-full rounded-full transition-all duration-700 @((trail?.ElevationGainMeters ?? 0) >= 1000 ? "bg-red-500" : (trail?.ElevationGainMeters ?? 0) >= 600 ? "bg-yellow-500" : "bg-green-500")"
-                                 style="width: @(Math.Min(((double)(trail?.ElevationGainMeters ?? 0) / 1500) * 100, 100))%"></div>
+                            <div class="h-full rounded-full transition-all duration-700 @((trailElevationGainMeters) >= 1000 ? "bg-red-500" : (trailElevationGainMeters) >= 600 ? "bg-yellow-500" : "bg-green-500")"
+                                 style="width: @(Math.Min(((double)(trailElevationGainMeters) / 1500) * 100, 100))%"></div>
                         </div>
                     </div>
                     <div>
@@ -182,7 +190,7 @@
                     </div>
                     <div class="sm:col-span-2">
                         <span class="text-gray-300 text-sm">Terrain</span>
-                        <span class="text-white text-sm ml-2">@(trail?.Terrain ?? "N/A")</span>
+                        <span class="text-white text-sm ml-2">@(trailTerrain ?? "N/A")</span>
                     </div>
                 </div>
             </div>
@@ -329,7 +337,7 @@
                     </div>
                     <div class="flex justify-between">
                         <span class="text-gray-400">Trail</span>
-                        <span class="text-white font-semibold text-right">@(trail?.Name ?? "N/A")</span>
+                        <span class="text-white font-semibold text-right">@(trailName ?? "N/A")</span>
                     </div>
                     <div class="flex justify-between">
                         <span class="text-gray-400">Difficulty</span>

@@ -106,7 +106,6 @@ namespace TrailGuard.Controllers
             // Organizer-integrity category below.
             var upcomingStatusEvents = await _context.Events
                 .AsNoTracking()
-                .Include(e => e.Trail)
                 .Where(e => e.Status == "Upcoming")
                 .ToListAsync();
 
@@ -160,7 +159,9 @@ namespace TrailGuard.Controllers
                 {
                     EventId = e.Id,
                     EventTitle = e.EventTitle,
-                    TrailName = e.Trail?.Name ?? "Unknown Trail",
+                    // Event's own Trail Snapshot, never a live Event.Trail read -
+                    // see CLAUDE.md, "Event Trail Snapshot".
+                    TrailName = string.IsNullOrEmpty(e.TrailNameSnapshot) ? "Unknown Trail" : e.TrailNameSnapshot,
                     EventDate = e.EventDate,
                     EventTime = e.EventTime,
                     Difficulty = e.Difficulty,

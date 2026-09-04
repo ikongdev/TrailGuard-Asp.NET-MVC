@@ -2,7 +2,6 @@
 @using TrailGuard.Models
 @{
     ViewData["Title"] = Model.EventTitle;
-    var trail = ViewBag.Trail as TrailGuard.Models.Trail;
     var registrations = ViewBag.Registrations as List<EventRegistration> ?? new List<EventRegistration>();
     var registeredCount = ViewBag.RegisteredCount ?? 0;
     var availableSlots = ViewBag.AvailableSlots ?? 0;
@@ -54,8 +53,9 @@
     // de-duplication added here since the read-only display context (unlike
     // the editable checkbox chips in Trail/_TerrainChips.cshtml, which aren't
     // compatible with a non-form display) has no built-in dedupe of its own.
-    // Trail.Terrain itself is never modified.
-    var terrainChips = (trail?.Terrain ?? string.Empty)
+    // Sourced from the Event's own Trail Snapshot (TrailTerrainSnapshot), never
+    // a live Event.Trail read - see CLAUDE.md, "Event Trail Snapshot".
+    var terrainChips = (Model.TrailTerrainSnapshot ?? string.Empty)
         .Split(',')
         .Select(t => t.Trim())
         .Where(t => t.Length > 0)
@@ -87,9 +87,9 @@
     </div>
 
     <div class="relative rounded-3xl overflow-hidden mb-8">
-        @if (!string.IsNullOrEmpty(trail?.ThumbnailUrl))
+        @if (!string.IsNullOrEmpty(Model.TrailThumbnailUrlSnapshot))
         {
-            <img src="@trail.ThumbnailUrl" alt="@trail.Name" class="w-full h-80 object-cover">
+            <img src="@Model.TrailThumbnailUrlSnapshot" alt="@Model.TrailNameSnapshot" class="w-full h-80 object-cover">
         }
         else
         {
@@ -130,11 +130,11 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <p class="text-gray-500 text-xs uppercase tracking-wider"><i class="fa-solid fa-mountain text-accent mr-1"></i>Trail</p>
-                        <p class="text-white font-semibold">@trail?.Name</p>
+                        <p class="text-white font-semibold">@Model.TrailNameSnapshot</p>
                     </div>
                     <div>
                         <p class="text-gray-500 text-xs uppercase tracking-wider"><i class="fa-solid fa-route text-accent mr-1"></i>Distance</p>
-                        <p class="text-white font-semibold">@trail?.DistanceKm km</p>
+                        <p class="text-white font-semibold">@Model.TrailDistanceKmSnapshot km</p>
                     </div>
                     <div>
                         <p class="text-gray-500 text-xs uppercase tracking-wider mb-1.5"><i class="fa-solid fa-tree text-accent mr-1"></i>Terrain</p>
@@ -158,11 +158,11 @@
                     </div>
                     <div>
                         <p class="text-gray-500 text-xs uppercase tracking-wider"><i class="fa-solid fa-arrow-trend-up text-accent mr-1"></i>Elevation Gain</p>
-                        <p class="text-white font-semibold">@trail?.ElevationGainMeters m</p>
+                        <p class="text-white font-semibold">@Model.TrailElevationGainMetersSnapshot m</p>
                     </div>
                     <div>
                         <p class="text-gray-500 text-xs uppercase tracking-wider"><i class="fa-solid fa-hand text-accent mr-1"></i>Trail Class</p>
-                        <p class="text-white font-semibold">@TrailGuard.Services.DifficultyCalculator.TrailClassLabel(trail?.TrailClass ?? 0)</p>
+                        <p class="text-white font-semibold">@TrailGuard.Services.DifficultyCalculator.TrailClassLabel(Model.TrailClassSnapshot)</p>
                     </div>
                     <div>
                         <p class="text-gray-500 text-xs uppercase tracking-wider"><i class="fa-solid fa-clock text-accent mr-1"></i>Estimated Duration</p>

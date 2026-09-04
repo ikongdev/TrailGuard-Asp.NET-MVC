@@ -97,14 +97,17 @@ namespace TrailGuard.Controllers
             // the header summary and an unfiltered Upcoming section always agree.
             var upcomingEventsCount = await _context.Events.CountAsync(e => e.Status == "Upcoming");
 
-            IQueryable<Event> query = _context.Events.Include(e => e.Trail);
+            IQueryable<Event> query = _context.Events;
 
             if (!string.IsNullOrEmpty(normalizedSearch))
             {
+                // TrailNameSnapshot - the Event's own frozen Trail name - not a
+                // live join through Event.Trail. See CLAUDE.md, "Event Trail
+                // Snapshot".
                 query = query.Where(e =>
                     e.EventTitle.Contains(normalizedSearch) ||
                     e.Location.Contains(normalizedSearch) ||
-                    (e.Trail != null && e.Trail.Name.Contains(normalizedSearch)));
+                    e.TrailNameSnapshot.Contains(normalizedSearch));
             }
 
             if (normalizedStatus != "All")
@@ -344,9 +347,6 @@ namespace TrailGuard.Controllers
                     Description = model.Description,
                     EventDate = model.EventDate,
                     EventTime = model.EventTime,
-                    TrailId = model.TrailId,
-                    Location = trail.Location,
-                    Difficulty = DifficultyCalculator.ComputeDifficulty(trail),
                     EstimatedDuration = model.EstimatedDuration,
                     Capacity = model.Capacity,
                     OrganizedBy = organizerName,
@@ -360,6 +360,12 @@ namespace TrailGuard.Controllers
                     PaymentDetails = model.PaymentDetails,
                     PickupPoints = string.Join("\n", scheduleResult.CanonicalLines)
                 };
+
+                // The selected Trail, loaded fresh from the database above, is
+                // the only source for TrailId/Location/Difficulty and every
+                // Trail*Snapshot field - never the browser-posted model. See
+                // CLAUDE.md, "Event Trail Snapshot".
+                EventTrailSnapshotHelper.CaptureSnapshot(newEvent, trail);
 
                 _context.Events.Add(newEvent);
                 await _context.SaveChangesAsync();
@@ -379,7 +385,6 @@ namespace TrailGuard.Controllers
             try
             {
                 var eventItem = await _context.Events
-                    .Include(e => e.Trail)
                     .FirstOrDefaultAsync(e => e.Id == id);
 
                 if (eventItem == null)
@@ -403,8 +408,6 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "Completed events are read-only and cannot be edited." });
                 }
 
-                var trail = eventItem.Trail;
-
                 // Defensive read - malformed/unsupported stored JSON
                 // degrades to null (treated the same as a legacy event that
                 // never had one) rather than breaking this endpoint. Never
@@ -423,20 +426,25 @@ namespace TrailGuard.Controllers
                     eventDate = eventItem.EventDate.ToString("yyyy-MM-dd"),
                     eventTime = eventItem.EventTime.ToString(),
                     trailId = eventItem.TrailId,
-                    trailName = trail?.Name,
+                    trailName = eventItem.TrailNameSnapshot,
                     // Trail preview fields the Edit Event modal's Step 1 cards
-                    // show on open - returned here so hydration never needs a
-                    // GetTrailDetails/GetCalculatedDifficulty round trip (which
-                    // would mean dispatching a synthetic 'change' event on the
-                    // trail select to trigger them, and that would also fire
-                    // the weather refetch that hydration must NOT trigger).
-                    trailLocation = trail?.Location,
-                    trailDistanceKm = trail?.DistanceKm,
-                    trailElevationGainMeters = trail?.ElevationGainMeters,
-                    trailTerrain = trail?.Terrain,
-                    trailClass = trail?.TrailClass,
-                    trailClassLabel = trail != null ? DifficultyCalculator.TrailClassLabel(trail.TrailClass) : null,
-                    trailDifficulty = trail != null ? DifficultyCalculator.ComputeDifficulty(trail) : eventItem.Difficulty,
+                    // show on open - the Event's own frozen snapshot, not a live
+                    // read of the current Trail (see CLAUDE.md, "Event Trail
+                    // Snapshot": same-TrailId preservation means this hydration
+                    // must show what was captured, not what the Trail looks
+                    // like right now). If the organizer picks a *different*
+                    // Trail from the dropdown, the client's existing
+                    // GetTrailDetails/GetCalculatedDifficulty calls preview
+                    // that newly-selected Trail live, exactly as Add Event
+                    // does; only submitting the edit actually recaptures the
+                    // snapshot.
+                    trailLocation = eventItem.Location,
+                    trailDistanceKm = eventItem.TrailDistanceKmSnapshot,
+                    trailElevationGainMeters = eventItem.TrailElevationGainMetersSnapshot,
+                    trailTerrain = eventItem.TrailTerrainSnapshot,
+                    trailClass = eventItem.TrailClassSnapshot,
+                    trailClassLabel = DifficultyCalculator.TrailClassLabel(eventItem.TrailClassSnapshot),
+                    trailDifficulty = eventItem.Difficulty,
                     estimatedDuration = eventItem.EstimatedDuration,
                     capacity = eventItem.Capacity,
                     organizedBy = eventItem.OrganizedBy,
@@ -494,7 +502,6 @@ namespace TrailGuard.Controllers
             await RegistrationStatusHelper.ExpireOverdueRegistrations(_context);
 
             var eventItem = await _context.Events
-                .Include(e => e.Trail)
                 .FirstOrDefaultAsync(e => e.Id == id);
 
             if (eventItem == null)
@@ -612,8 +619,7 @@ namespace TrailGuard.Controllers
                     );
                 ViewBag.Organizer = organizer;
             }
-            
-            ViewBag.Trail = eventItem.Trail;
+
             return View(eventItem);
         }
 
@@ -896,9 +902,17 @@ namespace TrailGuard.Controllers
                 existingEvent.Description = model.Description;
                 existingEvent.EventDate = model.EventDate;
                 existingEvent.EventTime = model.EventTime;
-                existingEvent.TrailId = model.TrailId;
-                existingEvent.Location = trail.Location;
-                existingEvent.Difficulty = DifficultyCalculator.ComputeDifficulty(trail);
+
+                // Trail Snapshot: same TrailId preserves the existing snapshot
+                // exactly (no live Trail read, no partial refresh of just
+                // Location/Difficulty) - a deliberate TrailId change captures a
+                // complete, atomic new snapshot from the newly selected Trail.
+                // See CLAUDE.md, "Event Trail Snapshot".
+                if (existingEvent.TrailId != model.TrailId)
+                {
+                    EventTrailSnapshotHelper.CaptureSnapshot(existingEvent, trail);
+                }
+
                 existingEvent.EstimatedDuration = model.EstimatedDuration;
                 existingEvent.Capacity = model.Capacity;
                 existingEvent.OrganizedBy = organizerName;

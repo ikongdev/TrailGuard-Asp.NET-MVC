@@ -381,7 +381,11 @@ namespace TrailGuard.Controllers
                 {
                     e.Id,
                     e.EventTitle,
-                    TrailName = e.Trail != null ? e.Trail.Name : "Unknown Trail",
+                    // Event's own Trail Snapshot - a historical record must show
+                    // what the Trail was when this Event was created/last
+                    // recaptured, not what it currently is. See CLAUDE.md,
+                    // "Event Trail Snapshot".
+                    TrailName = e.TrailNameSnapshot,
                     e.OrganizerId,
                     e.EventDate,
                     e.EventTime,
@@ -408,7 +412,7 @@ namespace TrailGuard.Controllers
             {
                 Id = e.Id,
                 EventTitle = e.EventTitle,
-                TrailName = e.TrailName,
+                TrailName = string.IsNullOrEmpty(e.TrailName) ? "Unknown Trail" : e.TrailName,
                 OrganizerId = e.OrganizerId,
                 OrganizerName = OrganizerDisplayName(scope, e.OrganizerId),
                 EventDate = e.EventDate,
@@ -467,6 +471,12 @@ namespace TrailGuard.Controllers
                 completedQuery = completedQuery.Where(e => e.OrganizerId == scope.ScopedOrganizerId);
             }
 
+            // Deliberately the CURRENT Trail catalog name, not each Event's frozen
+            // TrailNameSnapshot - this widget groups and labels by TrailId (stable
+            // Trail identity, see CLAUDE.md, "Analytics and identity"), so the label
+            // is "whatever this Trail is called now," not a per-Event historical
+            // display value. Contrast with BuildEventHistoryAsync above, whose
+            // per-row TrailName is the frozen snapshot.
             var completedEvents = await completedQuery
                 .Select(e => new { e.Id, e.TrailId, TrailName = e.Trail != null ? e.Trail.Name : "Unknown Trail" })
                 .ToListAsync();
