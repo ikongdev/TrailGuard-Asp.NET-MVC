@@ -121,6 +121,8 @@ bg-white/5 border border-white/5 rounded-xl
 
 **A card's action row reflects what the record actually permits, not a fixed template.** Event Management's card (`Views/Event/Index.cshtml`) renders `[View] [Edit] [Delete]` for a mutable Event, but a `Completed` Event — an immutable historical record, see CLAUDE.md, Event Lifecycle — renders `View` alone, full-width (`w-full` in place of `flex-1`, same secondary styling/height), with Edit and Delete not rendered at all rather than hidden or disabled. This is a server-rendered condition per card (`eventItem.Status == "Completed"`), not a CSS/JS toggle — the server independently enforces the same rule regardless of what the client renders.
 
+`Registration/Register.cshtml`'s right column (Assessment Result, Event & Trail Details, Action) is now three cards of the same canonical `bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl` family above — the Action card previously used an inconsistent `bg-accent/10` fill, and Event & Trail Details previously wrapped its content in a second `bg-surface-card/50` inset box that matched neither the canonical nor the nested-inset (`bg-white/5 border border-white/5`) recipe above. That inset box was removed outright rather than corrected to the nested recipe — its content now renders directly inside the outer card.
+
 ---
 
 ## Difficulty
@@ -276,13 +278,13 @@ The TrailGuard navbar brand always links to the public Landing Page for every au
 - Hover: `hover:brightness-110 hover:scale-[1.02]`
 - **No shadow or glow** — the gradient is enough weight
 
-**Solid-accent exception — no gradient, no hover scale.** `bg-accent hover:bg-accent/90` instead of the brand gradient, used where `hover:scale-[1.02]` would visibly shift a neighboring element: `Participant/Events.cshtml`'s Register/Upload Payment card CTA (`RegistrationButtonHelper.GetState`'s `Primary` style — a card's action row can be a different width across siblings, e.g. Alternative Recommended's single full-width button vs. everyone else's two-button row), `Participant/Details.cshtml`'s "View Recommended Event" action, and the Participant Trail Details modal's "Browse All Events" footer action (`Participant/Trails.cshtml` — a fixed-width footer button next to Close). Not a new third button variant, just this Primary shape without the scale/gradient.
+**Solid-accent exception — no gradient, no hover scale.** `bg-accent hover:bg-accent/90` instead of the brand gradient, used where `hover:scale-[1.02]` would visibly shift a neighboring element: `Participant/Events.cshtml`'s Register/Upload Payment card CTA (`RegistrationButtonHelper.GetState`'s `Primary` style — a card's action row can be a different width across siblings, e.g. Alternative Recommended's single full-width button vs. everyone else's two-button row), `Participant/Details.cshtml`'s "View Recommended Event" action, the Participant Trail Details modal's "Browse All Events" footer action (`Participant/Trails.cshtml` — a fixed-width footer button next to Close), and `Registration/Register.cshtml`'s Submit Registration action (previously an orange-pink-violet gradient that stood out from the page's neutral card family — corrected to this same recipe). Not a new third button variant, just this Primary shape without the scale/gradient.
 
 ### Secondary
 
 Two treatments exist in the app today. **Variant A is canonical**; B is being retired.
 
-**Variant A — filled quiet.** 7 usages across 4 pages: `Participant/Details.cshtml` 426, `Participant/Events.cshtml` 193 (the card's "View" action — its Alternative Recommended "View Details" variant at line 185 is the same recipe), `Participant/Trails.cshtml` 141 and 215, `Registration/MyRegistrations.cshtml` 160 and 164.
+**Variant A — filled quiet.** Canonical, and now the only treatment in use: `Participant/Details.cshtml` 426, `Participant/Events.cshtml` 193 (the card's "View" action — its Alternative Recommended "View Details" variant at line 185 is the same recipe), `Participant/Trails.cshtml` 141 and 215, `Registration/MyRegistrations.cshtml` 160 and 164, and `Registration/Register.cshtml`'s Cancel/Retake Assessment actions (migrated off Variant B below — the outer Action card's surface was also brought onto the same `bg-white/5 backdrop-blur-xl` family as the page's other right-column cards, replacing an inconsistent `bg-accent/10` fill).
 
 ```
 rounded-full text-gray-300 hover:text-white
@@ -291,7 +293,7 @@ border border-white/10 hover:border-white/20
 transition-colors
 ```
 
-**Variant B — outline only.** 2 usages, one page: `Registration/Register.cshtml` 325 and 329.
+**Variant B — outline only. Retired, 0 usages.** Formerly `Registration/Register.cshtml`'s Cancel and Retake Assessment actions — migrated to Variant A above, so no consumer remains. Recipe kept here only as a historical reference in case an old build or screenshot is compared against:
 
 ```
 rounded-full text-sm font-medium text-slate-400
@@ -423,9 +425,11 @@ scrollbar-color: rgb(139 92 246 / 0.65) transparent;   /* Firefox */
 ::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
 ```
 
-This replaced the menu's previous `custom-scrollbar` class — a generic, unscoped name eight pages each redefined locally (different colors/widths) inside their own `<style>` blocks. A portalled menu matched whichever one happened to belong to the currently-loaded page by accident, and a page with no local `.custom-scrollbar` rule at all (Browse Events, among others) fell all the way back to the native OS scrollbar. Seven of those eight page-local `.custom-scrollbar` blocks are otherwise unrelated (modal photo grids, etc.) and were left as-is — only the custom-select menu's own class changed. The eighth, `Participant/Trails.cshtml`'s Trail Details modal body, was separately replaced during the Browse Trails pass with the id-scoped `#viewTrailModalBody` rule in `input.css` (see Modals, Participant Trail Details, below) — not because it fed the custom-select menu, but because the same "generic unscoped class" defect applied to it independently.
+This replaced the menu's previous `custom-scrollbar` class — a generic, unscoped name eight pages each redefined locally (different colors/widths) inside their own `<style>` blocks. A portalled menu matched whichever one happened to belong to the currently-loaded page by accident, and a page with no local `.custom-scrollbar` rule at all (Browse Events, among others) fell all the way back to the native OS scrollbar. Six of those eight page-local `.custom-scrollbar` blocks are otherwise unrelated (modal photo grids, etc.) and remain as-is — only the custom-select menu's own class changed for them. The eighth, `Participant/Trails.cshtml`'s Trail Details modal body, was separately replaced during the Browse Trails pass with the id-scoped `#viewTrailModalBody` rule in `input.css` (see Modals, Participant Trail Details, below) — not because it fed the custom-select menu, but because the same "generic unscoped class" defect applied to it independently. The remaining one, `Registration/Register.cshtml`'s, was dead CSS (the class was never applied to any element on that page) and was deleted outright during the registration-page cleanup pass rather than left in place — see Cards, above, and the Register-page notes there.
 
 **Never add a second, page-local scrollbar recipe for this component.** Extend `.tg-custom-select-scrollbar` in `input.css` instead — the class must stay defined in exactly one place, and `output.css` must stay generated (`npm run build`), never hand-edited.
+
+`Registration/Register.cshtml`'s Pickup Schedule field is a `data-custom-select` consumer as of the registration-page visual pass — a native-looking select before that. It uses `data-custom-select-portal` (the Registration Form card is a `backdrop-blur-xl` ancestor, the same containing-block reason Event/Trail Management's filter bars need it) and the default dark form-trigger recipe (no `data-cs-trigger-class` override, since the field already matches that recipe). Server-side validation (`PickupScheduleHelper.FindCanonicalMatch` in `RegistrationController`) is unchanged by the swap — the enhancement only wraps the same bound `<select name="pickupPoint">` in an accessible proxy.
 
 ---
 

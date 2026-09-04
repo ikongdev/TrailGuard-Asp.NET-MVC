@@ -150,23 +150,31 @@
                                 <i class="fa-solid fa-bus text-accent mr-2"></i>Pickup Schedule
                             </h3>
                             <div>
-                                <label class="block text-xs font-medium text-gray-400 mb-1">Select Pickup Schedule <span class="text-red-400">*</span></label>
-                                <select name="pickupPoint" required class="w-full bg-surface-card border border-gray-700 text-white rounded-xl px-4 py-2.5 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors text-sm">
-                                    <option value="">Select a pickup schedule...</option>
-                                    @{
-                                        // Each option's value is the complete, canonical stored entry
-                                        // ("Location — Time") - never split into separate fields here.
-                                        // The same parser both Add Event's server-side validation and
-                                        // RegistrationController's submission check use, so a legacy
-                                        // free-text event's lines and a new structured event's
-                                        // "Location — Time" lines are both handled identically.
-                                        var pickupSchedules = TrailGuard.Services.PickupScheduleHelper.ParseStoredEntries(eventItem?.PickupPoints);
-                                    }
-                                    @foreach (var schedule in pickupSchedules)
-                                    {
-                                        <option value="@schedule">@schedule</option>
-                                    }
-                                </select>
+                                <label for="pickupPoint" class="block text-xs font-medium text-gray-400 mb-1">Select Pickup Schedule <span class="text-red-400">*</span></label>
+                                <div class="relative">
+                                    <select name="pickupPoint" id="pickupPoint" required
+                                            data-custom-select data-custom-select-portal
+                                            data-cs-decorative-chevron="pickupPointChevron"
+                                            class="w-full bg-surface-card border border-gray-700 text-white rounded-xl pl-4 pr-10 py-2.5 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors text-sm appearance-none cursor-pointer">
+                                        <option value="" disabled selected>Select a pickup schedule...</option>
+                                        @{
+                                            // Each option's value is the complete, canonical stored entry
+                                            // ("Location — Time") - never split into separate fields here.
+                                            // The same parser both Add Event's server-side validation and
+                                            // RegistrationController's submission check use, so a legacy
+                                            // free-text event's lines and a new structured event's
+                                            // "Location — Time" lines are both handled identically.
+                                            var pickupSchedules = TrailGuard.Services.PickupScheduleHelper.ParseStoredEntries(eventItem?.PickupPoints);
+                                        }
+                                        @foreach (var schedule in pickupSchedules)
+                                        {
+                                            <option value="@schedule">@schedule</option>
+                                        }
+                                    </select>
+                                    <div id="pickupPointChevron" class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
+                                        <i class="fa-solid fa-chevron-down text-xs" aria-hidden="true"></i>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -276,77 +284,70 @@
             <!-- Event & Trail Details -->
             <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-4">
                 <h3 class="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                    <i class="fa-regular fa-calendar text-accent"></i>
+                    <i class="fa-regular fa-calendar text-accent" aria-hidden="true"></i>
                     Event & Trail Details
                 </h3>
 
-                <div class="bg-surface-card/50 rounded-xl p-3">
-                    <p class="text-white font-semibold text-sm">@eventItem?.EventTitle</p>
-                    <p class="text-gray-400 text-xs flex items-center gap-1">
-                        <i class="fa-solid fa-mountain text-[10px] text-accent"></i>
-                        @eventItem?.TrailNameSnapshot
+                <div class="min-w-0">
+                    <p class="text-white font-semibold text-sm break-words">@eventItem?.EventTitle</p>
+                    <p class="text-gray-400 text-xs flex items-center gap-1 min-w-0">
+                        <i class="fa-solid fa-mountain text-[10px] text-accent shrink-0" aria-hidden="true"></i>
+                        <span class="break-words">@eventItem?.TrailNameSnapshot</span>
                     </p>
 
-                    <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 mt-3 pt-3 border-t border-white/5">
-                        <div>
-                            <p class="text-gray-500 text-[10px] uppercase tracking-wider">Date</p>
-                            <p class="text-white text-sm font-medium">@eventItem?.EventDate.ToString("MMM dd, yyyy")</p>
+                    <dl class="grid grid-cols-2 gap-x-4 gap-y-2 mt-3 pt-3 border-t border-white/5">
+                        <div class="min-w-0">
+                            <dt class="text-gray-500 text-[10px] uppercase tracking-wider">Date</dt>
+                            <dd class="text-white text-sm font-medium">@eventItem?.EventDate.ToString("MMM dd, yyyy")</dd>
                         </div>
-                        <div>
-                            <p class="text-gray-500 text-[10px] uppercase tracking-wider">Time</p>
-                            <p class="text-white text-sm font-medium">@eventItem?.FormattedEventTime</p>
+                        <div class="min-w-0">
+                            <dt class="text-gray-500 text-[10px] uppercase tracking-wider">Time</dt>
+                            <dd class="text-white text-sm font-medium">@eventItem?.FormattedEventTime</dd>
                         </div>
-                        <div>
-                            <p class="text-gray-500 text-[10px] uppercase tracking-wider">Difficulty</p>
-                            <p class="text-white text-sm font-medium">@eventItem?.Difficulty</p>
+                        <div class="min-w-0">
+                            <dt class="text-gray-500 text-[10px] uppercase tracking-wider">Difficulty</dt>
+                            <dd class="text-white text-sm font-medium break-words">@eventItem?.Difficulty</dd>
                         </div>
-                        <div>
-                            <p class="text-gray-500 text-[10px] uppercase tracking-wider">Duration</p>
-                            <p class="text-white text-sm font-medium">@eventItem?.EstimatedDuration hrs</p>
+                        <div class="min-w-0">
+                            <dt class="text-gray-500 text-[10px] uppercase tracking-wider">Duration</dt>
+                            <dd class="text-white text-sm font-medium">@eventItem?.EstimatedDuration hrs</dd>
                         </div>
-                        <div>
-                            <p class="text-gray-500 text-[10px] uppercase tracking-wider">Distance</p>
-                            <p class="text-white text-sm font-medium">@(eventItem?.TrailDistanceKmSnapshot ?? 0) km</p>
+                        <div class="min-w-0">
+                            <dt class="text-gray-500 text-[10px] uppercase tracking-wider">Distance</dt>
+                            <dd class="text-white text-sm font-medium">@(eventItem?.TrailDistanceKmSnapshot ?? 0) km</dd>
                         </div>
-                        <div>
-                            <p class="text-gray-500 text-[10px] uppercase tracking-wider">Elevation</p>
-                            <p class="text-white text-sm font-medium">@(eventItem?.TrailElevationGainMetersSnapshot ?? 0) m</p>
+                        <div class="min-w-0">
+                            <dt class="text-gray-500 text-[10px] uppercase tracking-wider">Elevation</dt>
+                            <dd class="text-white text-sm font-medium">@(eventItem?.TrailElevationGainMetersSnapshot ?? 0) m</dd>
                         </div>
-                        <div>
-                            <p class="text-gray-500 text-[10px] uppercase tracking-wider">Terrain</p>
-                            <p class="text-white text-sm font-medium">@(string.IsNullOrEmpty(eventItem?.TrailTerrainSnapshot) ? "N/A" : eventItem.TrailTerrainSnapshot)</p>
+                        <div class="min-w-0">
+                            <dt class="text-gray-500 text-[10px] uppercase tracking-wider">Terrain</dt>
+                            <dd class="text-white text-sm font-medium break-words">@(string.IsNullOrEmpty(eventItem?.TrailTerrainSnapshot) ? "N/A" : eventItem.TrailTerrainSnapshot)</dd>
                         </div>
-                        <div>
-                            <p class="text-gray-500 text-[10px] uppercase tracking-wider">Location</p>
-                            <p class="text-white text-sm font-medium truncate" title="@eventItem?.Location">@eventItem?.Location</p>
+                        <div class="min-w-0">
+                            <dt class="text-gray-500 text-[10px] uppercase tracking-wider">Location</dt>
+                            <dd class="text-white text-sm font-medium break-words">@eventItem?.Location</dd>
                         </div>
-                    </div>
+                    </dl>
                 </div>
             </div>
 
-            <div class="bg-accent/10 border border-white/10 rounded-xl p-4 space-y-2">
-                <button type="submit" form="registrationForm" class="w-full flex justify-center py-3.5 px-4 rounded-full text-sm font-semibold text-white bg-linear-to-r from-orange-500 via-pink-500 to-violet-500 hover:brightness-110 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-base transition duration-200 ease-out">
-                    <i class="fa-regular fa-paper-plane mr-2"></i> Submit Registration
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-4 space-y-2">
+                <button type="submit" form="registrationForm" class="w-full flex items-center justify-center py-3.5 px-4 rounded-full text-sm font-semibold text-white bg-accent hover:bg-accent/90 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-base transition-colors duration-200">
+                    <i class="fa-regular fa-paper-plane mr-2" aria-hidden="true"></i> Submit Registration
                 </button>
                 <a asp-controller="Participant" asp-action="Events"
-                   class="w-full px-6 py-2.5 rounded-full text-sm font-medium text-slate-400 border border-white/20 hover:text-white hover:border-white/40 transition-colors text-center block">
+                   class="w-full px-6 py-2.5 rounded-full text-sm font-semibold text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 focus:outline-none focus:ring-2 focus:ring-accent transition-colors text-center block">
                     Cancel
                 </a>
                 <a asp-controller="Assessment" asp-action="Form" asp-route-eventId="@Model?.EventId"
-                   class="w-full px-6 py-2.5 rounded-full text-sm font-medium text-slate-400 border border-white/20 hover:text-white hover:border-white/40 transition-colors text-center block">
-                    <i class="fa-solid fa-rotate mr-2"></i> Retake Assessment
+                   class="w-full px-6 py-2.5 rounded-full text-sm font-semibold text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 focus:outline-none focus:ring-2 focus:ring-accent transition-colors text-center block">
+                    <i class="fa-solid fa-rotate mr-2" aria-hidden="true"></i> Retake Assessment
                 </a>
             </div>
         </div>
     </div>
 </div>
-
-<style>
-    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
-    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
-</style>
 
 <script>
     function formatLocalDigits(raw) {
