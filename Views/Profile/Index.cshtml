@@ -418,38 +418,81 @@
             }
             else
             {
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    @foreach (var achievement in Model.Achievements)
+                @* Resting cards show only the badge, title, and progress bar (see
+                   DESIGN.md, Achievements). Requirement text, progress fraction, and
+                   earned date all move into the hover/focus/tap requirement reveal
+                   below - never shown permanently. *@
+                <div data-achievements-grid class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                    @for (var i = 0; i < Model.Achievements.Count; i++)
                     {
-                        <div class="h-full min-w-0 rounded-xl border p-4 flex flex-col gap-2 @(achievement.IsUnlocked ? "bg-accent/10 border-accent/30" : "bg-white/5 border-white/10")"
-                             role="group" aria-label="@achievement.Name, @(achievement.IsUnlocked ? "earned" : $"locked, {achievement.ClampedProgress} of {achievement.TargetValue}")">
-                            <div class="flex items-start gap-3">
-                                <span class="w-9 h-9 rounded-full flex items-center justify-center shrink-0 @(achievement.IsUnlocked ? "bg-accent/20 text-accent" : "bg-white/10 text-gray-500")" aria-hidden="true">
-                                    <i class="@achievement.IconClass text-sm"></i>
-                                </span>
-                                <div class="min-w-0">
-                                    <p class="font-semibold wrap-break-word @(achievement.IsUnlocked ? "text-white" : "text-gray-400")">@achievement.Name</p>
-                                    <p class="text-xs text-gray-500 wrap-break-word">@achievement.Description</p>
+                        var achievement = Model.Achievements[i];
+                        var earned = achievement.IsUnlocked;
+                        var descriptionId = "achievement-desc-" + i;
+                        var panelId = "achievement-panel-" + i;
+                        var earnedDateText = achievement.EarnedAt?.ToString("MMM dd, yyyy");
+                        var progressAriaText = earned
+                            ? (earnedDateText != null ? $"Earned {earnedDateText}" : "Earned")
+                            : $"{achievement.ClampedProgress} of {achievement.TargetValue}";
+
+                        @* group + data-expanded/data-focus-visible/data-focus-suppressed:
+                           the CSS reveal below responds to group-hover declaratively (no
+                           script needed for mouse), but keyboard/tap visibility is owned
+                           entirely by profile-achievements.js via these three data
+                           attributes - there is deliberately no group-focus-within here.
+                           A plain :focus-within rule can't be told "the script just
+                           closed this," so it would keep the panel visible from residual
+                           DOM focus after Escape or a second tap even once the script
+                           says closed; see wwwroot/js/profile-achievements.js. relative +
+                           overflow-hidden keeps the reveal panel fully contained, so it
+                           can never shift layout or clip outside this card. *@
+                        <div data-achievement-card data-expanded="false" data-focus-visible="false" data-focus-suppressed="false"
+                             class="group relative h-full min-w-0 overflow-hidden rounded-xl border flex flex-col items-center text-center gap-2 p-4 @(earned ? "bg-accent/10 border-accent/30" : "bg-white/5 border-white/10")">
+
+                            <img src="/images/achievements/achievement-@(achievement.AssetKey).webp"
+                                 width="512" height="512" alt="" aria-hidden="true"
+                                 class="w-20 h-20 sm:w-24 sm:h-24 object-contain@(earned ? "" : " grayscale opacity-40")" />
+
+                            <p class="font-semibold text-sm wrap-break-word @(earned ? "text-white" : "text-gray-400")">@achievement.Name</p>
+
+                            <div class="w-full mt-auto pt-1">
+                                <div class="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden"
+                                     role="progressbar" aria-valuenow="@achievement.ProgressPercent" aria-valuemin="0" aria-valuemax="100"
+                                     aria-label="@achievement.Name progress" aria-valuetext="@progressAriaText">
+                                    <div class="h-full rounded-full @(earned ? "bg-accent" : "bg-accent/50")" style="width: @achievement.ProgressPercent%"></div>
                                 </div>
                             </div>
 
-                            @if (achievement.IsUnlocked)
-                            {
-                                <p class="text-xs text-accent font-medium mt-1">
-                                    <i class="fa-solid fa-circle-check mr-1" aria-hidden="true"></i>Earned @achievement.EarnedAt?.ToString("MMM dd, yyyy")
-                                </p>
-                            }
-                            else
-                            {
-                                <div class="mt-1">
-                                    <p class="text-xs text-gray-500 mb-1">Locked - @achievement.ClampedProgress of @achievement.TargetValue</p>
-                                    <div class="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden"
-                                         role="progressbar" aria-valuenow="@achievement.ProgressPercent" aria-valuemin="0" aria-valuemax="100"
-                                         aria-label="@achievement.Name progress">
-                                        <div class="h-full bg-gray-500 rounded-full" style="width: @achievement.ProgressPercent%"></div>
-                                    </div>
-                                </div>
-                            }
+                            @* Screen-reader-only accessible description covering exactly
+                               what the visible reveal panel shows (requirement, plus
+                               progress or earned date) - the panel itself is
+                               aria-hidden so the two are never announced twice. *@
+                            <span id="@descriptionId" class="sr-only">
+                                @achievement.Description
+                                @(earned
+                                    ? (earnedDateText != null ? $" Earned {earnedDateText}." : " Earned.")
+                                    : $" Progress: {achievement.ClampedProgress} of {achievement.TargetValue}.")
+                            </span>
+
+                            <button type="button" data-achievement-trigger
+                                    class="absolute inset-0 w-full h-full rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                                    aria-expanded="false"
+                                    aria-controls="@panelId"
+                                    aria-describedby="@descriptionId"
+                                    aria-label="View requirements for @achievement.Name"></button>
+
+                            <div data-achievement-panel id="@panelId" aria-hidden="true"
+                                 class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center p-4 rounded-xl bg-black/85 opacity-0 transition-opacity duration-150 motion-reduce:transition-none group-hover:opacity-100 group-data-[focus-visible=true]:opacity-100 group-data-[expanded=true]:opacity-100">
+                                <p class="text-[10px] uppercase tracking-wide text-accent font-semibold mb-1">Requirement</p>
+                                <p class="text-xs text-gray-200 wrap-break-word">@achievement.Description</p>
+                                @if (earned)
+                                {
+                                    <p class="text-xs text-accent font-medium mt-2">@(earnedDateText != null ? $"Earned {earnedDateText}" : "Earned")</p>
+                                }
+                                else
+                                {
+                                    <p class="text-xs text-gray-400 mt-2">@achievement.ClampedProgress of @achievement.TargetValue</p>
+                                }
+                            </div>
                         </div>
                     }
                 </div>
@@ -512,4 +555,5 @@
 
 @section Scripts {
     <script src="~/js/profile-tier-carousel.js" asp-append-version="true"></script>
+    <script src="~/js/profile-achievements.js" asp-append-version="true"></script>
 }

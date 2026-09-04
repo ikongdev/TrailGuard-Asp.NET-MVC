@@ -7,7 +7,14 @@ namespace TrailGuard.Services
     // Achievements: earned dates and calendar-month membership both use this field
     // only, so a Steady Steps/Seasoned Explorer "month" and a completion milestone's
     // earned date can never disagree about which date defines an Event.
-    public sealed record QualifyingEventRecord(int EventId, int TrailId, DateTime EventDate, int? TrailClass);
+    // Difficulty is the raw Event.Difficulty string, exactly as stored - always
+    // one of DifficultyCalculator.Bands in practice (Event.Difficulty is only ever
+    // set via DifficultyCalculator.ComputeDifficulty, never free-typed), but the
+    // column itself carries no database-level constraint, so this stays a plain,
+    // unvalidated string here. NormalizeDifficulty (below) is what turns it into a
+    // trusted, canonical value - the same "validate at evaluation time" split
+    // TrailClass/IsValidTrailClass already uses.
+    public sealed record QualifyingEventRecord(int EventId, int TrailId, DateTime EventDate, int? TrailClass, string? Difficulty);
 
     // Pure, dynamic evaluator - no database access, no persistence, no side effects,
     // and no notion of "already unlocked" carried between calls. Every call
@@ -25,6 +32,26 @@ namespace TrailGuard.Services
         // Explorer.
         private static bool IsValidTrailClass(int? trailClass) => trailClass is >= 1 and <= 4;
 
+        // Matches DifficultyCalculator.Bands - the single canonical Event Difficulty
+        // source (see Services/DifficultyCalculator.cs) - after trimming and
+        // case-insensitive comparison, returning the canonical Bands casing so two
+        // differently-cased matches for the same band collapse to one HashSet entry
+        // below. Null, empty, whitespace-only, and anything not matching one of the
+        // four Bands values (a stray/legacy row) returns null and must never advance
+        // Versatile Hiker - this is deliberately not the same trust level as
+        // TrailClass's already-validated int, since Difficulty is a free string
+        // column with no database constraint.
+        private static string? NormalizeDifficulty(string? rawDifficulty)
+        {
+            if (string.IsNullOrWhiteSpace(rawDifficulty)) return null;
+            var trimmed = rawDifficulty.Trim();
+            foreach (var band in DifficultyCalculator.Bands)
+            {
+                if (string.Equals(trimmed, band, StringComparison.OrdinalIgnoreCase)) return band;
+            }
+            return null;
+        }
+
         // chronologicalHistory must already be deduplicated to one entry per
         // qualifying EventId and ordered by EventDate ascending, then EventId
         // ascending as a deterministic tie-breaker for same-day Events - see
@@ -40,6 +67,7 @@ namespace TrailGuard.Services
             DateTime? steadyStepsDate = null;
             DateTime? seasonedExplorerDate = null;
             DateTime? technicalExplorerDate = null;
+            DateTime? versatileHikerDate = null;
 
             // "First appearance" trackers - a Trail/month/Trail Class only ever
             // contributes to its milestone the first time it's seen while walking the
@@ -49,6 +77,7 @@ namespace TrailGuard.Services
             var seenTrails = new HashSet<int>();
             var seenMonths = new HashSet<(int Year, int Month)>();
             var seenTrailClasses = new HashSet<int>();
+            var seenDifficulties = new HashSet<string>(StringComparer.Ordinal);
 
             for (var i = 0; i < chronologicalHistory.Count; i++)
             {
@@ -76,12 +105,19 @@ namespace TrailGuard.Services
                 {
                     if (seenTrailClasses.Count == 3) technicalExplorerDate = qualifyingEvent.EventDate;
                 }
+
+                var normalizedDifficulty = NormalizeDifficulty(qualifyingEvent.Difficulty);
+                if (normalizedDifficulty != null && seenDifficulties.Add(normalizedDifficulty))
+                {
+                    if (seenDifficulties.Count == 3) versatileHikerDate = qualifyingEvent.EventDate;
+                }
             }
 
             var totalCompleted = chronologicalHistory.Count;
             var distinctTrails = seenTrails.Count;
             var distinctMonths = seenMonths.Count;
             var distinctValidTrailClasses = seenTrailClasses.Count;
+            var distinctValidDifficulties = seenDifficulties.Count;
 
             var results = new List<ParticipantAchievementResult>(ParticipantAchievementCatalog.Definitions.Count);
             foreach (var definition in ParticipantAchievementCatalog.Definitions)
@@ -96,6 +132,7 @@ namespace TrailGuard.Services
                     AchievementCodes.SteadySteps => (distinctMonths, steadyStepsDate),
                     AchievementCodes.SeasonedExplorer => (distinctMonths, seasonedExplorerDate),
                     AchievementCodes.TechnicalExplorer => (distinctValidTrailClasses, technicalExplorerDate),
+                    AchievementCodes.VersatileHiker => (distinctValidDifficulties, versatileHikerDate),
                     _ => throw new InvalidOperationException($"Unhandled achievement code '{definition.Code}'.")
                 };
 
@@ -116,6 +153,7 @@ namespace TrailGuard.Services
                     IsUnlocked = isUnlocked,
                     EarnedAt = isUnlocked ? earnedAt : null,
                     DisplayOrder = definition.DisplayOrder,
+                    AssetKey = definition.AssetKey,
                     IconClass = definition.IconClass
                 });
             }

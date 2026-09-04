@@ -49,7 +49,7 @@ namespace TrailGuard.Services
         // Dynamic achievement results - see ParticipantAchievementEvaluator. Computed
         // fresh from the same deduplicated qualifying history as everything above on
         // every call; nothing here is ever written or persisted, so a target with zero
-        // qualifying completions still gets all eight results (every one locked at
+        // qualifying completions still gets all nine results (every one locked at
         // CurrentValue 0), and a corrected Registration/Event status changes this the
         // very next time GetProgressAsync runs. Always in the catalog's fixed display
         // order.
@@ -122,18 +122,20 @@ namespace TrailGuard.Services
             // registration for the same event) but the schema doesn't forbid it at the
             // database level (see CLAUDE.md, "Resolve a registration by status, never
             // FirstOrDefault alone"). Deduplication below handles it regardless -
-            // EventId, TrailId, EventDate, and TrailClass are all derived from Event
-            // (never from the registration row itself), so two duplicate rows for the
-            // same EventId always project to an identical QualifyingEventRecord, and a
-            // plain value-equality Distinct() collapses them with no dependency on
-            // which row the database happens to return first - a stricter, more
-            // deterministic replacement for a GroupBy(...).First().
+            // EventId, TrailId, EventDate, TrailClass, and Difficulty are all derived
+            // from Event (never from the registration row itself), so two duplicate
+            // rows for the same EventId always project to an identical
+            // QualifyingEventRecord, and a plain value-equality Distinct() collapses
+            // them with no dependency on which row the database happens to return
+            // first - a stricter, more deterministic replacement for a
+            // GroupBy(...).First().
             var qualifyingRows = await GetOwnQualifyingRegistrations(userId)
                 .Select(r => new QualifyingEventRecord(
                     r.EventId,
                     r.Event!.TrailId,
                     r.Event.EventDate,
-                    r.Event.Trail != null ? r.Event.Trail.TrailClass : (int?)null))
+                    r.Event.Trail != null ? r.Event.Trail.TrailClass : (int?)null,
+                    r.Event.Difficulty))
                 .ToListAsync();
 
             // Chronological order for achievement earned-date derivation: Event date

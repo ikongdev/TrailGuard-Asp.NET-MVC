@@ -889,6 +889,9 @@
   .h-16 {
     height: calc(var(--spacing) * 16);
   }
+  .h-20 {
+    height: calc(var(--spacing) * 20);
+  }
   .h-24 {
     height: calc(var(--spacing) * 24);
   }
@@ -1023,6 +1026,9 @@
   }
   .w-16 {
     width: calc(var(--spacing) * 16);
+  }
+  .w-20 {
+    width: calc(var(--spacing) * 20);
   }
   .w-24 {
     width: calc(var(--spacing) * 24);
@@ -1814,6 +1820,12 @@
       background-color: color-mix(in oklab, var(--color-accent) 20%, transparent);
     }
   }
+  .bg-accent\/50 {
+    background-color: color-mix(in srgb, #8b5cf6 50%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      background-color: color-mix(in oklab, var(--color-accent) 50%, transparent);
+    }
+  }
   .bg-accent\/70 {
     background-color: color-mix(in srgb, #8b5cf6 70%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
@@ -1878,6 +1890,12 @@
     background-color: color-mix(in srgb, #000 70%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
       background-color: color-mix(in oklab, var(--color-black) 70%, transparent);
+    }
+  }
+  .bg-black\/85 {
+    background-color: color-mix(in srgb, #000 85%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      background-color: color-mix(in oklab, var(--color-black) 85%, transparent);
     }
   }
   .bg-blue-500 {
@@ -3184,6 +3202,10 @@
     --tw-duration: 100ms;
     transition-duration: 100ms;
   }
+  .duration-150 {
+    --tw-duration: 150ms;
+    transition-duration: 150ms;
+  }
   .duration-200 {
     --tw-duration: 200ms;
     transition-duration: 200ms;
@@ -3251,6 +3273,12 @@
   }
   .group-has-checked\:inline-block:is(:where(.group):has(:checked) *) {
     display: inline-block;
+  }
+  .group-data-\[expanded\=true\]\:opacity-100:is(:where(.group)[data-expanded="true"] *) {
+    opacity: 100%;
+  }
+  .group-data-\[focus-visible\=true\]\:opacity-100:is(:where(.group)[data-focus-visible="true"] *) {
+    opacity: 100%;
   }
   .file\:mr-3::file-selector-button {
     margin-right: calc(var(--spacing) * 3);
@@ -3774,6 +3802,9 @@
     .sm\:block {
       display: block;
     }
+    .sm\:h-24 {
+      height: calc(var(--spacing) * 24);
+    }
     .sm\:h-28 {
       height: calc(var(--spacing) * 28);
     }
@@ -3785,6 +3816,9 @@
     }
     .sm\:h-80 {
       height: calc(var(--spacing) * 80);
+    }
+    .sm\:w-24 {
+      width: calc(var(--spacing) * 24);
     }
     .sm\:w-28 {
       width: calc(var(--spacing) * 28);
@@ -4082,6 +4116,9 @@
     }
     .xl\:col-span-3 {
       grid-column: span 3 / span 3;
+    }
+    .xl\:grid-cols-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
     .xl\:grid-cols-4 {
       grid-template-columns: repeat(4, minmax(0, 1fr));

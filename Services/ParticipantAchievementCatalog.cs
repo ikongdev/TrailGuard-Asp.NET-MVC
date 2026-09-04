@@ -22,6 +22,7 @@ namespace TrailGuard.Services
         public const string SteadySteps = "steady_steps";
         public const string SeasonedExplorer = "seasoned_explorer";
         public const string TechnicalExplorer = "technical_explorer";
+        public const string VersatileHiker = "versatile_hiker";
     }
 
     public sealed record AchievementDefinition
@@ -33,6 +34,13 @@ namespace TrailGuard.Services
         public required int TargetValue { get; init; }
         public required int DisplayOrder { get; init; }
 
+        // Stable badge-image key, assigned here per-achievement (never derived from
+        // Name by lowercasing/replacing spaces at render time) - the only legal
+        // source for `/images/achievements/achievement-{key}.webp`. Fixed at exactly
+        // one of the nine approved values for the life of this catalog entry; a
+        // released Code must never change which AssetKey it maps to.
+        public required string AssetKey { get; init; }
+
         // Fixed, trusted Font Awesome class from this catalog only - never a user- or
         // database-supplied string, so a future view can render it directly.
         //
@@ -40,13 +48,13 @@ namespace TrailGuard.Services
         // is explicit that several metrics of the same kind shouldn't be given
         // different colours just for variety (that's why the existing Progress &
         // Achievements progress bars are all accent, not three different hues). All
-        // eight of these are "an achievement" - the same kind of thing - so a future
+        // nine of these are "an achievement" - the same kind of thing - so a future
         // Profile view should style every card the same way and vary only by
         // locked/unlocked state, not by reading a tone key out of this catalog.
         public string IconClass { get; init; } = "fa-solid fa-award";
     }
 
-    // Single source of truth for the v1 achievement catalog - eight fixed,
+    // Single source of truth for the v1 achievement catalog - nine fixed,
     // code-defined achievements, never database rows (see CLAUDE.md, Participant
     // Progress / Achievements). Evaluated dynamically by
     // ParticipantAchievementEvaluator against a Participant's own qualifying
@@ -70,6 +78,7 @@ namespace TrailGuard.Services
                 Category = AchievementCategory.Milestone,
                 TargetValue = 1,
                 DisplayOrder = 1,
+                AssetKey = "first-adventure",
                 IconClass = "fa-solid fa-flag-checkered"
             },
             new()
@@ -80,6 +89,7 @@ namespace TrailGuard.Services
                 Category = AchievementCategory.Milestone,
                 TargetValue = 5,
                 DisplayOrder = 2,
+                AssetKey = "five-adventures",
                 IconClass = "fa-solid fa-shoe-prints"
             },
             new()
@@ -90,6 +100,7 @@ namespace TrailGuard.Services
                 Category = AchievementCategory.Milestone,
                 TargetValue = 10,
                 DisplayOrder = 3,
+                AssetKey = "double-digits",
                 IconClass = "fa-solid fa-medal"
             },
             new()
@@ -100,6 +111,7 @@ namespace TrailGuard.Services
                 Category = AchievementCategory.Exploration,
                 TargetValue = 3,
                 DisplayOrder = 4,
+                AssetKey = "new-ground",
                 IconClass = "fa-solid fa-map-location-dot"
             },
             new()
@@ -110,6 +122,7 @@ namespace TrailGuard.Services
                 Category = AchievementCategory.Exploration,
                 TargetValue = 5,
                 DisplayOrder = 5,
+                AssetKey = "trail-collector",
                 IconClass = "fa-solid fa-layer-group"
             },
             new()
@@ -120,6 +133,7 @@ namespace TrailGuard.Services
                 Category = AchievementCategory.Consistency,
                 TargetValue = 3,
                 DisplayOrder = 6,
+                AssetKey = "steady-steps",
                 IconClass = "fa-solid fa-calendar-check"
             },
             new()
@@ -130,6 +144,7 @@ namespace TrailGuard.Services
                 Category = AchievementCategory.Consistency,
                 TargetValue = 6,
                 DisplayOrder = 7,
+                AssetKey = "seasoned-explorer",
                 IconClass = "fa-solid fa-calendar-days"
             },
             new()
@@ -140,7 +155,19 @@ namespace TrailGuard.Services
                 Category = AchievementCategory.Variety,
                 TargetValue = 3,
                 DisplayOrder = 8,
+                AssetKey = "technical-explorer",
                 IconClass = "fa-solid fa-mountain-sun"
+            },
+            new()
+            {
+                Code = AchievementCodes.VersatileHiker,
+                Name = "Versatile Hiker",
+                Description = "Complete TrailGuard adventures across 3 different difficulty levels.",
+                Category = AchievementCategory.Variety,
+                TargetValue = 3,
+                DisplayOrder = 9,
+                AssetKey = "versatile-hiker",
+                IconClass = "fa-solid fa-signal"
             }
         };
     }

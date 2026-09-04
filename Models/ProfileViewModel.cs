@@ -69,7 +69,7 @@ namespace TrailGuard.Models
 
         // ---- Achievements ----
         // Already filtered by the controller before reaching the view: the owner
-        // gets all eight (locked + unlocked); an Organizer/Admin visitor gets only
+        // gets all nine (locked + unlocked); an Organizer/Admin visitor gets only
         // ParticipantProgressResult.EarnedAchievements. The view never re-filters by
         // IsOwner itself, so there is exactly one place this rule can be applied.
         public IReadOnlyList<ParticipantAchievementResult> Achievements { get; set; } = Array.Empty<ParticipantAchievementResult>();

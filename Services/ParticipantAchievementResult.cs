@@ -36,6 +36,12 @@ namespace TrailGuard.Services
 
         public required int DisplayOrder { get; init; }
 
+        // Copied straight from the catalog's AchievementDefinition.AssetKey - the
+        // only legal source for `/images/achievements/achievement-{key}.webp`. Never
+        // derived from Name/Code in a view or here; see
+        // ParticipantAchievementCatalog.AchievementDefinition.AssetKey.
+        public required string AssetKey { get; init; }
+
         public string IconClass { get; init; } = "fa-solid fa-award";
     }
 }
