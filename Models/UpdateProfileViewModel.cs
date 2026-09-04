@@ -24,6 +24,13 @@ namespace TrailGuard.Models
         [Phone(ErrorMessage = "Invalid phone number.")]
         public string PhoneNumber { get; set; } = string.Empty;
 
+        // [Url] alone is intentionally permissive (it accepts ftp:// and does
+        // little more than a prefix check) so its jquery-unobtrusive client
+        // validation keeps working unchanged. SettingsController.UpdateProfile
+        // additionally enforces the stricter absolute-http/https-only rule
+        // that ProfileController.SafeAbsoluteHttpUrl requires for the link to
+        // ever render as clickable on the Profile page - see that check for
+        // the authoritative rule.
         [Display(Name = "Facebook Link")]
         [Url(ErrorMessage = "Invalid URL format.")]
         public string FacebookLink { get; set; } = string.Empty;

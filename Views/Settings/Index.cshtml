@@ -3,247 +3,298 @@
     ViewData["Title"] = "Settings";
 }
 
-@* Success/Error feedback now goes through the canonical global toast host
+@* Success/Error feedback goes through the canonical global toast host
    in _Layout.cshtml instead of a page-local banner. *@
 
 <div class="pt-24 px-4 max-w-6xl mx-auto min-h-screen text-white pb-12">
     <div class="mb-8">
-        <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-linear-to-r from-orange-400 to-purple-400">Settings</h1>
-        <p class="text-gray-400 mt-1 text-sm">Manage your profile and account settings.</p>
+        <h1 class="text-3xl font-bold text-white">Settings</h1>
+        <p class="text-gray-400 mt-1 text-sm">Manage your profile and account security.</p>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="lg:col-span-2 space-y-6">
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 relative overflow-hidden">
-                <div class="absolute -right-20 -top-20 w-64 h-64 bg-orange-500/5 rounded-full blur-3xl"></div>
-                <h2 class="text-lg font-bold text-white mb-4"><i class="fa-solid fa-user text-orange-400 mr-2"></i>Profile Information</h2>
+    @* Profile Information, Account Information, Security - three full-width
+       stacked sections, in this exact DOM order on every breakpoint. No
+       side-by-side/sticky arrangement, no CSS reordering. *@
+    <div class="space-y-6">
 
-                <form id="profileForm" asp-controller="Settings" asp-action="UpdateProfile" method="post" enctype="multipart/form-data">
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" name="confirmPassword" id="profileConfirmPassword" value="" />
-
-                    <div class="flex items-center gap-6 mb-6">
-                        <div class="relative shrink-0">
-                            @if (!string.IsNullOrEmpty(Model.CurrentProfilePictureUrl))
-                            {
-                                <img id="currentAvatar" src="@Model.CurrentProfilePictureUrl" alt="Profile" class="w-24 h-24 rounded-full object-cover border-2 border-orange-500/30">
-                            }
-                            else
-                            {
-                                <div id="defaultAvatar" class="w-24 h-24 rounded-full bg-linear-to-r from-orange-500 to-purple-600 flex items-center justify-center text-3xl font-bold text-white">
-                                    @{
-                                        var firstInit = string.IsNullOrEmpty(Model.FirstName) ? '?' : Model.FirstName[0];
-                                        var lastInit = string.IsNullOrEmpty(Model.LastName) ? ' ' : Model.LastName[0];
-                                    }
-                                    @firstInit.ToString().ToUpper()@lastInit.ToString().ToUpper()
-                                </div>
-                            }
-                            <div id="previewContainer" class="hidden relative">
-                                <img id="previewImage" class="w-24 h-24 rounded-full object-cover border-2 border-orange-500/30" />
-                                <button type="button" onclick="removePreview()" class="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs hover:bg-red-600 transition-colors shadow-lg">
-                                    <i class="fa-solid fa-xmark"></i>
-                                </button>
-                            </div>
-                            <label for="profileImageInput" class="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-orange-500 hover:bg-orange-600 cursor-pointer flex items-center justify-center text-white text-xs transition-colors shadow-lg border-2 border-surface-card">
-                                <i class="fa-solid fa-camera"></i>
-                                <input type="file" id="profileImageInput" name="ProfileImage" accept="image/*" class="hidden" onchange="previewProfileImage(event)" />
-                            </label>
-                        </div>
-                        <div>
-                            <p class="text-gray-300 text-sm font-medium">Profile Photo</p>
-                            <p class="text-gray-500 text-xs">Click the camera icon to upload a new photo.</p>
-                            <p class="text-gray-500 text-xs">JPG, PNG up to 5MB</p>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
-                        <div>
-                            <label asp-for="FirstName" class="block text-sm font-medium text-gray-300 mb-2">First Name</label>
-                            <input asp-for="FirstName" class="w-full bg-black/20 border border-white/10 text-white rounded-full px-5 py-3 focus:border-orange-500 focus:outline-none transition-colors" />
-                            <span asp-validation-for="FirstName" class="text-red-400 text-xs mt-1 block"></span>
-                        </div>
-                        <div>
-                            <label asp-for="LastName" class="block text-sm font-medium text-gray-300 mb-2">Last Name</label>
-                            <input asp-for="LastName" class="w-full bg-black/20 border border-white/10 text-white rounded-full px-5 py-3 focus:border-orange-500 focus:outline-none transition-colors" />
-                            <span asp-validation-for="LastName" class="text-red-400 text-xs mt-1 block"></span>
-                        </div>
-                    </div>
-
-                    <div class="mb-6">
-                        <label asp-for="MiddleName" class="block text-sm font-medium text-gray-300 mb-2">Middle Name <span class="text-gray-500 text-xs">(Optional)</span></label>
-                        <input asp-for="MiddleName" class="w-full bg-black/20 border border-white/10 text-white rounded-full px-5 py-3 focus:border-orange-500 focus:outline-none transition-colors" />
-                    </div>
-
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
-                        <div>
-                            <label asp-for="Email" class="block text-sm font-medium text-gray-300 mb-2">Email Address</label>
-                            <input asp-for="Email" type="email" class="w-full bg-black/20 border border-white/10 text-white rounded-full px-5 py-3 focus:border-orange-500 focus:outline-none transition-colors" />
-                            <span asp-validation-for="Email" class="text-red-400 text-xs mt-1 block"></span>
-                        </div>
-                        <div>
-                            <label asp-for="PhoneNumber" class="block text-sm font-medium text-gray-300 mb-2">Phone Number <span class="text-gray-500 text-xs">(Optional)</span></label>
-                            <input asp-for="PhoneNumber" class="w-full bg-black/20 border border-white/10 text-white rounded-full px-5 py-3 focus:border-orange-500 focus:outline-none transition-colors" placeholder="+63 912 345 6789" />
-                        </div>
-                    </div>
-
-                    <div class="mb-6">
-                        <label asp-for="FacebookLink" class="block text-sm font-medium text-gray-300 mb-2">Facebook Link <span class="text-gray-500 text-xs">(Optional)</span></label>
-                        <input asp-for="FacebookLink" class="w-full bg-black/20 border border-white/10 text-white rounded-full px-5 py-3 focus:border-orange-500 focus:outline-none transition-colors" placeholder="https://facebook.com/username" />
-                        <span asp-validation-for="FacebookLink" class="text-red-400 text-xs mt-1 block"></span>
-                    </div>
-
-                    <div>
-                        <label asp-for="Bio" class="block text-sm font-medium text-gray-300 mb-2">Bio <span class="text-gray-500 text-xs">(Optional)</span></label>
-                        <textarea asp-for="Bio" rows="3" class="w-full bg-black/20 border border-white/10 text-white rounded-2xl px-5 py-3 focus:border-orange-500 focus:outline-none transition-colors resize-none" placeholder="Tell us a bit about yourself..."></textarea>
-                        <span asp-validation-for="Bio" class="text-red-400 text-xs mt-1 block"></span>
-                    </div>
-
-                    <div class="mt-6">
-                        <button type="button" onclick="showPasswordModal()" class="bg-linear-to-r from-orange-500 to-purple-600 hover:from-orange-400 hover:to-purple-500 text-white px-8 py-3 rounded-full font-bold shadow-[0_0_20px_rgba(249,115,22,0.4)] transition-all transform hover:-translate-y-0.5">
-                            <i class="fa-regular fa-floppy-disk mr-2"></i> Save Changes
-                        </button>
-                    </div>
-                </form>
+        @* ----------------------------- Profile Information ----------------------------- *@
+        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 sm:p-8">
+            <div class="flex items-center gap-3 mb-6">
+                <span class="w-10 h-10 rounded-full bg-accent/15 text-accent flex items-center justify-center shrink-0" aria-hidden="true">
+                    <i class="fa-solid fa-user"></i>
+                </span>
+                <div>
+                    <h2 class="text-lg font-semibold text-white">Profile Information</h2>
+                    <p class="text-gray-400 text-sm">Update your personal and contact details.</p>
+                </div>
             </div>
 
-            <!-- Security Container -->
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 relative overflow-hidden">
-                <div class="absolute -right-20 -bottom-20 w-64 h-64 bg-purple-500/5 rounded-full blur-3xl"></div>
-                <h2 class="text-lg font-bold text-white mb-4"><i class="fa-solid fa-lock text-orange-400 mr-2"></i>Security</h2>
-                <p class="text-gray-400 text-sm mb-4">Change your password.</p>
+            <form id="profileForm" asp-controller="Settings" asp-action="UpdateProfile" method="post" enctype="multipart/form-data">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="confirmPassword" id="profileConfirmPassword" value="" />
 
-                <form asp-controller="Settings" asp-action="ChangePassword" method="post">
-                    @Html.AntiForgeryToken()
+                @* Compact profile-photo identity row - avatar + camera trigger on
+                   the left, label/helper text on the right, one horizontal row on
+                   every breakpoint (there's comfortably enough width even on a
+                   narrow phone for an 80px avatar plus two short lines of text).
+                   No permanent side column - this row sits above the fields, not
+                   beside them, so it can never leave dead space under itself. *@
+                <div class="flex items-center gap-4 pb-6 mb-6 border-b border-white/10">
+                    <div class="relative shrink-0">
+                        @if (!string.IsNullOrEmpty(Model.CurrentProfilePictureUrl))
+                        {
+                            <img id="currentAvatar" src="@Model.CurrentProfilePictureUrl" alt="" class="w-20 h-20 rounded-full object-cover border border-white/10">
+                        }
+                        else
+                        {
+                            <div id="defaultAvatar" class="w-20 h-20 rounded-full bg-accent flex items-center justify-center text-2xl font-bold text-white">
+                                @{
+                                    var firstInit = string.IsNullOrEmpty(Model.FirstName) ? '?' : Model.FirstName[0];
+                                    var lastInit = string.IsNullOrEmpty(Model.LastName) ? ' ' : Model.LastName[0];
+                                }
+                                @firstInit.ToString().ToUpper()@lastInit.ToString().ToUpper()
+                            </div>
+                        }
+                        <div id="previewContainer" class="hidden absolute inset-0">
+                            <img id="previewImage" class="w-20 h-20 rounded-full object-cover border border-white/10" alt="" />
+                        </div>
 
-                    <div class="mb-6">
+                        @* The one real upload trigger: a focusable, labeled
+                           button - not a decorative span or a mouse-only label.
+                           type="button" so it can never submit this form. Sized
+                           to a ~40x40px touch target and positioned at the
+                           avatar's lower-right corner without covering most of
+                           the photo. *@
+                        <button type="button" id="changePhotoBtn" aria-label="Change profile photo"
+                                class="absolute -bottom-1 -right-1 w-10 h-10 rounded-full bg-accent hover:brightness-110 flex items-center justify-center text-white transition-colors border-2 border-surface-card focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-card">
+                            <i class="fa-solid fa-camera" aria-hidden="true"></i>
+                        </button>
+                    </div>
+
+                    <div class="min-w-0">
+                        <p class="text-white text-sm font-medium">Profile Photo</p>
+                        <p class="text-gray-400 text-xs mt-0.5">JPG or PNG, up to 5MB.</p>
+                        <button type="button" id="removePreviewBtn"
+                                class="hidden mt-1 text-xs text-gray-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded">
+                            Cancel
+                        </button>
+                        <span asp-validation-for="ProfileImage" class="text-red-400 text-xs mt-1 block"></span>
+                    </div>
+
+                    <input type="file" id="profileImageInput" name="ProfileImage" accept="image/jpeg,image/png"
+                           class="sr-only" tabindex="-1" aria-hidden="true" />
+                </div>
+
+                @* Fields - full card width now that there's no permanent side
+                   column competing for space. min-w-0 so a long email/Facebook
+                   value can wrap instead of forcing horizontal overflow. *@
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 min-w-0">
+                    <div>
+                        <label asp-for="FirstName" class="block text-sm font-medium text-gray-300 mb-2">First Name</label>
+                        <input asp-for="FirstName" autocomplete="given-name" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" />
+                        <span asp-validation-for="FirstName" class="text-red-400 text-xs mt-1 block"></span>
+                    </div>
+                    <div>
+                        <label asp-for="LastName" class="block text-sm font-medium text-gray-300 mb-2">Last Name</label>
+                        <input asp-for="LastName" autocomplete="family-name" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" />
+                        <span asp-validation-for="LastName" class="text-red-400 text-xs mt-1 block"></span>
+                    </div>
+                    <div>
+                        <label asp-for="MiddleName" class="block text-sm font-medium text-gray-300 mb-2">Middle Name <span class="text-gray-500 text-xs">(Optional)</span></label>
+                        <input asp-for="MiddleName" autocomplete="additional-name" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" />
+                    </div>
+                    <div>
+                        <label asp-for="PhoneNumber" class="block text-sm font-medium text-gray-300 mb-2">Phone Number <span class="text-gray-500 text-xs">(Optional)</span></label>
+                        <input asp-for="PhoneNumber" autocomplete="tel" placeholder="+63 912 345 6789" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" />
+                        <span asp-validation-for="PhoneNumber" class="text-red-400 text-xs mt-1 block"></span>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label asp-for="Email" class="block text-sm font-medium text-gray-300 mb-2">Email Address</label>
+                        <input asp-for="Email" type="email" autocomplete="email" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors wrap-break-word" />
+                        <span asp-validation-for="Email" class="text-red-400 text-xs mt-1 block"></span>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label asp-for="FacebookLink" class="block text-sm font-medium text-gray-300 mb-2">Facebook Link <span class="text-gray-500 text-xs">(Optional)</span></label>
+                        <input asp-for="FacebookLink" placeholder="https://facebook.com/username" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors wrap-break-word" />
+                        <span asp-validation-for="FacebookLink" class="text-red-400 text-xs mt-1 block"></span>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label asp-for="Bio" class="block text-sm font-medium text-gray-300 mb-2">Bio <span class="text-gray-500 text-xs">(Optional)</span></label>
+                        <textarea asp-for="Bio" rows="3" placeholder="Tell us a bit about yourself..." class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors resize-none"></textarea>
+                        <span asp-validation-for="Bio" class="text-red-400 text-xs mt-1 block"></span>
+                    </div>
+                </div>
+
+                <div class="mt-8 flex justify-center sm:justify-end">
+                    <button type="button" id="saveProfileBtn" onclick="showPasswordModal()"
+                            class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3 min-h-10 rounded-full text-sm font-semibold text-white bg-accent hover:brightness-110 transition focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-card">
+                        <i class="fa-regular fa-floppy-disk" aria-hidden="true"></i> Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        @* ----------------------------- Account Information ----------------------------- *@
+        @* Compact, full-width, read-only summary - no sticky positioning, no
+           side column, no nested mini-cards. *@
+        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 sm:p-8">
+            <div class="flex items-center gap-3 mb-6">
+                <span class="w-10 h-10 rounded-full bg-accent/15 text-accent flex items-center justify-center shrink-0" aria-hidden="true">
+                    <i class="fa-solid fa-circle-info"></i>
+                </span>
+                <h2 class="text-lg font-semibold text-white">Account Information</h2>
+            </div>
+
+            <dl class="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-white/10 text-sm">
+                <div class="py-3 first:pt-0 sm:py-0 sm:px-6 sm:first:pl-0">
+                    <dt class="text-gray-400 text-xs">Role</dt>
+                    <dd class="text-white font-semibold mt-1">@ViewBag.Role</dd>
+                    @if (ViewBag.RoleNeedsAttention != null && (bool)ViewBag.RoleNeedsAttention)
+                    {
+                        <p class="text-amber-400 text-xs mt-1">Contact an Administrator to resolve this.</p>
+                    }
+                </div>
+                <div class="py-3 sm:py-0 sm:px-6">
+                    <dt class="text-gray-400 text-xs">Date Joined</dt>
+                    <dd class="text-white font-semibold mt-1">@ViewBag.DateJoined</dd>
+                </div>
+                <div class="py-3 last:pb-0 sm:py-0 sm:px-6 sm:last:pr-0">
+                    <dt class="text-gray-400 text-xs">Account Status</dt>
+                    <dd class="mt-1 font-semibold">
+                        @if (ViewBag.IsActive != null && (bool)ViewBag.IsActive)
+                        {
+                            <span class="text-green-400"><i class="fa-solid fa-circle-check mr-1.5" aria-hidden="true"></i>Active</span>
+                        }
+                        else
+                        {
+                            <span class="text-red-400"><i class="fa-solid fa-circle-xmark mr-1.5" aria-hidden="true"></i>Disabled</span>
+                        }
+                    </dd>
+                </div>
+            </dl>
+        </div>
+
+        @* ----------------------------- Security ----------------------------- *@
+        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 sm:p-8">
+            <div class="flex items-center gap-3 mb-6">
+                <span class="w-10 h-10 rounded-full bg-accent/15 text-accent flex items-center justify-center shrink-0" aria-hidden="true">
+                    <i class="fa-solid fa-lock"></i>
+                </span>
+                <div>
+                    <h2 class="text-lg font-semibold text-white">Security</h2>
+                    <p class="text-gray-400 text-sm">Change your account password.</p>
+                </div>
+            </div>
+
+            <form asp-controller="Settings" asp-action="ChangePassword" method="post">
+                @Html.AntiForgeryToken()
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div>
                         <label asp-for="CurrentPassword" class="block text-sm font-medium text-gray-300 mb-2">Current Password</label>
                         <div class="relative">
-                            <input asp-for="CurrentPassword" type="password" id="currentPassword" class="w-full bg-black/20 border border-white/10 text-white rounded-full px-5 py-3 pr-12 focus:border-orange-500 focus:outline-none transition-colors" />
-                            <button type="button" onclick="togglePassword('currentPassword')" class="absolute inset-y-0 right-4 text-gray-400 hover:text-white transition-colors">
-                                <i class="fa-solid fa-eye"></i>
+                            <input asp-for="CurrentPassword" type="password" id="currentPassword" autocomplete="current-password"
+                                   class="block w-full px-4 py-3 pr-12 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" />
+                            <button type="button" onclick="togglePassword('currentPassword')" aria-label="Show current password"
+                                    class="absolute inset-y-0 right-0 w-11 flex items-center justify-center text-gray-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded-xl">
+                                <i class="fa-solid fa-eye" aria-hidden="true"></i>
                             </button>
                         </div>
                         <span asp-validation-for="CurrentPassword" class="text-red-400 text-xs mt-1 block"></span>
                     </div>
-
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                        <div>
-                            <label asp-for="NewPassword" class="block text-sm font-medium text-gray-300 mb-2">New Password</label>
-                            <div class="relative">
-                                <input asp-for="NewPassword" type="password" id="newPassword" class="w-full bg-black/20 border border-white/10 text-white rounded-full px-5 py-3 pr-12 focus:border-orange-500 focus:outline-none transition-colors" />
-                                <button type="button" onclick="togglePassword('newPassword')" class="absolute inset-y-0 right-4 text-gray-400 hover:text-white transition-colors">
-                                    <i class="fa-solid fa-eye"></i>
-                                </button>
-                            </div>
-                            <span asp-validation-for="NewPassword" class="text-red-400 text-xs mt-1 block"></span>
+                    <div>
+                        <label asp-for="NewPassword" class="block text-sm font-medium text-gray-300 mb-2">New Password</label>
+                        <div class="relative">
+                            <input asp-for="NewPassword" type="password" id="newPassword" autocomplete="new-password"
+                                   class="block w-full px-4 py-3 pr-12 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" />
+                            <button type="button" onclick="togglePassword('newPassword')" aria-label="Show new password"
+                                    class="absolute inset-y-0 right-0 w-11 flex items-center justify-center text-gray-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded-xl">
+                                <i class="fa-solid fa-eye" aria-hidden="true"></i>
+                            </button>
                         </div>
-                        <div>
-                            <label asp-for="ConfirmPassword" class="block text-sm font-medium text-gray-300 mb-2">Confirm New Password</label>
-                            <div class="relative">
-                                <input asp-for="ConfirmPassword" type="password" id="confirmPassword" class="w-full bg-black/20 border border-white/10 text-white rounded-full px-5 py-3 pr-12 focus:border-orange-500 focus:outline-none transition-colors" />
-                                <button type="button" onclick="togglePassword('confirmPassword')" class="absolute inset-y-0 right-4 text-gray-400 hover:text-white transition-colors">
-                                    <i class="fa-solid fa-eye"></i>
-                                </button>
-                            </div>
-                            <span asp-validation-for="ConfirmPassword" class="text-red-400 text-xs mt-1 block"></span>
+                        <span asp-validation-for="NewPassword" class="text-red-400 text-xs mt-1 block"></span>
+                    </div>
+                    <div>
+                        <label asp-for="ConfirmPassword" class="block text-sm font-medium text-gray-300 mb-2">Confirm New Password</label>
+                        <div class="relative">
+                            <input asp-for="ConfirmPassword" type="password" id="confirmNewPassword" autocomplete="new-password"
+                                   class="block w-full px-4 py-3 pr-12 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" />
+                            <button type="button" onclick="togglePassword('confirmNewPassword')" aria-label="Show confirm new password"
+                                    class="absolute inset-y-0 right-0 w-11 flex items-center justify-center text-gray-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded-xl">
+                                <i class="fa-solid fa-eye" aria-hidden="true"></i>
+                            </button>
                         </div>
-                    </div>
-
-                    <div class="mt-6">
-                        <button type="submit" class="bg-white/10 hover:bg-white/20 border border-white/20 text-gray-300 hover:text-white px-8 py-3 rounded-full font-medium transition-all">
-                            <i class="fa-solid fa-key mr-2"></i> Update Password
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <div class="lg:col-span-1">
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 sticky top-24 overflow-hidden">
-                <div class="absolute -right-20 -top-20 w-64 h-64 bg-green-500/5 rounded-full blur-3xl"></div>
-                <h2 class="text-lg font-bold text-white mb-4"><i class="fa-solid fa-circle-info text-orange-400 mr-2"></i>Account Information</h2>
-
-                <div class="space-y-4 text-sm">
-                    <div class="bg-white/5 rounded-xl p-4">
-                        <p class="text-gray-500 text-xs">Role</p>
-                        <p class="text-white font-semibold">@ViewBag.Role</p>
-                        @if (ViewBag.RoleNeedsAttention != null && (bool)ViewBag.RoleNeedsAttention)
-                        {
-                            <p class="text-amber-400 text-xs mt-1">Contact an Administrator to resolve this.</p>
-                        }
-                    </div>
-                    <div class="bg-white/5 rounded-xl p-4">
-                        <p class="text-gray-500 text-xs">Date Joined</p>
-                        <p class="text-white font-semibold">@ViewBag.DateJoined</p>
-                    </div>
-                    <div class="bg-white/5 rounded-xl p-4">
-                        <p class="text-gray-500 text-xs">Account Status</p>
-                        <p class="text-white font-semibold">
-                            @if (ViewBag.IsActive != null && (bool)ViewBag.IsActive)
-                            {
-                                <span class="text-green-400"><i class="fa-solid fa-circle-check mr-1"></i> Active</span>
-                            }
-                            else
-                            {
-                                <span class="text-red-400"><i class="fa-solid fa-circle-xmark mr-1"></i> Disabled</span>
-                            }
-                        </p>
+                        <span asp-validation-for="ConfirmPassword" class="text-red-400 text-xs mt-1 block"></span>
                     </div>
                 </div>
-            </div>
+
+                <div class="mt-8 flex justify-center sm:justify-end">
+                    <button type="submit"
+                            class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3 min-h-10 rounded-full text-sm font-semibold text-white bg-accent hover:brightness-110 transition focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-card">
+                        <i class="fa-solid fa-key" aria-hidden="true"></i> Update Password
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
 
-<div id="passwordModal" class="fixed inset-0 z-100 hidden items-center justify-center p-4" style="padding-top: 80px;">
-    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closePasswordModal()"></div>
-    <div class="relative bg-surface-card border border-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col" style="margin: auto; z-index: 10;">
-        <div class="flex justify-between items-center px-6 py-4 border-b border-gray-800 shrink-0">
-            <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center">
-                    <i class="fa-solid fa-lock text-orange-400 text-sm"></i>
+@section Modals {
+    <div id="passwordModal" class="fixed inset-0 z-60 hidden items-center justify-center p-4">
+        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm z-60" onclick="closePasswordModal()"></div>
+        <div class="relative bg-surface-card border border-white/10 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col z-60">
+            <div class="flex justify-between items-center px-6 py-4 border-b border-white/10 shrink-0">
+                <div class="flex items-center gap-3">
+                    <span class="w-8 h-8 rounded-full bg-accent/15 flex items-center justify-center" aria-hidden="true">
+                        <i class="fa-solid fa-lock text-accent text-sm"></i>
+                    </span>
+                    <h2 class="text-lg font-bold text-white">Confirm Password</h2>
                 </div>
-                <h2 class="text-xl font-bold text-white">Confirm Password</h2>
-            </div>
-            <button onclick="closePasswordModal()" class="text-gray-400 hover:text-white transition-colors">
-                <i class="fa-solid fa-xmark text-2xl"></i>
-            </button>
-        </div>
-        <div class="p-6">
-            <p class="text-gray-400 text-sm mb-4">Please enter your current password to save profile changes.</p>
-            <div class="relative">
-                <input type="password" id="modalPasswordInput" class="w-full bg-[#111A2E] border border-gray-700 text-white rounded-lg px-4 py-3 pr-12 focus:border-orange-500 focus:outline-none transition-colors" placeholder="Enter your password" />
-                <button type="button" onclick="togglePassword('modalPasswordInput')" class="absolute inset-y-0 right-4 text-gray-400 hover:text-white transition-colors">
-                    <i class="fa-solid fa-eye"></i>
+                <button type="button" onclick="closePasswordModal()" aria-label="Close" class="text-gray-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded">
+                    <i class="fa-solid fa-xmark text-xl" aria-hidden="true"></i>
                 </button>
             </div>
-            <p id="modalError" class="text-red-400 text-xs mt-2 hidden">Password is required.</p>
-        </div>
-        <div class="px-6 py-4 border-t border-gray-800 shrink-0 flex justify-end gap-3 bg-surface-card">
-            <button type="button" onclick="closePasswordModal()" class="px-5 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white bg-gray-800 hover:bg-gray-700 transition-colors">
-                Cancel
-            </button>
-            <button type="button" onclick="confirmPassword()" class="px-5 py-2 rounded-lg text-sm font-medium text-white bg-linear-to-r from-orange-500 to-purple-600 hover:opacity-90 transition-all">
-                Confirm
-            </button>
+            <div class="p-6">
+                <p class="text-gray-400 text-sm mb-4">Please enter your current password to save profile changes.</p>
+                <label for="modalPasswordInput" class="sr-only">Current password</label>
+                <div class="relative">
+                    <input type="password" id="modalPasswordInput" autocomplete="current-password" placeholder="Enter your password"
+                           class="block w-full px-4 py-3 pr-12 rounded-xl bg-surface-base border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" />
+                    <button type="button" onclick="togglePassword('modalPasswordInput')" aria-label="Show password"
+                            class="absolute inset-y-0 right-0 w-11 flex items-center justify-center text-gray-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded-xl">
+                        <i class="fa-solid fa-eye" aria-hidden="true"></i>
+                    </button>
+                </div>
+                <p id="modalError" class="text-red-400 text-xs mt-2 hidden">Password is required.</p>
+            </div>
+            <div class="px-6 py-4 border-t border-white/10 shrink-0 flex justify-end gap-3">
+                <button type="button" onclick="closePasswordModal()" class="px-5 py-2.5 rounded-full text-sm font-medium text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-accent">
+                    Cancel
+                </button>
+                <button type="button" id="modalConfirmBtn" onclick="confirmPassword()" class="px-5 py-2.5 rounded-full text-sm font-semibold text-white bg-accent hover:brightness-110 transition focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-card">
+                    Confirm
+                </button>
+            </div>
         </div>
     </div>
-</div>
+}
 
 <script>
-    // Toggle password visibility
+    // Toggle password visibility - keeps the icon and the button's own
+    // accessible name in sync (the icon itself is decorative).
     function togglePassword(inputId) {
         const input = document.getElementById(inputId);
-        const icon = input.nextElementSibling?.querySelector('i') || input.parentElement.querySelector('button i');
-        if (!icon) return;
-        if (input.type === 'password') {
-            input.type = 'text';
-            icon.classList.remove('fa-eye');
-            icon.classList.add('fa-eye-slash');
-        } else {
-            input.type = 'password';
-            icon.classList.remove('fa-eye-slash');
-            icon.classList.add('fa-eye');
+        if (!input) return;
+        const button = input.parentElement.querySelector('button');
+        const icon = button ? button.querySelector('i') : null;
+        const showing = input.type === 'password';
+        input.type = showing ? 'text' : 'password';
+        if (icon) {
+            icon.classList.toggle('fa-eye', !showing);
+            icon.classList.toggle('fa-eye-slash', showing);
+        }
+        if (button) {
+            button.setAttribute('aria-label', showing ? 'Hide password' : 'Show password');
         }
     }
 
@@ -252,16 +303,18 @@
         const file = event.target.files[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = function (e) {
             const previewContainer = document.getElementById('previewContainer');
             const previewImage = document.getElementById('previewImage');
             const defaultAvatar = document.getElementById('defaultAvatar');
             const currentAvatar = document.getElementById('currentAvatar');
+            const removeBtn = document.getElementById('removePreviewBtn');
 
             previewImage.src = e.target.result;
             previewContainer.classList.remove('hidden');
             if (defaultAvatar) defaultAvatar.classList.add('hidden');
             if (currentAvatar) currentAvatar.classList.add('hidden');
+            if (removeBtn) removeBtn.classList.remove('hidden');
         };
         reader.readAsDataURL(file);
     }
@@ -270,20 +323,51 @@
         const previewContainer = document.getElementById('previewContainer');
         const defaultAvatar = document.getElementById('defaultAvatar');
         const currentAvatar = document.getElementById('currentAvatar');
+        const removeBtn = document.getElementById('removePreviewBtn');
+        const fileInput = document.getElementById('profileImageInput');
 
         previewContainer.classList.add('hidden');
-        document.getElementById('profileImageInput').value = '';
+        if (fileInput) fileInput.value = '';
+        if (removeBtn) removeBtn.classList.add('hidden');
 
-        if (currentAvatar && currentAvatar.src && currentAvatar.src !== window.location.href) {
+        if (currentAvatar) {
             currentAvatar.classList.remove('hidden');
         } else if (defaultAvatar) {
             defaultAvatar.classList.remove('hidden');
         }
     }
 
-    // Password modal
+    // Wires the avatar's camera button as the single upload trigger, and the
+    // file input's own change event to the existing preview logic above.
+    // Registered by ID/element reference (no inline onclick/onchange) and
+    // guarded so a missing element is a no-op rather than a script error;
+    // this block only ever runs once per page load, so there's no risk of
+    // double-binding.
+    (function initProfilePhotoControls() {
+        const cameraBtn = document.getElementById('changePhotoBtn');
+        const fileInput = document.getElementById('profileImageInput');
+        const removeBtn = document.getElementById('removePreviewBtn');
+
+        if (cameraBtn && fileInput) {
+            cameraBtn.addEventListener('click', function () {
+                fileInput.click();
+            });
+        }
+
+        if (fileInput) {
+            fileInput.addEventListener('change', previewProfileImage);
+        }
+
+        if (removeBtn) {
+            removeBtn.addEventListener('click', removePreview);
+        }
+    })();
+
+    // Password confirmation modal - gates the Profile Information submit,
+    // unrelated to the separate Security form/action above.
     function showPasswordModal() {
         document.getElementById('passwordModal').classList.remove('hidden');
+        document.getElementById('passwordModal').classList.add('flex');
         document.body.style.overflow = 'hidden';
         document.getElementById('modalPasswordInput').value = '';
         document.getElementById('modalError').classList.add('hidden');
@@ -292,6 +376,7 @@
 
     function closePasswordModal() {
         document.getElementById('passwordModal').classList.add('hidden');
+        document.getElementById('passwordModal').classList.remove('flex');
         document.body.style.overflow = 'auto';
         document.getElementById('modalError').classList.add('hidden');
     }
@@ -304,11 +389,17 @@
         }
         document.getElementById('modalError').classList.add('hidden');
         document.getElementById('profileConfirmPassword').value = password;
+
+        const confirmBtn = document.getElementById('modalConfirmBtn');
+        const saveBtn = document.getElementById('saveProfileBtn');
+        if (confirmBtn) confirmBtn.disabled = true;
+        if (saveBtn) saveBtn.disabled = true;
+
         document.getElementById('profileForm').submit();
     }
 
     // Close modal on Escape key
-    document.addEventListener('keydown', function(e) {
+    document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') {
             closePasswordModal();
         }

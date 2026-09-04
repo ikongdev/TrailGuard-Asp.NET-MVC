@@ -586,6 +586,34 @@ An Organizer/Admin visitor sees only earned cards (or `No achievements earned ye
 
 ---
 
+## Settings
+
+Editable, unlike Profile — the account owner's own Profile Information and Security (password), plus a read-only Account Information summary. `container: max-w-6xl mx-auto`, matching every other authenticated page.
+
+### Layout
+
+Three full-width sections stacked with `space-y-6`, in exactly this DOM order on every breakpoint — Profile Information, Account Information, Security — no side-by-side columns, no sticky positioning, no CSS-driven visual reorder. This replaces an earlier version of this page that put Profile Information at `lg:col-span-2` beside a sticky `lg:col-span-1` Account Information card: that arrangement left a permanent empty desktop column below the short Account Information card once Security moved to full-width, so the whole page went full-width instead.
+
+### Cards
+
+All three are the standard major-card treatment (`bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl`, `p-6 sm:p-8`) with an icon-tile header — `w-10 h-10 rounded-full bg-accent/15 text-accent` circle plus a heading/subtitle pair, the same icon-tile recipe `Admin/Index.cshtml`'s summary cards already use. Profile Information and Security both carry a subtitle line under the heading; Account Information does not.
+
+Profile Information's own content stacks vertically, not side-by-side: a compact photo identity row, a `border-b border-white/10` divider, the full-width field grid, then the action area — no permanent photo column beside the fields. That side-by-side arrangement (`grid-cols-1 lg:grid-cols-4`, photo one column beside a three-column field area) was tried and reverted: at `lg`+ it left a large empty area below the short avatar column for the entire height of the (much taller) field column, made the fields feel unnecessarily narrow, and stretched card height with dead footer space. The photo row is `flex items-center gap-4` — avatar and camera button on the left, "Profile Photo"/format-and-size helper text on the right — and stays one horizontal row at every breakpoint rather than stacking on mobile, since an 80px avatar plus two short lines of text comfortably fits even a narrow phone width. The field grid that follows uses the card's full width at every breakpoint, so First/Last and Middle/Phone form two balanced columns at `sm`+ with real room, not a column squeezed beside a sidebar.
+
+The avatar's camera button is the **only** upload trigger — there is no separate "Change Photo" text button; a redundant second control performing the identical action was removed rather than kept as a decorative-but-functional duplicate. The camera button is a real `<button type="button" aria-label="Change profile photo">`, `w-10 h-10` (a ~40×40px touch target), positioned at the avatar's lower-right corner without covering most of the photo, with a visible focus ring and a decorative (`aria-hidden="true"`) camera icon. The underlying `<input type="file" name="ProfileImage">` stays `sr-only tabindex="-1" aria-hidden="true"`, triggered only by that one button via `addEventListener` (no inline `onclick`/`onchange`) — it's never a separate, confusing stop in the tab order. `Save Changes` sits in a compact action area immediately after the field grid, right-aligned at `sm`+ and full-width on narrow mobile — not spanning under a photo column that no longer exists.
+
+Account Information is a semantic `<dl>` with `divide-y sm:divide-y-0 sm:divide-x divide-white/10` — three stacked rows on mobile, three columns separated by vertical rules on `sm`+ — never three nested mini-cards, never sticky, no editable control anywhere on it. Account Status pairs an icon with the word "Active"/"Disabled" rather than colour alone.
+
+Form inputs use the standard documented recipe (`rounded-xl bg-surface-card border border-gray-700 ... focus:border-accent focus:ring-1 focus:ring-accent`), not the page's previous `rounded-full` orange-bordered inputs. `Save Changes` and `Update Password` both use the established solid primary-action recipe (`rounded-full bg-accent hover:brightness-110 text-white ... focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-card`, the same class list `Views/Event/Index.cshtml` and `Views/Account/AccessDenied.cshtml` already use) — no gradient, no glow. Security's three password fields sit in a `grid-cols-1 lg:grid-cols-3` row (Current / New / Confirm); the card is full-width so this doesn't cramp the way it would inside a 2/3-width column.
+
+The password-confirmation modal (gating Profile Information's save) now renders inside `@section Modals` like every other modal in the app, instead of inline in page content — see Modals, above.
+
+### Progress
+
+Restyled — no longer part of the app-wide remaining-pages list below.
+
+---
+
 ## Accessibility
 
 - Visible focus states on every interactive element
@@ -616,7 +644,7 @@ Filling it in is not on its own enough. `_PrimaryButton` has only three call sit
 
 ## Progress
 
-**The participant flow is complete:** dashboard, browse trails, browse events, event details, assessment form, assessment report, registration form, my registrations, and the new read-only Profile page — plus landing page, login, and register.
+**The participant flow is complete:** dashboard, browse trails, browse events, event details, assessment form, assessment report, registration form, my registrations, the read-only Profile page, and Settings — plus landing page, login, and register.
 
 **Remaining:**
 - Feedback page — rebuilt as a three-step wizard functionally, but not restyled
