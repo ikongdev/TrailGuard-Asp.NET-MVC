@@ -78,7 +78,6 @@
             </div>
         </form>
 
-        <p id="resultCount" class="text-xs text-gray-500 mb-4">Showing @totalTrailCount trail@(totalTrailCount == 1 ? "" : "s")</p>
         <p id="resultCountAnnouncer" class="sr-only" role="status" aria-live="polite"></p>
 
         <div id="trailCardGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -745,7 +744,6 @@
         (function initTrailSearch() {
             const searchInput = document.getElementById('searchInput');
             const cardGrid = document.getElementById('trailCardGrid');
-            const resultCountEl = document.getElementById('resultCount');
             const announcerEl = document.getElementById('resultCountAnnouncer');
             const noMatchEl = document.getElementById('noSearchResults');
             const clearSearchBtn = document.getElementById('clearSearchBtn');
@@ -784,7 +782,6 @@
                 });
 
                 const text = buildResultText(term, visibleCount);
-                if (resultCountEl) resultCountEl.textContent = text;
                 if (noMatchEl) noMatchEl.hidden = !(cards.length > 0 && visibleCount === 0);
 
                 return { term: term, text: text };

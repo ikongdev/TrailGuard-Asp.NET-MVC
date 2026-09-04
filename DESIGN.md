@@ -119,6 +119,8 @@ bg-white/5 border border-white/5 rounded-xl
 
 **Only the real thumbnail image zooms.** Trail Management's `group` + `group-hover:scale-105` (`transition-transform duration-500 ease-out`, `motion-reduce:transform-none motion-reduce:transition-none`) on the `<img>` itself is the approved pattern — Browse Trails (`Participant/Trails.cshtml`) and Browse Events both inherit it on their cards. Fallback artwork (the decorative mountain/image icon shown for a missing or broken thumbnail) is a sibling of the `<img>`, not a descendant of anything with `group-hover:scale-105`, so it never zooms.
 
+**A card's action row reflects what the record actually permits, not a fixed template.** Event Management's card (`Views/Event/Index.cshtml`) renders `[View] [Edit] [Delete]` for a mutable Event, but a `Completed` Event — an immutable historical record, see CLAUDE.md, Event Lifecycle — renders `View` alone, full-width (`w-full` in place of `flex-1`, same secondary styling/height), with Edit and Delete not rendered at all rather than hidden or disabled. This is a server-rendered condition per card (`eventItem.Status == "Completed"`), not a CSS/JS toggle — the server independently enforces the same rule regardless of what the client renders.
+
 ---
 
 ## Difficulty

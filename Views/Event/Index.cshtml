@@ -141,7 +141,6 @@
             </div>
         </form>
 
-        <p id="resultCount" class="text-xs text-gray-500 mb-4">Showing @totalEventCount event@(totalEventCount == 1 ? "" : "s")</p>
         <p id="resultCountAnnouncer" class="sr-only" role="status" aria-live="polite"></p>
 
         <div id="eventsContainer">
@@ -177,6 +176,15 @@
                         <div class="events-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             @foreach (var eventItem in group.Events)
                             {
+                                // Completed Events are immutable historical records (see
+                                // CLAUDE.md, Event Lifecycle) - Edit/Delete are never
+                                // rendered for one, not merely hidden, so there is no
+                                // markup for the delegated delete-button handler or
+                                // openEditModal's trigger to find in the first place.
+                                // The server independently enforces this regardless of
+                                // what the client renders - see EventController.GetEvent/
+                                // EditEvent/DeleteEvent.
+                                var isCompleted = eventItem.Status == "Completed";
                                 <div class="event-card group bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden hover:border-white/20 transition-colors flex flex-col"
                                      data-search="@eventItem.EventTitle @eventItem.Location @(eventItem.Trail?.Name ?? "")">
 
@@ -232,21 +240,24 @@
                                         <div class="flex gap-2 mt-auto">
                                             <a asp-controller="Event" asp-action="Details" asp-route-id="@eventItem.Id"
                                                aria-label="View details for @eventItem.EventTitle"
-                                               class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+                                               class="@(isCompleted ? "w-full" : "flex-1") bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-2">
                                                 <i class="fa-regular fa-eye" aria-hidden="true"></i> View
                                             </a>
-                                            <button type="button" onclick="openEditModal(this, @eventItem.Id)"
-                                                    aria-label="Edit @eventItem.EventTitle"
-                                                    class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-2">
-                                                <i class="fa-solid fa-pen" aria-hidden="true"></i> Edit
-                                            </button>
-                                            <button type="button"
-                                                    data-event-id="@eventItem.Id"
-                                                    data-event-title="@eventItem.EventTitle"
-                                                    aria-label="Delete @eventItem.EventTitle"
-                                                    class="delete-event-btn bg-red-500/20 hover:bg-red-500 border border-red-500/30 hover:border-red-500 text-red-400 hover:text-white py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center w-12 focus:outline-none focus:ring-2 focus:ring-accent">
-                                                <i class="fa-solid fa-trash" aria-hidden="true"></i>
-                                            </button>
+                                            @if (!isCompleted)
+                                            {
+                                                <button type="button" onclick="openEditModal(this, @eventItem.Id)"
+                                                        aria-label="Edit @eventItem.EventTitle"
+                                                        class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+                                                    <i class="fa-solid fa-pen" aria-hidden="true"></i> Edit
+                                                </button>
+                                                <button type="button"
+                                                        data-event-id="@eventItem.Id"
+                                                        data-event-title="@eventItem.EventTitle"
+                                                        aria-label="Delete @eventItem.EventTitle"
+                                                        class="delete-event-btn bg-red-500/20 hover:bg-red-500 border border-red-500/30 hover:border-red-500 text-red-400 hover:text-white py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center w-12 focus:outline-none focus:ring-2 focus:ring-accent">
+                                                    <i class="fa-solid fa-trash" aria-hidden="true"></i>
+                                                </button>
+                                            }
                                         </div>
                                     </div>
                                 </div>
@@ -1125,7 +1136,6 @@
     (function initEventSearch() {
         const searchInput = document.getElementById('searchInput');
         const eventsContainer = document.getElementById('eventsContainer');
-        const resultCountEl = document.getElementById('resultCount');
         const announcerEl = document.getElementById('resultCountAnnouncer');
         const noMatchEl = document.getElementById('noSearchResults');
         if (!searchInput || !eventsContainer) return;
@@ -1172,7 +1182,6 @@
             });
 
             const text = buildResultText(term, visibleCount);
-            if (resultCountEl) resultCountEl.textContent = text;
             if (noMatchEl) noMatchEl.hidden = !(totalEventCount > 0 && visibleCount === 0);
 
             return { term: term, text: text };
@@ -3490,7 +3499,7 @@
             if (requestToken !== editEventLoadToken) return;
 
             if (!data.success) {
-                showToast('Unable to load this event. Please try again.', 'error');
+                showToast(data.message || 'Unable to load this event. Please try again.', 'error');
                 return;
             }
 

@@ -393,6 +393,16 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "Event not found" });
                 }
 
+                // Completed Events are immutable historical records (see CLAUDE.md,
+                // Event Lifecycle) - checked only now, after authorization/ownership
+                // has already succeeded, so an unauthorized caller still gets the
+                // same indistinguishable "Event not found" above rather than a
+                // response that reveals this Event exists and is Completed.
+                if (eventItem.Status == "Completed")
+                {
+                    return Json(new { success = false, message = "Completed events are read-only and cannot be edited." });
+                }
+
                 var trail = eventItem.Trail;
 
                 // Defensive read - malformed/unsupported stored JSON
@@ -833,6 +843,24 @@ namespace TrailGuard.Controllers
                     resolvedOrganizerId = existingEvent.OrganizerId;
                 }
 
+                // Independent, persisted-status guard - Completed Events are
+                // immutable historical records (see CLAUDE.md, Event Lifecycle).
+                // Placed only now, after both the Admin and Organizer-ownership
+                // branches above have already succeeded, so this never runs for
+                // an unauthorized caller. Checked against existingEvent.Status -
+                // the value already loaded from the database, before anything
+                // below touches it - never model.Status, which the client fully
+                // controls and which would otherwise let a stale Edit modal (or a
+                // crafted request) "reopen" a Completed event just by posting a
+                // different value. existingEvent is re-fetched fresh on every
+                // request (FindAsync against this request's own DbContext), so a
+                // stale modal opened before the event was marked Completed is
+                // still rejected here regardless of what it was showing.
+                if (existingEvent.Status == "Completed")
+                {
+                    return Json(new { success = false, message = "Completed events are read-only and cannot be edited." });
+                }
+
                 var scheduleResult = PickupScheduleHelper.ValidateAndFormat(model.PickupSchedules);
                 if (!scheduleResult.Success)
                 {
@@ -913,6 +941,17 @@ namespace TrailGuard.Controllers
                 if (currentUser == null || !await CanManageEventAsync(eventItem, currentUser))
                 {
                     return Json(new { success = false, message = "Event not found" });
+                }
+
+                // Independent, persisted-status guard - Completed Events are part
+                // of the event history (participant completion history, Trail
+                // Points/Tier/Rank/Achievements, post-event assessments and
+                // comparisons all read them) and must never be deletable, by
+                // Admin or Organizer alike. Checked only after authorization/
+                // ownership has already succeeded above.
+                if (eventItem.Status == "Completed")
+                {
+                    return Json(new { success = false, message = "Completed events are part of the event history and cannot be deleted." });
                 }
 
                 _context.Events.Remove(eventItem);
