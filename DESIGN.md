@@ -262,6 +262,8 @@ Mobile menu icon: the hamburger and the × cross-fade and rotate into each other
 
 Mobile panel itself animates height via CSS grid (`grid-template-rows: 0fr` → `1fr`) rather than a fixed max-height — `height` and `max-height` can't transition to `auto`, and a fixed pixel guess breaks the moment the menu's content changes.
 
+The TrailGuard navbar brand always links to the public Landing Page for every authentication state and role. Role-specific Dashboard navigation remains a separate explicit link.
+
 ---
 
 ## Buttons
