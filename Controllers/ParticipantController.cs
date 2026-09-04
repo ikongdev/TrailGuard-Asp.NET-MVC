@@ -350,6 +350,13 @@ namespace TrailGuard.Controllers
         [HttpGet]
         public async Task<JsonResult> GetTrailEvents(int trailId)
         {
+            // A non-positive id can never match a real Trail.Id - short-circuit rather
+            // than let the query run and (harmlessly, but pointlessly) return empty.
+            if (trailId <= 0)
+            {
+                return Json(Array.Empty<object>());
+            }
+
             var events = await _context.Events
                 .Where(e => e.TrailId == trailId && e.Status == "Upcoming" && e.EventDate >= DateTime.Today)
                 .OrderBy(e => e.EventDate)
@@ -364,6 +371,42 @@ namespace TrailGuard.Controllers
                 .ToListAsync();
 
             return Json(events);
+        }
+
+        // GET: Participant/GetTrailPhotos (for the read-only Trail Details modal's
+        // Additional Photos gallery). A narrow, Participant-scoped counterpart to
+        // TrailController.GetTrailPhotos (Admin/Organizer-only) - never call or relax
+        // that endpoint's authorization for this. Returns only the photo URL: no
+        // TrailPhoto.Id (that's a delete target on the Organizer side and this gallery
+        // has no delete capability), no uploader/account data, no file-system path.
+        //
+        // Browse Trails (ParticipantController.Trails, above) applies no IsActive
+        // filter - every trail is shown to Participants regardless of that flag - so
+        // this endpoint deliberately doesn't filter on it either. Doing so here only
+        // would make the gallery silently empty for a trail the participant can still
+        // see and open the modal for, which is a worse inconsistency than the one
+        // IsActive is meant to prevent.
+        [HttpGet]
+        public async Task<JsonResult> GetTrailPhotos(int trailId)
+        {
+            if (trailId <= 0)
+            {
+                return Json(Array.Empty<object>());
+            }
+
+            var trailExists = await _context.Trails.AnyAsync(t => t.Id == trailId);
+            if (!trailExists)
+            {
+                return Json(Array.Empty<object>());
+            }
+
+            var photos = await _context.TrailPhotos
+                .Where(p => p.TrailId == trailId)
+                .OrderBy(p => p.DisplayOrder)
+                .Select(p => new { url = p.ImageUrl })
+                .ToListAsync();
+
+            return Json(photos);
         }
 
         public async Task<IActionResult> Details(int id)

@@ -1,6 +1,7 @@
 @model IEnumerable<TrailGuard.Models.Trail>
 @{
     ViewData["Title"] = "Browse Trails";
+    var totalTrailCount = Model.Count();
 }
 
 @* Success/Error feedback now goes through the canonical global toast host
@@ -13,52 +14,51 @@
                 <h1 class="text-3xl font-bold text-white">Browse Trails</h1>
                 <p class="text-gray-400 mt-1 text-sm">Discover trails that match your adventure level and explore hiking destinations.</p>
             </div>
-            
+
             <div class="bg-white/5 border border-white/10 px-4 py-2.5 rounded-full flex items-center gap-2 backdrop-blur-sm">
-                <i class="fa-solid fa-mountain text-gray-400"></i>
-                <span class="text-sm font-medium text-gray-300">Total Trails: <strong class="text-white" id="trailCount">@Model.Count()</strong></span>
+                <i class="fa-solid fa-mountain text-gray-400" aria-hidden="true"></i>
+                <span class="text-sm font-medium text-gray-300"><span id="trailCountLabel">Total Trail@(totalTrailCount == 1 ? "" : "s")</span>: <strong class="text-white" id="trailCount">@totalTrailCount</strong></span>
             </div>
         </div>
 
-        <div class="flex flex-col lg:flex-row gap-4 mb-8 bg-white/5 backdrop-blur-xl p-5 rounded-xl border border-white/10">
-            
+        <div class="flex flex-col lg:flex-row gap-3 mb-8 bg-white/5 backdrop-blur-xl p-5 rounded-xl border border-white/10">
+
             <div class="relative grow">
-                <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                <input type="text" id="searchInput" placeholder="Search trails by name or location..." 
+                <label for="searchInput" class="sr-only">Search trails by name or location</label>
+                <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden="true"></i>
+                <input type="search" id="searchInput" placeholder="Search trails by name or location..." autocomplete="off"
                     class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-11 pr-4 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors placeholder-gray-500">
             </div>
 
-            <div class="relative">
-                <select id="sortOrder" class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors w-full">
-                    <option value="newest" class="bg-surface-card">Sort by: Newest</option>
-                    <option value="oldest" class="bg-surface-card">Sort by: Oldest</option>
-                    <option value="name_asc" class="bg-surface-card">Name (A-Z)</option>
-                    <option value="name_desc" class="bg-surface-card">Name (Z-A)</option>
-                    <option value="distance_asc" class="bg-surface-card">Distance (Low to High)</option>
-                    <option value="distance_desc" class="bg-surface-card">Distance (High to Low)</option>
-                    <option value="elevation_asc" class="bg-surface-card">Elevation (Low to High)</option>
-                    <option value="elevation_desc" class="bg-surface-card">Elevation (High to Low)</option>
+            <div class="relative shrink-0 w-full lg:w-64">
+                <label for="sortOrder" class="sr-only">Sort trails by</label>
+                <select id="sortOrder" data-custom-select data-custom-select-portal
+                        data-cs-decorative-chevron="sortOrderChevron"
+                        data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-5 py-3 rounded-full bg-black/20 border border-white/10 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer hover:bg-white/10"
+                        class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors">
+                    <option value="newest" class="bg-surface-card text-white">Sort by: Newest</option>
+                    <option value="oldest" class="bg-surface-card text-white">Sort by: Oldest</option>
+                    <option value="name_asc" class="bg-surface-card text-white">Name (A-Z)</option>
+                    <option value="name_desc" class="bg-surface-card text-white">Name (Z-A)</option>
+                    <option value="distance_asc" class="bg-surface-card text-white">Distance (Low to High)</option>
+                    <option value="distance_desc" class="bg-surface-card text-white">Distance (High to Low)</option>
+                    <option value="elevation_asc" class="bg-surface-card text-white">Elevation (Low to High)</option>
+                    <option value="elevation_desc" class="bg-surface-card text-white">Elevation (High to Low)</option>
                 </select>
-                <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
-                    <i class="fa-solid fa-chevron-down text-xs"></i>
+                <div id="sortOrderChevron" class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
+                    <i class="fa-solid fa-chevron-down text-xs" aria-hidden="true"></i>
                 </div>
             </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="trailGrid">
-            @if (!Model.Any())
-            {
-                <div class="col-span-full text-center py-20 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl">
-                    <i class="fa-solid fa-mountain text-4xl text-slate-600 mb-4"></i>
-                    <h3 class="text-xl font-bold text-gray-300">No trails found</h3>
-                    <p class="text-gray-500 mt-2">Try searching a different name or clearing the filters.</p>
-                </div>
-            }
-            else
-            {
+        <p id="resultCountAnnouncer" class="sr-only" role="status" aria-live="polite"></p>
+
+        @if (Model.Any())
+        {
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="trailGrid">
                 @foreach (var trail in Model)
                 {
-                    <div class="trail-card bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden hover:border-white/20 transition-colors flex flex-col"
+                    <div class="trail-card group bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden hover:border-white/20 transition-colors flex flex-col"
                          data-date-added="@trail.DateAdded.ToString("yyyy-MM-dd")"
                          data-name="@trail.Name"
                          data-location="@trail.Location"
@@ -67,34 +67,34 @@
                         <div class="relative h-48 overflow-hidden bg-black/30">
                             @if (!string.IsNullOrEmpty(trail.ThumbnailUrl))
                             {
-                                <img src="@trail.ThumbnailUrl" alt="@trail.Name" class="w-full h-full object-cover">
+                                <img src="@trail.ThumbnailUrl" alt="@trail.Name" class="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105 motion-reduce:transform-none motion-reduce:transition-none" onerror="handleTrailImageError(this)">
                             }
                             else
                             {
                                 <div class="w-full h-full flex items-center justify-center">
-                                    <i class="fa-solid fa-image text-4xl text-slate-700"></i>
+                                    <i class="fa-solid fa-image text-4xl text-slate-700" aria-hidden="true"></i>
                                 </div>
                             }
                             <div class="absolute inset-0 bg-linear-to-t from-surface-card to-transparent opacity-90"></div>
                         </div>
-                        
+
                         <div class="p-6 flex flex-col grow relative z-10 -mt-10">
                             <h3 class="text-xl font-bold text-white mb-1">@trail.Name</h3>
                             <p class="text-gray-400 text-sm mb-5 flex items-center gap-1.5">
-                                <i class="fa-solid fa-location-dot text-accent"></i> @trail.Location
+                                <i class="fa-solid fa-location-dot text-accent" aria-hidden="true"></i> @trail.Location
                             </p>
-                            
+
                             <div class="grid grid-cols-2 gap-4 mb-4">
                                 <div>
                                     <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Distance</p>
                                     <p class="text-gray-200 text-sm font-medium flex items-center gap-2">
-                                        <i class="fa-solid fa-route text-gray-400"></i> @trail.DistanceKm km
+                                        <i class="fa-solid fa-route text-gray-400" aria-hidden="true"></i> @trail.DistanceKm km
                                     </p>
                                 </div>
                                 <div>
                                     <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Elev. Gain</p>
                                     <p class="text-gray-200 text-sm font-medium flex items-center gap-2">
-                                        <i class="fa-solid fa-arrow-trend-up text-gray-400"></i> @trail.ElevationGainMeters m
+                                        <i class="fa-solid fa-arrow-trend-up text-gray-400" aria-hidden="true"></i> @trail.ElevationGainMeters m
                                     </p>
                                 </div>
                             </div>
@@ -116,44 +116,63 @@
                                     data-distance="@trail.DistanceKm"
                                     data-elevation="@trail.ElevationGainMeters"
                                     data-terrain="@trail.Terrain"
+                                    data-terrain-type="@trail.TrailClass"
                                     data-description="@trail.Description"
                                     data-image="@(string.IsNullOrEmpty(trail.ThumbnailUrl) ? "" : trail.ThumbnailUrl)"
                                     data-date-added="@trail.DateAdded.ToString("MMM dd, yyyy")"
+                                    aria-label="View details for @trail.Name"
                                     class="w-full mt-auto bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-2">
-                                <i class="fa-regular fa-eye"></i> View Trail Details
+                                <i class="fa-regular fa-eye" aria-hidden="true"></i> View Trail Details
                             </button>
                         </div>
                     </div>
                 }
-            }
-        </div>
+            </div>
+
+            <div id="noResultsMessage" class="hidden text-center py-20 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl">
+                <i class="fa-solid fa-mountain text-4xl text-slate-600 mb-4" aria-hidden="true"></i>
+                <h3 class="text-xl font-bold text-gray-300">No trails found</h3>
+                <p class="text-gray-500 mt-2">Try searching a different name or clearing the filters.</p>
+            </div>
+        }
+        else
+        {
+            <div class="text-center py-20 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl">
+                <i class="fa-solid fa-mountain text-4xl text-slate-600 mb-4" aria-hidden="true"></i>
+                <h3 class="text-xl font-bold text-gray-300">No trails found</h3>
+                <p class="text-gray-500 mt-2">Try searching a different name or clearing the filters.</p>
+            </div>
+        }
     </div>
 }
 
 @section Modals {
-    <div id="viewTrailModal" class="fixed inset-0 z-100 modal-hidden">
-        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="closeViewModal()"></div>
-        <div class="relative bg-surface-card border border-white/10 rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col" style="z-index: 10;">
-            
+    <div id="viewTrailModal" class="fixed inset-0 z-60 hidden items-center justify-center p-4">
+        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm z-60" onclick="closeViewModal()" aria-hidden="true"></div>
+        <div role="dialog" aria-modal="true" aria-labelledby="participantTrailDetailsTitle"
+             class="relative bg-surface-card border border-white/10 rounded-xl shadow-2xl w-full max-w-4xl max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col z-60">
+
             <div class="flex justify-between items-center px-5 py-3 border-b border-white/10 shrink-0">
-                <h2 class="text-base font-semibold text-white flex items-center gap-2">
-                    <i class="fa-solid fa-mountain text-accent"></i>
+                <h2 id="participantTrailDetailsTitle" class="text-base font-semibold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-mountain text-accent" aria-hidden="true"></i>
                     Trail Details
                 </h2>
-                <button onclick="closeViewModal()" class="text-gray-400 hover:text-white transition-colors">
-                    <i class="fa-solid fa-xmark text-xl"></i>
+                <button type="button" onclick="closeViewModal()" aria-label="Close" class="text-gray-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded">
+                    <i class="fa-solid fa-xmark text-xl" aria-hidden="true"></i>
                 </button>
             </div>
 
-            <div class="overflow-y-auto custom-scrollbar">
-                
-                <div class="relative h-40 overflow-hidden bg-black/30">
-                    <img id="viewImage" src="" alt="Trail" class="w-full h-full object-cover">
+            <div id="viewTrailModalBody" class="overflow-y-auto flex-1">
+                <div class="relative h-40 sm:h-56 overflow-hidden bg-black/30">
+                    <img id="viewImage" src="" alt="" class="w-full h-full object-cover">
+                    <div id="viewImagePlaceholder" class="hidden w-full h-full items-center justify-center">
+                        <i class="fa-solid fa-image text-4xl text-gray-600" aria-hidden="true"></i>
+                    </div>
                     <div class="absolute inset-0 bg-linear-to-t from-surface-card via-surface-card/40 to-transparent"></div>
                     <div class="absolute bottom-0 left-0 right-0 p-5">
                         <h3 id="viewName" class="text-2xl font-bold text-white"></h3>
                         <p class="text-gray-300 text-sm flex items-center gap-1.5 mt-1">
-                            <i class="fa-solid fa-location-dot text-accent"></i>
+                            <i class="fa-solid fa-location-dot text-red-400" aria-hidden="true"></i>
                             <span id="viewLocation"></span>
                         </p>
                     </div>
@@ -162,155 +181,520 @@
                 <div class="p-5">
                     <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm mb-4">
                         <span class="text-gray-300 flex items-center gap-2">
-                            <i class="fa-solid fa-route text-gray-500"></i>
+                            <i class="fa-solid fa-route text-gray-500" aria-hidden="true"></i>
                             <span id="viewDistance"></span> km
                         </span>
                         <span class="text-gray-300 flex items-center gap-2">
-                            <i class="fa-solid fa-arrow-trend-up text-gray-500"></i>
+                            <i class="fa-solid fa-arrow-trend-up text-gray-500" aria-hidden="true"></i>
                             <span id="viewElevation"></span> m
                         </span>
                         <span class="text-gray-300 flex items-center gap-2">
-                            <i class="fa-solid fa-tree text-gray-500"></i>
-                            <span id="viewTerrainType"></span>
+                            <i class="fa-solid fa-hand text-gray-500" aria-hidden="true"></i>
+                            Class <span id="viewTrailClass"></span>
                         </span>
                         <span class="text-gray-500 flex items-center gap-2 text-xs">
-                            <i class="fa-regular fa-calendar"></i>
+                            <i class="fa-regular fa-calendar" aria-hidden="true"></i>
                             Added <span id="viewDateAdded"></span>
                         </span>
+                    </div>
+
+                    <div class="mb-4">
+                        <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-1.5">Terrain</p>
+                        <div id="viewTerrainChips" class="flex flex-wrap gap-1.5"></div>
                     </div>
 
                     <p id="viewDescriptionText" class="text-gray-400 text-sm leading-relaxed pb-5 border-b border-white/10"></p>
 
                     <div class="mt-5">
-                        <p class="text-gray-500 text-xs uppercase tracking-wider mb-3 flex items-center gap-2">
-                            <i class="fa-regular fa-calendar"></i> Events on this Trail
+                        <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-3">Additional Photos</p>
+                        <div id="viewAdditionalPhotos" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3"></div>
+                    </div>
+
+                    <div class="mt-5">
+                        <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-3 flex items-center gap-2">
+                            <i class="fa-regular fa-calendar" aria-hidden="true"></i> Upcoming Events on This Trail
                         </p>
-                        <div id="viewTrailEvents" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div class="col-span-full text-center text-gray-500 text-sm py-4">Loading events...</div>
-                        </div>
+                        <div id="viewTrailEvents" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
                     </div>
                 </div>
             </div>
 
-            <div class="px-5 py-3 border-t border-white/10 shrink-0 flex justify-end gap-3">
-                <button onclick="closeViewModal()" class="px-5 py-2 rounded-full text-sm font-medium text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-colors">
+            <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10 shrink-0">
+                <button type="button" onclick="closeViewModal()" class="px-5 py-2.5 rounded-full text-sm font-semibold text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-accent">
                     Close
                 </button>
-                <a asp-controller="Participant" asp-action="Events" 
-                class="px-5 py-2 rounded-full text-sm font-semibold text-white bg-linear-to-r from-orange-500 via-pink-500 to-violet-500 hover:brightness-110 hover:scale-[1.02] transition duration-200 ease-out flex items-center gap-2">
-                    <i class="fa-regular fa-calendar"></i> Browse All Events
+                <a asp-controller="Participant" asp-action="Events"
+                   class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold text-white bg-accent hover:bg-accent/90 transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-card">
+                    <i class="fa-regular fa-calendar" aria-hidden="true"></i> Browse All Events
                 </a>
             </div>
         </div>
     </div>
 
-    <style>
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgb(139 92 246 / 0.3); border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgb(139 92 246 / 0.6); }
-        
-        .modal-hidden { display: none !important; }
-
-        .modal-visible {
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            padding: 1rem;
-        }
-    </style>
-
     <script>
-        let currentTrailId = null;
+        // Single reusable implementation of dialog open/close mechanics for this
+        // page's one modal - focus trapping, focus restoration, Escape, background
+        // inert + scroll lock. Adapted from Views/Trail/Index.cshtml's TrailModal:
+        // this page only ever has one modal and no Edit target, so the `replace`
+        // transition that exists there is dropped here.
+        const TrailModal = (function () {
+            let activeModal = null;
+            let lastFocusedElement = null;
+            let inertedElements = [];
+            let bodyOverflowBeforeModal = null;
 
-        function openViewModal(button) {
-            currentTrailId = button.dataset.id;
+            function getFocusableElements(container) {
+                return Array.from(container.querySelectorAll(
+                    'a[href], button:not([disabled]), textarea:not([disabled]), ' +
+                    'input:not([disabled]):not([type="hidden"]), select:not([disabled]), ' +
+                    '[tabindex]:not([tabindex="-1"])'
+                )).filter(function (el) { return el.offsetParent !== null; });
+            }
 
-            document.getElementById('viewName').textContent = button.dataset.name;
-            document.getElementById('viewLocation').textContent = button.dataset.location;
-            document.getElementById('viewDistance').textContent = button.dataset.distance;
-            document.getElementById('viewElevation').textContent = button.dataset.elevation;
-            document.getElementById('viewTerrainType').textContent = button.dataset.terrain;
-            document.getElementById('viewDescriptionText').textContent = button.dataset.description || 'No description provided.';
-            document.getElementById('viewDateAdded').textContent = button.dataset.dateAdded || 'N/A';
+            function makeBackgroundInert(modalRoot) {
+                inertedElements = [];
+                let current = modalRoot;
 
-            const heroImg = document.getElementById('viewImage');
-            heroImg.src = button.dataset.image || '/images/bg-image.png';
+                while (current && current !== document.body) {
+                    const parent = current.parentElement;
+                    if (!parent) break;
 
-            const modal = document.getElementById('viewTrailModal');
-            const eventsContainer = document.getElementById('viewTrailEvents');
-            eventsContainer.innerHTML = '<div class="col-span-full text-center text-gray-500 text-sm py-4">Loading events...</div>';
-            
-            modal.classList.remove('modal-hidden');
-            modal.classList.add('modal-visible');
-            document.body.style.overflow = 'hidden';
+                    Array.from(parent.children).forEach(function (sibling) {
+                        if (sibling === current || sibling.hasAttribute('inert')) return;
+                        // The global toast host must stay interactive and in the
+                        // accessibility tree no matter which modal is open - see
+                        // wwwroot/js/toast.js.
+                        if (window.tgToastHostExempt && window.tgToastHostExempt(sibling)) return;
+                        sibling.setAttribute('inert', '');
+                        inertedElements.push(sibling);
+                    });
 
-            fetch(`/Participant/GetTrailEvents?trailId=${currentTrailId}`)
-                .then(response => response.json())
-                .then(data => {
-                    eventsContainer.innerHTML = '';
-                    
-                    if (data && data.length > 0) {
-                        data.forEach(ev => {
-                            // Mirrors DifficultyCalculator.BadgeClass() in C# - this data comes back
-                            // as JSON from an AJAX endpoint, so it can't call that helper directly.
-                            // Keep these two mappings in sync.
-                            const badgeClass = ev.difficulty === 'Easy' ? 'badge-easy'
-                                             : ev.difficulty === 'Minor Climb' ? 'badge-lime'
-                                             : ev.difficulty === 'Major Climb' ? 'badge-orange'
-                                             : 'badge-hard';
-                            const div = document.createElement('div');
-                            div.className = 'bg-white/5 rounded-xl p-3 border border-white/10 hover:border-white/20 transition-colors';
-                            div.innerHTML = `
-                                <p class="text-white font-medium text-sm">${ev.eventTitle}</p>
-                                <div class="flex flex-wrap items-center gap-2 text-xs text-gray-400 mt-2">
-                                    <span><i class="fa-regular fa-calendar mr-1"></i>${ev.eventDate}</span>
-                                    <span><i class="fa-regular fa-clock mr-1"></i>${ev.eventTime}</span>
-                                    <span class="px-2 py-0.5 rounded-full font-medium ${badgeClass}">${ev.difficulty}</span>
-                                </div>
-                                <a href="/Participant/Details/${ev.id}" class="mt-2 inline-block text-xs font-medium text-accent hover:brightness-125 transition-all">
-                                    View Event <i class="fa-solid fa-arrow-right ml-1"></i>
-                                </a>
-                            `;
-                            eventsContainer.appendChild(div);
-                        });
-                    } else {
-                        eventsContainer.innerHTML = `
-                            <div class="col-span-full text-center text-gray-500 text-sm py-6">
-                                <i class="fa-regular fa-calendar-plus text-2xl block mb-2 text-slate-600"></i>
-                                No upcoming events on this trail yet.
-                            </div>
-                        `;
+                    current = parent;
+                }
+            }
+
+            function restoreBackgroundInert() {
+                inertedElements.forEach(function (element) {
+                    element.removeAttribute('inert');
+                });
+                inertedElements = [];
+            }
+
+            function handleKeydown(event) {
+                if (!activeModal) return;
+
+                if (event.key === 'Escape') {
+                    closeModal(activeModal.id);
+                    return;
+                }
+
+                if (event.key === 'Tab') {
+                    const toastCloseButtons = window.tgGetToastCloseButtons ? window.tgGetToastCloseButtons() : [];
+                    const focusable = getFocusableElements(activeModal).concat(toastCloseButtons);
+                    if (focusable.length === 0) {
+                        event.preventDefault();
+                        return;
                     }
-                })
-                .catch(() => {
-                    eventsContainer.innerHTML = '<div class="col-span-full text-center text-red-400 text-sm py-4">Could not load events.</div>';
+                    const first = focusable[0];
+                    const last = focusable[focusable.length - 1];
+                    if (event.shiftKey && document.activeElement === first) {
+                        event.preventDefault();
+                        last.focus();
+                    } else if (!event.shiftKey && document.activeElement === last) {
+                        event.preventDefault();
+                        first.focus();
+                    }
+                }
+            }
+
+            function openModal(id) {
+                const modal = document.getElementById(id);
+                if (!modal) return;
+
+                lastFocusedElement = document.activeElement;
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                activeModal = modal;
+                makeBackgroundInert(modal);
+                bodyOverflowBeforeModal = document.body.style.overflow;
+                document.body.style.overflow = 'hidden';
+                document.addEventListener('keydown', handleKeydown);
+
+                const focusable = getFocusableElements(modal);
+                const target = focusable[0] || modal;
+                if (target && typeof target.focus === 'function') {
+                    target.focus();
+                }
+            }
+
+            function closeModal(id) {
+                const modal = document.getElementById(id);
+                if (!modal) return;
+
+                if (window.CustomSelect) window.CustomSelect.closeAll();
+
+                if (activeModal !== modal) {
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                    return;
+                }
+
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                activeModal = null;
+                restoreBackgroundInert();
+                document.body.style.overflow = bodyOverflowBeforeModal || '';
+                bodyOverflowBeforeModal = null;
+                document.removeEventListener('keydown', handleKeydown);
+
+                if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+                    lastFocusedElement.focus();
+                }
+                lastFocusedElement = null;
+            }
+
+            return { open: openModal, close: closeModal };
+        })();
+
+        // Card thumbnails render once and never reopen, so replacing the failed <img>
+        // outright is fine. Mirrors Views/Trail/Index.cshtml's handleTrailImageError -
+        // same fallback markup as the server-rendered "no ThumbnailUrl" case above, so
+        // a broken image URL and a missing one look identical.
+        function handleTrailImageError(img) {
+            img.onerror = null;
+            const fallback = document.createElement('div');
+            fallback.className = 'w-full h-full flex items-center justify-center';
+            const icon = document.createElement('i');
+            icon.className = 'fa-solid fa-image text-4xl text-slate-700';
+            icon.setAttribute('aria-hidden', 'true');
+            fallback.appendChild(icon);
+            img.replaceWith(fallback);
+        }
+
+        // The Additional Photos grid is rebuilt from scratch every time the modal
+        // opens, so replacing a broken thumbnail <img> is safe there too.
+        function handleThumbGridImageError(img) {
+            img.onerror = null;
+            const fallback = document.createElement('div');
+            fallback.className = 'w-full h-full flex items-center justify-center bg-gray-900';
+            fallback.setAttribute('role', 'img');
+            fallback.setAttribute('aria-label', 'Photo unavailable');
+            const icon = document.createElement('i');
+            icon.className = 'fa-solid fa-image text-lg text-gray-600';
+            icon.setAttribute('aria-hidden', 'true');
+            fallback.appendChild(icon);
+            img.replaceWith(fallback);
+        }
+
+        // The hero <img> IS reused across repeated modal opens (the modal markup
+        // stays in the DOM), so it toggles a sibling placeholder rather than being
+        // replaced - replacing it would leave #viewImage missing on the next open.
+        function setViewHeroImage(url, altText) {
+            const img = document.getElementById('viewImage');
+            const placeholder = document.getElementById('viewImagePlaceholder');
+            img.onerror = null;
+
+            if (url) {
+                img.src = url;
+                img.alt = altText;
+                img.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+                placeholder.classList.remove('flex');
+                img.onerror = function () {
+                    img.classList.add('hidden');
+                    placeholder.classList.remove('hidden');
+                    placeholder.classList.add('flex');
+                };
+            } else {
+                img.removeAttribute('src');
+                img.alt = '';
+                img.classList.add('hidden');
+                placeholder.classList.remove('hidden');
+                placeholder.classList.add('flex');
+            }
+        }
+
+        // Mirrors DifficultyCalculator.TrailClassLabel() in C# - this modal is
+        // populated from data-* attributes without a server round trip, so it can't
+        // call that method directly. Keep these two mappings in sync.
+        const TRAIL_CLASS_LABELS = { '1': 'Walking', '2': 'Hiking', '3': 'Scrambling', '4': 'Simple Climbing' };
+        function trailClassLabel(value) {
+            const label = TRAIL_CLASS_LABELS[value];
+            return label ? (value + ' — ' + label) : 'N/A';
+        }
+
+        // Same parsing convention used by the card and Trail Management: split on
+        // comma, trim, drop empty pieces. Each chip is a real element built with
+        // textContent - never innerHTML - since terrain text is organizer-entered.
+        function renderTerrainChips(container, terrainString) {
+            container.innerHTML = '';
+            (terrainString || '').split(',')
+                .map(function (t) { return t.trim(); })
+                .filter(function (t) { return t.length > 0; })
+                .forEach(function (value) {
+                    const chip = document.createElement('span');
+                    chip.className = 'px-2.5 py-1 rounded-full text-xs font-medium bg-white/5 border border-white/10 text-gray-300';
+                    chip.textContent = value;
+                    container.appendChild(chip);
                 });
         }
 
-        function closeViewModal() {
-            const modal = document.getElementById('viewTrailModal');
-            modal.classList.remove('modal-visible');
-            modal.classList.add('modal-hidden');
-            document.body.style.overflow = 'auto';
+        // One Additional Photos thumbnail. No delete affordance exists on this
+        // read-only Participant gallery, unlike Trail Management's own version of
+        // this helper - so this is a narrower, Participant-only copy rather than a
+        // shared one. The photo URL is assigned as a real property (img.src = url),
+        // never concatenated into an HTML string.
+        function buildPhotoThumb(url) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'aspect-square rounded-lg overflow-hidden border border-gray-700';
+
+            const img = document.createElement('img');
+            img.src = url;
+            img.alt = '';
+            img.className = 'w-full h-full object-cover';
+            img.addEventListener('error', function () { handleThumbGridImageError(img); });
+            wrapper.appendChild(img);
+
+            return wrapper;
         }
 
-        document.addEventListener('keydown', function(event) {
-            if (event.key === 'Escape') closeViewModal();
-        });
+        // Small, trusted (never user-controlled) status message used for the
+        // Additional Photos / Upcoming Events loading, empty, and error states -
+        // built through DOM APIs rather than an innerHTML template string.
+        function buildStatusMessage(text, options) {
+            options = options || {};
+            const wrapper = document.createElement('div');
+            wrapper.className = 'col-span-full text-center text-sm py-4 ' + (options.className || 'text-gray-500');
+            if (options.icon) {
+                const icon = document.createElement('i');
+                icon.className = options.icon + ' text-2xl block mb-2 text-slate-600';
+                icon.setAttribute('aria-hidden', 'true');
+                wrapper.appendChild(icon);
+            }
+            wrapper.appendChild(document.createTextNode(text));
+            return wrapper;
+        }
+
+        // Mirrors DifficultyCalculator.BadgeClass() in C# - this event data comes
+        // back as JSON from an AJAX endpoint, so it can't call that helper
+        // directly. Keep these two mappings in sync with DifficultyCalculator.Bands.
+        function difficultyBadgeClass(difficulty) {
+            switch (difficulty) {
+                case 'Easy': return 'badge-easy';
+                case 'Minor Climb': return 'badge-lime';
+                case 'Major Climb': return 'badge-orange';
+                case 'Major Climb — Difficult': return 'badge-hard';
+                default: return 'text-slate-400 bg-slate-500/15';
+            }
+        }
+
+        // Safe DOM construction for one Upcoming Events card - replaces a previous
+        // innerHTML template that interpolated organizer-entered event fields
+        // (title, date, time, difficulty) directly into markup.
+        function buildTrailEventCard(ev) {
+            const card = document.createElement('div');
+            card.className = 'bg-white/5 rounded-xl p-3 border border-white/10 hover:border-white/20 transition-colors';
+
+            const title = document.createElement('p');
+            title.className = 'text-white font-medium text-sm';
+            title.textContent = ev.eventTitle || 'Untitled Event';
+            card.appendChild(title);
+
+            const metaRow = document.createElement('div');
+            metaRow.className = 'flex flex-wrap items-center gap-2 text-xs text-gray-400 mt-2';
+
+            const dateSpan = document.createElement('span');
+            const dateIcon = document.createElement('i');
+            dateIcon.className = 'fa-regular fa-calendar mr-1';
+            dateIcon.setAttribute('aria-hidden', 'true');
+            dateSpan.appendChild(dateIcon);
+            dateSpan.appendChild(document.createTextNode(ev.eventDate || ''));
+            metaRow.appendChild(dateSpan);
+
+            const timeSpan = document.createElement('span');
+            const timeIcon = document.createElement('i');
+            timeIcon.className = 'fa-regular fa-clock mr-1';
+            timeIcon.setAttribute('aria-hidden', 'true');
+            timeSpan.appendChild(timeIcon);
+            timeSpan.appendChild(document.createTextNode(ev.eventTime || ''));
+            metaRow.appendChild(timeSpan);
+
+            const badge = document.createElement('span');
+            badge.className = 'px-2 py-0.5 rounded-full font-medium ' + difficultyBadgeClass(ev.difficulty);
+            badge.textContent = ev.difficulty || 'Unknown';
+            metaRow.appendChild(badge);
+
+            card.appendChild(metaRow);
+
+            // Only a positive integer id becomes a link - anything else (missing,
+            // zero, negative, non-numeric) renders the card with no Details link
+            // rather than building a URL out of an untrusted value.
+            const eventId = Number(ev.id);
+            if (Number.isInteger(eventId) && eventId > 0) {
+                const link = document.createElement('a');
+                link.href = '/Participant/Details/' + eventId;
+                link.className = 'mt-2 inline-block text-xs font-medium text-accent hover:brightness-125 transition-all';
+                link.appendChild(document.createTextNode('View Event '));
+                const arrowIcon = document.createElement('i');
+                arrowIcon.className = 'fa-solid fa-arrow-right ml-1';
+                arrowIcon.setAttribute('aria-hidden', 'true');
+                link.appendChild(arrowIcon);
+                card.appendChild(link);
+            }
+
+            return card;
+        }
+
+        let currentTrailId = null;
+        // Bumped on every open; a fetch response is only applied if this still
+        // matches the token it was issued under, so a slow response for a
+        // previously opened trail can never populate a newly opened trail's modal
+        // (rapid open Trail A -> open Trail B). Paired with AbortController below
+        // as a second, belt-and-suspenders layer - the token check still protects
+        // against a response that already started downloading before abort() had
+        // any effect.
+        let modalRequestToken = 0;
+        let photosController = null;
+        let eventsController = null;
+
+        function abortModalRequests() {
+            if (photosController) { photosController.abort(); photosController = null; }
+            if (eventsController) { eventsController.abort(); eventsController = null; }
+        }
+
+        function loadTrailPhotos(trailId, token) {
+            const container = document.getElementById('viewAdditionalPhotos');
+            container.innerHTML = '';
+            container.appendChild(buildStatusMessage('Loading photos...'));
+
+            photosController = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+
+            fetch('/Participant/GetTrailPhotos?trailId=' + encodeURIComponent(trailId), {
+                signal: photosController ? photosController.signal : undefined
+            })
+                .then(function (response) { return response.json(); })
+                .then(function (data) {
+                    if (token !== modalRequestToken) return;
+                    container.innerHTML = '';
+
+                    if (data && data.length > 0) {
+                        data.forEach(function (photo) {
+                            container.appendChild(buildPhotoThumb(photo.url));
+                        });
+                    } else {
+                        container.appendChild(buildStatusMessage('No additional photos'));
+                    }
+                })
+                .catch(function (error) {
+                    if (error && error.name === 'AbortError') return;
+                    if (token !== modalRequestToken) return;
+                    container.innerHTML = '';
+                    container.appendChild(buildStatusMessage('Could not load photos.', { className: 'text-red-400' }));
+                });
+        }
+
+        function loadTrailEvents(trailId, token) {
+            const container = document.getElementById('viewTrailEvents');
+            container.innerHTML = '';
+            container.appendChild(buildStatusMessage('Loading events...'));
+
+            eventsController = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+
+            fetch('/Participant/GetTrailEvents?trailId=' + encodeURIComponent(trailId), {
+                signal: eventsController ? eventsController.signal : undefined
+            })
+                .then(function (response) { return response.json(); })
+                .then(function (data) {
+                    if (token !== modalRequestToken) return;
+                    container.innerHTML = '';
+
+                    if (data && data.length > 0) {
+                        data.forEach(function (ev) {
+                            container.appendChild(buildTrailEventCard(ev));
+                        });
+                    } else {
+                        container.appendChild(buildStatusMessage('No upcoming events on this trail yet.', { icon: 'fa-regular fa-calendar-plus' }));
+                    }
+                })
+                .catch(function (error) {
+                    if (error && error.name === 'AbortError') return;
+                    if (token !== modalRequestToken) return;
+                    container.innerHTML = '';
+                    container.appendChild(buildStatusMessage('Could not load events.', { className: 'text-red-400' }));
+                });
+        }
+
+        function openViewModal(button) {
+            abortModalRequests();
+            const token = ++modalRequestToken;
+
+            currentTrailId = button.dataset.id;
+
+            const name = button.dataset.name || '';
+            document.getElementById('viewName').textContent = name;
+            document.getElementById('viewLocation').textContent = button.dataset.location || '';
+            document.getElementById('viewDistance').textContent = button.dataset.distance || '';
+            document.getElementById('viewElevation').textContent = button.dataset.elevation || '';
+            document.getElementById('viewTrailClass').textContent = trailClassLabel(button.dataset.terrainType);
+            document.getElementById('viewDescriptionText').textContent = button.dataset.description || 'No description provided.';
+            document.getElementById('viewDateAdded').textContent = button.dataset.dateAdded || 'N/A';
+            renderTerrainChips(document.getElementById('viewTerrainChips'), button.dataset.terrain);
+            setViewHeroImage(button.dataset.image, name ? name + ' trail photo' : '');
+
+            TrailModal.open('viewTrailModal');
+
+            loadTrailPhotos(currentTrailId, token);
+            loadTrailEvents(currentTrailId, token);
+        }
+
+        function closeViewModal() {
+            // Invalidate any in-flight requests before aborting them, so a response
+            // that already resolved in the same tick still fails the token check.
+            modalRequestToken++;
+            abortModalRequests();
+            TrailModal.close('viewTrailModal');
+        }
 
         const searchInput = document.getElementById('searchInput');
         const sortSelect = document.getElementById('sortOrder');
         const trailGrid = document.getElementById('trailGrid');
+        const trailCount = document.getElementById('trailCount');
+        const trailCountLabel = document.getElementById('trailCountLabel');
+        const noResults = document.getElementById('noResultsMessage');
+        const announcer = document.getElementById('resultCountAnnouncer');
 
-        function applyFilters() {
+        const cards = trailGrid ? Array.from(trailGrid.querySelectorAll('.trail-card')) : [];
+        const totalCardCount = cards.length;
+        let announceTimer = null;
+
+        function compareCards(sort, a, b) {
+            switch (sort) {
+                case 'oldest':
+                    return new Date(a.dataset.dateAdded) - new Date(b.dataset.dateAdded);
+                case 'name_asc':
+                    return (a.dataset.name || '').localeCompare(b.dataset.name || '');
+                case 'name_desc':
+                    return (b.dataset.name || '').localeCompare(a.dataset.name || '');
+                case 'distance_asc':
+                    return (parseFloat(a.dataset.distance) || 0) - (parseFloat(b.dataset.distance) || 0);
+                case 'distance_desc':
+                    return (parseFloat(b.dataset.distance) || 0) - (parseFloat(a.dataset.distance) || 0);
+                case 'elevation_asc':
+                    return (parseFloat(a.dataset.elevation) || 0) - (parseFloat(b.dataset.elevation) || 0);
+                case 'elevation_desc':
+                    return (parseFloat(b.dataset.elevation) || 0) - (parseFloat(a.dataset.elevation) || 0);
+                default:
+                    return new Date(b.dataset.dateAdded) - new Date(a.dataset.dateAdded);
+            }
+        }
+
+        function filterAndSort() {
             if (!trailGrid) return;
 
-            const cards = Array.from(trailGrid.querySelectorAll('.trail-card'));
             const term = (searchInput?.value || '').toLowerCase().trim();
             const sort = sortSelect?.value || 'newest';
 
-            const visible = cards.filter(card => {
+            const visible = cards.filter(function (card) {
                 const name = (card.dataset.name || '').toLowerCase();
                 const location = (card.dataset.location || '').toLowerCase();
                 const match = !term || name.includes(term) || location.includes(term);
@@ -318,51 +702,34 @@
                 return match;
             });
 
-            visible.sort((a, b) => {
-                switch (sort) {
-                    case 'oldest':
-                        return new Date(a.dataset.dateAdded) - new Date(b.dataset.dateAdded);
-                    case 'name_asc':
-                        return (a.dataset.name || '').localeCompare(b.dataset.name || '');
-                    case 'name_desc':
-                        return (b.dataset.name || '').localeCompare(a.dataset.name || '');
-                    case 'distance_asc':
-                        return parseFloat(a.dataset.distance) - parseFloat(b.dataset.distance);
-                    case 'distance_desc':
-                        return parseFloat(b.dataset.distance) - parseFloat(a.dataset.distance);
-                    case 'elevation_asc':
-                        return parseFloat(a.dataset.elevation) - parseFloat(b.dataset.elevation);
-                    case 'elevation_desc':
-                        return parseFloat(b.dataset.elevation) - parseFloat(a.dataset.elevation);
-                    default:
-                        return new Date(b.dataset.dateAdded) - new Date(a.dataset.dateAdded);
-                }
-            });
+            visible.sort(function (a, b) { return compareCards(sort, a, b); });
+            visible.forEach(function (card) { trailGrid.appendChild(card); });
 
-            visible.forEach(card => trailGrid.appendChild(card));
+            if (trailCount) trailCount.textContent = visible.length;
+            if (trailCountLabel) trailCountLabel.textContent = 'Total Trail' + (visible.length === 1 ? '' : 's');
+            if (noResults) noResults.classList.toggle('hidden', visible.length > 0);
 
-            const count = document.getElementById('trailCount');
-            if (count) count.textContent = visible.length;
-
-            let noResults = document.getElementById('noResultsMessage');
-            if (visible.length === 0) {
-                if (!noResults) {
-                    noResults = document.createElement('div');
-                    noResults.id = 'noResultsMessage';
-                    noResults.className = 'col-span-full text-center py-20 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl';
-                    noResults.innerHTML = `
-                        <i class="fa-solid fa-mountain text-4xl text-slate-600 mb-4"></i>
-                        <h3 class="text-xl font-bold text-gray-300">No trails found</h3>
-                        <p class="text-gray-500 mt-2">Try searching a different name or clearing the filters.</p>
-                    `;
-                    trailGrid.appendChild(noResults);
-                }
-            } else {
-                noResults?.remove();
+            // The visible cards/count/empty-state above update synchronously on
+            // every keystroke (instant filtering is required) - only the
+            // screen-reader announcement is debounced, matching Trail/Event
+            // Management's own announcer pattern.
+            if (announcer) {
+                clearTimeout(announceTimer);
+                announceTimer = setTimeout(function () {
+                    announcer.textContent = 'Showing ' + visible.length + ' of ' + totalCardCount +
+                        ' trail' + (totalCardCount === 1 ? '' : 's');
+                }, 400);
             }
         }
 
-        searchInput?.addEventListener('input', applyFilters);
-        sortSelect?.addEventListener('change', applyFilters);
+        searchInput?.addEventListener('input', filterAndSort);
+        sortSelect?.addEventListener('change', filterAndSort);
+
+        // Skipped entirely when the server rendered zero cards - the server's own
+        // "No trails found" empty state already covers that case, and running this
+        // would otherwise build a second, JS-driven empty state alongside it.
+        if (cards.length > 0) {
+            filterAndSort();
+        }
     </script>
 }

@@ -117,6 +117,8 @@ bg-white/5 border border-white/5 rounded-xl
 
 **Cards don't scale on hover.** Clickable cards use `hover:border-white/20`.
 
+**Only the real thumbnail image zooms.** Trail Management's `group` + `group-hover:scale-105` (`transition-transform duration-500 ease-out`, `motion-reduce:transform-none motion-reduce:transition-none`) on the `<img>` itself is the approved pattern — Browse Trails (`Participant/Trails.cshtml`) and Browse Events both inherit it on their cards. Fallback artwork (the decorative mountain/image icon shown for a missing or broken thumbnail) is a sibling of the `<img>`, not a descendant of anything with `group-hover:scale-105`, so it never zooms.
+
 ---
 
 ## Difficulty
@@ -270,7 +272,7 @@ Mobile panel itself animates height via CSS grid (`grid-template-rows: 0fr` → 
 - Hover: `hover:brightness-110 hover:scale-[1.02]`
 - **No shadow or glow** — the gradient is enough weight
 
-**Card-grid exception — solid accent, no gradient.** `Participant/Events.cshtml`'s Register/Upload Payment card CTA (`RegistrationButtonHelper.GetState`'s `Primary` style) uses `bg-accent hover:bg-accent/90` instead of the brand gradient — a card sitting in a `grid` row next to siblings whose own action row can be a different width (Alternative Recommended's single full-width button vs. everyone else's two-button row) can't use `hover:scale-[1.02]` without visibly shifting that row against its neighbors. Same solid-accent recipe already used by `Participant/Details.cshtml`'s "View Recommended Event" action; not a new third button variant, just this Primary shape without the scale/gradient.
+**Solid-accent exception — no gradient, no hover scale.** `bg-accent hover:bg-accent/90` instead of the brand gradient, used where `hover:scale-[1.02]` would visibly shift a neighboring element: `Participant/Events.cshtml`'s Register/Upload Payment card CTA (`RegistrationButtonHelper.GetState`'s `Primary` style — a card's action row can be a different width across siblings, e.g. Alternative Recommended's single full-width button vs. everyone else's two-button row), `Participant/Details.cshtml`'s "View Recommended Event" action, and the Participant Trail Details modal's "Browse All Events" footer action (`Participant/Trails.cshtml` — a fixed-width footer button next to Close). Not a new third button variant, just this Primary shape without the scale/gradient.
 
 ### Secondary
 
@@ -396,7 +398,7 @@ scrollbar-color: rgb(139 92 246 / 0.65) transparent;   /* Firefox */
 ::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
 ```
 
-This replaced the menu's previous `custom-scrollbar` class — a generic, unscoped name eight pages each redefined locally (different colors/widths) inside their own `<style>` blocks. A portalled menu matched whichever one happened to belong to the currently-loaded page by accident, and a page with no local `.custom-scrollbar` rule at all (Browse Events, among others) fell all the way back to the native OS scrollbar. Those eight page-local `.custom-scrollbar` blocks are otherwise unrelated (modal photo grids, etc.) and were left as-is — only the custom-select menu's own class changed.
+This replaced the menu's previous `custom-scrollbar` class — a generic, unscoped name eight pages each redefined locally (different colors/widths) inside their own `<style>` blocks. A portalled menu matched whichever one happened to belong to the currently-loaded page by accident, and a page with no local `.custom-scrollbar` rule at all (Browse Events, among others) fell all the way back to the native OS scrollbar. Seven of those eight page-local `.custom-scrollbar` blocks are otherwise unrelated (modal photo grids, etc.) and were left as-is — only the custom-select menu's own class changed. The eighth, `Participant/Trails.cshtml`'s Trail Details modal body, was separately replaced during the Browse Trails pass with the id-scoped `#viewTrailModalBody` rule in `input.css` (see Modals, Participant Trail Details, below) — not because it fed the custom-select menu, but because the same "generic unscoped class" defect applied to it independently.
 
 **Never add a second, page-local scrollbar recipe for this component.** Extend `.tg-custom-select-scrollbar` in `input.css` instead — the class must stay defined in exactly one place, and `output.css` must stay generated (`npm run build`), never hand-edited.
 
@@ -423,6 +425,12 @@ Both wrapper and backdrop use `fixed inset-0`. An `absolute` backdrop only cover
 `z-60` sits above the navbar's `z-50`. **`z-100` is not a real Tailwind class** — it compiles to nothing and silently breaks layering.
 
 Toggle visibility with Tailwind's `hidden` / `flex`. Don't introduce a second mechanism.
+
+### Participant Trail Details
+
+`Participant/Trails.cshtml`'s Trail Details modal is a read-only Participant adaptation of the approved Trail Management View modal (`Views/Trail/Index.cshtml`): same `max-w-4xl`/`max-h-[calc(100vh-2rem)]` shell, `h-40 sm:h-56` hero with the same reusable-`<img>` + sibling-placeholder pattern, terrain chips, and Additional Photos gallery. It previously used `z-100` (the dead-class bug above) on the outer wrapper plus an inline `style="z-index: 10;"` on the inner panel, and the page-specific `.modal-hidden`/`.modal-visible` pair instead of `hidden`/`flex` — both fixed to match this page's own documented convention. It adds one Participant-only section neither Trail Management nor its C# model needs: "Upcoming Events on This Trail", fed by `ParticipantController.GetTrailEvents` and rendered through safe DOM construction (`document.createElement`/`textContent`), not the interpolated `innerHTML` template it used before. Its Additional Photos gallery calls a separate, narrow, Participant-authorized endpoint (`ParticipantController.GetTrailPhotos`, returning photo URL only) rather than the Admin/Organizer-only `Trail/GetTrailPhotos`. The footer's second action is "Browse All Events" (solid accent, see Buttons above) — never an Edit Trail action, which stays Organizer/Admin-only.
+
+Technical Trail Class (`Class N — Label`, mirroring `DifficultyCalculator.TrailClassLabel`) and Terrain (chips) are kept visually and semantically separate — the modal never collapses them into one metadata string.
 
 ---
 

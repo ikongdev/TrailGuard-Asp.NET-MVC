@@ -677,6 +677,33 @@
 }
 
 /* ==========================================================================
+   Participant Trail Details modal - scrollable body
+   (Views/Participant/Trails.cshtml)
+
+   Scoped by id, not the generic, ad hoc "custom-scrollbar" class several
+   other pages define locally and unscoped (with different colors/widths) -
+   see the .tg-custom-select-scrollbar note above for why that pattern is
+   unsafe. Deliberately not .tg-custom-select-scrollbar either, which is
+   reserved for custom-select.js listbox menus specifically, not modal body
+   scroll areas.
+   ========================================================================== */
+
+#viewTrailModalBody {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(139 92 246 / 0.65) transparent;
+}
+#viewTrailModalBody::-webkit-scrollbar {
+    width: 6px;
+}
+#viewTrailModalBody::-webkit-scrollbar-track {
+    background: transparent;
+}
+#viewTrailModalBody::-webkit-scrollbar-thumb {
+    background: rgb(139 92 246 / 0.65);
+    border-radius: 9999px;
+}
+
+/* ==========================================================================
    Add Account - dark-theme autofill override (Views/Admin/AddAccount.cshtml)
 
    Chromium/WebKit paints its own opaque autofill fill color behind an
