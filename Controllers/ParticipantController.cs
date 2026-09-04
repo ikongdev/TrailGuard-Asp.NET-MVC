@@ -270,9 +270,12 @@ namespace TrailGuard.Controllers
                 events = events.Where(e => e.Difficulty == difficulty);
             }
 
-            if (!string.IsNullOrEmpty(trailFilter) && trailFilter != "All")
+            // Matches EventController.Index's established safe-parsing convention: an
+            // invalid, non-numeric, zero, or negative trailFilter simply fails to match
+            // any real Trail.Id and falls through as the default "All" state - never a
+            // thrown FormatException from a malformed manually-supplied query value.
+            if (!string.IsNullOrEmpty(trailFilter) && trailFilter != "All" && int.TryParse(trailFilter, out var trailId))
             {
-                var trailId = int.Parse(trailFilter);
                 events = events.Where(e => e.TrailId == trailId);
             }
 

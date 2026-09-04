@@ -3013,9 +3013,6 @@
   .opacity-75 {
     opacity: 75%;
   }
-  .opacity-80 {
-    opacity: 80%;
-  }
   .opacity-90 {
     opacity: 90%;
   }
@@ -3776,6 +3773,9 @@
     .sm\:w-48 {
       width: calc(var(--spacing) * 48);
     }
+    .sm\:w-56 {
+      width: calc(var(--spacing) * 56);
+    }
     .sm\:w-80 {
       width: calc(var(--spacing) * 80);
     }
@@ -4499,6 +4499,28 @@
 }
 .tg-toast-info .tg-toast-icon {
   color: rgb(56 189 248);
+}
+.tg-custom-select-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(139 92 246 / 0.65) transparent;
+}
+.tg-custom-select-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.tg-custom-select-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.tg-custom-select-scrollbar::-webkit-scrollbar-thumb {
+  background: rgb(139 92 246 / 0.65);
+  border-radius: 9999px;
+}
+.tg-custom-select-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgb(139 92 246 / 0.85);
+}
+.tg-custom-select-scrollbar::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
 }
 #postEventAssessmentRoot .pea-scrollbar::-webkit-scrollbar {
   width: 5px;

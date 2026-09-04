@@ -2,6 +2,8 @@
 @model IEnumerable<EventBrowseCardViewModel>
 @{
     ViewData["Title"] = "Browse Events";
+    var trails = ViewBag.Trails as List<TrailGuard.Models.Trail>;
+    var totalEventCount = Model.Count();
 }
 
 @* Success/Error feedback now goes through the canonical global toast host
@@ -14,66 +16,81 @@
             <p class="text-gray-400 mt-1 text-sm">Discover upcoming hiking events and register for your next adventure.</p>
         </div>
         <div class="bg-white/5 border border-white/10 px-4 py-2 rounded-full flex items-center gap-2">
-            <i class="fa-regular fa-calendar text-accent"></i>
-            <span class="text-sm text-gray-300"><strong class="text-white" id="eventCount">@Model.Count()</strong> events available</span>
+            <i class="fa-regular fa-calendar text-accent" aria-hidden="true"></i>
+            <span class="text-sm text-gray-300">
+                <strong class="text-white" id="eventCount">@totalEventCount</strong>
+                <span id="eventCountLabel">event@(totalEventCount == 1 ? "" : "s")</span> available
+            </span>
         </div>
     </div>
 
-    <div class="flex flex-col lg:flex-row gap-4 mb-8 bg-white/5 backdrop-blur-xl p-5 rounded-xl border border-white/10">
+    <div class="flex flex-col lg:flex-row gap-3 mb-8 bg-white/5 backdrop-blur-xl p-5 rounded-xl border border-white/10">
         <div class="relative grow">
-            <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
-            <input type="text" id="searchInput" placeholder="Search events by title or location..." 
+            <label for="searchInput" class="sr-only">Search events by title or location</label>
+            <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden="true"></i>
+            <input type="search" id="searchInput" placeholder="Search events by title or location..." autocomplete="off"
                    class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-11 pr-4 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors placeholder-gray-500">
         </div>
 
         <div class="flex flex-wrap sm:flex-nowrap gap-3">
-            <div class="relative">
-                <select id="trailFilter" class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors w-full">
-                    <option value="All" class="bg-surface-card">All Trails</option>
-                    @{
-                        var trails = ViewBag.Trails as List<TrailGuard.Models.Trail>;
-                        if (trails != null)
+            <div class="relative shrink-0 w-full sm:w-44">
+                <label for="trailFilter" class="sr-only">Filter by trail</label>
+                <select id="trailFilter" data-custom-select data-custom-select-portal
+                        data-cs-decorative-chevron="trailFilterChevron"
+                        data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-4 py-3 rounded-full bg-black/20 border border-white/10 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                        class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors">
+                    <option value="All" class="bg-surface-card text-white">All Trails</option>
+                    @if (trails != null)
+                    {
+                        foreach (var trail in trails)
                         {
-                            foreach (var trail in trails)
-                            {
-                                <option value="@trail.Id" class="bg-surface-card">@trail.Name</option>
-                            }
+                            <option value="@trail.Id" class="bg-surface-card text-white">@trail.Name</option>
                         }
                     }
                 </select>
-                <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
-                    <i class="fa-solid fa-chevron-down text-xs"></i>
+                <div id="trailFilterChevron" class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
+                    <i class="fa-solid fa-chevron-down text-xs" aria-hidden="true"></i>
                 </div>
             </div>
 
-            <div class="relative">
-                <select id="difficultyFilter" class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors w-full">
-                    <option value="All" class="bg-surface-card">All Difficulties</option>
-                    <option value="Easy" class="bg-surface-card">Easy (PM 1–2/9)</option>
-                    <option value="Minor Climb" class="bg-surface-card">Minor Climb (PM 3–4/9)</option>
-                    <option value="Major Climb" class="bg-surface-card">Major Climb (PM 5–6/9)</option>
-                    <option value="Major Climb — Difficult" class="bg-surface-card">Major Climb — Difficult (PM 7–9/9)</option>
+            <div class="relative shrink-0 w-full sm:w-48">
+                <label for="difficultyFilter" class="sr-only">Filter by difficulty</label>
+                <select id="difficultyFilter" data-custom-select data-custom-select-portal
+                        data-cs-decorative-chevron="difficultyFilterChevron"
+                        data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-4 py-3 rounded-full bg-black/20 border border-white/10 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                        class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors">
+                    <option value="All" class="bg-surface-card text-white">All Difficulties</option>
+                    @foreach (var band in DifficultyCalculator.Bands)
+                    {
+                        <option value="@band" class="bg-surface-card text-white">@band</option>
+                    }
                 </select>
-                <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
-                    <i class="fa-solid fa-chevron-down text-xs"></i>
+                <div id="difficultyFilterChevron" class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
+                    <i class="fa-solid fa-chevron-down text-xs" aria-hidden="true"></i>
                 </div>
             </div>
 
-            <div class="relative">
-                <select id="sortFilter" class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors w-full">
-                    <option value="date_asc" class="bg-surface-card">Date (Earliest)</option>
-                    <option value="date_desc" class="bg-surface-card">Date (Latest)</option>
-                    <option value="title_asc" class="bg-surface-card">Title (A-Z)</option>
-                    <option value="title_desc" class="bg-surface-card">Title (Z-A)</option>
-                    <option value="difficulty_asc" class="bg-surface-card">Difficulty (Low to High)</option>
-                    <option value="difficulty_desc" class="bg-surface-card">Difficulty (High to Low)</option>
+            <div class="relative shrink-0 w-full sm:w-56">
+                <label for="sortFilter" class="sr-only">Sort events by</label>
+                <select id="sortFilter" data-custom-select data-custom-select-portal
+                        data-cs-decorative-chevron="sortFilterChevron"
+                        data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-4 py-3 rounded-full bg-black/20 border border-white/10 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                        class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors">
+                    <option value="date_asc" class="bg-surface-card text-white">Date (Earliest)</option>
+                    <option value="date_desc" class="bg-surface-card text-white">Date (Latest)</option>
+                    <option value="title_asc" class="bg-surface-card text-white">Title (A-Z)</option>
+                    <option value="title_desc" class="bg-surface-card text-white">Title (Z-A)</option>
+                    <option value="difficulty_asc" class="bg-surface-card text-white">Difficulty (Low to High)</option>
+                    <option value="difficulty_desc" class="bg-surface-card text-white">Difficulty (High to Low)</option>
                 </select>
-                <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
-                    <i class="fa-solid fa-chevron-down text-xs"></i>
+                <div id="sortFilterChevron" class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
+                    <i class="fa-solid fa-chevron-down text-xs" aria-hidden="true"></i>
                 </div>
             </div>
         </div>
     </div>
+
+    <p id="resultCountAnnouncer" class="sr-only" role="status" aria-live="polite"></p>
 
     @if (Model.Any())
     {
@@ -83,18 +100,19 @@
                 var eventItem = card.Event;
                 var diffBadge = DifficultyCalculator.BadgeClass(eventItem.Difficulty);
                 var slotsLeft = eventItem.Capacity - eventItem.RegisteredCount;
+                var displaySlots = Math.Max(0, slotsLeft);
                 var adjustedRating = eventItem.Trail != null ? DifficultyCalculator.ComputeAdjustedRating(eventItem.Trail) : 0;
                 var isAlternativeRecommended = card.RegistrationStatus == "Alternative Recommended";
                 var buttonState = RegistrationButtonHelper.GetState(card.RegistrationStatus, slotsLeft <= 0);
 
                 var buttonClasses = buttonState.Style switch
                 {
-                    RegisterButtonStyle.Primary => "flex-1 bg-linear-to-r from-orange-500 via-pink-500 to-violet-500 hover:brightness-110 hover:scale-[1.02] text-white py-2 rounded-full text-sm font-semibold transition duration-200 ease-out flex items-center justify-center gap-2",
-                    RegisterButtonStyle.Muted => "flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-2",
-                    _ => "flex-1 bg-white/5 border border-white/10 text-gray-500 py-2 rounded-full text-sm font-semibold flex items-center justify-center gap-2 cursor-not-allowed"
+                    RegisterButtonStyle.Primary => "flex-1 bg-accent hover:bg-accent/90 text-white py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-2",
+                    RegisterButtonStyle.Muted => "flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-2",
+                    _ => "flex-1 bg-white/5 border border-white/10 text-gray-500 py-2.5 rounded-full text-sm font-semibold flex items-center justify-center gap-2 cursor-not-allowed"
                 };
 
-                <div class="event-card bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden hover:border-white/20 transition-colors flex flex-col"
+                <div class="event-card group bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden hover:border-white/20 transition-colors flex flex-col"
                      data-title="@eventItem.EventTitle.ToLower()"
                      data-location="@eventItem.Location.ToLower()"
                      data-difficulty="@eventItem.Difficulty"
@@ -102,40 +120,56 @@
                      data-date="@eventItem.EventDate.ToString("yyyy-MM-dd")"
                      data-trail-id="@eventItem.TrailId">
 
-                    <div class="relative h-40 overflow-hidden bg-black/30">
+                    <div class="relative h-48 overflow-hidden bg-black/30">
                         @if (!string.IsNullOrEmpty(eventItem.Trail?.ThumbnailUrl))
                         {
-                            <img src="@eventItem.Trail.ThumbnailUrl" alt="@eventItem.Trail.Name" class="w-full h-full object-cover">
+                            <img src="@eventItem.Trail.ThumbnailUrl" alt="@eventItem.Trail.Name" class="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105 motion-reduce:transform-none motion-reduce:transition-none" onerror="handleEventImageError(this)">
                         }
                         else
                         {
                             <div class="w-full h-full flex items-center justify-center">
-                                <i class="fa-solid fa-mountain text-4xl text-slate-700"></i>
+                                <i class="fa-solid fa-image text-4xl text-slate-700" aria-hidden="true"></i>
                             </div>
                         }
-                        <div class="absolute inset-0 bg-linear-to-t from-surface-card to-transparent opacity-80"></div>
+                        <div class="absolute inset-0 bg-linear-to-t from-surface-card to-transparent opacity-90"></div>
+
                         <span class="absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-medium @diffBadge">
                             @eventItem.Difficulty
                         </span>
-                        <span class="absolute bottom-3 left-3 text-xs text-gray-300 bg-black/50 backdrop-blur-sm px-2.5 py-1 rounded-full">
-                            <i class="fa-regular fa-calendar mr-1"></i> @eventItem.EventDate.ToString("MMM dd, yyyy")
-                        </span>
+                        <div class="absolute bottom-3 left-3">
+                            <span class="text-xs text-white/90 bg-black/50 px-2.5 py-1 rounded-full flex items-center gap-1.5">
+                                <i class="fa-regular fa-calendar" aria-hidden="true"></i> @eventItem.EventDate.ToString("MMM dd, yyyy")
+                            </span>
+                        </div>
                     </div>
 
-                    <div class="p-4 flex flex-col grow">
-                        <h3 class="text-lg font-bold text-white mb-1">@eventItem.EventTitle</h3>
-                        <p class="text-gray-400 text-sm mb-1">
-                            <i class="fa-solid fa-mountain text-accent mr-1"></i> @(eventItem.Trail?.Name ?? "Unknown Trail")
+                    <div class="p-6 flex flex-col grow relative z-10 -mt-10">
+                        <h3 class="text-xl font-bold text-white mb-1">@eventItem.EventTitle</h3>
+                        <p class="text-gray-400 text-sm mb-1 flex items-center gap-1.5">
+                            <i class="fa-solid fa-mountain text-accent" aria-hidden="true"></i> @(eventItem.Trail?.Name ?? "Unknown Trail")
                         </p>
-                        <p class="text-gray-400 text-sm mb-3">
-                            <i class="fa-solid fa-location-dot text-accent mr-1"></i> @eventItem.Location
+                        <p class="text-gray-400 text-sm mb-5 flex items-center gap-1.5">
+                            <i class="fa-solid fa-location-dot text-accent" aria-hidden="true"></i> @eventItem.Location
                         </p>
 
-                        <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400 mb-4">
-                            <span><i class="fa-regular fa-clock mr-1.5"></i>@eventItem.EstimatedDuration hrs</span>
-                            <span class="@(slotsLeft <= 3 ? "text-amber-400" : "")">
-                                <i class="fa-solid fa-users mr-1.5"></i>@slotsLeft slots left
-                            </span>
+                        <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Start Time</p>
+                                <p class="text-gray-200 text-sm font-medium flex items-center gap-2">
+                                    <i class="fa-regular fa-clock text-gray-400" aria-hidden="true"></i> @eventItem.FormattedEventTime
+                                </p>
+                            </div>
+                            <div>
+                                <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Slots</p>
+                                <p class="text-sm font-medium flex items-center gap-2 @(slotsLeft <= 3 ? "text-amber-400" : "text-gray-200")">
+                                    <i class="fa-solid fa-users @(slotsLeft <= 3 ? "text-amber-400" : "text-gray-400")" aria-hidden="true"></i> @displaySlots / @eventItem.Capacity
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-wrap gap-1.5 mb-6">
+                            <span class="px-2.5 py-1 rounded-full text-xs font-medium @diffBadge">@eventItem.Difficulty</span>
+                            <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-white/5 border border-white/10 text-gray-300">@eventItem.EstimatedDuration hrs</span>
                         </div>
 
                         @if (isAlternativeRecommended)
@@ -147,34 +181,36 @@
                             @if (isAlternativeRecommended)
                             {
                                 <a asp-controller="Participant" asp-action="Details" asp-route-id="@eventItem.Id"
-                                   class="w-full bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-2">
-                                    <i class="fa-regular fa-eye"></i> View Details
+                                   aria-label="View details for @eventItem.EventTitle"
+                                   class="w-full bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+                                    <i class="fa-regular fa-eye" aria-hidden="true"></i> View Details
                                 </a>
                             }
                             else
                             {
                                 <a asp-controller="Participant" asp-action="Details" asp-route-id="@eventItem.Id"
-                                   class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-2">
-                                    <i class="fa-regular fa-eye"></i> View
+                                   aria-label="View details for @eventItem.EventTitle"
+                                   class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+                                    <i class="fa-regular fa-eye" aria-hidden="true"></i> View
                                 </a>
                                 @if (buttonState.Target == RegisterButtonTarget.Assessment)
                                 {
                                     <a asp-controller="Assessment" asp-action="Form" asp-route-eventId="@eventItem.Id"
                                        class="@buttonClasses">
-                                        <i class="fa-regular fa-clipboard"></i> @buttonState.Label
+                                        <i class="fa-regular fa-clipboard" aria-hidden="true"></i> @buttonState.Label
                                     </a>
                                 }
                                 else if (buttonState.Target == RegisterButtonTarget.MyRegistrations)
                                 {
                                     <a asp-controller="Registration" asp-action="MyRegistrations"
                                        class="@buttonClasses">
-                                        <i class="fa-regular fa-clipboard"></i> @buttonState.Label
+                                        <i class="fa-regular fa-clipboard" aria-hidden="true"></i> @buttonState.Label
                                     </a>
                                 }
                                 else
                                 {
                                     <span class="@buttonClasses">
-                                        <i class="fa-regular fa-clipboard"></i> @buttonState.Label
+                                        <i class="fa-regular fa-clipboard" aria-hidden="true"></i> @buttonState.Label
                                     </span>
                                 }
                             }
@@ -185,7 +221,7 @@
         </div>
 
         <div id="noResultsMessage" class="hidden text-center py-20 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl">
-            <i class="fa-solid fa-calendar-xmark text-4xl text-slate-600 mb-4"></i>
+            <i class="fa-solid fa-calendar-xmark text-4xl text-slate-600 mb-4" aria-hidden="true"></i>
             <h3 class="text-xl font-bold text-gray-300">No events match your filters</h3>
             <p class="text-gray-500 mt-2">Try a different search or clear the filters.</p>
         </div>
@@ -193,7 +229,7 @@
     else
     {
         <div class="text-center py-20 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl">
-            <i class="fa-solid fa-calendar-plus text-4xl text-slate-600 mb-4"></i>
+            <i class="fa-solid fa-calendar-plus text-4xl text-slate-600 mb-4" aria-hidden="true"></i>
             <h3 class="text-xl font-bold text-gray-300">No events available</h3>
             <p class="text-gray-500 mt-2">Check back later for new hiking events.</p>
         </div>
@@ -201,6 +237,21 @@
 </div>
 
 <script>
+    // Card thumbnails render once and never reopen, so replacing the failed <img>
+    // outright is fine - same fallback markup as the server-rendered "no
+    // ThumbnailUrl" case above, so a broken URL and a missing one look identical.
+    // Mirrors Views/Event/Index.cshtml's handleEventImageError.
+    function handleEventImageError(img) {
+        img.onerror = null;
+        const fallback = document.createElement('div');
+        fallback.className = 'w-full h-full flex items-center justify-center';
+        const icon = document.createElement('i');
+        icon.className = 'fa-solid fa-image text-4xl text-slate-700';
+        icon.setAttribute('aria-hidden', 'true');
+        fallback.appendChild(icon);
+        img.replaceWith(fallback);
+    }
+
     document.addEventListener("DOMContentLoaded", function() {
         const searchInput = document.getElementById('searchInput');
         const trailFilter = document.getElementById('trailFilter');
@@ -208,9 +259,13 @@
         const sortFilter = document.getElementById('sortFilter');
         const noResults = document.getElementById('noResultsMessage');
         const eventCount = document.getElementById('eventCount');
+        const eventCountLabel = document.getElementById('eventCountLabel');
+        const announcer = document.getElementById('resultCountAnnouncer');
 
         const cards = Array.from(document.querySelectorAll('.event-card'));
         const cardsContainer = cards[0]?.parentElement;
+        const totalCardCount = cards.length;
+        let announceTimer = null;
 
         function compareCards(sort, a, b) {
             switch (sort) {
@@ -261,7 +316,21 @@
             if (cardsContainer) visible.forEach(card => cardsContainer.appendChild(card));
 
             if (eventCount) eventCount.textContent = visible.length;
+            if (eventCountLabel) eventCountLabel.textContent = visible.length === 1 ? 'event' : 'events';
             if (noResults) noResults.classList.toggle('hidden', visible.length > 0);
+
+            // The visible cards/count/empty-state above update synchronously on every
+            // keystroke (instant filtering is required) - only the screen-reader
+            // announcement is debounced, matching Trail/Event Management's own
+            // announcer pattern, so a fast typist doesn't trigger a burst of
+            // announcements.
+            if (announcer) {
+                clearTimeout(announceTimer);
+                announceTimer = setTimeout(function () {
+                    announcer.textContent = 'Showing ' + visible.length + ' of ' + totalCardCount +
+                        ' event' + (totalCardCount === 1 ? '' : 's');
+                }, 400);
+            }
         }
 
         searchInput?.addEventListener('input', filterAndSort);

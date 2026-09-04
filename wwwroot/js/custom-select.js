@@ -156,7 +156,17 @@
             // menu.style.width itself (see the menuWidthOverride branch
             // there), so a class-based width would only ever be dead CSS,
             // immediately overwritten by that inline style on every open.
-            menu.className = 'fixed ' + menuZClass + ' max-h-80 overflow-y-auto custom-scrollbar bg-surface-card border border-gray-800 rounded-2xl shadow-2xl p-1.5 origin-top ' +
+            //
+            // tg-custom-select-scrollbar (input.css), not the generic, ad hoc
+            // "custom-scrollbar" name several pages redefine locally (with
+            // several different colors/widths) in their own <style> blocks -
+            // a menu appended under document.body in portal mode sits outside
+            // every one of those page-scoped blocks' actual intent but would
+            // still match them by accident (or match nothing at all on a page
+            // that defines no local rule, falling back to the native OS
+            // scrollbar). This dedicated class is the single canonical
+            // definition for every generated listbox, portalled or not.
+            menu.className = 'fixed ' + menuZClass + ' max-h-80 overflow-y-auto tg-custom-select-scrollbar bg-surface-card border border-gray-800 rounded-2xl shadow-2xl p-1.5 origin-top ' +
                 // Only the open/close visual properties are transitionable -
                 // transition-all also animated the top/left/width/max-height
                 // positionMenu() sets on first open, producing a spurious

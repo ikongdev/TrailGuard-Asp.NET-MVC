@@ -637,6 +637,7 @@ There is **no global antiforgery filter** — `Program.cs` registers a bare `Add
 - Never treat an ML prediction as an automatic organizer decision
 - Never reintroduce a rule-based fallback for a failed ML call — see "ML Failure — No Fallback"
 - Preserve ownership checks when touching registration endpoints
+- Scrollable `wwwroot/js/custom-select.js` listbox menus must use the shared, component-scoped `.tg-custom-select-scrollbar` class (`wwwroot/css/input.css`) — never a page-local scrollbar recipe (see DESIGN.md, Form Inputs, for the full rule)
 
 ---
 
@@ -650,6 +651,8 @@ Since then, the ML pipeline has been migrated to v2 (ACSM gate, NPS-based diffic
 
 **Done — participant side complete:**
 landing, login, register, participant dashboard, browse trails, browse events, event detail, my registrations, assessment form, assessment report, registration form, Settings.
+
+`Views/Participant/Events.cshtml` (Browse Events) has been visually aligned to the Event Management card shell (`Views/Event/Index.cshtml`), which itself follows the Trail Management card shell: same `group`/`bg-white/5`/`backdrop-blur-xl`/`rounded-xl` card, `h-48` image with `group-hover:scale-105` zoom (`motion-reduce:*` respected) and the same broken/missing-image fallback (`handleEventImageError`, mirrored inline on this page rather than extracted — every other card page keeps its own copy of the same small handler), the same `-mt-10` overlapping content composition, and `py-2.5` action buttons. Participant-specific content is preserved on top of that shell: Difficulty stays the top-left image badge (not Event Status, since Browse Events only ever lists Upcoming events), Trail name gets its own compact accent-icon row, and the Register/Upload Payment CTA is `RegistrationButtonHelper`'s solid `bg-accent` treatment (the same non-gradient Participant primary-action recipe used by `Participant/Details.cshtml`), not the brand gradient. `trailFilter`/`difficultyFilter`/`sortFilter` are the shared portal-enabled `data-custom-select` component (`wwwroot/js/custom-select.js`); the difficulty options come from `DifficultyCalculator.Bands` rather than a hardcoded, PM-range-suffixed list. Filtering/sorting stays fully client-side and instant (no query-string round trip) — see Known Cleanup re: the still-dead `searchString`/`difficulty`/`trailFilter`/`sortOrder` query parameters `ParticipantController.Events` accepts.
 
 **Remaining:**
 - Feedback page (functionally a wizard, not yet restyled)
@@ -673,6 +676,7 @@ Note: `Organizer/RegistrationDetails.cshtml` has a SHAP panel added during earli
 - **Expert validation** — a physician and a hiking expert have completed rounds 1 and 2 (100 profiles total), reporting a quadratic weighted kappa of 0.555. **`MODEL.md` and `MODEL_EXPLAINED_EN.md` do not yet reflect this** — both still describe the expert instrument as prepared but not yet returned ("Until that is returned, no claim about real-world accuracy is supportable"). Updating those two files with the actual result is outstanding, and until it's done, treat the model card's stated limitations as authoritative over this bullet, not the other way around
 - **The joint-injury ACSM gate rule** has no clinical source (`PENDING EXPERT ELICITATION` in `generate_synthetic_dataset.py`), as do the readiness component weights, the capacity range, and the decision thresholds
 - **Manuscript realignment** — the approved proposal specified Laravel/PHP/MySQL; the system is ASP.NET Core/C#/PostgreSQL. Chapter 3 needs updating, along with the documented age-range limitation and the v1→v2 model change
+- **`ParticipantController.Events`'s `searchString`/`difficulty`/`trailFilter`/`sortOrder` query parameters and their `ViewData["Current*"]` entries are dead** — Browse Events filters entirely client-side and no caller (navbar, dashboard, Trails, event/assessment "back" links) passes any of these on the route, so the controller's server-side filter/sort logic and the corresponding `ViewData` are unreachable from the UI. Confirmed by search, not removed in the Event Management alignment pass (a narrower, in-scope fix instead: the malformed-`trailFilter` `int.Parse` that could throw on manual/malformed input was replaced with the `int.TryParse` convention `EventController.Index` already uses). A broader cleanup — deleting the dead parameters and `ViewData`, or wiring them up as real deep-link entry points — is future work, not done here
 
 ---
 

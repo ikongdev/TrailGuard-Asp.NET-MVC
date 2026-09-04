@@ -493,6 +493,49 @@
 .tg-toast-info .tg-toast-icon { color: rgb(56 189 248); }
 
 /* ==========================================================================
+   Shared custom-select listbox scrollbar (wwwroot/js/custom-select.js)
+
+   Every enhanced <select>'s generated listbox - portalled (appended to
+   document.body) or not - carries this one class instead of the generic, ad
+   hoc "custom-scrollbar" name eight different pages redefine locally (with
+   several different colors and widths) inside their own page <style> blocks.
+   Those page-local rules are unscoped, so a portalled menu matched whichever
+   one happened to belong to the currently-loaded page by accident, and a
+   page defining no local ".custom-scrollbar" rule at all (e.g. Browse
+   Events) fell all the way back to the native OS scrollbar - a bright white
+   track and thick gray thumb/arrows inside the otherwise dark listbox. This
+   is the single canonical definition; extend it here rather than adding
+   another page-local recipe for this component.
+   ========================================================================== */
+
+.tg-custom-select-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(139 92 246 / 0.65) transparent;
+}
+.tg-custom-select-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+.tg-custom-select-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+.tg-custom-select-scrollbar::-webkit-scrollbar-thumb {
+    background: rgb(139 92 246 / 0.65);
+    border-radius: 9999px;
+}
+.tg-custom-select-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgb(139 92 246 / 0.85);
+}
+/* Chromium/WebKit's native up/down arrow buttons have no dark-theme-aware
+   styling of their own and would otherwise paint as a second, brighter
+   control glued to the thumb - collapse them entirely rather than trying to
+   reskin them. Firefox never renders these regardless of scrollbar-width. */
+.tg-custom-select-scrollbar::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+}
+
+/* ==========================================================================
    Post-Event Assessment (Views/Organizer/PostEventAssessment.cshtml)
 
    Scoped under the page's own root id rather than the shared, ad hoc

@@ -270,11 +270,13 @@ Mobile panel itself animates height via CSS grid (`grid-template-rows: 0fr` → 
 - Hover: `hover:brightness-110 hover:scale-[1.02]`
 - **No shadow or glow** — the gradient is enough weight
 
+**Card-grid exception — solid accent, no gradient.** `Participant/Events.cshtml`'s Register/Upload Payment card CTA (`RegistrationButtonHelper.GetState`'s `Primary` style) uses `bg-accent hover:bg-accent/90` instead of the brand gradient — a card sitting in a `grid` row next to siblings whose own action row can be a different width (Alternative Recommended's single full-width button vs. everyone else's two-button row) can't use `hover:scale-[1.02]` without visibly shifting that row against its neighbors. Same solid-accent recipe already used by `Participant/Details.cshtml`'s "View Recommended Event" action; not a new third button variant, just this Primary shape without the scale/gradient.
+
 ### Secondary
 
 Two treatments exist in the app today. **Variant A is canonical**; B is being retired.
 
-**Variant A — filled quiet.** 7 usages across 4 pages: `Participant/Details.cshtml` 426, `Participant/Events.cshtml` 164, `Participant/Trails.cshtml` 141 and 215, `Registration/MyRegistrations.cshtml` 160 and 164.
+**Variant A — filled quiet.** 7 usages across 4 pages: `Participant/Details.cshtml` 426, `Participant/Events.cshtml` 193 (the card's "View" action — its Alternative Recommended "View Details" variant at line 185 is the same recipe), `Participant/Trails.cshtml` 141 and 215, `Registration/MyRegistrations.cshtml` 160 and 164.
 
 ```
 rounded-full text-gray-300 hover:text-white
@@ -376,6 +378,27 @@ A file input with a selection needs a clear (×) button. Established in `MyRegis
 Fixed `+63` prefix, participant enters the local number starting with 9, formatted `9XX XXX XXXX` as they type. The prefix is prepended before submission so the backend receives the full value unchanged.
 
 Existing profile values containing `+63` or a leading `0` must be normalised before populating the field, or the prefix doubles.
+
+### Custom-select listbox scrollbar
+
+Every listbox `wwwroot/js/custom-select.js` generates — portalled (appended to `document.body`) or not — carries `.tg-custom-select-scrollbar`, defined once in `wwwroot/css/input.css`. This is the canonical, permanent TrailGuard convention:
+
+> Scrollable TrailGuard custom-select menus must use the shared component-scoped slim dark scrollbar: transparent track, restrained accent thumb, rounded treatment, and no visible native arrow buttons. They must never fall back visually to a bright operating-system scrollbar inside the dark listbox.
+
+```
+scrollbar-width: thin;
+scrollbar-color: rgb(139 92 246 / 0.65) transparent;   /* Firefox */
+
+::-webkit-scrollbar { width: 6px; }                     /* Chromium/Edge/Safari */
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgb(139 92 246 / 0.65); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: rgb(139 92 246 / 0.85); }
+::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+```
+
+This replaced the menu's previous `custom-scrollbar` class — a generic, unscoped name eight pages each redefined locally (different colors/widths) inside their own `<style>` blocks. A portalled menu matched whichever one happened to belong to the currently-loaded page by accident, and a page with no local `.custom-scrollbar` rule at all (Browse Events, among others) fell all the way back to the native OS scrollbar. Those eight page-local `.custom-scrollbar` blocks are otherwise unrelated (modal photo grids, etc.) and were left as-is — only the custom-select menu's own class changed.
+
+**Never add a second, page-local scrollbar recipe for this component.** Extend `.tg-custom-select-scrollbar` in `input.css` instead — the class must stay defined in exactly one place, and `output.css` must stay generated (`npm run build`), never hand-edited.
 
 ---
 
