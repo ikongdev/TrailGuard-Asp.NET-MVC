@@ -13,5 +13,11 @@ namespace TrailGuard.Models
         public string Password { get; set; } = string.Empty;
 
         public bool RememberMe { get; set; }
+
+        // Local-only post-login redirect target (e.g. back to Browse Trails after
+        // an anonymous click triggered the Identity login challenge). Re-validated
+        // server-side with Url.IsLocalUrl on every GET/POST - never trusted as-is
+        // from the posted hidden field. Not persisted anywhere.
+        public string? ReturnUrl { get; set; }
     }
 }

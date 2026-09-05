@@ -23,10 +23,18 @@ namespace TrailGuard.Controllers
             _roleAssignmentService = roleAssignmentService;
         }
         
+        // returnUrl arrives from Identity's own login challenge (e.g. an anonymous
+        // click on Popular Trails' "Browse trails" link, which points straight at
+        // ParticipantController.Trails). Url.IsLocalUrl rejects anything external,
+        // protocol-relative, or malformed - only a same-site path is ever kept.
         [HttpGet]
-        public IActionResult Login() 
+        public IActionResult Login(string? returnUrl = null)
         {
-            return View();
+            var model = new LoginViewModel
+            {
+                ReturnUrl = Url.IsLocalUrl(returnUrl) ? returnUrl : null
+            };
+            return View(model);
         }
         
         // [Authorize] with no Roles requirement: an anonymous request is
@@ -70,6 +78,10 @@ namespace TrailGuard.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Login(LoginViewModel model)
         {
+            // Never trust the posted hidden field - re-validate on every submission,
+            // whether it succeeds, fails, or redisplays the form below.
+            model.ReturnUrl = Url.IsLocalUrl(model.ReturnUrl) ? model.ReturnUrl : null;
+
             if (ModelState.IsValid)
             {
                 var user = await _userManager.FindByEmailAsync(model.Email);
@@ -103,6 +115,17 @@ namespace TrailGuard.Controllers
                     else if (roles.Contains("Organizer"))
                     {
                         return RedirectToAction("Index", "Organizer");
+                    }
+
+                    // Participant (or any other/no recognized role): restore to
+                    // wherever the Identity challenge sent them from - e.g. Popular
+                    // Trails' Browse Trails link - when a valid local return URL
+                    // exists, otherwise the usual dashboard. Admin/Organizer above
+                    // never consult ReturnUrl, so their dashboard destination is
+                    // never overridden by it.
+                    if (model.ReturnUrl != null)
+                    {
+                        return LocalRedirect(model.ReturnUrl);
                     }
 
                     return RedirectToAction("Index", "Participant");

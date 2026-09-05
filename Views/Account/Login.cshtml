@@ -28,6 +28,7 @@
                 </div>
 
                 <form asp-action="Login" method="POST" class="space-y-6">
+                    <input type="hidden" asp-for="ReturnUrl" />
                     <div asp-validation-summary="All" class="text-red-400 text-xs mb-5"></div>
                     <div>
                         <label for="email" class="block text-sm font-medium text-gray-300 mb-2">Email Address</label>

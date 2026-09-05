@@ -4249,18 +4249,6 @@
   inset: 0;
   background: linear-gradient(to top, rgb(3 8 22 / 0.95) 0%, rgb(3 8 22 / 0.6) 40%, rgb(3 8 22 / 0.15) 100%);
 }
-.card-badge {
-  position: absolute;
-  top: 1rem;
-  left: 1rem;
-  z-index: 2;
-  padding: 0.3rem 0.7rem;
-  border-radius: 9999px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  white-space: nowrap;
-  backdrop-filter: blur(8px);
-}
 .badge-easy {
   background: rgb(6 78 59 / 0.85);
   color: rgb(110 231 183);
@@ -4270,11 +4258,6 @@
   background: rgb(26 46 5 / 0.85);
   color: rgb(190 242 100);
   border: 1px solid rgb(163 230 53 / 0.35);
-}
-.badge-moderate {
-  background: rgb(69 39 8 / 0.85);
-  color: rgb(252 211 77);
-  border: 1px solid rgb(251 191 36 / 0.35);
 }
 .badge-orange {
   background: rgb(67 20 7 / 0.85);
@@ -4328,12 +4311,6 @@
 .trail-card.is-active .card-detail {
   max-height: 12rem;
   opacity: 1;
-}
-.card-difficulty-note {
-  margin-top: 0.75rem;
-  color: rgb(148 163 184);
-  font-size: 0.75rem;
-  line-height: 1.4;
 }
 .card-stats {
   display: flex;

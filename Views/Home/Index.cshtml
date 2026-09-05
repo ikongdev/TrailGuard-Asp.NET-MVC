@@ -2,6 +2,16 @@
 
 @{
     ViewData["Title"] = "Home";
+
+    // Popular Trails: role-aware destination, computed once and reused on all six
+    // cards rather than repeating the same User.IsInRole check per card. Anonymous
+    // falls through to the Participant route too - ParticipantController's own
+    // [Authorize(Roles="Participant")] then challenges to Login with a ReturnUrl
+    // back here (see AccountController.Login), rather than this view deciding
+    // anything about authentication itself.
+    var popularTrailsUrl = (User.IsInRole("Admin") || User.IsInRole("Organizer"))
+        ? Url.Action("Index", "Trail")
+        : Url.Action("Trails", "Participant");
 }
 
 
@@ -154,128 +164,116 @@
              role="region" aria-roledescription="carousel" aria-label="Popular trails">
             <div class="carousel-track">
 
-                <article class="trail-card is-active" data-tone="22,78,99" data-difficulty="hard"
+                <article class="trail-card is-active" data-tone="22,78,99"
                          role="group" aria-roledescription="slide" aria-label="Popular trail 1 of 6: Mt. Apo" aria-current="true">
                     <img src="/images/trails/Mt.Apo.jpg" alt="Mt. Apo" class="card-img" width="5464" height="3070" loading="eager" decoding="async">
                     <div class="card-scrim"></div>
-                    <span class="card-badge badge-hard">Hard 7/9</span>
                     <div class="card-body">
                         <h3 class="card-title">Mt. Apo</h3>
                         <p class="card-location">
                             <i class="fa-solid fa-location-dot" aria-hidden="true"></i> Davao Del Sur / Cotabato
                         </p>
                         <div class="card-detail">
-                            <p class="card-difficulty-note">Multi-day or technical climbs needing ropes and expertise</p>
                             <div class="card-stats">
                                 <span><i class="fa-solid fa-mountain" aria-hidden="true"></i> 2,954 m</span>
                                 <span><i class="fa-solid fa-route" aria-hidden="true"></i> 16 km</span>
                             </div>
-                            <a href="/Trail" class="card-link">View trail <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
+                            <a href="@popularTrailsUrl" class="card-link">Browse trails <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
                         </div>
                     </div>
                 </article>
 
-                <article class="trail-card" data-tone="72,52,20" data-difficulty="moderate"
+                <article class="trail-card" data-tone="72,52,20"
                          role="group" aria-roledescription="slide" aria-label="Popular trail 2 of 6: Mt. Batulao">
                     <img src="/images/trails/Mt.Batulao.jpg" alt="Mt. Batulao" class="card-img" width="3264" height="2448" loading="lazy" decoding="async">
                     <div class="card-scrim"></div>
-                    <span class="card-badge badge-moderate">Moderate 4/9</span>
                     <div class="card-body">
                         <h3 class="card-title">Mt. Batulao</h3>
                         <p class="card-location">
                             <i class="fa-solid fa-location-dot" aria-hidden="true"></i> Nasugbu, Batangas
                         </p>
                         <div class="card-detail">
-                            <p class="card-difficulty-note">Day hikes with steep parts or longer hours</p>
                             <div class="card-stats">
                                 <span><i class="fa-solid fa-mountain" aria-hidden="true"></i> 811 m</span>
                                 <span><i class="fa-solid fa-route" aria-hidden="true"></i> 12 km</span>
                             </div>
-                            <a href="/Trail" class="card-link">View trail <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
+                            <a href="@popularTrailsUrl" class="card-link">Browse trails <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
                         </div>
                     </div>
                 </article>
 
-                <article class="trail-card" data-tone="72,52,20" data-difficulty="moderate"
+                <article class="trail-card" data-tone="72,52,20"
                          role="group" aria-roledescription="slide" aria-label="Popular trail 3 of 6: Mt. Daraitan">
                     <img src="/images/trails/Mt.Daraitan.jpg" alt="Mt. Daraitan" class="card-img" width="1166" height="582" loading="lazy" decoding="async">
                     <div class="card-scrim"></div>
-                    <span class="card-badge badge-moderate">Moderate 4/9</span>
                     <div class="card-body">
                         <h3 class="card-title">Mt. Daraitan</h3>
                         <p class="card-location">
                             <i class="fa-solid fa-location-dot" aria-hidden="true"></i> Tanay, Rizal
                         </p>
                         <div class="card-detail">
-                            <p class="card-difficulty-note">Day hikes with steep parts or longer hours</p>
                             <div class="card-stats">
                                 <span><i class="fa-solid fa-mountain" aria-hidden="true"></i> 739 m</span>
                                 <span><i class="fa-solid fa-route" aria-hidden="true"></i> 14 km</span>
                             </div>
-                            <a href="/Trail" class="card-link">View trail <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
+                            <a href="@popularTrailsUrl" class="card-link">Browse trails <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
                         </div>
                     </div>
                 </article>
 
-                <article class="trail-card" data-tone="60,44,72" data-difficulty="moderate"
+                <article class="trail-card" data-tone="60,44,72"
                          role="group" aria-roledescription="slide" aria-label="Popular trail 4 of 6: Mt. Makiling">
                     <img src="/images/trails/Mt.Makiling.jpg" alt="Mt. Makiling" class="card-img" width="1920" height="1164" loading="lazy" decoding="async">
                     <div class="card-scrim"></div>
-                    <span class="card-badge badge-moderate">Moderate 5/9</span>
                     <div class="card-body">
                         <h3 class="card-title">Mt. Makiling</h3>
                         <p class="card-location">
                             <i class="fa-solid fa-location-dot" aria-hidden="true"></i> Los Baños, Laguna
                         </p>
                         <div class="card-detail">
-                            <p class="card-difficulty-note">Day hikes with steep parts or longer hours</p>
                             <div class="card-stats">
                                 <span><i class="fa-solid fa-mountain" aria-hidden="true"></i> 1,090 m</span>
                                 <span><i class="fa-solid fa-route" aria-hidden="true"></i> 18 km</span>
                             </div>
-                            <a href="/Trail" class="card-link">View trail <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
+                            <a href="@popularTrailsUrl" class="card-link">Browse trails <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
                         </div>
                     </div>
                 </article>
 
-                <article class="trail-card" data-tone="80,32,40" data-difficulty="hard"
+                <article class="trail-card" data-tone="80,32,40"
                          role="group" aria-roledescription="slide" aria-label="Popular trail 5 of 6: Mt. Halcon">
                     <img src="/images/trails/Mt.Halcon.jpg" alt="Mt. Halcon" class="card-img" width="1600" height="1200" loading="lazy" decoding="async">
                     <div class="card-scrim"></div>
-                    <span class="card-badge badge-hard">Hard 9/9</span>
                     <div class="card-body">
                         <h3 class="card-title">Mt. Halcon</h3>
                         <p class="card-location">
                             <i class="fa-solid fa-location-dot" aria-hidden="true"></i> Baco, Oriental Mindoro
                         </p>
                         <div class="card-detail">
-                            <p class="card-difficulty-note">Multi-day or technical climbs needing ropes and expertise</p>
                             <div class="card-stats">
                                 <span><i class="fa-solid fa-mountain" aria-hidden="true"></i> 2,582 m</span>
                                 <span><i class="fa-solid fa-route" aria-hidden="true"></i> 35 km</span>
                             </div>
-                            <a href="/Trail" class="card-link">View trail <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
+                            <a href="@popularTrailsUrl" class="card-link">Browse trails <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
                         </div>
                     </div>
                 </article>
 
-                <article class="trail-card" data-tone="20,60,72" data-difficulty="easy"
+                <article class="trail-card" data-tone="20,60,72"
                          role="group" aria-roledescription="slide" aria-label="Popular trail 6 of 6: Mt. Ulap">
                     <img src="/images/trails/Mt.Ulap.jpg" alt="Mt. Ulap" class="card-img" width="740" height="493" loading="lazy" decoding="async">
                     <div class="card-scrim"></div>
-                    <span class="card-badge badge-easy">Easy 3/9</span>
                     <div class="card-body">
                         <h3 class="card-title">Mt. Ulap</h3>
                         <p class="card-location">
                             <i class="fa-solid fa-location-dot" aria-hidden="true"></i> Itogon, Benguet
                         </p>
                         <div class="card-detail">
-                            <p class="card-difficulty-note">Minor walks and short nature trails</p>
                             <div class="card-stats">
                                 <span><i class="fa-solid fa-mountain" aria-hidden="true"></i> 1,846 m</span>
                                 <span><i class="fa-solid fa-route" aria-hidden="true"></i> 16 km</span>
                             </div>
-                            <a href="/Trail" class="card-link">View trail <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
+                            <a href="@popularTrailsUrl" class="card-link">Browse trails <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
                         </div>
                     </div>
                 </article>

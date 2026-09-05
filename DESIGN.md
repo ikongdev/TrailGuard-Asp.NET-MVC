@@ -145,9 +145,9 @@ Badge colours — dark and near-solid, because an 18%-opacity badge disappears a
 | `badge-orange` | `rgb(67 20 7 / 0.85)` | `rgb(253 186 116)` | `rgb(251 146 60 / 0.35)` |
 | `badge-hard` | `rgb(69 10 10 / 0.85)` | `rgb(252 165 165)` | `rgb(248 113 113 / 0.35)` |
 
-`DifficultyCalculator.BadgeClass` is the single source for this mapping — every page shows a difficulty badge through it. **Don't introduce a fifth band** without changing the calculator, `acsm_gate.py`'s matching Python-side bands, and this document together.
+Where Event Difficulty is displayed, its badge styling must use `DifficultyCalculator.BadgeClass` so Event pages share the canonical label-to-color mapping. **Don't introduce a fifth band** without changing the calculator, `acsm_gate.py`'s matching Python-side bands, and this document together.
 
-`.badge-moderate` still exists in `input.css` but isn't part of this mapping — it's not orphaned, though: the landing page's static trail showcase (`Home/Index.cshtml`) hand-writes difficulty text like "Moderate 4/9" independent of `DifficultyCalculator`, and still uses it. Leave it until that showcase is rebuilt to pull real trail data.
+**Correction:** this section previously said `.badge-moderate` was kept in `input.css` for the landing page's static trail showcase (`Home/Index.cshtml`), which hand-wrote difficulty text like "Moderate 4/9" independent of `DifficultyCalculator`. `.badge-moderate` has since been removed from `input.css` (confirmed no remaining consumer repository-wide) — the showcase's Popular Trails cards don't show a difficulty badge at all now, canonical or otherwise. See Landing Page — Popular Trails Carousel, below, for why: those cards describe Trails, and Event Difficulty is a property of a scheduled Event, not a Trail on its own.
 
 ---
 
@@ -720,7 +720,9 @@ Desktop keeps its established look untouched: an autoplay accordion (six-second 
 
 **Image loading:** the section sits below the Hero's `min-h-screen`, so the first card's image is never above the fold — it loads eager (not `fetchpriority="high"`, which is for actual LCP candidates), the rest load lazy, and all six carry `decoding="async"` plus real intrinsic `width`/`height` (inert for layout purposes since `object-fit: cover` already controls the rendered size, but they still prevent layout shift while the file downloads).
 
-**Outstanding, unrelated to this pass:** all six `View trail` links still point to `/Trail`, which only Organizer/Admin accounts can open. Left unchanged — see `CLAUDE.md`, Landing Page — Popular Trails Carousel, for the same note.
+**Card links are role-aware, not marketing-only guesses.** Each card's link (relabelled `Browse trails`, matching that it opens a listing rather than one Trail's own details page) resolves to a role-appropriate destination computed once in `Home/Index.cshtml` and reused by all six cards — Admin/Organizer to Trail Management, everyone else (including anonymous, via Identity's normal login challenge) to Participant Browse Trails — replacing the old hardcoded `/Trail`, which threw Access Denied for anyone but Organizer/Admin. See `CLAUDE.md`, Landing Page — Popular Trails Carousel, for the full routing/return-URL detail.
+
+**No difficulty badge is shown on these cards, and none should be added.** An earlier revision rendered each card's old `x/9` rating through `DifficultyCalculator.BadgeClass`/`Bands` — the same canonical bands Browse Events and Event Management use — but that conflated two different things: `DifficultyCalculator` computes **Event Difficulty**, a value that belongs to one scheduled Event (its Trail's rating adjusted by that Trail's `TrailClass` at the time the Event captured its snapshot), not a property a Trail carries on its own. These six cards describe Trails, not Events, so there is no authoritative difficulty to show. The old `x/9` suffixes, `Hard`/`Moderate`/`Easy` wording, and per-card description sentence stay gone; nothing — canonical band, raw score, or an invented Technical Trail Class — replaces them. The badge chip's own shape/position class (`.card-badge`, distinct from the shared `.badge-easy`/`.badge-lime`/`.badge-orange`/`.badge-hard` colors Event pages still use) was removed from `input.css` after confirming it had no remaining consumer.
 
 ---
 
