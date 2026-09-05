@@ -2715,9 +2715,6 @@
   .text-wrap {
     text-wrap: wrap;
   }
-  .break-words {
-    overflow-wrap: break-word;
-  }
   .wrap-break-word {
     overflow-wrap: break-word;
   }
@@ -4079,8 +4076,20 @@
     .lg\:grid-cols-4 {
       grid-template-columns: repeat(4, minmax(0, 1fr));
     }
+    .lg\:grid-cols-\[minmax\(0\,1\.8fr\)_minmax\(0\,1\.4fr\)_minmax\(0\,1\.4fr\)_minmax\(0\,1fr\)_minmax\(0\,1fr\)_minmax\(0\,0\.8fr\)_minmax\(0\,0\.8fr\)\] {
+      grid-template-columns: minmax(0,1.8fr) minmax(0,1.4fr) minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr) minmax(0,0.8fr) minmax(0,0.8fr);
+    }
+    .lg\:grid-cols-\[minmax\(0\,1\.8fr\)_minmax\(0\,1\.8fr\)_minmax\(0\,1\.4fr\)_minmax\(0\,1fr\)_minmax\(0\,1fr\)\] {
+      grid-template-columns: minmax(0,1.8fr) minmax(0,1.8fr) minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr);
+    }
     .lg\:grid-cols-\[minmax\(0\,2\.2fr\)_minmax\(0\,2fr\)_minmax\(0\,1\.3fr\)_minmax\(0\,0\.9fr\)_minmax\(0\,1fr\)\] {
       grid-template-columns: minmax(0,2.2fr) minmax(0,2fr) minmax(0,1.3fr) minmax(0,0.9fr) minmax(0,1fr);
+    }
+    .lg\:grid-cols-\[minmax\(0\,2fr\)_minmax\(0\,1\.6fr\)_minmax\(0\,1fr\)_minmax\(0\,1fr\)_minmax\(0\,0\.8fr\)_minmax\(0\,0\.8fr\)\] {
+      grid-template-columns: minmax(0,2fr) minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr) minmax(0,0.8fr) minmax(0,0.8fr);
+    }
+    .lg\:grid-cols-\[minmax\(0\,2fr\)_minmax\(0\,2fr\)_minmax\(0\,1fr\)_minmax\(0\,1fr\)\] {
+      grid-template-columns: minmax(0,2fr) minmax(0,2fr) minmax(0,1fr) minmax(0,1fr);
     }
     .lg\:grid-cols-\[minmax\(0\,35\%\)_minmax\(0\,65\%\)\] {
       grid-template-columns: minmax(0,35%) minmax(0,65%);

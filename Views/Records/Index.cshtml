@@ -37,6 +37,26 @@
     var eventWord = Model.EventHistory.Count == 1 ? "event" : "events";
     var registrationWord = Model.Registrations.Count == 1 ? "registration" : "registrations";
     var reviewWord = Model.FeedbackCount == 1 ? "review" : "reviews";
+
+    // Grid column templates mirror Organizer/Registrations.cshtml's own
+    // recipe (a header <div> and each row share one literal grid-cols
+    // arbitrary-value string instead of a <table>) - see DESIGN.md/CLAUDE.md
+    // notes on this page for why Records now follows that structure instead
+    // of its previous <table>/mobile-<article> split. Two literal variants
+    // per section (not one computed dynamically) so Tailwind's class
+    // scanner - which reads this file's raw text, not just rendered HTML -
+    // can see both possible column counts at build time.
+    // lg:-prefixed (not bare grid-cols-[...]) to match Organizer/Registrations.cshtml
+    // exactly: the arbitrary column template must only apply at the lg
+    // breakpoint and up, same as that page's own header <div> and row <a>,
+    // so grid-cols-1 still governs the stacked mobile/tablet layout below lg.
+    var eventHistoryGridCols = Model.IsAdmin
+        ? "lg:grid-cols-[minmax(0,1.8fr)_minmax(0,1.4fr)_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,0.8fr)]"
+        : "lg:grid-cols-[minmax(0,2fr)_minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,0.8fr)]";
+
+    var registrationsGridCols = Model.IsAdmin
+        ? "lg:grid-cols-[minmax(0,1.8fr)_minmax(0,1.8fr)_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]"
+        : "lg:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]";
 }
 
 @* Success/Error feedback goes through the canonical global toast host in _Layout.cshtml. *@
@@ -111,84 +131,79 @@
             <span id="eventHistoryCount" class="text-sm text-gray-400">@Model.EventHistory.Count @eventWord</span>
         </div>
 
-        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
-            @if (Model.EventHistory.Any())
-            {
-                <div class="hidden lg:block relative">
-                    <div id="eventHistoryDesktopScroll" tabindex="0" aria-label="Event history records" class="overflow-y-auto tg-records-scroll focus:outline-none focus:ring-2 focus:ring-accent focus:ring-inset">
-                        <table class="w-full text-left text-sm border-collapse">
-                            <caption class="sr-only">Completed and cancelled events, with trail, date, status, capacity, and registered participant counts.</caption>
-                            <thead class="sticky top-0 z-10 bg-surface-card">
-                                <tr class="border-b border-white/10">
-                                    <th scope="col" class="px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Event Title</th>
-                                    <th scope="col" class="px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Trail</th>
-                                    @if (Model.IsAdmin)
-                                    {
-                                        <th scope="col" class="px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Organizer</th>
-                                    }
-                                    <th scope="col" class="px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Date</th>
-                                    <th scope="col" class="px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
-                                    <th scope="col" class="px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Capacity</th>
-                                    <th scope="col" class="px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Registered</th>
-                                </tr>
-                            </thead>
-                            <tbody id="eventHistoryTbody" class="divide-y divide-white/10">
-                                @foreach (var e in Model.EventHistory)
-                                {
-                                    <tr data-id="@e.Id" data-search="@EventSearch(e)" data-status="@e.Status" data-date="@e.EventDateTime.ToString("o")" class="hover:bg-white/5 transition-colors">
-                                        <th scope="row" class="px-5 py-4 text-white font-medium wrap-break-word">@e.EventTitle</th>
-                                        <td class="px-5 py-4 text-gray-300 wrap-break-word">@e.TrailName</td>
-                                        @if (Model.IsAdmin)
-                                        {
-                                            <td class="px-5 py-4 text-gray-300 wrap-break-word">@e.OrganizerName</td>
-                                        }
-                                        <td class="px-5 py-4 text-gray-300 whitespace-nowrap">@e.EventDate.ToString("MMM dd, yyyy")</td>
-                                        <td class="px-5 py-4 font-semibold @historyStatusClass(e.Status)">@e.Status</td>
-                                        <td class="px-5 py-4 text-gray-300">@e.Capacity</td>
-                                        <td class="px-5 py-4 text-gray-300">@e.Registered</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                    <div id="eventHistoryDesktopCue" class="tg-records-cue" aria-hidden="true"><span>Scroll for more <i class="fa-solid fa-chevron-down ml-1" aria-hidden="true"></i></span></div>
+        @if (Model.EventHistory.Any())
+        {
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden">
+                <div class="hidden lg:grid @eventHistoryGridCols gap-4 px-5 py-3 border-b border-white/10 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    <span>Event Title</span>
+                    <span>Trail</span>
+                    @if (Model.IsAdmin)
+                    {
+                        <span>Organizer</span>
+                    }
+                    <span>Date</span>
+                    <span>Status</span>
+                    <span>Capacity</span>
+                    <span>Registered</span>
                 </div>
 
-                <div class="lg:hidden relative">
-                    <div id="eventHistoryMobileScroll" tabindex="0" aria-label="Event history records" class="overflow-y-auto tg-records-scroll space-y-3 p-4 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-inset">
+                <div class="relative">
+                    <ul id="eventHistoryList" role="list" aria-label="Event history records" tabindex="0" class="list-none m-0 p-0 divide-y divide-white/10 overflow-y-auto tg-records-scroll focus:outline-none focus:ring-2 focus:ring-accent focus:ring-inset">
                         @foreach (var e in Model.EventHistory)
                         {
-                            <article data-id="@e.Id" data-search="@EventSearch(e)" data-status="@e.Status" data-date="@e.EventDateTime.ToString("o")" class="bg-white/5 border border-white/10 rounded-xl p-4">
-                                <h3 class="text-white font-semibold text-base mb-3 wrap-break-word">@e.EventTitle</h3>
-                                <dl class="space-y-2.5 text-sm">
-                                    <div><dt class="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Trail</dt><dd class="text-gray-200 wrap-break-word">@e.TrailName</dd></div>
-                                    @if (Model.IsAdmin)
-                                    {
-                                        <div><dt class="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Organizer</dt><dd class="text-gray-200 wrap-break-word">@e.OrganizerName</dd></div>
-                                    }
-                                    <div><dt class="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Date</dt><dd class="text-gray-200">@e.EventDate.ToString("MMM dd, yyyy")</dd></div>
-                                    <div><dt class="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Status</dt><dd class="font-semibold @historyStatusClass(e.Status)">@e.Status</dd></div>
-                                    <div class="flex gap-6"><div><dt class="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Capacity</dt><dd class="text-gray-200">@e.Capacity</dd></div><div><dt class="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Registered</dt><dd class="text-gray-200">@e.Registered</dd></div></div>
-                                </dl>
-                            </article>
+                            <li data-id="@e.Id" data-search="@EventSearch(e)" data-status="@e.Status" data-date="@e.EventDateTime.ToString("o")"
+                                class="grid grid-cols-1 @eventHistoryGridCols gap-2 lg:gap-4 lg:items-center px-5 py-4 hover:bg-white/5 transition-colors">
+                                <div>
+                                    <p class="lg:sr-only text-[11px] uppercase tracking-wider text-gray-500 mb-1">Event Title</p>
+                                    <p class="text-white font-medium wrap-break-word">@e.EventTitle</p>
+                                </div>
+                                <div>
+                                    <p class="lg:sr-only text-[11px] uppercase tracking-wider text-gray-500 mb-1">Trail</p>
+                                    <p class="text-gray-300 wrap-break-word">@e.TrailName</p>
+                                </div>
+                                @if (Model.IsAdmin)
+                                {
+                                    <div>
+                                        <p class="lg:sr-only text-[11px] uppercase tracking-wider text-gray-500 mb-1">Organizer</p>
+                                        <p class="text-gray-300 wrap-break-word">@e.OrganizerName</p>
+                                    </div>
+                                }
+                                <div>
+                                    <p class="lg:sr-only text-[11px] uppercase tracking-wider text-gray-500 mb-1">Date</p>
+                                    <p class="text-gray-300 whitespace-nowrap">@e.EventDate.ToString("MMM dd, yyyy")</p>
+                                </div>
+                                <div>
+                                    <p class="lg:sr-only text-[11px] uppercase tracking-wider text-gray-500 mb-1">Status</p>
+                                    <p class="font-semibold wrap-break-word @historyStatusClass(e.Status)">@e.Status</p>
+                                </div>
+                                <div>
+                                    <p class="lg:sr-only text-[11px] uppercase tracking-wider text-gray-500 mb-1">Capacity</p>
+                                    <p class="text-gray-300">@e.Capacity</p>
+                                </div>
+                                <div>
+                                    <p class="lg:sr-only text-[11px] uppercase tracking-wider text-gray-500 mb-1">Registered</p>
+                                    <p class="text-gray-300">@e.Registered</p>
+                                </div>
+                            </li>
                         }
-                    </div>
-                    <div id="eventHistoryMobileCue" class="tg-records-cue" aria-hidden="true"><span>Scroll for more <i class="fa-solid fa-chevron-down ml-1" aria-hidden="true"></i></span></div>
+                    </ul>
+                    <div id="eventHistoryScrollCueTop" class="registrations-scroll-cue registrations-scroll-cue-top" aria-hidden="true"><span><i class="fa-solid fa-chevron-up mr-1" aria-hidden="true"></i>Scroll for more</span></div>
+                    <div id="eventHistoryScrollCueBottom" class="registrations-scroll-cue registrations-scroll-cue-bottom" aria-hidden="true"><span>Scroll for more<i class="fa-solid fa-chevron-down ml-1" aria-hidden="true"></i></span></div>
                 </div>
 
                 <div id="eventHistoryNoMatches" hidden class="text-center py-12 px-5">
                     <i class="fa-solid fa-magnifying-glass text-3xl text-slate-600 mb-3" aria-hidden="true"></i>
                     <p class="text-gray-400 text-sm">No events match your search or filters.</p>
                 </div>
-            }
-            else
-            {
-                <div class="text-center py-16 px-5">
-                    <i class="fa-regular fa-calendar text-4xl text-slate-600 mb-3" aria-hidden="true"></i>
-                    <p class="text-gray-400 text-sm">No historical events yet. Completed and cancelled events will appear here.</p>
-                </div>
-            }
-        </div>
+            </div>
+        }
+        else
+        {
+            <div class="text-center py-16 px-5 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl">
+                <i class="fa-regular fa-calendar text-4xl text-slate-600 mb-3" aria-hidden="true"></i>
+                <p class="text-gray-400 text-sm">No historical events yet. Completed and cancelled events will appear here.</p>
+            </div>
+        }
     </section>
 
     <section id="registrationsSection" class="mb-12" aria-labelledby="registrations-heading">
@@ -197,79 +212,69 @@
             <span id="registrationsCount" class="text-sm text-gray-400">@Model.Registrations.Count @registrationWord</span>
         </div>
 
-        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
-            @if (Model.Registrations.Any())
-            {
-                <div class="hidden lg:block relative">
-                    <div id="registrationsDesktopScroll" tabindex="0" aria-label="Participant registration records" class="overflow-y-auto tg-records-scroll focus:outline-none focus:ring-2 focus:ring-accent focus:ring-inset">
-                        <table class="w-full text-left text-sm border-collapse">
-                            <caption class="sr-only">Participant registrations with event, registration date, and status.</caption>
-                            <thead class="sticky top-0 z-10 bg-surface-card">
-                                <tr class="border-b border-white/10">
-                                    <th scope="col" class="px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Participant</th>
-                                    <th scope="col" class="px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Event</th>
-                                    @if (Model.IsAdmin)
-                                    {
-                                        <th scope="col" class="px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Organizer</th>
-                                    }
-                                    <th scope="col" class="px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Registered</th>
-                                    <th scope="col" class="px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody id="registrationsTbody" class="divide-y divide-white/10">
-                                @foreach (var r in Model.Registrations)
-                                {
-                                    <tr data-id="@r.Id" data-search="@RegistrationSearch(r)" data-date="@r.RegisteredAt.ToString("o")" class="hover:bg-white/5 transition-colors">
-                                        <th scope="row" class="px-5 py-4 text-white font-medium wrap-break-word">@r.ParticipantName</th>
-                                        <td class="px-5 py-4 text-gray-300 wrap-break-word">@r.EventTitle</td>
-                                        @if (Model.IsAdmin)
-                                        {
-                                            <td class="px-5 py-4 text-gray-300 wrap-break-word">@r.OrganizerName</td>
-                                        }
-                                        <td class="px-5 py-4 text-gray-300 whitespace-nowrap">@r.RegisteredAt.ToString("MMM dd, yyyy")</td>
-                                        <td class="px-5 py-4 font-semibold @registrationStatusClass(r.Status)">@r.Status</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                    <div id="registrationsDesktopCue" class="tg-records-cue" aria-hidden="true"><span>Scroll for more <i class="fa-solid fa-chevron-down ml-1" aria-hidden="true"></i></span></div>
+        @if (Model.Registrations.Any())
+        {
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden">
+                <div class="hidden lg:grid @registrationsGridCols gap-4 px-5 py-3 border-b border-white/10 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    <span>Participant</span>
+                    <span>Event</span>
+                    @if (Model.IsAdmin)
+                    {
+                        <span>Organizer</span>
+                    }
+                    <span>Registered</span>
+                    <span>Status</span>
                 </div>
 
-                <div class="lg:hidden relative">
-                    <div id="registrationsMobileScroll" tabindex="0" aria-label="Participant registration records" class="overflow-y-auto tg-records-scroll space-y-3 p-4 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-inset">
+                <div class="relative">
+                    <ul id="registrationsList" role="list" aria-label="Participant registration records" tabindex="0" class="list-none m-0 p-0 divide-y divide-white/10 overflow-y-auto tg-records-scroll focus:outline-none focus:ring-2 focus:ring-accent focus:ring-inset">
                         @foreach (var r in Model.Registrations)
                         {
-                            <article data-id="@r.Id" data-search="@RegistrationSearch(r)" data-date="@r.RegisteredAt.ToString("o")" class="bg-white/5 border border-white/10 rounded-xl p-4">
-                                <h3 class="text-white font-semibold text-base mb-3 wrap-break-word">@r.ParticipantName</h3>
-                                <dl class="space-y-2.5 text-sm">
-                                    <div><dt class="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Event</dt><dd class="text-gray-200 wrap-break-word">@r.EventTitle</dd></div>
-                                    @if (Model.IsAdmin)
-                                    {
-                                        <div><dt class="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Organizer</dt><dd class="text-gray-200 wrap-break-word">@r.OrganizerName</dd></div>
-                                    }
-                                    <div><dt class="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Registered</dt><dd class="text-gray-200">@r.RegisteredAt.ToString("MMM dd, yyyy")</dd></div>
-                                    <div><dt class="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Status</dt><dd class="font-semibold @registrationStatusClass(r.Status)">@r.Status</dd></div>
-                                </dl>
-                            </article>
+                            <li data-id="@r.Id" data-search="@RegistrationSearch(r)" data-date="@r.RegisteredAt.ToString("o")"
+                                class="grid grid-cols-1 @registrationsGridCols gap-2 lg:gap-4 lg:items-center px-5 py-4 hover:bg-white/5 transition-colors">
+                                <div>
+                                    <p class="lg:sr-only text-[11px] uppercase tracking-wider text-gray-500 mb-1">Participant</p>
+                                    <p class="text-white font-medium wrap-break-word">@r.ParticipantName</p>
+                                </div>
+                                <div>
+                                    <p class="lg:sr-only text-[11px] uppercase tracking-wider text-gray-500 mb-1">Event</p>
+                                    <p class="text-gray-300 wrap-break-word">@r.EventTitle</p>
+                                </div>
+                                @if (Model.IsAdmin)
+                                {
+                                    <div>
+                                        <p class="lg:sr-only text-[11px] uppercase tracking-wider text-gray-500 mb-1">Organizer</p>
+                                        <p class="text-gray-300 wrap-break-word">@r.OrganizerName</p>
+                                    </div>
+                                }
+                                <div>
+                                    <p class="lg:sr-only text-[11px] uppercase tracking-wider text-gray-500 mb-1">Registered</p>
+                                    <p class="text-gray-300 whitespace-nowrap">@r.RegisteredAt.ToString("MMM dd, yyyy")</p>
+                                </div>
+                                <div>
+                                    <p class="lg:sr-only text-[11px] uppercase tracking-wider text-gray-500 mb-1">Status</p>
+                                    <p class="font-semibold wrap-break-word @registrationStatusClass(r.Status)">@r.Status</p>
+                                </div>
+                            </li>
                         }
-                    </div>
-                    <div id="registrationsMobileCue" class="tg-records-cue" aria-hidden="true"><span>Scroll for more <i class="fa-solid fa-chevron-down ml-1" aria-hidden="true"></i></span></div>
+                    </ul>
+                    <div id="registrationsScrollCueTop" class="registrations-scroll-cue registrations-scroll-cue-top" aria-hidden="true"><span><i class="fa-solid fa-chevron-up mr-1" aria-hidden="true"></i>Scroll for more</span></div>
+                    <div id="registrationsScrollCueBottom" class="registrations-scroll-cue registrations-scroll-cue-bottom" aria-hidden="true"><span>Scroll for more<i class="fa-solid fa-chevron-down ml-1" aria-hidden="true"></i></span></div>
                 </div>
 
                 <div id="registrationsNoMatches" hidden class="text-center py-12 px-5">
                     <i class="fa-solid fa-magnifying-glass text-3xl text-slate-600 mb-3" aria-hidden="true"></i>
                     <p class="text-gray-400 text-sm">No registrations match your search or filters.</p>
                 </div>
-            }
-            else
-            {
-                <div class="text-center py-16 px-5">
-                    <i class="fa-regular fa-clipboard text-4xl text-slate-600 mb-3" aria-hidden="true"></i>
-                    <p class="text-gray-400 text-sm">No registrations found.</p>
-                </div>
-            }
-        </div>
+            </div>
+        }
+        else
+        {
+            <div class="text-center py-16 px-5 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl">
+                <i class="fa-regular fa-clipboard text-4xl text-slate-600 mb-3" aria-hidden="true"></i>
+                <p class="text-gray-400 text-sm">No registrations found.</p>
+            </div>
+        }
     </section>
 
     <section id="trailUsageSection" class="mb-12" aria-labelledby="trail-usage-heading">
@@ -499,31 +504,12 @@
         }
 
         // ------------------------------------------------------------------
-        // Shared bounded-viewport + bottom scroll cue, reused across every
-        // scrollable region on this page (Event History desktop/mobile,
-        // Registrations desktop/mobile, Feedback). Mirrors the measured-
-        // height technique from Organizer/Registrations.cshtml (row heights
-        // vary with wrapped text, so a fixed pixel guess would either clip
-        // content or leave dead space) combined with the Organizer
-        // Dashboard's single bottom-only cue visual.
-        //
-        // scrollEl is the element overflow-y/scrollTop/scrollHeight and the
-        // measured max-height apply to (and, for a table region, the element
-        // whose rendered top already includes the sticky <thead>).
-        // rowsContainer is the element whose direct children are the actual
-        // record elements to count/measure - for a desktop table that's the
-        // <tbody>, NOT scrollEl itself. Passing scrollEl.children here for a
-        // table region was the original bug: a div that wraps a whole
-        // <table> has exactly one direct child (the <table> element) no
-        // matter how many <tr> rows are inside its <tbody>, so
-        // visible.length was always 1 and the "visible.length <= rows" early
-        // return always fired - the desktop table regions were never
-        // actually bounded to N rows, and the cue never had anything to show
-        // (scrollHeight === clientHeight with no max-height constraint). A
-        // direct-child list (mobile cards, Feedback) has always measured
-        // correctly since scrollEl and rowsContainer were effectively the
-        // same set of children - callers for those pass the same element
-        // for both parameters.
+        // Shared bounded-viewport + bottom-only scroll cue, used by Feedback
+        // (its cards are already the compact presentation at every width, so
+        // scrollEl and rowsContainer are the same element). Event History
+        // and Participant Registrations no longer use this helper - see
+        // createBoundedList below, which mirrors Organizer/Registrations.cshtml's
+        // own list structure and top+bottom cue behavior instead.
         // ------------------------------------------------------------------
         function createScrollRegion(scrollEl, rowsContainer, cueEl, rows) {
             if (!scrollEl || !rowsContainer) return { recalc: function () {} };
@@ -551,12 +537,10 @@
                 }
 
                 // (top of the row just past the limit) - (top of scrollEl
-                // itself) = header height (if any - scrollEl's own rendered
-                // top is where a sticky <thead> starts) + exactly `rows`
-                // complete row heights. For the mobile/Feedback case where
-                // rowsContainer === scrollEl there is no header to include,
-                // so this is equivalent to the original first-row-relative
-                // measurement.
+                // itself) = exactly `rows` complete row heights, since
+                // Feedback (the only remaining caller) has scrollEl and
+                // rowsContainer as the same element with no header row to
+                // account for.
                 var containerTop = scrollEl.getBoundingClientRect().top;
                 var afterRowsTop = visible[rows].getBoundingClientRect().top;
                 scrollEl.style.maxHeight = (afterRowsTop - containerTop) + 'px';
@@ -580,26 +564,87 @@
         }
 
         // ------------------------------------------------------------------
-        // Event History - desktop <table> rows and mobile <article> cards
-        // are index-paired (both rendered from the same model, in the same
-        // order), so reordering one and moving the other by the same index
-        // keeps them in lockstep without a second data-id lookup pass.
+        // Event History / Participant Registrations both now follow
+        // Organizer/Registrations.cshtml's own list structure exactly: one
+        // responsive <ul> (grid-cols-1 on mobile, an lg breakpoint grid-cols
+        // arbitrary value on desktop) instead of a separate desktop <table> and mobile
+        // <article> list, bounded to a 5-record desktop viewport measured
+        // from real rendered row heights (rows wrap and vary in height, so
+        // a fixed pixel guess would clip content or leave dead space), with
+        // top+bottom scroll cues - the same recipe #registrationList uses
+        // inline on that page, generalized here only because Records needs
+        // it independently for two separate lists that must never affect
+        // each other's cue/viewport (see createBoundedList below).
         // ------------------------------------------------------------------
-        var eventHistoryDesktopBody = document.getElementById('eventHistoryTbody');
-        var eventHistoryMobileBody = document.getElementById('eventHistoryMobileScroll');
-        var eventHistoryDesktopRegion = createScrollRegion(document.getElementById('eventHistoryDesktopScroll'), eventHistoryDesktopBody, document.getElementById('eventHistoryDesktopCue'), 5);
-        var eventHistoryMobileRegion = createScrollRegion(eventHistoryMobileBody, eventHistoryMobileBody, document.getElementById('eventHistoryMobileCue'), 5);
+        var desktopQuery = window.matchMedia('(min-width: 1024px)');
+
+        function createBoundedList(listEl, cueTopEl, cueBottomEl, visibleRowCount) {
+            if (!listEl) return { resetAndRecalc: function () {} };
+
+            var recalcScheduled = false;
+
+            function updateCues() {
+                var hasOverflow = listEl.scrollHeight > listEl.clientHeight + 1;
+                var atTop = listEl.scrollTop <= 1;
+                var atBottom = Math.ceil(listEl.scrollTop + listEl.clientHeight) >= listEl.scrollHeight - 1;
+                if (cueTopEl) cueTopEl.classList.toggle('is-visible', hasOverflow && !atTop);
+                if (cueBottomEl) cueBottomEl.classList.toggle('is-visible', hasOverflow && !atBottom);
+            }
+
+            function recalc() {
+                var visibleItems = Array.prototype.filter.call(listEl.children, function (li) {
+                    return li.style.display !== 'none';
+                });
+
+                if (!desktopQuery.matches || visibleItems.length <= visibleRowCount) {
+                    listEl.style.maxHeight = '';
+                    updateCues();
+                    return;
+                }
+
+                var firstTop = visibleItems[0].getBoundingClientRect().top;
+                var afterTop = visibleItems[visibleRowCount].getBoundingClientRect().top;
+                listEl.style.maxHeight = (afterTop - firstTop) + 'px';
+                updateCues();
+            }
+
+            function scheduleRecalc() {
+                if (recalcScheduled) return;
+                recalcScheduled = true;
+                requestAnimationFrame(function () {
+                    recalcScheduled = false;
+                    recalc();
+                });
+            }
+
+            listEl.addEventListener('scroll', updateCues, { passive: true });
+            window.addEventListener('resize', scheduleRecalc);
+            if (typeof desktopQuery.addEventListener === 'function') {
+                desktopQuery.addEventListener('change', scheduleRecalc);
+            } else if (typeof desktopQuery.addListener === 'function') {
+                desktopQuery.addListener(scheduleRecalc);
+            }
+
+            return {
+                resetAndRecalc: function () {
+                    listEl.scrollTop = 0;
+                    scheduleRecalc();
+                }
+            };
+        }
+
+        var eventHistoryList = document.getElementById('eventHistoryList');
+        var eventHistoryRegion = createBoundedList(eventHistoryList, document.getElementById('eventHistoryScrollCueTop'), document.getElementById('eventHistoryScrollCueBottom'), 5);
         var eventHistoryCountEl = document.getElementById('eventHistoryCount');
         var eventHistoryNoMatches = document.getElementById('eventHistoryNoMatches');
 
-        var eventHistoryItems = eventHistoryDesktopBody ? Array.prototype.map.call(eventHistoryDesktopBody.children, function (tr, i) {
+        var eventHistoryItems = eventHistoryList ? Array.prototype.map.call(eventHistoryList.children, function (li) {
             return {
-                tr: tr,
-                card: eventHistoryMobileBody ? eventHistoryMobileBody.children[i] : null,
-                id: tr.dataset.id,
-                search: tr.dataset.search || '',
-                status: tr.dataset.status || '',
-                date: new Date(tr.dataset.date).getTime()
+                li: li,
+                id: li.dataset.id,
+                search: li.dataset.search || '',
+                status: li.dataset.status || '',
+                date: new Date(li.dataset.date).getTime()
             };
         }) : [];
 
@@ -613,7 +658,9 @@
             var visible = eventHistoryItems.filter(function (item) {
                 var matchesSearch = !term || item.search.indexOf(term) !== -1;
                 var matchesStatus = status === 'All' || item.status === status;
-                return matchesSearch && matchesStatus;
+                var shouldShow = matchesSearch && matchesStatus;
+                item.li.style.display = shouldShow ? '' : 'none';
+                return shouldShow;
             });
 
             visible.sort(function (a, b) {
@@ -622,41 +669,25 @@
                 return oldestFirst ? (a.id - b.id) : (b.id - a.id);
             });
 
-            eventHistoryItems.forEach(function (item) {
-                item.tr.style.display = 'none';
-                if (item.card) item.card.style.display = 'none';
-            });
-            visible.forEach(function (item) {
-                item.tr.style.display = '';
-                if (item.card) item.card.style.display = '';
-                eventHistoryDesktopBody.appendChild(item.tr);
-                if (eventHistoryMobileBody && item.card) eventHistoryMobileBody.appendChild(item.card);
-            });
+            visible.forEach(function (item) { eventHistoryList.appendChild(item.li); });
 
             if (eventHistoryCountEl) eventHistoryCountEl.textContent = plural(visible.length, 'event', 'events');
             if (eventHistoryNoMatches) eventHistoryNoMatches.hidden = visible.length !== 0;
 
-            eventHistoryDesktopRegion.recalc();
-            eventHistoryMobileRegion.recalc();
+            eventHistoryRegion.resetAndRecalc();
         }
 
-        // ------------------------------------------------------------------
-        // Participant Registrations - same index-pairing technique as above.
-        // ------------------------------------------------------------------
-        var registrationsDesktopBody = document.getElementById('registrationsTbody');
-        var registrationsMobileBody = document.getElementById('registrationsMobileScroll');
-        var registrationsDesktopRegion = createScrollRegion(document.getElementById('registrationsDesktopScroll'), registrationsDesktopBody, document.getElementById('registrationsDesktopCue'), 5);
-        var registrationsMobileRegion = createScrollRegion(registrationsMobileBody, registrationsMobileBody, document.getElementById('registrationsMobileCue'), 5);
+        var registrationsList = document.getElementById('registrationsList');
+        var registrationsRegion = createBoundedList(registrationsList, document.getElementById('registrationsScrollCueTop'), document.getElementById('registrationsScrollCueBottom'), 5);
         var registrationsCountEl = document.getElementById('registrationsCount');
         var registrationsNoMatches = document.getElementById('registrationsNoMatches');
 
-        var registrationItems = registrationsDesktopBody ? Array.prototype.map.call(registrationsDesktopBody.children, function (tr, i) {
+        var registrationItems = registrationsList ? Array.prototype.map.call(registrationsList.children, function (li) {
             return {
-                tr: tr,
-                card: registrationsMobileBody ? registrationsMobileBody.children[i] : null,
-                id: tr.dataset.id,
-                search: tr.dataset.search || '',
-                date: new Date(tr.dataset.date).getTime()
+                li: li,
+                id: li.dataset.id,
+                search: li.dataset.search || '',
+                date: new Date(li.dataset.date).getTime()
             };
         }) : [];
 
@@ -667,7 +698,9 @@
             var oldestFirst = sortFilter && sortFilter.value === 'oldest';
 
             var visible = registrationItems.filter(function (item) {
-                return !term || item.search.indexOf(term) !== -1;
+                var shouldShow = !term || item.search.indexOf(term) !== -1;
+                item.li.style.display = shouldShow ? '' : 'none';
+                return shouldShow;
             });
 
             visible.sort(function (a, b) {
@@ -676,22 +709,12 @@
                 return oldestFirst ? (a.id - b.id) : (b.id - a.id);
             });
 
-            registrationItems.forEach(function (item) {
-                item.tr.style.display = 'none';
-                if (item.card) item.card.style.display = 'none';
-            });
-            visible.forEach(function (item) {
-                item.tr.style.display = '';
-                if (item.card) item.card.style.display = '';
-                registrationsDesktopBody.appendChild(item.tr);
-                if (registrationsMobileBody && item.card) registrationsMobileBody.appendChild(item.card);
-            });
+            visible.forEach(function (item) { registrationsList.appendChild(item.li); });
 
             if (registrationsCountEl) registrationsCountEl.textContent = plural(visible.length, 'registration', 'registrations');
             if (registrationsNoMatches) registrationsNoMatches.hidden = visible.length !== 0;
 
-            registrationsDesktopRegion.recalc();
-            registrationsMobileRegion.recalc();
+            registrationsRegion.resetAndRecalc();
         }
 
         // ------------------------------------------------------------------

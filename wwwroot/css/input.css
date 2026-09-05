@@ -630,18 +630,17 @@
 }
 
 /* ==========================================================================
-   Records - bounded record viewports + bottom scroll cue
+   Records - shared scrollbar + bottom-only scroll cue
    (Views/Records/Index.cshtml)
 
-   Reuses the Organizer Dashboard's .dashboard-scroll-cue recipe exactly
-   (bottom-only fade, JS-owned .is-visible toggle, never mixed with the
-   native `hidden` attribute - see Views/Organizer/Index.cshtml) and the
-   measured-viewport technique from #registrationList above (row/card
-   heights vary with wrapped text, so the viewport height is measured from
-   actual rendered content rather than a fixed pixel guess). Scoped by class
-   rather than id since this page applies the same recipe to six separate
-   regions (Event History desktop/mobile, Registrations desktop/mobile,
-   Feedback).
+   .tg-records-scroll is the same scrollbar recipe as #registrationList
+   above, scoped by class instead of id since Records applies it to three
+   independent regions (Event History list, Registrations list, Feedback).
+   Event History and Participant Registrations now reuse Organizer
+   Registrations' own list structure and top+bottom .registrations-scroll-cue
+   classes above for their cue behavior - .tg-records-cue (bottom-only,
+   mirroring the Organizer Dashboard's .dashboard-scroll-cue) remains for
+   Feedback, whose cards stay the same compact presentation at every width.
    ========================================================================== */
 
 .tg-records-scroll {

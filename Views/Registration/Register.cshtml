@@ -289,10 +289,10 @@
                 </h3>
 
                 <div class="min-w-0">
-                    <p class="text-white font-semibold text-sm break-words">@eventItem?.EventTitle</p>
+                    <p class="text-white font-semibold text-sm wrap-break-word">@eventItem?.EventTitle</p>
                     <p class="text-gray-400 text-xs flex items-center gap-1 min-w-0">
                         <i class="fa-solid fa-mountain text-[10px] text-accent shrink-0" aria-hidden="true"></i>
-                        <span class="break-words">@eventItem?.TrailNameSnapshot</span>
+                        <span class="wrap-break-word">@eventItem?.TrailNameSnapshot</span>
                     </p>
 
                     <dl class="grid grid-cols-2 gap-x-4 gap-y-2 mt-3 pt-3 border-t border-white/5">
@@ -306,7 +306,7 @@
                         </div>
                         <div class="min-w-0">
                             <dt class="text-gray-500 text-[10px] uppercase tracking-wider">Difficulty</dt>
-                            <dd class="text-white text-sm font-medium break-words">@eventItem?.Difficulty</dd>
+                            <dd class="text-white text-sm font-medium wrap-break-word">@eventItem?.Difficulty</dd>
                         </div>
                         <div class="min-w-0">
                             <dt class="text-gray-500 text-[10px] uppercase tracking-wider">Duration</dt>
@@ -322,11 +322,11 @@
                         </div>
                         <div class="min-w-0">
                             <dt class="text-gray-500 text-[10px] uppercase tracking-wider">Terrain</dt>
-                            <dd class="text-white text-sm font-medium break-words">@(string.IsNullOrEmpty(eventItem?.TrailTerrainSnapshot) ? "N/A" : eventItem.TrailTerrainSnapshot)</dd>
+                            <dd class="text-white text-sm font-medium wrap-break-word">@(string.IsNullOrEmpty(eventItem?.TrailTerrainSnapshot) ? "N/A" : eventItem.TrailTerrainSnapshot)</dd>
                         </div>
                         <div class="min-w-0">
                             <dt class="text-gray-500 text-[10px] uppercase tracking-wider">Location</dt>
-                            <dd class="text-white text-sm font-medium break-words">@eventItem?.Location</dd>
+                            <dd class="text-white text-sm font-medium wrap-break-word">@eventItem?.Location</dd>
                         </div>
                     </dl>
                 </div>

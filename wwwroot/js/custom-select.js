@@ -399,7 +399,7 @@
                 return;
             }
 
-            row.className = 'flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-sm cursor-pointer whitespace-normal break-words transition-colors';
+            row.className = 'flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-sm cursor-pointer whitespace-normal wrap-break-word transition-colors';
             row.setAttribute('aria-selected', 'false');
             if (optionEl.disabled) {
                 row.setAttribute('aria-disabled', 'true');
