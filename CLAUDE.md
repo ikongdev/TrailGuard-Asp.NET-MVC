@@ -858,7 +858,7 @@ landing, login, register, participant dashboard, browse trails, browse events, e
 - **All organizer pages** — dashboard, events, registrations, registration details, post-event assessment, event comparison
 - **All admin pages** — dashboard, accounts, records
 - **Reports** (aggregate model validation) — new page, not yet styled
-- Shared: navbar partials, footer, error pages
+- Shared: navbar partials, error pages
 
 Note: `Organizer/RegistrationDetails.cshtml` has a SHAP panel added during earlier feature work, but has **not** been through the UI pass, and (see Explainability above) is currently rendering four SHAP feature names incorrectly regardless of styling.
 

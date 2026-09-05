@@ -763,9 +763,11 @@ Filling it in is not on its own enough. `_PrimaryButton` has only three call sit
 - **All organizer pages** — dashboard, events, registrations, registration details, post-event assessment, event comparison
 - **All admin pages** — dashboard, accounts, records
 - **Reports** (aggregate model validation) — new page, not yet styled
-- Shared: navbar partials, footer, error pages
+- Shared: navbar partials, error pages
 
 `Organizer/RegistrationDetails.cshtml` has a SHAP panel from earlier feature work but hasn't been through the UI pass.
+
+**Footer** (`Views/Shared/Components/_Footer.cshtml`) was audited and reduced from four columns of mostly dead links (11 of 12 pointed at nonexistent `HomeController` actions) to three columns of real destinations only: Brand, **Explore** (Home, About TrailGuard → `#about`, Browse Trails, How It Works → `#how-it-works`), and **Legal** (Privacy Policy → `HomeController.Privacy`). Browse Trails reuses the same role-aware destination check as the landing page's Popular Trails cards (Admin/Organizer → Trail Management, Participant/anonymous → Participant Browse Trails, computed once as `footerTrailsUrl`). The About/How It Works links use `asp-fragment` against the landing page's real `#about`/`#how-it-works` section ids, so they work as plain navigation with no reliance on landing-page JS. Copyright year is `@DateTime.Now.Year`, not hardcoded. `Explore`/`Legal` are `<nav aria-label="Footer explore">`/`<nav aria-label="Footer legal">` landmarks with `focus-visible:ring-2 focus-visible:ring-accent` keyboard focus states.
 
 ---
 
