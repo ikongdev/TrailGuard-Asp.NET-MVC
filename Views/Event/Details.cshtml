@@ -17,7 +17,6 @@
     // that filter or calls into role/authorization logic itself.
     var participantRows = ViewBag.ParticipantRows as List<EventParticipantRowViewModel> ?? new List<EventParticipantRowViewModel>();
     var totalJoined = participantRows.Count;
-    var hasMoreParticipants = totalJoined > 5;
 
     string statusSelectClasses = Model.Status switch
     {
@@ -121,7 +120,7 @@
         </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:items-stretch">
 
         <div class="lg:col-span-2 space-y-6">
 
@@ -350,9 +349,9 @@
             </div>
         </div>
 
-        <div class="space-y-6 self-start">
+        <div class="space-y-6 lg:space-y-0 lg:flex lg:flex-col lg:h-full lg:gap-6">
 
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+            <div class="shrink-0 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
                 <h2 class="text-lg font-bold text-white mb-4"><i class="fa-solid fa-user-tie text-accent mr-2"></i>Organizer Details</h2>
                 <div class="flex items-center gap-3 mb-4">
                     <div class="w-12 h-12 rounded-full bg-linear-to-r from-orange-500 to-purple-500 flex items-center justify-center overflow-hidden shrink-0">
@@ -415,106 +414,94 @@
                 }
             </div>
 
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-                <h2 class="text-lg font-bold text-white mb-4">
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 lg:flex-1 lg:min-h-0 lg:flex lg:flex-col">
+                <h2 class="shrink-0 text-lg font-bold text-white mb-4">
                     <i class="fa-solid fa-users-viewfinder text-accent mr-2"></i>Registered Participants
                     <span class="text-sm font-normal text-gray-400 ml-2">(@totalJoined)</span>
                 </h2>
-                <div class="max-h-125 overflow-y-auto custom-scrollbar">
-                    @if (participantRows.Any())
-                    {
-                        <div class="space-y-3">
-                            @foreach (var row in participantRows.Take(5))
+                @if (participantRows.Any())
+                {
+                    <div class="space-y-3 lg:flex-1 lg:min-h-0 lg:overflow-y-auto tg-event-participants-scroll lg:pr-1">
+                        @foreach (var row in participantRows)
+                        {
+                            @if (row.CanViewProfile)
                             {
-                                @if (row.CanViewProfile)
-                                {
-                                    <a asp-controller="Profile" asp-action="Index" asp-route-publicProfileId="@row.PublicProfileId"
-                                       aria-label="View @(row.ParticipantName)'s participant profile"
-                                       class="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-                                        <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden shrink-0">
-                                            @if (!string.IsNullOrEmpty(row.ProfilePictureUrl))
-                                            {
-                                                <img src="@row.ProfilePictureUrl" alt="" class="w-8 h-8 rounded-full object-cover">
-                                            }
-                                            else
-                                            {
-                                                <i class="fa-solid fa-user text-gray-400 text-xs" aria-hidden="true"></i>
-                                            }
-                                        </div>
-                                        <div class="min-w-0 flex-1">
-                                            <p class="text-white text-sm font-medium truncate">@row.ParticipantName</p>
-                                            <p class="text-gray-500 text-xs">
-                                                @if (row.Status == "Accepted")
-                                                {
-                                                    <span class="text-green-400"><i class="fa-solid fa-check-circle" aria-hidden="true"></i> Confirmed</span>
-                                                }
-                                                else if (row.Status == "Pending")
-                                                {
-                                                    <span class="text-yellow-400"><i class="fa-solid fa-clock" aria-hidden="true"></i> Pending</span>
-                                                }
-                                                else if (row.Status == "Rejected")
-                                                {
-                                                    <span class="text-red-400"><i class="fa-solid fa-xmark-circle"></i> Rejected</span>
-                                                }
-                                            </p>
-                                        </div>
-                                        <i class="fa-solid fa-chevron-right text-gray-500 text-xs shrink-0" aria-hidden="true"></i>
-                                    </a>
-                                }
-                                else
-                                {
-                                    <div class="flex items-center gap-3 p-2 rounded-lg">
-                                        <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden shrink-0">
-                                            @if (!string.IsNullOrEmpty(row.ProfilePictureUrl))
-                                            {
-                                                <img src="@row.ProfilePictureUrl" alt="" class="w-8 h-8 rounded-full object-cover">
-                                            }
-                                            else
-                                            {
-                                                <i class="fa-solid fa-user text-gray-400 text-xs" aria-hidden="true"></i>
-                                            }
-                                        </div>
-                                        <div class="min-w-0 flex-1">
-                                            <p class="text-white text-sm font-medium truncate">@row.ParticipantName</p>
-                                            <p class="text-gray-500 text-xs">
-                                                @if (row.Status == "Accepted")
-                                                {
-                                                    <span class="text-green-400"><i class="fa-solid fa-check-circle" aria-hidden="true"></i> Confirmed</span>
-                                                }
-                                                else if (row.Status == "Pending")
-                                                {
-                                                    <span class="text-yellow-400"><i class="fa-solid fa-clock" aria-hidden="true"></i> Pending</span>
-                                                }
-                                                else if (row.Status == "Rejected")
-                                                {
-                                                    <span class="text-red-400"><i class="fa-solid fa-xmark-circle"></i> Rejected</span>
-                                                }
-                                            </p>
-                                        </div>
+                                <a asp-controller="Profile" asp-action="Index" asp-route-publicProfileId="@row.PublicProfileId"
+                                   aria-label="View @(row.ParticipantName)'s participant profile"
+                                   class="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                                    <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden shrink-0">
+                                        @if (!string.IsNullOrEmpty(row.ProfilePictureUrl))
+                                        {
+                                            <img src="@row.ProfilePictureUrl" alt="" class="w-8 h-8 rounded-full object-cover">
+                                        }
+                                        else
+                                        {
+                                            <i class="fa-solid fa-user text-gray-400 text-xs" aria-hidden="true"></i>
+                                        }
                                     </div>
-                                }
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-white text-sm font-medium truncate">@row.ParticipantName</p>
+                                        <p class="text-gray-500 text-xs">
+                                            @if (row.Status == "Accepted")
+                                            {
+                                                <span class="text-green-400"><i class="fa-solid fa-check-circle" aria-hidden="true"></i> Confirmed</span>
+                                            }
+                                            else if (row.Status == "Pending")
+                                            {
+                                                <span class="text-yellow-400"><i class="fa-solid fa-clock" aria-hidden="true"></i> Pending</span>
+                                            }
+                                            else if (row.Status == "Rejected")
+                                            {
+                                                <span class="text-red-400"><i class="fa-solid fa-xmark-circle"></i> Rejected</span>
+                                            }
+                                        </p>
+                                    </div>
+                                    <i class="fa-solid fa-chevron-right text-gray-500 text-xs shrink-0" aria-hidden="true"></i>
+                                </a>
                             }
-
-                            @if (hasMoreParticipants)
+                            else
                             {
-                                <div class="text-center text-gray-500 text-sm py-2">
-                                    <i class="fa-solid fa-user-plus mb-1 block"></i>
-                                    <span>+ @(totalJoined - 5) more participants</span>
+                                <div class="flex items-center gap-3 p-2 rounded-lg">
+                                    <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden shrink-0">
+                                        @if (!string.IsNullOrEmpty(row.ProfilePictureUrl))
+                                        {
+                                            <img src="@row.ProfilePictureUrl" alt="" class="w-8 h-8 rounded-full object-cover">
+                                        }
+                                        else
+                                        {
+                                            <i class="fa-solid fa-user text-gray-400 text-xs" aria-hidden="true"></i>
+                                        }
+                                    </div>
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-white text-sm font-medium truncate">@row.ParticipantName</p>
+                                        <p class="text-gray-500 text-xs">
+                                            @if (row.Status == "Accepted")
+                                            {
+                                                <span class="text-green-400"><i class="fa-solid fa-check-circle" aria-hidden="true"></i> Confirmed</span>
+                                            }
+                                            else if (row.Status == "Pending")
+                                            {
+                                                <span class="text-yellow-400"><i class="fa-solid fa-clock" aria-hidden="true"></i> Pending</span>
+                                            }
+                                            else if (row.Status == "Rejected")
+                                            {
+                                                <span class="text-red-400"><i class="fa-solid fa-xmark-circle"></i> Rejected</span>
+                                            }
+                                        </p>
+                                    </div>
                                 </div>
                             }
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="flex items-center justify-center py-8">
-                            <div class="text-center text-gray-500">
-                                <i class="fa-regular fa-user text-2xl mb-2 block"></i>
-                                <p class="text-sm">No participants registered yet.</p>
-                                <p class="text-xs text-gray-600">Waiting for participants to join.</p>
-                            </div>
-                        </div>
-                    }
-                </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-6">
+                        <i class="fa-regular fa-user text-2xl text-gray-500 mb-2" aria-hidden="true"></i>
+                        <p class="text-sm text-gray-500">No participants registered yet.</p>
+                        <p class="text-xs text-gray-600">Waiting for participants to join.</p>
+                    </div>
+                }
             </div>
         </div>
     </div>
@@ -731,9 +718,6 @@
     .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
     .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
-    .max-h-125 {
-        max-height: 125px;
-    }
     .truncate {
         overflow: hidden;
         text-overflow: ellipsis;

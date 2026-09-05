@@ -278,13 +278,13 @@ The TrailGuard navbar brand always links to the public Landing Page for every au
 - Hover: `hover:brightness-110 hover:scale-[1.02]`
 - **No shadow or glow** — the gradient is enough weight
 
-**Solid-accent exception — no gradient, no hover scale.** `bg-accent hover:bg-accent/90` instead of the brand gradient, used where `hover:scale-[1.02]` would visibly shift a neighboring element: `Participant/Events.cshtml`'s Register/Upload Payment card CTA (`RegistrationButtonHelper.GetState`'s `Primary` style — a card's action row can be a different width across siblings, e.g. Alternative Recommended's single full-width button vs. everyone else's two-button row), `Participant/Details.cshtml`'s "View Recommended Event" action, the Participant Trail Details modal's "Browse All Events" footer action (`Participant/Trails.cshtml` — a fixed-width footer button next to Close), and `Registration/Register.cshtml`'s Submit Registration action (previously an orange-pink-violet gradient that stood out from the page's neutral card family — corrected to this same recipe). Not a new third button variant, just this Primary shape without the scale/gradient.
+**Solid-accent exception — no gradient, no hover scale.** `bg-accent hover:bg-accent/90` instead of the brand gradient, used where `hover:scale-[1.02]` would visibly shift a neighboring element: `Participant/Events.cshtml`'s Register/Upload Payment card CTA (`RegistrationButtonHelper.GetState`'s `Primary` style — a card's action row can be a different width across siblings, e.g. Alternative Recommended's single full-width button vs. everyone else's two-button row), the Participant Trail Details modal's "Browse All Events" footer action (`Participant/Trails.cshtml` — a fixed-width footer button next to Close), and `Registration/Register.cshtml`'s Submit Registration action (previously an orange-pink-violet gradient that stood out from the page's neutral card family — corrected to this same recipe). `Participant/Details.cshtml` (Participant Event Details) now uses this recipe for every primary action in its bottom strip — "View Recommended Event", "Register Now"/"Retake Assessment & Register", and "Give Feedback" all used to mix gradient and solid-accent on the same page; all three are solid-accent now, see Participant Event Details, above. Not a new third button variant, just this Primary shape without the scale/gradient.
 
 ### Secondary
 
 Two treatments exist in the app today. **Variant A is canonical**; B is being retired.
 
-**Variant A — filled quiet.** Canonical, and now the only treatment in use: `Participant/Details.cshtml` 426, `Participant/Events.cshtml` 193 (the card's "View" action — its Alternative Recommended "View Details" variant at line 185 is the same recipe), `Participant/Trails.cshtml` 141 and 215, `Registration/MyRegistrations.cshtml` 160 and 164, and `Registration/Register.cshtml`'s Cancel/Retake Assessment actions (migrated off Variant B below — the outer Action card's surface was also brought onto the same `bg-white/5 backdrop-blur-xl` family as the page's other right-column cards, replacing an inconsistent `bg-accent/10` fill).
+**Variant A — filled quiet.** Canonical, and now the only treatment in use: `Participant/Details.cshtml`'s "View My Registrations" / registration-status action, `Participant/Events.cshtml` 193 (the card's "View" action — its Alternative Recommended "View Details" variant at line 185 is the same recipe), `Participant/Trails.cshtml` 141 and 215, `Registration/MyRegistrations.cshtml` 160 and 164, and `Registration/Register.cshtml`'s Cancel/Retake Assessment actions (migrated off Variant B below — the outer Action card's surface was also brought onto the same `bg-white/5 backdrop-blur-xl` family as the page's other right-column cards, replacing an inconsistent `bg-accent/10` fill).
 
 ```
 rounded-full text-gray-300 hover:text-white
@@ -302,7 +302,7 @@ border border-white/20 hover:text-white hover:border-white/40
 
 A wins on count, and it holds its own against a `bg-white/5` card where a transparent button disappears. Deliberately quiet next to the primary — the two shouldn't compete.
 
-Disabled state, from `Participant/Details.cshtml` 432, 438, 455: `text-gray-500` with `cursor-not-allowed` and no hover.
+Disabled state, from `Participant/Details.cshtml`'s "Event Full" / "Registration Closed" / "Feedback Given" bottom-strip buttons: `text-gray-500` with `cursor-not-allowed` and no hover.
 
 **Not yet built as a partial.** See Known Cleanup.
 
@@ -593,6 +593,26 @@ The page's job is the registration task. It shouldn't repeat what the participan
 Keep: suitability result, confidence when available, a link to the full report, and essential event and trail details.
 
 Don't reintroduce the category-score bars or the trail-demand percentage bars — the latter showed a fill percentage against no stated maximum.
+
+---
+
+## Participant Event Details
+
+`Views/Participant/Details.cshtml` follows Organizer Event Details' (`Views/Event/Details.cshtml`) visual hierarchy — same DOM order (Back to Events, hero, main two-column grid, Alternative Recommended panel when applicable, bottom action strip), same major-card treatment (`bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6`, `text-xl` card headings), and the same `grid grid-cols-1 lg:grid-cols-3 gap-8 lg:items-stretch` proportions (main column `lg:col-span-2`). It is a Participant-scoped adaptation, not a copy: no Organizer lifecycle action (Edit/Complete/Cancel/Reschedule/Assess Participants/View Comparison) exists on this page, and the two views are deliberately not merged into a shared partial — see CLAUDE.md, "Participant Event Details".
+
+**Hero:** `rounded-2xl` (not the Organizer hero's `rounded-3xl` exception — see Radius, above; that inconsistency is not spread here and the Organizer hero itself is unchanged). Badges are `flex flex-wrap items-center gap-2 mb-3`, since up to four can render together: Event status (dot-pill, same `statusSelectClasses`/`statusDotClasses` mapping as Organizer), Event difficulty (`DifficultyCalculator.BadgeClass`), Full (when applicable), and the participant's own registration-state badge — Organizer's hero shows none of the last two since Difficulty lives only in its Event Overview card and there is no "participant's own state" concept for an organizer.
+
+**Weather, Pickup Schedules, and terrain chips** reuse the Organizer page's exact rendering (stored-snapshot validation, canonical `PickupScheduleHelper` entries, trimmed/deduplicated terrain chips) — see CLAUDE.md, "Participant Event Details" and "Stored Weather" behavior there. There is no loading spinner and no client-side weather script on this page.
+
+**No Summary card.** The sidebar is exactly two cards: Organizer Details, then Joined Participants — the old Summary card (Trail/Difficulty/Date/Duration/Registered/Status) was redundant with the hero and main-column cards and was removed rather than replaced with a second overview.
+
+**Desktop sidebar sizing:** the right column is `lg:flex lg:flex-col lg:h-full lg:gap-6` (mobile: `space-y-6`, natural stacking). Organizer Details is `shrink-0`; Joined Participants is the flexible remaining-height card (`lg:flex-1 lg:min-h-0 lg:flex lg:flex-col`), and only its list body scrolls (`lg:flex-1 lg:min-h-0 lg:overflow-y-auto`, `.tg-event-participants-scroll` — a component-scoped rule in `wwwroot/css/input.css`, following the `.tg-records-scroll`/`#viewTrailModalBody` id/class-scoped convention rather than a page-local `.custom-scrollbar` recipe). This keeps the sidebar from leaving an exposed empty column below a short Organizer card when the participant list is short, without a sticky position or a fixed pixel height. Joined Participants renders every Accepted row (no `Take(6)`, no `+ N more` summary) and rows are plain avatar+name — no status pill (every row is already known Accepted) and no profile link.
+
+**This same full-height sidebar structure was later corrected onto Organizer/Admin Event Details** (`Views/Event/Details.cshtml`'s Registered Participants card, which previously used `self-start` plus a fixed `max-h-125`/`.custom-scrollbar` cap with `Take(5)`/`+N more participants` truncation) so both pages behave identically at the layout level — see CLAUDE.md, "Event Details Sidebar Parity". Organizer's card reuses the same `.tg-event-participants-scroll` class rather than a second scrollbar recipe, and now renders every row in `participantRows` with no truncation; its Accepted/Pending status line and conditional `CanViewProfile` Profile link are unchanged from before this correction.
+
+**Empty-state alignment (both pages):** even though the participant-list card stretches to fill the sidebar's full height, an empty list's icon and message stay top-aligned in ordinary flow directly under the heading (`text-center py-6`) rather than vertically centered in the tall card — no `flex`/`items-center`/`justify-center`/`h-full`/`flex-1` on the empty-state wrapper itself. The icon is `aria-hidden="true"`; the unused remainder of the card stays blank below the message. Participant's copy (`Be the first to join.`) and Organizer/Admin's (`Waiting for participants to join.`) are unchanged.
+
+**Bottom action strip:** same `rounded-2xl` glass shell as Organizer's, status/capacity text on the left, Participant actions on the right. Every primary action that used the brand gradient (Register Now / Retake Assessment & Register, Give Feedback) now uses the Solid-accent exception recipe (`bg-accent hover:bg-accent/90`, no scale) — see Buttons, above — matching this page's other primary actions (View Recommended Event) rather than mixing gradient and solid-accent CTAs on the same page. Secondary/disabled controls keep the existing neutral `bg-white/5`/`text-gray-500` treatment unchanged.
 
 ---
 

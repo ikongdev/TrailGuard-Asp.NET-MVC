@@ -157,7 +157,7 @@ Weather provides forecast details, a rule-based risk level, and an organizer-edi
 
 ### Weather implementation notes
 
-- Fetched **live** on the participant dashboard (`ParticipantController.GetEventWeather`) and event detail page, then **written back** to the Event — a forecast saved at event creation is stale by the event date
+- Fetched **live** on the participant dashboard (`ParticipantController.GetEventWeather`), then **written back** to the Event — a forecast saved at event creation is stale by the event date. Participant Event Details no longer does this: it renders the Event's already-stored weather snapshot only (see "Participant Event Details" below) — opening that page never calls the weather provider and never writes to the Event
 - An organizer-edited `WeatherReminder` is preserved across refreshes unless the risk level changes
 - `Trail.Location` is stored as `"City, Province"`, which Open-Meteo's geocoder can't parse. `WeatherService` splits on the comma, searches the city with `countryCode=PH`, and matches the province against **both** `admin1` (region) and `admin2` (province)
 - An out-of-range date returns **HTTP 400**, not null data — that's the `TooFarAhead` case, and it's a normal outcome (~16-day forecast horizon), not an error
@@ -390,6 +390,28 @@ Deactivating a Trail never hides, cancels, or modifies an existing Event — Bro
 
 ---
 
+## Participant Event Details
+
+`ParticipantController.Details` / `Views/Participant/Details.cshtml` follows the same visual hierarchy as Organizer Event Details (`EventController.Details` / `Views/Event/Details.cshtml`) — hero, Event Overview, Weather, Event Description, Schedule and Capacity, Payment Details, Pickup Schedules, Notes & Reminders, then a right-column sidebar — while remaining strictly Participant-scoped: no Edit/Complete/Cancel/Reschedule/Assess Participants/View Comparison action, no Pending-or-other-non-Accepted participant exposure, and no participant profile links. The two pages are deliberately **not** merged into a shared partial — their permissions and participant-list semantics differ enough that a shared abstraction would cost more than the duplication it removes.
+
+**Weather is stored and read-only.** Participant Event Details renders `Event.WeatherSnapshotJson`/`WeatherForecastAdvisory`/`WeatherRiskLevel`/`WeatherReminder` exactly as Organizer Event Details does (`WeatherSnapshotHelper.TryDeserialize` + `TryValidateForSubmission` against the Event's own `TrailId`/`EventDate` to decide whether a structured snapshot still matches, with a legacy-advisory and stale-snapshot fallback identical to the Organizer page). Opening this page never calls `WeatherService`, never mutates the Event, and shows no loading spinner or client-side weather fetch — it previously called `Participant/GetEventWeather` on every page load, overwriting `WeatherForecastAdvisory`/`WeatherRiskLevel`/`WeatherReminder` and calling `SaveChangesAsync()` on a GET; that call was removed from this page specifically. `GetEventWeather` itself still exists and still mutates on every call, because the Participant Dashboard (`Views/Participant/Index.cshtml`) still calls it per upcoming-event row on every dashboard load — that is a separate, pre-existing behavior this task did not touch (see Weather implementation notes, above) and `_weatherService` remains a `ParticipantController` dependency for that reason.
+
+**Joined Participants is Accepted-only and minimally projected.** `ParticipantController.Details` queries `EventRegistrations` filtered to `Status == "Accepted"` in the database (never in Razor), ordered by `RegisteredAt`, and projects directly into `ParticipantEventJoinedRowViewModel` (`ParticipantName`, `ProfilePictureUrl` only) — never the full `EventRegistration`/`ApplicationUser` entities the Organizer page's `EventParticipantRowViewModel` path uses, and never a Pending/Rejected/Cancelled row. This is a materially narrower type than `EventParticipantRowViewModel`: no `Status`, no `PublicProfileId`/`CanViewProfile`, and no Profile link is rendered from this page. `registeredCount` (capacity) is unaffected and still uses `RegistrationStatusHelper.ActiveStatuses` — Joined Participants is a narrower, Accepted-only subset of that same set, not a redefinition of capacity.
+
+**Organizer resolution is `OrganizerId`-first**, matching the correction also applied to `EventController.Details`: a populated `Event.OrganizerId` resolves the account directly; the legacy `OrganizedBy` name/email/id matching only runs when `OrganizerId` is null/empty (a genuinely legacy Event). A populated but invalid `OrganizerId` never falls back to a different account that happens to match the display text.
+
+**No Participant Summary card.** The old sidebar Summary card duplicated Trail/Difficulty/Date/Duration/Registered/Status values already shown in the hero and the main-column cards, and was removed rather than replaced.
+
+### Event Details Sidebar Parity
+
+**Both** Event Details pages — Participant's Joined Participants and Organizer/Admin's Registered Participants — share the same desktop full-height sidebar structure, corrected onto the Organizer page after Participant Event Details established it: the right column is `lg:flex lg:flex-col lg:h-full lg:gap-6` (the grid itself carries `lg:items-stretch`); Organizer/Organizer Details or Participant's own Organizer Details card keeps its natural (`shrink-0`) height; the participant-list card becomes the flexible remaining-height card (`lg:flex-1 lg:min-h-0 lg:flex lg:flex-col`) so neither sidebar ever leaves an exposed empty column below a short participant list. Only the participant-list body scrolls (`lg:overflow-y-auto`, the shared `.tg-event-participants-scroll` class in `wwwroot/css/input.css`, reused by both views rather than duplicated), never the whole card or page, and only at `lg`+ — mobile/tablet keep the full list at natural height with no forced internal scrollbar on either page. The Organizer page's old fixed `max-h-125` cap and its `Take(5)`/`+N more participants` truncation are gone — every row in `participantRows` renders, and the now-taller card scrolls instead of truncating.
+
+**Empty states are top-aligned on both pages, never vertically centered.** Even though the participant-list card now stretches to fill the sidebar's full height, an empty list's icon and message sit in ordinary flow directly under the card heading (`text-center py-6`, no `flex`/`items-center`/`justify-center`/`h-full`/`flex-1` on the empty-state wrapper) — the unused remainder of the tall card stays as plain blank space below the message, rather than the message floating in the vertical middle of the card. Participant's copy stays participant-facing (`Be the first to join.`); Organizer/Admin's stays management-facing (`Waiting for participants to join.`). Both empty-state icons are `aria-hidden="true"`.
+
+**What still differs between the two pages** (this correction changed only layout/containment, not any of the following): Organizer/Admin's `participantRows` still includes Accepted **and** Pending rows (never Rejected/Cancelled), still shows a Confirmed/Pending/Rejected status line per row, and still conditionally links a row to `Profile/Index` only when `EventParticipantRowViewModel.CanViewProfile` says so (computed server-side in `EventController.Details`, never in Razor) — a non-linkable row renders as plain, non-interactive content. Participant's `joinedParticipants` stays Accepted-only, carries no status line (every row is already known Accepted), and is never a link (see "Joined Participants is Accepted-only and minimally projected", above). Neither page's controller query, authorization, or role/profile-access logic changed for this layout correction.
+
+---
+
 ## Explainability
 
 Required, not optional. Every ML prediction is accompanied by an explanation when SHAP data exists.
@@ -571,15 +593,17 @@ This is not the same thing as `FinalLabelService` tolerating change. The upsert 
 
 ### Eligibility
 
-The feedback form — both the GET and the POST — requires all three:
+The feedback form — both `ParticipantController.Feedback` (GET) and `SubmitFeedback` (POST) — requires all three, checked independently by each action through one shared private helper (`ParticipantController.GetEligibleFeedbackRegistrationAsync`) so the two can never drift into different rules:
 
 - the event exists
 - `Event.Status == "Completed"`
-- the current user holds an `EventRegistration` for that event with `Status == "Accepted"`
+- the authenticated participant (resolved server-side from the `NameIdentifier` claim, never a posted user ID) holds an `EventRegistration` for that event with `Status == "Accepted"` (a fresh, `AsNoTracking()` database read — never inferred from which registration row the participant happens to have posted, since nothing about the registration is posted at all)
 
-`Participant/Details.cshtml` gates the *Give Feedback* link on exactly this. The controller now enforces the same rule, because a gate that only exists in a view is not a gate.
+`Participant/Details.cshtml` gates the *Give Feedback* link on this same rule, but that button's visibility is a UX convenience only, never the authorization boundary — a direct GET to `/Participant/Feedback?eventId=...`, or a direct POST to `SubmitFeedback`, is independently rejected by the controller regardless of what the view would have shown. POST does not trust GET having already rendered the form; it re-runs the identical eligibility check before touching anything.
 
-All four failure modes return the **same generic message**. Don't distinguish "event not found" from "not yours" — see Security.
+Every eligibility failure (event not Completed, no Accepted registration, or a missing/unexpected claim) returns the same generic message — `"Feedback is available only after completing an event you joined."` — without distinguishing which of those actually failed, so a caller probing `eventId` values learns nothing about another participant's registration state. This is a separate outcome from "Event not found" (its own distinct message, unrelated to another participant's data) and from the duplicate-feedback message below, both of which remain their own distinct redirects.
+
+If a participant holds more than one historical registration row for the same event (e.g. an old Cancelled attempt plus a later Accepted one), only the Accepted row is ever eligible, and — in the aberrant case of more than one Accepted row for the same participant/event — the newest by `RegisteredAt` is chosen deterministically, never an unordered `FirstOrDefault`. `SubmitFeedback` passes that exact same registration's ID to `FinalLabelService.UpsertFinalLabel` — never a second, broader `EventId`+`UserId` lookup that could resolve to a different, non-Accepted row and silently no-op the final-label update.
 
 ---
 
@@ -757,15 +781,15 @@ Participant endpoints that take a registration ID **must** verify ownership befo
 
 Return the **same generic message** whether the ID doesn't exist or belongs to someone else. Distinguishing them lets an attacker enumerate valid IDs.
 
-The same pattern was found and fixed in `ParticipantController.Feedback` and `SubmitFeedback`: both acted on any `eventId` without checking whether the caller had actually joined the event or whether the event had happened. The ML retraining set was never exposed — `FinalLabelService` refuses any registration that isn't `Accepted` — but `EventFeedbacks` is what the organizer reads for trail condition, hazards, and organizer ratings, and anyone could write to it.
+The same pattern was found and fixed in `ParticipantController.Feedback` and `SubmitFeedback`: both used to act on any `eventId` without checking whether the caller had actually joined the event or whether the event had happened — a Participant could submit feedback for an Upcoming or Cancelled event, or for an event they never registered for at all, as long as they could guess a valid `eventId`. Both actions now independently require a Completed event and the caller's own Accepted registration for it before doing anything else — see "Feedback" > "Eligibility", above. The ML retraining set was never exposed by the earlier gap — `FinalLabelService` refuses any registration that isn't `Accepted` — but `EventFeedbacks` is what the organizer reads for trail condition, hazards, and organizer ratings, and anyone could write to it.
 
 **Remaining controllers have not been audited for this pattern.**
 
 ### Antiforgery
 
-**Corrected claim:** this file previously stated that `SubmitFeedback` carries `[ValidateAntiForgeryToken]`. It does not — checked directly against `ParticipantController.cs`, which has no antiforgery attribute anywhere in the file.
+**Re-corrected claim:** this file has stated both that `SubmitFeedback` carries `[ValidateAntiForgeryToken]` and, in a later revision, that it does not — the latter "correction" was itself wrong. Checked directly against the current `ParticipantController.cs`: `SubmitFeedback` is `[HttpPost]` and does carry `[ValidateAntiForgeryToken]`. It also resolves the submitting Participant solely from the authenticated `NameIdentifier` claim (never a posted value), and independently requires — on every request, not merely because a GET happened to render the form first — that the target Event is persisted as `Completed` and that the same authenticated Participant holds a persisted `Accepted` `EventRegistration` for it (see "Feedback" > "Eligibility", above, and `ParticipantController.GetEligibleFeedbackRegistrationAsync`). The Give Feedback button's visibility on `Participant/Details.cshtml` is a UX convenience only, never the authorization boundary — a direct POST is rejected the same way regardless of what the view would have shown. Duplicate-feedback protection remains application-level (an `EventFeedbacks` existence check before insert) and is not guaranteed race-proof — no database uniqueness constraint backs it.
 
-There is **no global antiforgery filter** — `Program.cs` registers a bare `AddControllersWithViews()`. As of this check, `[ValidateAntiForgeryToken]` exists on exactly six actions, across three controllers: `AdminController` (3, including the `ChangeRole` role-management endpoint), `SettingsController` (2), `TrailController` (1). Every POST action in `AssessmentController`, `EventController`, `OrganizerController`, `ParticipantController` (including `SubmitFeedback`), and `RegistrationController` is unprotected. Several views still render `@Html.AntiForgeryToken()` into forms whose actions never validate it, which looks like protection and isn't.
+There is **no global antiforgery filter** — `Program.cs` registers a bare `AddControllersWithViews()`. As of this check, `[ValidateAntiForgeryToken]` exists on exactly seven actions, across four controllers: `AdminController` (3, including the `ChangeRole` role-management endpoint), `SettingsController` (2), `TrailController` (1), and `ParticipantController` (1 — `SubmitFeedback`, corrected above). Every POST action in `AssessmentController`, `EventController`, `OrganizerController`, and `RegistrationController` is unprotected, and so is every `ParticipantController` POST action other than `SubmitFeedback`. Several views still render `@Html.AntiForgeryToken()` into forms whose actions never validate it, which looks like protection and isn't.
 
 **Assume nothing is protected unless you check the controller directly** — the specific list above is a snapshot, not a guarantee it's still current by the time you read this.
 

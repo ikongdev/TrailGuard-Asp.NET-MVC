@@ -642,17 +642,32 @@ namespace TrailGuard.Controllers
 
             ViewBag.ParticipantRows = participantRows;
 
-            if (!string.IsNullOrEmpty(eventItem.OrganizedBy))
+            // Stable Organizer resolution: OrganizerId is the actual ownership/
+            // identity key on Event (see Models/Event.cs) - OrganizedBy is a
+            // mutable display-name snapshot that can drift from the account it
+            // once matched. A populated but invalid OrganizerId never falls back
+            // to a different account that happens to match the display text;
+            // only a genuinely legacy Event (OrganizerId null/empty) uses the
+            // name/email/id matching fallback below. Read-only, so AsNoTracking.
+            ApplicationUser? organizer = null;
+            if (!string.IsNullOrEmpty(eventItem.OrganizerId))
             {
-                var organizer = await _context.Users
-                    .FirstOrDefaultAsync(u => 
+                organizer = await _context.Users
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.Id == eventItem.OrganizerId);
+            }
+            else if (!string.IsNullOrEmpty(eventItem.OrganizedBy))
+            {
+                organizer = await _context.Users
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u =>
                         (u.FirstName + " " + u.LastName) == eventItem.OrganizedBy ||
                         (u.FirstName + " " + u.MiddleName + " " + u.LastName) == eventItem.OrganizedBy ||
                         u.Email == eventItem.OrganizedBy ||
                         u.Id == eventItem.OrganizedBy
                     );
-                ViewBag.Organizer = organizer;
             }
+            ViewBag.Organizer = organizer;
 
             return View(eventItem);
         }

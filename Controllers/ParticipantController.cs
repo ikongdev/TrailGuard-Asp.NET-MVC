@@ -433,39 +433,69 @@ namespace TrailGuard.Controllers
                 return RedirectToAction("Events");
             }
 
-            var capacityRegistrations = await _context.EventRegistrations
+            var registeredCount = await _context.EventRegistrations
                 .Where(r => r.EventId == id && RegistrationStatusHelper.ActiveStatuses.Contains(r.Status))
+                .CountAsync();
+
+            ViewBag.RegisteredCount = registeredCount;
+            ViewBag.AvailableSlots = eventItem.Capacity - registeredCount;
+
+            // Joined Participants: Accepted-only, minimal safe projection (name +
+            // avatar), filtered and ordered in the database - never the full
+            // EventRegistration/ApplicationUser entities other participants'
+            // sensitive data lives on. See CLAUDE.md, "Joined Participants" /
+            // Models/ParticipantEventJoinedRowViewModel. Distinct from
+            // registeredCount above, which still counts every ActiveStatuses
+            // row for capacity - Accepted-only is a narrower set than that.
+            var joinedParticipants = await _context.EventRegistrations
+                .AsNoTracking()
+                .Where(r => r.EventId == id && r.Status == "Accepted")
+                .OrderBy(r => r.RegisteredAt)
+                .Select(r => new ParticipantEventJoinedRowViewModel
+                {
+                    ParticipantName = r.ParticipantName,
+                    ProfilePictureUrl = r.User != null ? r.User.ProfilePictureUrl : null
+                })
                 .ToListAsync();
 
-            var allRegistrations = await _context.EventRegistrations
-                .Include(r => r.User)
-                .Where(r => r.EventId == id && r.Status != "Rejected" && r.Status != "Cancelled")
-                .ToListAsync();
+            ViewBag.JoinedParticipants = joinedParticipants;
 
-            ViewBag.Registrations = allRegistrations;
-            ViewBag.RegisteredCount = capacityRegistrations.Count;
-            ViewBag.AvailableSlots = eventItem.Capacity - capacityRegistrations.Count;
-
-            if (!string.IsNullOrEmpty(eventItem.OrganizedBy))
+            // Stable Organizer resolution: OrganizerId is the actual ownership/
+            // identity key on Event (see Models/Event.cs) - OrganizedBy is a
+            // mutable display-name snapshot that can drift from the account it
+            // once matched. A populated but invalid OrganizerId never falls back
+            // to a different account that happens to match the display text;
+            // only a genuinely legacy Event (OrganizerId null/empty) uses the
+            // name/email/id matching fallback. Read-only, so AsNoTracking.
+            ApplicationUser? organizer = null;
+            if (!string.IsNullOrEmpty(eventItem.OrganizerId))
             {
-                var organizer = await _context.Users
+                organizer = await _context.Users
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.Id == eventItem.OrganizerId);
+            }
+            else if (!string.IsNullOrEmpty(eventItem.OrganizedBy))
+            {
+                organizer = await _context.Users
+                    .AsNoTracking()
                     .FirstOrDefaultAsync(u =>
                         (u.FirstName + " " + u.LastName) == eventItem.OrganizedBy ||
                         (u.FirstName + " " + u.MiddleName + " " + u.LastName) == eventItem.OrganizedBy ||
                         u.Email == eventItem.OrganizedBy ||
                         u.Id == eventItem.OrganizedBy
                     );
-                ViewBag.Organizer = organizer;
             }
+            ViewBag.Organizer = organizer;
 
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
             // Scoped to this event and the authenticated user's own stable ID -
             // never a client-supplied ID - so this can never surface another
             // participant's recommendation. Includes AlternativeEvent (not
-            // needed by allRegistrations above, which only drives the public
-            // Joined Participants list) so the recommendation panel can render
-            // without a second round-trip. A participant can hold more than one
+            // needed by the minimal joinedParticipants projection above, which
+            // only drives the public Joined Participants list) so the
+            // recommendation panel can render without a second round-trip. A
+            // participant can hold more than one
             // row for this event (cancel, then register again), so this can't
             // be a plain FirstOrDefault - the row that's still "live" (active,
             // or the organizer's Alternative Recommended decision) wins, same
@@ -494,6 +524,46 @@ namespace TrailGuard.Controllers
             return View(eventItem);
         }
 
+        // Single generic rejection message for every feedback-eligibility failure
+        // (not Completed, no Accepted registration, missing claim) - never
+        // distinguished from each other, so a caller probing eventId values can't
+        // learn anything about another participant's registration state. This is
+        // a different message from "Event not found" (a separate, earlier
+        // failure mode - see GetEligibleFeedbackRegistrationAsync's callers) and
+        // from the duplicate-feedback message below, both of which stay distinct.
+        private const string FeedbackIneligibleMessage = "Feedback is available only after completing an event you joined.";
+
+        // Single source of truth for feedback eligibility, called independently
+        // by both Feedback (GET) and SubmitFeedback (POST) so the two can never
+        // drift into different rules - see CLAUDE.md, "Feedback" > "Eligibility".
+        // Derives eligibility exclusively from persisted server-side data: the
+        // already-loaded Event's own Status, the authenticated user's stable
+        // NameIdentifier claim, and a fresh database read of that user's
+        // Accepted registration for this Event. Never trusts a posted user ID,
+        // posted registration ID/status, a query-string value, or the view's own
+        // Give Feedback button visibility. Returns null on any failure - not
+        // Completed, no claim, or no Accepted row - without revealing which one.
+        // Read-only, so AsNoTracking(); if more than one Accepted row exists for
+        // the same participant/event (malformed historical data - registrations
+        // are not otherwise unique per participant/event), the newest by
+        // RegisteredAt wins deterministically rather than an unordered
+        // FirstOrDefault. Never selects a Pending, Awaiting Payment, For Payment
+        // Verification, Rejected, Cancelled, Voided, or Alternative Recommended
+        // row.
+        private async Task<EventRegistration?> GetEligibleFeedbackRegistrationAsync(Event eventItem)
+        {
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId)) return null;
+
+            if (eventItem.Status != "Completed") return null;
+
+            return await _context.EventRegistrations
+                .AsNoTracking()
+                .Where(r => r.EventId == eventItem.Id && r.UserId == userId && r.Status == "Accepted")
+                .OrderByDescending(r => r.RegisteredAt)
+                .FirstOrDefaultAsync();
+        }
+
         [HttpGet]
         public async Task<IActionResult> Feedback(int eventId)
         {
@@ -506,10 +576,19 @@ namespace TrailGuard.Controllers
                 return RedirectToAction("Events");
             }
 
-            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            // A direct URL to this page must not bypass eligibility - the Give
+            // Feedback button's own visibility on Details is a UX convenience,
+            // never the authorization boundary. See CLAUDE.md, "Feedback" >
+            // "Eligibility".
+            var eligibleRegistration = await GetEligibleFeedbackRegistrationAsync(eventItem);
+            if (eligibleRegistration == null)
+            {
+                TempData["Error"] = FeedbackIneligibleMessage;
+                return RedirectToAction("Details", new { id = eventId });
+            }
 
             var hasGivenFeedback = await _context.EventFeedbacks
-                .AnyAsync(f => f.EventId == eventId && f.UserId == userId);
+                .AnyAsync(f => f.EventId == eventId && f.UserId == eligibleRegistration.UserId);
 
             if (hasGivenFeedback)
             {
@@ -545,6 +624,28 @@ namespace TrailGuard.Controllers
                 return RedirectToAction("Events");
             }
 
+            // Independently re-checked here, never inferred from the GET having
+            // rendered the form - a stale form, a replayed POST, or a crafted
+            // direct request must all be rejected the same way GET would reject
+            // them. Nothing below this point is trusted until eligibility
+            // succeeds: no EventFeedback is added and FinalLabelService is never
+            // called for a rejected request.
+            var eligibleRegistration = await GetEligibleFeedbackRegistrationAsync(eventItem);
+            if (eligibleRegistration == null)
+            {
+                TempData["Error"] = FeedbackIneligibleMessage;
+                return RedirectToAction("Details", new { id = eventId });
+            }
+
+            var hasGivenFeedback = await _context.EventFeedbacks
+                .AnyAsync(f => f.EventId == eventId && f.UserId == eligibleRegistration.UserId);
+
+            if (hasGivenFeedback)
+            {
+                TempData["Error"] = "You have already given feedback for this event.";
+                return RedirectToAction("Details", new { id = eventId });
+            }
+
             if (Rating < 1 || Rating > 5 ||
                 string.IsNullOrWhiteSpace(DifficultyExperience) ||
                 string.IsNullOrWhiteSpace(TrailCondition) ||
@@ -558,21 +659,10 @@ namespace TrailGuard.Controllers
                 return RedirectToAction("Details", new { id = eventId });
             }
 
-            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-
-            var hasGivenFeedback = await _context.EventFeedbacks
-                .AnyAsync(f => f.EventId == eventId && f.UserId == userId);
-
-            if (hasGivenFeedback)
-            {
-                TempData["Error"] = "You have already given feedback for this event.";
-                return RedirectToAction("Details", new { id = eventId });
-            }
-
             var feedback = new EventFeedback
             {
                 EventId = eventId,
-                UserId = userId ?? "",
+                UserId = eligibleRegistration.UserId,
                 Rating = Rating,
                 DifficultyExperience = DifficultyExperience,
                 TrailCondition = TrailCondition,
@@ -589,12 +679,14 @@ namespace TrailGuard.Controllers
             _context.EventFeedbacks.Add(feedback);
             await _context.SaveChangesAsync();
 
-            var registration = await _context.EventRegistrations
-                .FirstOrDefaultAsync(r => r.EventId == eventId && r.UserId == userId);
-            if (registration != null)
-            {
-                await FinalLabelService.UpsertFinalLabel(_context, registration.Id);
-            }
+            // The exact Accepted registration that established eligibility above -
+            // never a second, broader FirstOrDefault(EventId + UserId) lookup,
+            // which could silently resolve to a historical Cancelled/Rejected/
+            // Voided/Pending/Alternative Recommended row for the same
+            // participant/event and cause UpsertFinalLabel to no-op even though
+            // an Accepted registration genuinely exists. See CLAUDE.md,
+            // "Feedback" > "Eligibility".
+            await FinalLabelService.UpsertFinalLabel(_context, eligibleRegistration.Id);
 
             TempData["Success"] = "Thank you for your feedback!";
             return RedirectToAction("Details", new { id = eventId });

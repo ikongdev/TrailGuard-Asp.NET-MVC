@@ -2,13 +2,10 @@
 @using TrailGuard.Models
 @{
     ViewData["Title"] = Model.EventTitle;
-    var registrations = ViewBag.Registrations as List<EventRegistration> ?? new List<EventRegistration>();
     var registeredCount = ViewBag.RegisteredCount ?? 0;
     var availableSlots = ViewBag.AvailableSlots ?? 0;
     var isFull = availableSlots <= 0;
     var organizer = ViewBag.Organizer as ApplicationUser;
-    var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-    var isLoggedIn = User.Identity?.IsAuthenticated ?? false;
     var isCompleted = Model.Status == "Completed";
     var isCancelled = Model.Status == "Cancelled";
     var isUpcoming = Model.Status == "Upcoming";
@@ -35,20 +32,34 @@
     var alternativeEvent = userRegistration?.AlternativeEvent;
     var alternativeEventAvailable = alternativeEvent != null && TrailGuard.Services.EventJoinabilityHelper.IsJoinable(alternativeEvent);
 
-    var joinedParticipants = registrations
-        .Where(r => r.Status == "Accepted")
-        .OrderBy(r => r.RegisteredAt)
-        .ToList();
+    // Minimal safe projection built server-side in ParticipantController.Details
+    // (Accepted-only, RegisteredAt-ascending, name + avatar only) - see
+    // CLAUDE.md, "Joined Participants" / Models/ParticipantEventJoinedRowViewModel.
+    // This view never re-derives that filter and never sees another
+    // participant's registration/contact/payment/medical/assessment data.
+    var joinedParticipants = ViewBag.JoinedParticipants as List<ParticipantEventJoinedRowViewModel> ?? new List<ParticipantEventJoinedRowViewModel>();
     var totalJoined = joinedParticipants.Count;
 
     var difficultyBadge = TrailGuard.Services.DifficultyCalculator.BadgeClass(Model.Difficulty);
 
-    var eventStatusBadge = Model.Status switch
+    // Same status/dot mapping as the Organizer Event Details hero
+    // (Views/Event/Details.cshtml) - kept identical so the two pages read the
+    // same event status the same way.
+    string statusSelectClasses = Model.Status switch
     {
-        "Upcoming" => "text-emerald-400 bg-emerald-500/15",
-        "Completed" => "text-slate-400 bg-slate-500/15",
-        "Cancelled" => "text-red-400 bg-red-500/15",
-        _ => "text-slate-400 bg-slate-500/15"
+        "Upcoming" => "bg-green-500/10 border-green-500/40 text-green-300",
+        "Cancelled" => "bg-red-500/10 border-red-500/40 text-red-300",
+        "Postponed" => "bg-yellow-500/10 border-yellow-500/40 text-yellow-300",
+        "Completed" => "bg-gray-500/10 border-gray-500/40 text-gray-300",
+        _ => "bg-gray-500/10 border-gray-500/40 text-gray-300"
+    };
+    string statusDotClasses = Model.Status switch
+    {
+        "Upcoming" => "bg-green-400",
+        "Cancelled" => "bg-red-400",
+        "Postponed" => "bg-yellow-400",
+        "Completed" => "bg-gray-400",
+        _ => "bg-gray-400"
     };
 
     var (regBadgeClass, regBadgeIcon, regBadgeText) = registrationStatus switch
@@ -63,318 +74,425 @@
         _ => ("", "", "")
     };
 
+    // Same switch reused for every weather risk badge, matching Organizer
+    // Event Details (Views/Event/Details.cshtml).
+    string WeatherRiskBadgeClasses(string? risk) => risk switch
+    {
+        "Low" => "bg-green-500/20 text-green-400 border-green-500/30",
+        "Moderate" => "bg-amber-500/20 text-amber-400 border-amber-500/30",
+        "Moderate to High" => "bg-orange-500/20 text-orange-400 border-orange-500/30",
+        "High (Thunderstorm)" => "bg-red-500/20 text-red-400 border-red-500/30",
+        _ => "bg-gray-500/20 text-gray-400 border-gray-500/30"
+    };
+
+    // Terrain chips: safe split of the stored comma-delimited value - trimmed,
+    // blanks dropped, first-occurrence order preserved, case-insensitive
+    // de-duplication. Sourced from the Event's own Trail Snapshot
+    // (TrailTerrainSnapshot), never a live Event.Trail read - see CLAUDE.md,
+    // "Event Trail Snapshot".
+    var terrainChips = (Model.TrailTerrainSnapshot ?? string.Empty)
+        .Split(',')
+        .Select(t => t.Trim())
+        .Where(t => t.Length > 0)
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToList();
+
+    // Stored weather snapshot only - never fetched or written on this page
+    // load. Only ever treated as "current" through the same
+    // TryValidateForSubmission check Add/Edit Event uses before persisting
+    // one, matching Organizer Event Details exactly. See CLAUDE.md, "Remove
+    // Participant live-weather mutation".
+    var weatherSnapshot = TrailGuard.Services.WeatherSnapshotHelper.TryDeserialize(Model.WeatherSnapshotJson);
+    var weatherSnapshotIsCurrent = weatherSnapshot != null &&
+        TrailGuard.Services.WeatherSnapshotHelper.TryValidateForSubmission(weatherSnapshot, Model.TrailId, Model.EventDate, out _);
+    var weatherSnapshotIsStale = weatherSnapshot != null && !weatherSnapshotIsCurrent;
+
+    var pickupScheduleEntries = TrailGuard.Services.PickupScheduleHelper.ParseStoredEntries(Model.PickupPoints);
 }
 
 <div class="pt-24 px-4 max-w-6xl mx-auto min-h-screen text-white pb-12">
-    
+
     @* Success/Error feedback now goes through the canonical global toast host
        in _Layout.cshtml instead of a page-local banner. *@
 
     <div class="mb-6">
-        <a asp-action="Events" class="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
-            <i class="fa-solid fa-arrow-left"></i>
+        <a asp-action="Events" class="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors group">
+            <i class="fa-solid fa-arrow-left group-hover:-translate-x-1 transition-transform" aria-hidden="true"></i>
             Back to Events
         </a>
     </div>
 
-    <div class="relative rounded-xl overflow-hidden mb-8">
+    <div class="relative rounded-2xl overflow-hidden mb-8">
         @if (!string.IsNullOrEmpty(Model.TrailThumbnailUrlSnapshot))
         {
-            <img src="@Model.TrailThumbnailUrlSnapshot" alt="@Model.TrailNameSnapshot" class="w-full h-72 object-cover">
+            <img src="@Model.TrailThumbnailUrlSnapshot" alt="@Model.TrailNameSnapshot" class="w-full h-80 object-cover">
         }
         else
         {
-            <div class="w-full h-72 bg-black/30 flex items-center justify-center">
-                <i class="fa-solid fa-mountain text-6xl text-slate-700"></i>
+            <div class="w-full h-80 bg-linear-to-r from-orange-500/30 to-purple-500/30 flex items-center justify-center">
+                <i class="fa-solid fa-mountain text-6xl text-white/50" aria-hidden="true"></i>
             </div>
         }
-        <div class="absolute inset-0 bg-linear-to-t from-surface-card via-surface-card/60 to-transparent"></div>
+        <div class="absolute inset-0 bg-linear-to-t from-surface-card via-surface-card/50 to-transparent"></div>
         <div class="absolute bottom-0 left-0 right-0 p-8">
             <div class="flex flex-wrap items-center gap-2 mb-3">
-                <span class="px-2.5 py-1 rounded-full text-xs font-medium @eventStatusBadge">@Model.Status</span>
-                <span class="px-2.5 py-1 rounded-full text-xs font-medium @difficultyBadge">@Model.Difficulty</span>
+                <span class="inline-flex items-center gap-2 pl-4 pr-4 py-1.5 rounded-full text-xs font-semibold border @statusSelectClasses">
+                    <span class="w-1.5 h-1.5 rounded-full @statusDotClasses" aria-hidden="true"></span>
+                    @Model.Status
+                </span>
+                <span class="inline-block px-2.5 py-1 rounded-full text-xs font-medium @difficultyBadge">@(string.IsNullOrEmpty(Model.Difficulty) ? "Unknown" : Model.Difficulty)</span>
                 @if (isFull && isUpcoming)
                 {
-                    <span class="px-2.5 py-1 rounded-full text-xs font-medium text-red-400 bg-red-500/15">
-                        <i class="fa-solid fa-circle-exclamation mr-1"></i>Full
+                    <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-red-500/20 text-red-400">
+                        <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i> Full
                     </span>
                 }
                 @if (isRegistered && !string.IsNullOrEmpty(regBadgeText))
                 {
-                    <span class="px-2.5 py-1 rounded-full text-xs font-medium @regBadgeClass">
-                        <i class="fa-solid @regBadgeIcon mr-1"></i>@regBadgeText
+                    <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold @regBadgeClass">
+                        <i class="fa-solid @regBadgeIcon" aria-hidden="true"></i> @regBadgeText
                     </span>
                 }
             </div>
-            <h1 class="text-4xl font-bold text-white mb-2">@Model.EventTitle</h1>
-            <div class="flex flex-wrap gap-4 text-sm text-gray-300">
-                <span><i class="fa-regular fa-calendar text-accent mr-2"></i>@Model.EventDate.ToString("MMMM dd, yyyy")</span>
-                <span><i class="fa-regular fa-clock text-accent mr-2"></i>@Model.FormattedEventTime</span>
-                <span><i class="fa-solid fa-location-dot text-accent mr-2"></i>@Model.Location</span>
+            <h1 class="text-4xl font-bold text-white mb-2 wrap-break-word">@Model.EventTitle</h1>
+            <div class="flex flex-wrap gap-4 text-gray-300">
+                <span><i class="fa-regular fa-calendar text-accent mr-2" aria-hidden="true"></i>@Model.EventDate.ToString("MMMM dd, yyyy")</span>
+                <span><i class="fa-regular fa-clock text-accent mr-2" aria-hidden="true"></i>@Model.FormattedEventTime</span>
+                <span class="wrap-break-word"><i class="fa-solid fa-location-dot text-accent mr-2" aria-hidden="true"></i>@Model.Location</span>
             </div>
         </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:items-stretch">
+
         <div class="lg:col-span-2 space-y-6">
-            
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-6">
-                <h2 class="text-lg font-bold text-white mb-4"><i class="fa-solid fa-circle-info text-accent mr-2"></i>Event Overview</h2>
-                <div class="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4">
+
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+                <h2 class="text-xl font-bold text-white mb-4"><i class="fa-solid fa-info-circle text-accent mr-2" aria-hidden="true"></i>Event Overview</h2>
+                <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Trail</p>
-                        <p class="text-white font-semibold text-sm">@Model.TrailNameSnapshot</p>
+                        <p class="text-gray-500 text-xs uppercase tracking-wider"><i class="fa-solid fa-mountain text-accent mr-1" aria-hidden="true"></i>Trail</p>
+                        <p class="text-white font-semibold wrap-break-word">@Model.TrailNameSnapshot</p>
                     </div>
                     <div>
-                        <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Distance</p>
-                        <p class="text-white font-semibold text-sm">@Model.TrailDistanceKmSnapshot km</p>
+                        <p class="text-gray-500 text-xs uppercase tracking-wider"><i class="fa-solid fa-route text-accent mr-1" aria-hidden="true"></i>Distance</p>
+                        <p class="text-white font-semibold">@Model.TrailDistanceKmSnapshot km</p>
                     </div>
                     <div>
-                        <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Elevation Gain</p>
-                        <p class="text-white font-semibold text-sm">@Model.TrailElevationGainMetersSnapshot m</p>
+                        <p class="text-gray-500 text-xs uppercase tracking-wider mb-1.5"><i class="fa-solid fa-tree text-accent mr-1" aria-hidden="true"></i>Terrain</p>
+                        @if (terrainChips.Count > 0)
+                        {
+                            <div class="flex flex-wrap gap-1.5">
+                                @foreach (var chip in terrainChips)
+                                {
+                                    <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-white/5 border border-white/10 text-gray-300">@chip</span>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="text-gray-500 text-sm italic">Not specified</p>
+                        }
                     </div>
                     <div>
-                        <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Trail Class</p>
-                        <p class="text-white font-semibold text-sm">@TrailGuard.Services.DifficultyCalculator.TrailClassLabel(Model.TrailClassSnapshot)</p>
+                        <p class="text-gray-500 text-xs uppercase tracking-wider mb-1.5"><i class="fa-solid fa-signal text-accent mr-1" aria-hidden="true"></i>Difficulty</p>
+                        <span class="inline-block px-2.5 py-1 rounded-full text-xs font-medium @difficultyBadge">@(string.IsNullOrEmpty(Model.Difficulty) ? "Unknown" : Model.Difficulty)</span>
                     </div>
                     <div>
-                        <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Duration</p>
-                        <p class="text-white font-semibold text-sm">@Model.EstimatedDuration hours</p>
+                        <p class="text-gray-500 text-xs uppercase tracking-wider"><i class="fa-solid fa-arrow-trend-up text-accent mr-1" aria-hidden="true"></i>Elevation Gain</p>
+                        <p class="text-white font-semibold">@Model.TrailElevationGainMetersSnapshot m</p>
                     </div>
                     <div>
-                        <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Terrain</p>
-                        <p class="text-white font-semibold text-sm">@Model.TrailTerrainSnapshot</p>
+                        <p class="text-gray-500 text-xs uppercase tracking-wider"><i class="fa-solid fa-hand text-accent mr-1" aria-hidden="true"></i>Trail Class</p>
+                        <p class="text-white font-semibold">@TrailGuard.Services.DifficultyCalculator.TrailClassLabel(Model.TrailClassSnapshot)</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500 text-xs uppercase tracking-wider"><i class="fa-solid fa-clock text-accent mr-1" aria-hidden="true"></i>Estimated Duration</p>
+                        <p class="text-white font-semibold">@Model.EstimatedDuration hours</p>
                     </div>
                 </div>
             </div>
 
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-lg font-bold text-white"><i class="fa-solid fa-cloud-sun text-accent mr-2"></i>Weather</h2>
-                    <span class="px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap text-slate-400 bg-slate-500/15" id="weather-badge">
-                        <i class="fa-solid fa-spinner fa-spin mr-1"></i>Loading...
-                    </span>
-                </div>
-                <p class="text-gray-300 text-sm whitespace-pre-line leading-relaxed" id="weather-details"></p>
-                <p class="text-gray-400 text-sm leading-relaxed mt-4 pt-4 border-t border-white/10 hidden" id="weather-reminder-wrap">
-                    <i class="fa-solid fa-circle-info mr-1 text-accent"></i>
-                    <span id="weather-reminder"></span>
-                </p>
-            </div>
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+                <h2 class="text-xl font-bold text-white mb-4"><i class="fa-solid fa-cloud-sun text-accent mr-2" aria-hidden="true"></i>Weather</h2>
 
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-6">
-                <h2 class="text-lg font-bold text-white mb-4"><i class="fa-solid fa-file-lines text-accent mr-2"></i>Event Description</h2>
-                <p class="text-gray-300 text-sm leading-relaxed whitespace-pre-line">@Model.Description</p>
-            </div>
-
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-6">
-                <h2 class="text-lg font-bold text-white mb-4"><i class="fa-regular fa-calendar-plus text-accent mr-2"></i>Schedule and Capacity</h2>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
-                    <div>
-                        <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Date</p>
-                        <p class="text-white font-semibold text-sm">@Model.EventDate.ToString("MMM dd, yyyy")</p>
-                    </div>
-                    <div>
-                        <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Time</p>
-                        <p class="text-white font-semibold text-sm">@Model.FormattedEventTime</p>
-                    </div>
-                    <div>
-                        <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Total Capacity</p>
-                        <p class="text-white font-semibold text-sm">@Model.Capacity slots</p>
-                    </div>
-                    <div>
-                        <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Available Slots</p>
-                        <p class="font-semibold text-sm @(availableSlots <= 0 ? "text-red-400" : availableSlots <= 5 ? "text-amber-400" : "text-white")">
-                            @availableSlots
-                            @if (availableSlots <= 0)
+                @if (weatherSnapshotIsCurrent)
+                {
+                    var snap = weatherSnapshot!;
+                    <div class="rounded-xl border border-white/10 bg-white/5 p-4">
+                        <div class="flex items-start justify-between gap-2 mb-3">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <span class="w-9 h-9 rounded-full bg-accent/15 border border-accent/30 flex items-center justify-center shrink-0" aria-hidden="true">
+                                    <i class="fa-solid @TrailGuard.Services.WeatherSnapshotHelper.GetIconClass(snap.WeatherCode) text-accent text-sm"></i>
+                                </span>
+                                <p class="text-sm font-semibold text-white wrap-break-word min-w-0">@snap.Condition</p>
+                            </div>
+                            @if (!string.IsNullOrEmpty(snap.RiskLevel))
                             {
-                                <span class="text-xs">(full)</span>
+                                <span class="shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold border @WeatherRiskBadgeClasses(snap.RiskLevel)">@snap.RiskLevel Risk</span>
+                            }
+                        </div>
+                        <div class="grid grid-cols-3 gap-2">
+                            <div class="rounded-lg bg-white/5 border border-white/10 px-2 py-2 text-center">
+                                <i class="fa-solid fa-temperature-half text-gray-500 text-xs" aria-hidden="true"></i>
+                                <p class="text-sm font-semibold text-white mt-1">
+                                    @(snap.TemperatureMinC.HasValue && snap.TemperatureMaxC.HasValue ? $"{snap.TemperatureMinC:F0}°–{snap.TemperatureMaxC:F0}°C" : "—")
+                                </p>
+                                <p class="text-[10px] text-gray-500 uppercase tracking-wide">Temperature</p>
+                            </div>
+                            <div class="rounded-lg bg-white/5 border border-white/10 px-2 py-2 text-center">
+                                <i class="fa-solid fa-droplet text-gray-500 text-xs" aria-hidden="true"></i>
+                                <p class="text-sm font-semibold text-white mt-1">@(snap.ExpectedRainfallMm.HasValue ? $"{snap.ExpectedRainfallMm.Value.ToString("0.#")} mm" : "—")</p>
+                                <p class="text-[10px] text-gray-500 uppercase tracking-wide">Expected rainfall</p>
+                            </div>
+                            <div class="rounded-lg bg-white/5 border border-white/10 px-2 py-2 text-center">
+                                <i class="fa-solid fa-wind text-gray-500 text-xs" aria-hidden="true"></i>
+                                <p class="text-sm font-semibold text-white mt-1">@(snap.WindSpeedKmh.HasValue ? $"{snap.WindSpeedKmh.Value:F0} km/h" : "—")</p>
+                                <p class="text-[10px] text-gray-500 uppercase tracking-wide wrap-break-word">@snap.WindDescription</p>
+                            </div>
+                        </div>
+                        @if (snap.UpdatedAt.HasValue)
+                        {
+                            <p class="text-[11px] text-gray-500 text-right mt-2">Saved forecast, updated @snap.UpdatedAt.Value.ToLocalTime().ToString("MMM dd, yyyy h:mm tt")</p>
+                        }
+                    </div>
+                }
+                else if (!string.IsNullOrEmpty(Model.WeatherForecastAdvisory))
+                {
+                    <div class="rounded-xl border border-white/10 bg-white/5 p-4">
+                        <div class="flex items-center justify-between gap-2 mb-2">
+                            <p class="text-sm font-semibold text-gray-300"><i class="fa-solid fa-cloud text-gray-500 mr-1.5" aria-hidden="true"></i>Saved forecast</p>
+                            @if (!string.IsNullOrEmpty(Model.WeatherRiskLevel))
+                            {
+                                <span class="shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold border @WeatherRiskBadgeClasses(Model.WeatherRiskLevel)">@Model.WeatherRiskLevel Risk</span>
+                            }
+                        </div>
+                        <p class="text-gray-300 text-sm whitespace-pre-wrap">@Model.WeatherForecastAdvisory</p>
+                        @if (weatherSnapshotIsStale)
+                        {
+                            <div class="mt-3 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 flex items-start gap-2">
+                                <i class="fa-solid fa-triangle-exclamation text-amber-400 mt-0.5 shrink-0" aria-hidden="true"></i>
+                                <p class="text-amber-300 text-xs">This structured forecast was saved for a previous trail or date and no longer matches this event - showing the last saved advisory instead.</p>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="text-gray-500 italic text-sm">Weather forecast not recorded for this event.</p>
+                }
+
+                @if (!string.IsNullOrEmpty(Model.WeatherReminder))
+                {
+                    <div class="mt-4 pt-4 border-t border-white/10">
+                        <p class="text-gray-500 text-xs uppercase tracking-wider mb-1"><i class="fa-regular fa-lightbulb mr-1" aria-hidden="true"></i>Weather Reminder</p>
+                        <p class="text-gray-300 text-sm whitespace-pre-wrap">@Model.WeatherReminder</p>
+                    </div>
+                }
+            </div>
+
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+                <h2 class="text-xl font-bold text-white mb-4"><i class="fa-solid fa-file-lines text-accent mr-2" aria-hidden="true"></i>Event Description</h2>
+                <p class="text-gray-300 leading-relaxed whitespace-pre-wrap">@Model.Description</p>
+            </div>
+
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+                <h2 class="text-xl font-bold text-white mb-4"><i class="fa-regular fa-calendar-plus text-accent mr-2" aria-hidden="true"></i>Schedule and Capacity</h2>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                        <p class="text-gray-500 text-xs uppercase tracking-wider">Date</p>
+                        <p class="text-white font-semibold">@Model.EventDate.ToString("MMM dd, yyyy")</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500 text-xs uppercase tracking-wider">Time</p>
+                        <p class="text-white font-semibold">@Model.FormattedEventTime</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500 text-xs uppercase tracking-wider">Total Capacity</p>
+                        <p class="text-white font-semibold">@Model.Capacity slots</p>
+                    </div>
+                    <div>
+                        @{
+                            // Display-only clamp - never rewrites stored data. A capacity
+                            // lowered below the already-registered count must not render as
+                            // a negative "available slots" figure.
+                            var clampedAvailableSlots = Math.Max(0, availableSlots);
+                        }
+                        <p class="text-gray-500 text-xs uppercase tracking-wider">Available Slots</p>
+                        <p class="text-white font-semibold @(clampedAvailableSlots <= 5 ? "text-orange-400" : "")">
+                            @clampedAvailableSlots
+                            @if (clampedAvailableSlots <= 5 && clampedAvailableSlots > 0)
+                            {
+                                <span class="text-xs text-orange-400/70 ml-1">(limited)</span>
+                            }
+                            @if (isFull)
+                            {
+                                <span class="text-xs text-red-400 ml-1">(full)</span>
                             }
                         </p>
                     </div>
                 </div>
-                
+
                 @if (Model.Capacity > 0)
                 {
-                    var fillPercentage = (registeredCount * 100) / Model.Capacity;
-                    <div>
-                        <div class="flex justify-between text-xs text-gray-500 mb-1.5">
+                    // Display-only clamp - never rewrites stored data. A stale or
+                    // over-count can't push the fill bar past what's visually sane.
+                    var fillPercentage = Math.Clamp((registeredCount * 100) / Model.Capacity, 0, 100);
+                    <div class="mt-4">
+                        <div class="flex justify-between text-xs text-gray-400 mb-1">
                             <span>@registeredCount registered</span>
                             <span>@fillPercentage% full</span>
                         </div>
                         <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-                            <div class="h-full rounded-full transition-all duration-500 @(fillPercentage >= 90 ? "bg-red-500" : fillPercentage >= 70 ? "bg-amber-500" : "bg-emerald-500")" 
+                            <div class="h-full rounded-full transition-all duration-500 @(fillPercentage >= 90 ? "bg-red-500" : fillPercentage >= 70 ? "bg-yellow-500" : "bg-green-500")"
                                  style="width: @fillPercentage%"></div>
                         </div>
                     </div>
                 }
             </div>
 
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-6">
-                <h2 class="text-lg font-bold text-white mb-4"><i class="fa-solid fa-credit-card text-accent mr-2"></i>Payment Details</h2>
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+                <h2 class="text-xl font-bold text-white mb-4"><i class="fa-solid fa-credit-card text-accent mr-2" aria-hidden="true"></i>Payment Details</h2>
                 @if (!string.IsNullOrEmpty(Model.PaymentDetails))
                 {
-                    <p class="text-gray-300 text-sm leading-relaxed whitespace-pre-line">@Model.PaymentDetails</p>
+                    <p class="text-gray-300 whitespace-pre-wrap">@Model.PaymentDetails</p>
                 }
                 else
                 {
-                    <p class="text-gray-500 text-sm">No payment details provided for this event.</p>
+                    <p class="text-gray-500 italic">No payment details provided for this event.</p>
                 }
             </div>
 
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-6">
-                <h2 class="text-lg font-bold text-white mb-4"><i class="fa-solid fa-bus text-accent mr-2"></i>Pickup Points</h2>
-                @if (!string.IsNullOrEmpty(Model.PickupPoints))
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+                <h2 class="text-xl font-bold text-white mb-4"><i class="fa-solid fa-bus text-accent mr-2" aria-hidden="true"></i>Pickup Schedules</h2>
+                @if (pickupScheduleEntries.Count > 0)
                 {
-                    <p class="text-gray-300 text-sm leading-relaxed whitespace-pre-line">@Model.PickupPoints</p>
+                    <ul class="space-y-2">
+                        @foreach (var entry in pickupScheduleEntries)
+                        {
+                            <li class="flex items-center gap-3 rounded-lg bg-white/5 border border-white/10 px-4 py-2.5">
+                                <i class="fa-solid fa-location-dot text-accent shrink-0" aria-hidden="true"></i>
+                                <span class="text-gray-300 text-sm wrap-break-word">@entry</span>
+                            </li>
+                        }
+                    </ul>
                 }
                 else
                 {
-                    <p class="text-gray-500 text-sm">No pickup points specified for this event.</p>
+                    <p class="text-gray-500 italic">No pickup schedules specified for this event.</p>
                 }
             </div>
 
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-6">
-                <h2 class="text-lg font-bold text-white mb-4"><i class="fa-solid fa-bullhorn text-accent mr-2"></i>Notes &amp; Reminders</h2>
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+                <h2 class="text-xl font-bold text-white mb-4"><i class="fa-solid fa-bullhorn text-accent mr-2" aria-hidden="true"></i>Notes & Reminders</h2>
                 @if (!string.IsNullOrEmpty(Model.NotesAndReminders))
                 {
-                    <p class="text-gray-300 text-sm leading-relaxed whitespace-pre-line">@Model.NotesAndReminders</p>
+                    <p class="text-gray-300 whitespace-pre-wrap">@Model.NotesAndReminders</p>
                 }
                 else
                 {
-                    <p class="text-gray-500 text-sm">No notes or reminders for this event.</p>
+                    <p class="text-gray-500 italic">No announcements for this event.</p>
                 }
             </div>
         </div>
 
-        <div class="space-y-6">
-            
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-6">
-                <h2 class="text-lg font-bold text-white mb-4"><i class="fa-solid fa-chart-simple text-accent mr-2"></i>Summary</h2>
-                <div class="space-y-3 text-sm">
-                    <div class="flex justify-between gap-4">
-                        <span class="text-gray-400">Trail</span>
-                        <span class="text-white font-semibold text-right">@Model.TrailNameSnapshot</span>
-                    </div>
-                    <div class="flex justify-between gap-4">
-                        <span class="text-gray-400">Difficulty</span>
-                        <span class="px-2.5 py-0.5 rounded-full text-xs font-medium @difficultyBadge">@Model.Difficulty</span>
-                    </div>
-                    <div class="flex justify-between gap-4">
-                        <span class="text-gray-400">Date &amp; Time</span>
-                        <span class="text-white font-semibold text-right">@Model.EventDate.ToString("MMM dd, yyyy")<br />@Model.FormattedEventTime</span>
-                    </div>
-                    <div class="flex justify-between gap-4">
-                        <span class="text-gray-400">Duration</span>
-                        <span class="text-white font-semibold">@Model.EstimatedDuration hrs</span>
-                    </div>
-                    <div class="flex justify-between gap-4">
-                        <span class="text-gray-400">Registered</span>
-                        <span class="text-white font-semibold">@registeredCount / @Model.Capacity</span>
-                    </div>
-                    <div class="flex justify-between gap-4">
-                        <span class="text-gray-400">Status</span>
-                        <span class="px-2.5 py-0.5 rounded-full text-xs font-medium @eventStatusBadge">@Model.Status</span>
-                    </div>
-                </div>
-            </div>
+        <div class="space-y-6 lg:space-y-0 lg:flex lg:flex-col lg:h-full lg:gap-6">
 
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-6">
-                <h2 class="text-lg font-bold text-white mb-4"><i class="fa-solid fa-user-tie text-accent mr-2"></i>Organizer</h2>
+            <div class="shrink-0 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+                <h2 class="text-lg font-bold text-white mb-4"><i class="fa-solid fa-user-tie text-accent mr-2" aria-hidden="true"></i>Organizer Details</h2>
                 <div class="flex items-center gap-3 mb-4">
-                    <div class="w-12 h-12 rounded-full bg-linear-to-r from-orange-500 via-pink-500 to-violet-500 flex items-center justify-center overflow-hidden shrink-0">
+                    <div class="w-12 h-12 rounded-full bg-linear-to-r from-orange-500 to-purple-500 flex items-center justify-center overflow-hidden shrink-0">
                         @if (organizer != null && !string.IsNullOrEmpty(organizer.ProfilePictureUrl))
                         {
-                            <img src="@organizer.ProfilePictureUrl" alt="Organizer" class="w-full h-full object-cover">
+                            <img src="@organizer.ProfilePictureUrl" alt="" class="w-12 h-12 rounded-full object-cover">
                         }
                         else
                         {
-                            <i class="fa-solid fa-user text-white"></i>
+                            <i class="fa-solid fa-user text-white text-lg" aria-hidden="true"></i>
                         }
                     </div>
                     <div class="min-w-0">
-                        <h3 class="text-white font-semibold truncate">
-                            @(organizer != null ? $"{organizer.FirstName} {organizer.LastName}" : Model.OrganizedBy)
+                        <h3 class="text-white font-bold wrap-break-word">
+                            @if (organizer != null)
+                            {
+                                @(organizer.FirstName + " " + organizer.LastName)
+                            }
+                            else
+                            {
+                                @Model.OrganizedBy
+                            }
                         </h3>
                         <p class="text-gray-500 text-xs">Event Organizer</p>
                     </div>
                 </div>
                 @if (organizer != null)
                 {
-                    <div class="space-y-2 text-sm">
+                    <div class="space-y-2">
+                        @if (!string.IsNullOrEmpty(organizer.FacebookLink))
+                        {
+                            <a href="@organizer.FacebookLink" target="_blank" rel="noopener" class="flex items-center gap-2 text-gray-400 hover:text-accent transition-colors text-sm break-all">
+                                <i class="fa-brands fa-facebook w-5 shrink-0" aria-hidden="true"></i>
+                                <span class="break-all">@organizer.FacebookLink</span>
+                            </a>
+                        }
                         @if (!string.IsNullOrEmpty(organizer.Email))
                         {
-                            <a href="mailto:@organizer.Email" class="flex items-center gap-2 text-gray-400 hover:text-accent transition-colors">
-                                <i class="fa-regular fa-envelope w-4 shrink-0"></i>
-                                <span class="truncate">@organizer.Email</span>
+                            <a href="mailto:@organizer.Email" class="flex items-center gap-2 text-gray-400 hover:text-accent transition-colors text-sm">
+                                <i class="fa-regular fa-envelope w-5 shrink-0" aria-hidden="true"></i>
+                                <span class="break-all">@organizer.Email</span>
                             </a>
                         }
                         @if (!string.IsNullOrEmpty(organizer.PhoneNumber))
                         {
-                            <a href="tel:@organizer.PhoneNumber" class="flex items-center gap-2 text-gray-400 hover:text-accent transition-colors">
-                                <i class="fa-solid fa-phone w-4 shrink-0"></i>
+                            <a href="tel:@organizer.PhoneNumber" class="flex items-center gap-2 text-gray-400 hover:text-accent transition-colors text-sm">
+                                <i class="fa-solid fa-phone w-5 shrink-0" aria-hidden="true"></i>
                                 <span>@organizer.PhoneNumber</span>
-                            </a>
-                        }
-                        @if (!string.IsNullOrEmpty(organizer.FacebookLink))
-                        {
-                            <a href="@organizer.FacebookLink" target="_blank" rel="noopener" class="flex items-center gap-2 text-gray-400 hover:text-accent transition-colors">
-                                <i class="fa-brands fa-facebook w-4 shrink-0"></i>
-                                <span class="truncate">Facebook</span>
                             </a>
                         }
                         @if (!string.IsNullOrEmpty(organizer.Bio))
                         {
-                            <p class="text-gray-400 text-xs mt-3 pt-3 border-t border-white/10 leading-relaxed">@organizer.Bio</p>
+                            <p class="text-gray-400 text-sm mt-2 border-t border-white/10 pt-2 wrap-break-word">@organizer.Bio</p>
                         }
                     </div>
                 }
                 else
                 {
-                    <p class="text-gray-500 text-sm">Contact details not available.</p>
+                    <p class="text-gray-500 text-sm">Organizer contact details not available.</p>
                 }
             </div>
 
-            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-6">
-                <h2 class="text-lg font-bold text-white mb-4">
-                    <i class="fa-solid fa-users text-accent mr-2"></i>Joined Participants
-                    <span class="text-sm font-normal text-gray-500">(@totalJoined)</span>
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 lg:flex-1 lg:min-h-0 lg:flex lg:flex-col">
+                <h2 class="shrink-0 text-lg font-bold text-white mb-4">
+                    <i class="fa-solid fa-users text-accent mr-2" aria-hidden="true"></i>Joined Participants
+                    <span class="text-sm font-normal text-gray-400 ml-2">(@totalJoined)</span>
                 </h2>
-                @if (joinedParticipants.Any())
+                @if (joinedParticipants.Count > 0)
                 {
-                    <div class="space-y-3">
-                        @foreach (var reg in joinedParticipants.Take(6))
+                    <div class="space-y-3 lg:flex-1 lg:min-h-0 lg:overflow-y-auto tg-event-participants-scroll lg:pr-1">
+                        @foreach (var row in joinedParticipants)
                         {
-                            <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center overflow-hidden shrink-0">
-                                    @if (!string.IsNullOrEmpty(reg.User?.ProfilePictureUrl))
+                            <div class="flex items-center gap-3 p-2 rounded-lg">
+                                <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden shrink-0">
+                                    @if (!string.IsNullOrEmpty(row.ProfilePictureUrl))
                                     {
-                                        <img src="@reg.User.ProfilePictureUrl" alt="Participant" class="w-full h-full object-cover">
+                                        <img src="@row.ProfilePictureUrl" alt="" class="w-8 h-8 rounded-full object-cover">
                                     }
                                     else
                                     {
-                                        <i class="fa-solid fa-user text-gray-400 text-xs"></i>
+                                        <i class="fa-solid fa-user text-gray-400 text-xs" aria-hidden="true"></i>
                                     }
                                 </div>
-                                <p class="text-white text-sm truncate">@reg.ParticipantName</p>
+                                <p class="text-white text-sm font-medium truncate min-w-0">@row.ParticipantName</p>
                             </div>
-                        }
-                        
-                        @if (totalJoined > 6)
-                        {
-                            <p class="text-gray-500 text-xs pt-2 border-t border-white/10">
-                                + @(totalJoined - 6) more participants
-                            </p>
                         }
                     </div>
                 }
                 else
                 {
                     <div class="text-center py-6">
-                        <i class="fa-regular fa-user text-2xl text-slate-600 mb-2 block"></i>
-                        <p class="text-sm text-slate-400">No participants yet.</p>
-                        <p class="text-xs text-gray-600 mt-1">Be the first to join.</p>
+                        <i class="fa-regular fa-user text-2xl text-gray-500 mb-2" aria-hidden="true"></i>
+                        <p class="text-sm text-gray-500">No participants registered yet.</p>
+                        <p class="text-xs text-gray-600">Be the first to join.</p>
                     </div>
                 }
             </div>
@@ -383,7 +501,7 @@
 
     @if (isAlternativeRecommended)
     {
-        <div class="mt-8 bg-blue-500/10 border border-blue-500/20 rounded-xl p-6" role="region" aria-labelledby="alt-event-heading">
+        <div class="mt-8 bg-blue-500/10 border border-blue-500/20 rounded-2xl p-6" role="region" aria-labelledby="alt-event-heading">
             <h2 id="alt-event-heading" class="text-lg font-bold text-white mb-2 flex items-center gap-2">
                 <i class="fa-solid fa-arrows-rotate text-blue-400" aria-hidden="true"></i>
                 Alternative event recommended
@@ -424,13 +542,13 @@
         </div>
     }
 
-    <div class="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-6">
+    <div class="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
         <p class="text-gray-400 text-sm">
-            <i class="fa-solid fa-users text-accent mr-2"></i>
+            <i class="fa-solid fa-users text-accent mr-2" aria-hidden="true"></i>
             <span class="font-semibold text-white">@registeredCount</span> participants registered
             @if (isUpcoming && !isFull)
             {
-                <span class="text-emerald-400 ml-2">· @availableSlots slots available</span>
+                <span class="text-emerald-400 ml-2">· @Math.Max(0, availableSlots) slots available</span>
             }
             @if (isFull && isUpcoming)
             {
@@ -445,39 +563,32 @@
                 <span class="text-red-400 ml-2">· This event has been cancelled</span>
             }
         </p>
-        
+
         <div class="flex flex-wrap gap-3">
-            @if (!isLoggedIn)
-            {
-                <a asp-controller="Account" asp-action="Login" asp-route-returnUrl="@Context.Request.Path" 
-                   class="px-8 py-3 rounded-full text-white font-semibold bg-linear-to-r from-orange-500 via-pink-500 to-violet-500 hover:brightness-110 hover:scale-[1.02] transition duration-200 ease-out flex items-center gap-2">
-                    <i class="fa-solid fa-right-to-bracket"></i> Login to Register
-                </a>
-            }
-            else if (showRegistrationStatusAction)
+            @if (showRegistrationStatusAction)
             {
                 <a asp-controller="Registration" asp-action="MyRegistrations"
-                   class="px-8 py-3 rounded-full text-gray-300 font-semibold bg-white/5 border border-white/10 hover:bg-white/10 hover:text-white transition-colors flex items-center gap-2">
-                    <i class="fa-solid @regBadgeIcon"></i> @regBadgeText
+                   class="px-8 py-3 rounded-full text-gray-300 font-semibold bg-white/5 border border-white/10 hover:bg-white/10 hover:text-white transition-colors flex items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base">
+                    <i class="fa-solid @regBadgeIcon" aria-hidden="true"></i> @regBadgeText
                 </a>
             }
             else if (isFull && isUpcoming && !isAlternativeRecommended)
             {
                 <button disabled class="px-8 py-3 rounded-full text-gray-500 font-semibold bg-white/5 border border-white/10 cursor-not-allowed flex items-center gap-2">
-                    <i class="fa-solid fa-ban"></i> Event Full
+                    <i class="fa-solid fa-ban" aria-hidden="true"></i> Event Full
                 </button>
             }
             else if ((isCompleted || isCancelled) && !isAlternativeRecommended)
             {
                 <button disabled class="px-8 py-3 rounded-full text-gray-500 font-semibold bg-white/5 border border-white/10 cursor-not-allowed flex items-center gap-2">
-                    <i class="fa-solid fa-lock"></i> Registration Closed
+                    <i class="fa-solid fa-lock" aria-hidden="true"></i> Registration Closed
                 </button>
             }
             else if (showRegisterAction)
             {
                 <a asp-controller="Assessment" asp-action="Form" asp-route-eventId="@Model.Id"
-                   class="px-8 py-3 rounded-full text-white font-semibold bg-linear-to-r from-orange-500 via-pink-500 to-violet-500 hover:brightness-110 hover:scale-[1.02] transition duration-200 ease-out flex items-center gap-2">
-                    <i class="fa-regular fa-clipboard"></i>
+                   class="px-8 py-3 rounded-full text-white font-semibold bg-accent hover:bg-accent/90 transition-colors flex items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base">
+                    <i class="fa-regular fa-clipboard" aria-hidden="true"></i>
                     @(isRegistered ? "Retake Assessment & Register" : "Register Now")
                 </a>
             }
@@ -487,68 +598,17 @@
                 @if (ViewBag.HasGivenFeedback != null && (bool)ViewBag.HasGivenFeedback)
                 {
                     <button disabled class="px-6 py-3 rounded-full text-gray-500 font-semibold bg-white/5 border border-white/10 cursor-not-allowed flex items-center gap-2">
-                        <i class="fa-solid fa-check-circle text-emerald-400"></i> Feedback Given
+                        <i class="fa-solid fa-check-circle text-emerald-400" aria-hidden="true"></i> Feedback Given
                     </button>
                 }
                 else
                 {
                     <a asp-controller="Participant" asp-action="Feedback" asp-route-eventId="@Model.Id"
-                       class="px-6 py-3 rounded-full text-white font-semibold bg-linear-to-r from-orange-500 via-pink-500 to-violet-500 hover:brightness-110 hover:scale-[1.02] transition duration-200 ease-out flex items-center gap-2">
-                        <i class="fa-solid fa-comment"></i> Give Feedback
+                       class="px-6 py-3 rounded-full text-white font-semibold bg-accent hover:bg-accent/90 transition-colors flex items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base">
+                        <i class="fa-solid fa-comment" aria-hidden="true"></i> Give Feedback
                     </a>
                 }
             }
         </div>
     </div>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        fetch('/Participant/GetEventWeather?eventId=@Model.Id')
-            .then(function(response) { return response.json(); })
-            .then(function(data) { renderWeatherBadge(data); })
-            .catch(function() { renderWeatherBadge({ success: false }); });
-    });
-
-    var riskColors = {
-        'Low': 'text-emerald-400 bg-emerald-500/15',
-        'Moderate': 'text-amber-400 bg-amber-500/15',
-        'Moderate to High': 'text-orange-400 bg-orange-500/15',
-        'High (Thunderstorm)': 'text-red-400 bg-red-500/15'
-    };
-
-    var unavailableLabels = {
-        'TooFarAhead': 'Forecast Not Yet Available',
-        'LocationNotFound': 'Location Not Recognized',
-        'NoLocation': 'No Location Set',
-        'ServiceDown': 'Weather Service Unavailable'
-    };
-
-    function renderWeatherBadge(data) {
-        const badge = document.getElementById('weather-badge');
-        if (!badge) return;
-
-        if (!data.success) {
-            const label = unavailableLabels[data.unavailableReason] || 'Forecast Unavailable';
-            badge.className = 'px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap text-slate-400 bg-slate-500/15';
-            badge.innerHTML = label;
-            const detailsEl = document.getElementById('weather-details');
-            if (detailsEl) detailsEl.textContent = 'No weather forecast available for this event.';
-            return;
-        }
-
-        const colorClass = riskColors[data.riskLevel] || 'text-slate-400 bg-slate-500/15';
-        badge.className = 'px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ' + colorClass;
-        badge.innerHTML = data.riskLevel;
-
-        const detailsEl = document.getElementById('weather-details');
-        if (detailsEl) detailsEl.textContent = data.details || '';
-
-        if (data.reminder) {
-            const reminderEl = document.getElementById('weather-reminder');
-            const reminderWrap = document.getElementById('weather-reminder-wrap');
-            if (reminderEl) reminderEl.textContent = data.reminder;
-            if (reminderWrap) reminderWrap.classList.remove('hidden');
-        }
-    }
-</script>
 </div>
