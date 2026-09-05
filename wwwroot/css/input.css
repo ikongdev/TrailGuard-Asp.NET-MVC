@@ -272,20 +272,57 @@
     .carousel-track {
         overflow-x: auto;
         scroll-snap-type: x mandatory;
+        overscroll-behavior-inline: contain;
         height: 22rem;
+        gap: 0.5rem;
+        /* Card width as a fraction of the scroll viewport, named so it's set in
+           exactly one place. The card itself must NOT also say 86% - see the
+           comment on .trail-card below for why that would compound. */
+        --mobile-trail-card-width: 86%;
+        padding-inline: calc((100% - var(--mobile-trail-card-width)) / 2);
+        scrollbar-width: thin;
+        scrollbar-color: rgb(139 92 246 / 0.65) transparent;
     }
+    .carousel-track::-webkit-scrollbar { height: 6px; }
+    .carousel-track::-webkit-scrollbar-track { background: transparent; }
+    .carousel-track::-webkit-scrollbar-thumb {
+        background: rgb(139 92 246 / 0.65);
+        border-radius: 9999px;
+    }
+    .carousel-track::-webkit-scrollbar-thumb:hover { background: rgb(139 92 246 / 0.85); }
+    .carousel-track::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+
+    /* Content visibility is deliberately decoupled from .is-active on mobile - every
+       card shows its full detail block regardless of which one is centered, so cards
+       never mismatch in what's visible. .is-active still drives --tone/aria-current. */
+    /* flex-basis percentages resolve against the track's CONTENT box, i.e. AFTER
+       the padding-inline above has already carved the viewport down to
+       --mobile-trail-card-width (86%) of itself. A card asking for another 86%
+       of that already-86% box compounds to ~74% of the real viewport
+       (86% x 86%), not 86% - this was a real, fixed bug. The card must claim
+       the WHOLE padded content box (100%): do not restore `flex-basis: 86%`
+       here without also removing the track's padding-inline, or the two will
+       compound again. scroll-snap-stop: always keeps one swipe/fling settling
+       on one adjacent card - scroll-snap-type alone permits skipping several
+       snap points at high velocity. */
     .trail-card,
     .trail-card.is-active {
-        flex: 0 0 78%;
+        flex: 0 0 100%;
         scroll-snap-align: center;
+        scroll-snap-stop: always;
+    }
+    .card-title,
+    .trail-card.is-active .card-title {
+        font-size: 1.5rem;
     }
     .card-location,
-    .trail-card .card-detail {
+    .trail-card.is-active .card-location,
+    .trail-card .card-detail,
+    .trail-card.is-active .card-detail {
         display: block;
         max-height: 12rem;
         opacity: 1;
     }
-    .card-title { font-size: 1.5rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -294,6 +331,9 @@
     .card-detail,
     .trail-carousel {
         transition: none;
+    }
+    .carousel-track {
+        scroll-behavior: auto;
     }
 }
 

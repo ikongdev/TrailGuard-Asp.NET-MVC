@@ -795,6 +795,30 @@ There is **no global antiforgery filter** — `Program.cs` registers a bare `Add
 
 ---
 
+## Landing Page — Popular Trails Carousel
+
+`Views/Home/Index.cshtml`, `wwwroot/js/trail-carousel.js`, `wwwroot/css/input.css` (`.trail-carousel`/`.carousel-track`/`.trail-card`). Two genuinely different interaction models share the same markup and the same `index`/`.is-active`/`--tone` state, split entirely by CSS media query and a `window.innerWidth < 768` check in JS — there is no separate mobile template.
+
+**Desktop (≥768px), unchanged by the mobile work below:** an accordion — six cards share a flex row, the active one gets `flex-grow: 3.2` and a larger title, autoplay advances every six seconds, pauses on pointer hover or focus-within, and stops entirely under `prefers-reduced-motion: reduce`. Click-to-activate and Left/Right arrow keys (while the carousel container, which carries `tabindex="0"`, has focus) both work here exactly as before.
+
+**Mobile (<768px):** native horizontal scroll with CSS scroll-snap, not the desktop accordion. `.is-active` no longer changes card size or which content is visible — every card always shows its full detail block, so cards never visually mismatch depending on which one is "active." Instead, `.is-active`/`--tone`/`aria-current`/the position indicator all track **whichever card is nearest the track's horizontal center**, kept in sync by a `scroll` listener on `.carousel-track` (rAF-throttled, read-only — it never issues a competing `scrollTo`). Tapping a non-active card, or pressing Left/Right, calls the same `select()` used everywhere else and centers the target card via `track.scrollTo({ left, behavior })` — never `scrollIntoView()`, which risks dragging the whole document vertically. Tapping the already-active card is a no-op; tapping `.card-link` always bypasses activation and follows the link.
+
+The intended card width is 86% of the mobile scroll viewport, named once as `--mobile-trail-card-width: 86%` on `.carousel-track`. `.carousel-track` carries symmetric `padding-inline: calc((100% - var(--mobile-trail-card-width)) / 2)` (7% each side) so the first and last cards can be scrolled to true center — without that padding, `scroll-snap-align: center` cannot center an edge card narrower than the track. The card itself then takes `flex: 0 0 100%` — **100% of the track's padded content box**, not `86%` again. Percentage `flex-basis` resolves against the flex container's content box, i.e. *after* `padding-inline` has already been subtracted, so a card asking for another 86% of that already-86% box would compound to ~74% of the real viewport (86% × 86%), not 86% — this was a real, shipped bug, fixed by moving the card to `flex: 0 0 100%` of the padded box instead of restating the percentage on the card. Both mobile card states (`.trail-card` and `.trail-card.is-active`) use identical `flex: 0 0 100%`, so active/inactive cards never differ in width. `.trail-card` also carries `scroll-snap-stop: always` — `scroll-snap-type: x mandatory` alone lets a fast fling skip past several snap points in one swipe; `scroll-snap-stop: always` forces one swipe to settle on the immediately adjacent card. There is no autoplay on mobile at any time, and no autoplay ever runs under reduced motion regardless of breakpoint.
+
+**Breakpoint crossings:** entering mobile snaps the current active card to center instantly (no animation) — but only on the actual crossing, not on every subsequent mobile resize, so an on-screen keyboard opening or a minor viewport wobble doesn't yank the user's own scroll position back. Returning to desktop stops treating scroll position as navigation state (the desktop CSS isn't a scroll container at all) and restarts autoplay if reduced motion allows it. Resize handling is debounced through one listener; it never spawns a second timer.
+
+**Position indicator:** a small `N of 6` counter below the track, visible only under `md`. The visible digits update immediately on every state change (tap, keyboard, swipe-sync) for sighted users; the `aria-live="polite"` announcement text is debounced ~250ms after the last change and deliberately omits the trail name (each card's own `aria-label`, e.g. "Popular trail 2 of 6: Mt. Batulao," already carries that) so a fast multi-card swipe doesn't narrate every intermediate card.
+
+**Accessibility semantics:** `#trailCarousel` is `role="region" aria-roledescription="carousel"`; each `.trail-card` is `role="group" aria-roledescription="slide"` with a static position+name `aria-label`, and the active card carries `aria-current="true"`. Cards are not `role="button"` and are not separate Tab stops — only the carousel container and each card's real `.card-link` are keyboard-reachable, matching the original desktop design.
+
+**Image loading:** the Popular Trails section sits below the Hero's `min-h-screen`, so the first carousel image is never above the fold — it uses `loading="eager" decoding="async"` (no `fetchpriority="high"`, which would misrepresent it as an LCP candidate); the remaining five use `loading="lazy" decoding="async"`. All six carry `width`/`height` attributes matching their real intrinsic dimensions purely for layout-shift prevention — `object-fit: cover` on `.card-img` means these never affect the rendered (cropped) size.
+
+**Mobile track scrollbar:** styled directly on `.carousel-track` inside the mobile media query (thin, transparent track, the same violet `rgb(139 92 246 / 0.65)` accent used elsewhere) rather than reusing `.tg-custom-select-scrollbar`, which is reserved for `wwwroot/js/custom-select.js` listboxes only.
+
+**Known, unrelated issue — not fixed by this work:** every `View trail` link on this carousel points to `/Trail`, which is Organizer/Admin-authorized (`TrailController`). An anonymous or Participant visitor following that link from the landing page cannot actually reach it. This is a separate routing/product decision (a public Trail Details page, or role-aware redirect) that hasn't been made yet — left untouched here.
+
+---
+
 ## Conventions
 
 - Tailwind classes only — no custom CSS without a documented reason

@@ -704,6 +704,26 @@ Restyled — no longer part of the app-wide remaining-pages list below.
 
 ---
 
+## Landing Page — Popular Trails Carousel
+
+Desktop keeps its established look untouched: an autoplay accordion (six-second interval, hover/focus pause, `flex-grow` expansion, no arrows/dots/pagination). Mobile is a **separate interaction model on the same markup** — a no-autoplay native horizontal scroll-snap carousel, not a shrunk copy of the accordion.
+
+**Mobile card sizing:** the card is 86% of the mobile scroll viewport (within the target 85–88% range) — wide enough for the full title/location/stats/CTA stack, while leaving a visible sliver of both neighbors as a swipe cue. That 86% is named once, `--mobile-trail-card-width` on `.carousel-track`; the track owns symmetric `padding-inline: calc((100% - var(--mobile-trail-card-width)) / 2)` (7% each side) so the first and last cards can reach true center under `scroll-snap-align: center`, not just the middle four. The card itself then takes `flex: 0 0 100%` **of that padded content box**, not 86% again — percentage `flex-basis` resolves against the box left over after the track's own padding, so a card also asking for 86% would compound to ~74% of the real viewport (86% × 86%), silently undersizing every card and throwing off exact centering. Both active and inactive mobile cards share this same `flex: 0 0 100%`, so they're always identical widths. `scroll-snap-stop: always` on the card ensures one swipe settles on the immediately adjacent card — `scroll-snap-type: x mandatory` alone still permits a fast fling to skip several snap points.
+
+**Active-card state is scroll-driven, not tap-driven, on mobile.** Whichever card sits nearest the track's horizontal center is "active" — synced continuously off the track's native `scroll` event, never off a separate touch-drag implementation. Tapping a card or pressing Left/Right centers it via `track.scrollTo()`; tapping the already-active card does nothing; tapping `.card-link` always bypasses activation. The desktop-only accordion effect (bigger title, `flex-grow`) does not run on mobile — every mobile card shows its full detail block regardless of active state, so no card visually shrinks or grows as the active one changes.
+
+**Position indicator:** a restrained `N of 6` text counter below the track, visible only under `md`, secondary in weight (`text-xs text-slate-400`) — no dot pagination, no gradient. The visible counter updates immediately; a paired `aria-live="polite"` region announces the settled selection ~250ms after the last change, deliberately without the trail name (each slide's own `aria-label` already carries that), so a fast swipe across several cards doesn't narrate every one it passes.
+
+**Mobile scrollbar:** styled directly on `.carousel-track` inside its own mobile media query — thin, transparent track, the same violet `rgb(139 92 246 / 0.65)` accent as the rest of the app. This does **not** reuse `.tg-custom-select-scrollbar` (reserved for `custom-select.js` listboxes) and is not a generic `.custom-scrollbar` utility — it's scoped to this one component, the same convention as every other scrollbar treatment in this document.
+
+**Reduced motion:** swipe navigation stays fully usable; tap/keyboard selection centers instantly (`behavior: "auto"`) instead of smoothly; no autoplay at either breakpoint; the position counter still updates.
+
+**Image loading:** the section sits below the Hero's `min-h-screen`, so the first card's image is never above the fold — it loads eager (not `fetchpriority="high"`, which is for actual LCP candidates), the rest load lazy, and all six carry `decoding="async"` plus real intrinsic `width`/`height` (inert for layout purposes since `object-fit: cover` already controls the rendered size, but they still prevent layout shift while the file downloads).
+
+**Outstanding, unrelated to this pass:** all six `View trail` links still point to `/Trail`, which only Organizer/Admin accounts can open. Left unchanged — see `CLAUDE.md`, Landing Page — Popular Trails Carousel, for the same note.
+
+---
+
 ## Accessibility
 
 - Visible focus states on every interactive element
