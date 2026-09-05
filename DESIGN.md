@@ -453,7 +453,7 @@ Both wrapper and backdrop use `fixed inset-0`. An `absolute` backdrop only cover
 
 `z-60` sits above the navbar's `z-50`. **`z-100` is not a real Tailwind class** — it compiles to nothing and silently breaks layering.
 
-Toggle visibility with Tailwind's `hidden` / `flex`. Don't introduce a second mechanism.
+Toggle visibility with Tailwind's `hidden` / `flex` — the only modal-visibility mechanism in current use; don't introduce a second one. An earlier `.modal-hidden`/`.modal-visible` CSS pair used by `Trail/Index.cshtml` and `Participant/Trails.cshtml` has since been migrated to this same convention (confirmed repo-wide: no `.cshtml` still applies either class). The only surviving reference is a defensive compatibility selector inside `wwwroot/js/toast.js`'s focus-restoration logic, which also checks for `.modal-visible` alongside the current `.flex` check — harmless tolerance for a class nothing sets anymore, not evidence of an active second system.
 
 ### Participant Trail Details
 
@@ -473,7 +473,15 @@ Both live in `Trail/Index.cshtml`, opened through the same shared `TrailModal` o
 
 ## Banners and Alerts
 
-The shared formula: `bg-{hue}-500/10 border border-{hue}-500/30`, an icon, and a short message. Four variants in use today — a fifth should pick a hue by what it means (red still means "blocks you," amber still means "worth knowing"), not invent a new visual recipe.
+Two related but distinct patterns exist — don't reach for the wrong one for a given message.
+
+**Inline contextual banner** — a persistent, page-embedded notice tied to the content around it: a required-clearance notice on the assessment report, a form error restated next to the form that produced it, a gate reason attached to a specific result. It stays on the page until the underlying condition changes, and its hue carries meaning (red still means "blocks you," amber still means "worth knowing"). This is what the table below documents.
+
+**Global toast** — a transient, one-off outcome of an action the user just took: a save succeeded, a delete failed, a validation error on a field the user can no longer see because the wizard moved on. It comes from the single shared host (`#tg-toast-host` in `_Layout.cshtml`), fires via `window.showToast(message, type)` (`wwwroot/js/toast.js`), and disappears on its own — see CLAUDE.md, "Global Toast Notifications," for the full implementation contract. Use a toast, not an inline banner, when the message describes something that just happened rather than a condition the page continues to reflect.
+
+Toast styling deliberately echoes the same four hues used elsewhere (success/error/warning/info) but as dark, near-solid surfaces rather than an inline banner's 10%-opacity fill — a toast has to read clearly regardless of what's behind it. Each toast: sits above every modal (topmost in the stacking order, well above the modal `z-60` layer described below), enters/exits with a brief motion that respects `prefers-reduced-motion`, counts down toward a 3-second auto-dismiss that pauses on hover or keyboard focus, always has a close button, uses an accessible live-region role so its message is announced once, and returns focus to wherever it was before the toast appeared when dismissed. There is exactly one toast host for the whole app — never a second, page-local implementation.
+
+The inline-banner formula: `bg-{hue}-500/10 border border-{hue}-500/30`, an icon, and a short message. Four variants in use today — a fifth should pick a hue by what it means, not invent a new visual recipe.
 
 | Variant | Classes | Icon | Where |
 |---|---|---|---|
@@ -750,22 +758,19 @@ Filling it in is not on its own enough. `_PrimaryButton` has only three call sit
 
 `_SecondaryButton` needs to render either an `<a>` or a `<button>`. `_PrimaryButton` renders only an `<a>`, which is why every form submit and every wizard nav button in the app is hand-rolled.
 
-**Two modal mechanisms.** `Trail/Index.cshtml` and `Participant/Trails.cshtml` use custom `.modal-hidden`/`.modal-visible` CSS; everything else uses Tailwind `hidden`/`flex`. Standardise on Tailwind and drop the custom CSS.
-
 ---
 
 ## Progress
 
-**The participant flow is complete:** dashboard, browse trails, browse events, event details, assessment form, assessment report, registration form, my registrations, the read-only Profile page, and Settings — plus landing page, login, and register.
+**The participant flow is complete:** dashboard, browse trails, browse events, event details, assessment form, assessment report, registration form, my registrations, the read-only Profile page, Settings, and Feedback — plus landing page, login, and register. Feedback (`Views/Participant/Feedback.cshtml`) is a three-step wizard (Hiking Experience, Trail Conditions, Organizer & Event) with its own JS-driven step gating and validation — native `required` is deliberately omitted since a hidden wizard step doesn't validate reliably (see CLAUDE.md, "Physical measurements," for the same reasoning applied to the assessment form).
+
+**Also complete — Organizer and Admin management pages:** Organizer Dashboard, Trail Management (list plus Add/Edit/View Trail and Deactivate/Deactivated Trails modals), Event Management (list plus Add/Edit Event modals), Organizer Event Details (including Reschedule Event and Cancel Event), Organizer Registrations, Organizer Registration Details (including its Suitability Assessment/SHAP panel), Post-event Assessment, Event Comparison, Admin Dashboard, Admin Account Management, and Records. All use the current glass-card/rounded/dark-surface-token system and route feedback through the global toast host rather than a page-local banner. Records' Event History and Participant Registrations sections specifically were rewritten onto the same header/row grid structure as `Organizer/Registrations.cshtml` (see Recent Hikes, above, and CLAUDE.md's Records note) — Admin Account Management, a separate page, still renders its own list as a literal `<table>`.
+
+A few destructive actions on these already-modernized pages still confirm through the browser's native `confirm()` rather than the styled confirmation-modal pattern used right next to them: Delete Trail, Delete Event, and "Mark event as completed." Worth cleaning up, but not evidence the surrounding pages haven't been through the UI pass — Deactivate Trail and Cancel Event, on the same pages, already use the full accessible-modal treatment.
 
 **Remaining:**
-- Feedback page — rebuilt as a three-step wizard functionally, but not restyled
-- **All organizer pages** — dashboard, events, registrations, registration details, post-event assessment, event comparison
-- **All admin pages** — dashboard, accounts, records
-- **Reports** (aggregate model validation) — new page, not yet styled
+- **Reports** (aggregate model validation) — has the glass/blur basics (`bg-white/5 backdrop-blur-xl border border-white/10`) but hasn't been refined to the rest of the app's current standard: `rounded-3xl` instead of the documented `rounded-xl`/`rounded-2xl` scale, no `bg-surface-*` tokens anywhere, two-tone gradient buttons/badges instead of the accent-token system, and a plain `<table>` confusion matrix with none of the scroll-cue treatment used elsewhere
 - Shared: navbar partials, error pages
-
-`Organizer/RegistrationDetails.cshtml` has a SHAP panel from earlier feature work but hasn't been through the UI pass.
 
 **Footer** (`Views/Shared/Components/_Footer.cshtml`) was audited and reduced from four columns of mostly dead links (11 of 12 pointed at nonexistent `HomeController` actions) to three columns of real destinations only: Brand, **Explore** (Home, About TrailGuard → `#about`, Browse Trails, How It Works → `#how-it-works`), and **Legal** (Privacy Policy → `HomeController.Privacy`). Browse Trails reuses the same role-aware destination check as the landing page's Popular Trails cards (Admin/Organizer → Trail Management, Participant/anonymous → Participant Browse Trails, computed once as `footerTrailsUrl`). The About/How It Works links use `asp-fragment` against the landing page's real `#about`/`#how-it-works` section ids, so they work as plain navigation with no reliance on landing-page JS. Copyright year is `@DateTime.Now.Year`, not hardcoded. `Explore`/`Legal` are `<nav aria-label="Footer explore">`/`<nav aria-label="Footer legal">` landmarks with `focus-visible:ring-2 focus-visible:ring-accent` keyboard focus states.
 

@@ -1,8 +1,10 @@
-# TrailGuard — Project Context
+# TrailGuard — Project Context and Operating Guide
 
 Capstone project: **TrailGuard — A Web-Based Hiking Event Management System with Machine Learning-Based Participant-to-Trail Suitability Assessment**
 
 PUP College of Computer and Information Sciences. This repository started as an App Dev project using rule-based suitability scoring and has been extended into the capstone version with ML-based participant-to-trail suitability prediction and explainability. The rule-based path has since been removed outright, not just superseded — see "ML Failure — No Fallback" below.
+
+This document is the single shared context for anyone — human or coding agent — working in this repository. It combines the project/domain knowledge (architecture, ML contracts, domain rules, UI system pointers, and known issues) with the operating rules for an implementation agent (required context, instruction precedence, the collaboration workflow, and verification/handoff requirements), so the two can't drift into disagreement with each other. See "Working in This Repository — Agent Operating Rules," below, for the operating-rules half.
 
 ---
 
@@ -53,6 +55,121 @@ npm run dev
 **Tailwind only generates classes it finds in source.** A new colour, radius, or utility won't render until `npm run build` runs. If a style isn't appearing, check whether the class exists in `wwwroot/css/output.css` before assuming the markup is wrong — this has caused hours of confusion here.
 
 Database credentials live in **User Secrets**, not `appsettings.json`.
+
+---
+
+## Working in This Repository — Agent Operating Rules
+
+### Required context before editing
+
+Before changing any file:
+
+1. Read the parts of this document relevant to the task in full — don't skim a section and assume the rest doesn't apply.
+2. `DESIGN.md` — the UI system, component patterns, accessibility rules, and current design progress. Required for any Razor/Tailwind/frontend change.
+3. `MODEL.md` — required whenever work touches the suitability model, dataset, evaluation, safety claims, difficulty calibration, or a manuscript-facing metric.
+4. `MODEL_EXPLAINED_EN.md` — supporting narrative only. Where a figure differs from this document or `MODEL.md`, the current figures here and in `MODEL.md` win.
+
+Then inspect the actual implementation for anything the task touches — this document and `DESIGN.md` are context, not a substitute for reading the current code and migrations.
+
+### Instruction precedence
+
+If instructions conflict, follow this order:
+
+1. The user's current implementation prompt and its approved acceptance criteria.
+2. This document — both its operating rules (this section) and its project/domain rules (everything else in it).
+3. `DESIGN.md`, for interface behavior and visual decisions.
+4. Other repository documentation (`MODEL.md`, `MODEL_EXPLAINED_EN.md`).
+
+Do not silently resolve a conflict that could change safety behavior, stored data, the ML contract, or the agreed task scope. Stop and report it instead.
+
+### Collaboration workflow
+
+1. Planning happens with the user before implementation begins (see "Working with the planning conversation," under Development Workflow, for how plans move from discussion into `PLAN.md`).
+2. The implementation prompt authorizes only the scope it describes — no redesigning the plan, no speculative features, no unrelated cleanup. A small adjacent fix is allowed only when it's necessary to make the requested change correct and verifiable, and should be called out explicitly rather than folded in silently.
+3. If a new decision would materially affect behavior or scope, stop and ask rather than guessing.
+4. Implement, then perform every safe automated verification available (see "Verification Requirements," below).
+5. Return a structured handoff for independent review (see "Required Handoff," below).
+6. The user decides whether the work is ready to commit and push.
+
+Never commit, amend, merge, rebase, tag, push, open a pull request, or otherwise alter remote repository state unless the user explicitly asks — the user owns all Git history and remote operations. Do not prepare or modify commit messages unless explicitly asked.
+
+### Before editing
+
+Run read-only checks first:
+
+```bash
+git status --short
+git branch --show-current
+git log -1 --oneline
+```
+
+- Preserve pre-existing user changes and unrelated untracked files — never discard or overwrite work with a destructive Git command.
+- Don't change generated migrations, compiled CSS, model artifacts, datasets, or dependency lockfiles unless the task specifically requires it.
+- Database credentials belong in User Secrets or an explicitly approved deployment secret store — never in tracked configuration.
+
+### Non-negotiables
+
+These are the highest-risk rules in this document, gathered here for visibility. Each links to the section with its full rationale and current detail:
+
+- The ML service is the only suitability mechanism; never add or restore a rule-based fallback — see "ML Failure — No Fallback."
+- The ACSM gate can only lower a model label, never raise one — see "ML Labels and the ACSM Gate."
+- The organizer makes the final registration decision; ML output is decision support, never automatic approval or rejection — see "Decision-Making Rule."
+- Never reintroduce legacy category-score bars or other rule-based results beside an ML prediction — see "ML Failure — No Fallback."
+- Confidence displays the real predicted-class probability, one decimal place, uncapped — see "Confidence Display."
+- `AssessmentController.BuildMlRequest` and the Python `FEATURE_COLUMNS` are a cross-language contract; check both sides before changing any input, mapping, type, or feature order — see "Feature Mapping."
+- An unrecognized categorical answer or SHAP feature name must fail explicitly, never silently default — see "Feature Mapping" and "Explainability."
+- Weather stays a separate event advisory, never an ML feature — see "Weather and ML."
+- Difficulty ordering/display use the terrain-adjusted rating, never the plain NPS value, and the Python/C# implementations must be changed together — see "Difficulty Bands."
+- Preserve antiforgery protection, authorization, role boundaries, and ownership checks on every changed endpoint — see "Security."
+- Reuse an established `DESIGN.md` pattern before introducing a new one; don't add a second modal-visibility mechanism, card hover-scaling, or undocumented radius.
+
+### Implementation discipline
+
+- Prefer the smallest cohesive change that fully satisfies the approved acceptance criteria.
+- Keep a business rule in the shared service/helper that already owns it — don't create a second inline implementation.
+- Follow the conventions already established in nearby controller, service, model, Razor, and JavaScript code.
+- Validate at server boundaries even when client-side validation exists, especially for safety-relevant or persisted values.
+- Don't catch an error only to hide it or substitute a plausible-looking result.
+- Avoid broad formatting or generated-file churn that obscures the functional diff.
+- Add or update a comment only when it explains a non-obvious constraint or safety decision — don't narrate obvious code.
+
+### Verification requirements
+
+Perform every check that safely applies to the change. At minimum:
+
+```bash
+git diff --check
+dotnet build
+```
+
+By change type:
+
+- Razor/Tailwind/frontend: run `npm run build`, then confirm the needed classes exist in `wwwroot/css/output.css`.
+- JavaScript: exercise the affected state transitions, validation boundaries, keyboard behavior, and failure states.
+- Python: run syntax/import checks and the most relevant `MODEL.md`-documented evaluation/safety script.
+- ML contract changes: compare the C# request model/mapping against Python's `FEATURE_COLUMNS`, then test a representative request end to end.
+- Difficulty changes: compare representative boundary cases in both the C# and Python implementations.
+- Database model changes: create and inspect the required EF Core migration; don't apply it to an unknown or shared database without explicit authorization.
+- Authorization/workflow changes: test allowed and forbidden roles, direct URL/request access, duplicate submissions, stale states, and retry behavior.
+- UI changes: check desktop and mobile layout, empty/error/loading states, keyboard focus, reduced motion, and content overflow.
+
+There is no automated test project for most of this app's behavior. Never describe `dotnet build` or a manual browser check as a unit test. If a check can't run — missing dependency, credential, service, or environment access — report the exact blocker and give the user precise manual steps and the expected result, rather than skipping the report.
+
+Don't install or upgrade dependencies, run a destructive seed/reset operation, or modify a real database merely to make verification pass, unless the approved prompt explicitly authorizes it.
+
+### Required handoff
+
+Finish implementation work with a concise report:
+
+- **Summary** — what changed and why.
+- **Files changed** — each file and its purpose.
+- **Verification performed** — exact commands/checks, each marked passed/failed/not run, with relevant output summarized honestly.
+- **Review evidence** — `git status --short` and `git diff --stat`; call out every untracked file created, since a plain `git diff` won't show its contents. For visual work: routes, viewport sizes, and states checked.
+- **Manual verification for the user** — only checks that need the user's credentials, browser, local services, database, or judgment; numbered steps and expected results, or `None`.
+- **Risks and unresolved items** — known limitations, assumptions, or follow-up work, or `None`.
+- **Repository state** — confirm no commit or push was performed, and report any pre-existing changes left untouched.
+
+Don't state that work is ready to commit merely because implementation finished — the user reviews the handoff first.
 
 ---
 
@@ -233,7 +350,7 @@ The gate exists because the v2 model alone still occasionally predicts Good Matc
 
 ## Difficulty Bands
 
-`trail_shenandoah_score` (the plain NPS rating) is the only difficulty input the model itself sees. The band **shown to users** — on event, trail, report, and organizer pages, and as `SuitabilityResult.NpsBand` / `PredictionResponse.nps_band` — is a separate, deterministic step: the NPS rating is multiplied by the trail's `TrailClass` multiplier to get an *adjusted rating*, which is then mapped onto one of four PinoyMountaineer-derived tiers.
+`trail_shenandoah_score` (the plain NPS rating) is the only difficulty input the model itself sees. The **Event Difficulty** band shown to users — on event, report, and organizer pages, and as `SuitabilityResult.NpsBand` / `PredictionResponse.nps_band` — is a separate, deterministic step: the NPS rating is multiplied by the trail's `TrailClass` multiplier to get an *adjusted rating*, which is then mapped onto one of four PinoyMountaineer-derived tiers.
 
 | Adjusted rating | Band | PinoyMountaineer level |
 |---|---|---|
@@ -248,11 +365,13 @@ These replace the published NPS bands (50/100/150/200), which are calibrated for
 
 This logic is duplicated deliberately in two places that must be changed together:
 - Python: `acsm_gate.shenandoah_rating()` / `nps_band()` (training and serving)
-- C#: `Services/DifficultyCalculator.cs` — `ComputeRating`/`ComputeAdjustedRating`/`LabelFor` (event/trail/report pages)
+- C#: `Services/DifficultyCalculator.cs` — `ComputeRating`/`ComputeAdjustedRating`/`LabelFor` (event/report/organizer pages)
 
 Sort and compare by the **adjusted** rating, not the plain one — ordering by the plain NPS score would rank a short Class 4 trail as easier than a long Class 1 walk.
 
 `Trail.Terrain` (a free-text string) and `Trail.TrailClass` (int, 1–4) are both still fields on `Trail` — `TrailClass` is the one that feeds difficulty and the ML request; `Terrain` predates it.
+
+**A bare Trail does not display or own an authoritative Event Difficulty band.** `Trail.Distance`/`ElevationGainMeters`/`TrailClass` are the *inputs* a future Event Difficulty calculation will use once the Trail is attached to a scheduled Event — they are not a difficulty themselves. `DifficultyCalculator.TrailClassLabel(trailClass)` maps the Technical Trail Class (1–4) to a Trail-metadata label (`Walking`/`Hiking`/`Scrambling`/`Simple Climbing`) only, and this is exactly what Trail Management and the View Trail modal show (`Views/Trail/Index.cshtml` — there is no separate Trail Details page; a Trail's "details" render inside this same file's modal) alongside Distance and Elevation Gain, with an explicit caption that this is not the event's difficulty rating. Neither page computes or shows an Easy/Minor Climb/Major Climb/Major Climb — Difficult band for a bare Trail. `DifficultyCalculator.ComputeAdjustedRating`/`LabelFor`/`BadgeClass` own the Event Difficulty calculation and its display mapping — a value only becomes an Event Difficulty once a Trail is attached to a scheduled `Event` and that Event's snapshot is captured (see "Event Trail Snapshot," below). Add/Edit Event's Trail picker (`EventController.GetTrailDetails`/`GetCalculatedDifficulty`) is the one place a difficulty is computed for a Trail before that capture happens — a live preview of what the *prospective* Event's difficulty would be, not a property the Trail owns afterward. The Popular Trails landing-page cards deliberately show neither the Technical Trail Class nor an Event Difficulty band at all — see "Landing Page — Popular Trails Carousel," below.
 
 ---
 
@@ -387,6 +506,45 @@ Deactivating a Trail never hides, cancels, or modifies an existing Event — Bro
 ### Hard-delete policy stays separate
 
 `TrailController.DeleteTrail`'s existing protection — a Trail linked to any Event cannot be hard-deleted — is unrelated to `IsActive` and unchanged by this feature. A Deactivated Trail with linked Events remains just as non-deletable as an Active one; a never-used Trail's delete eligibility doesn't change based on its active state either. Deactivating a Trail never triggers or substitutes for deletion.
+
+---
+
+## Add/Edit Event — Organizer Assignment, Pickup Schedules, Weather Snapshot
+
+`EventController` is `[Authorize(Roles = "Admin,Organizer")]` — no other role reaches `AddEvent`/`EditEvent`.
+
+### Organizer assignment
+
+Organizer identity is resolved entirely server-side, never trusted from a posted value:
+
+- **Non-Admin caller (a pure Organizer):** `AddEvent`/`EditEvent` ignore any `OrganizerId` the client sent — the controller's own authorization already guarantees the caller holds the Organizer role, so the Event's organizer is forced to be the authenticated caller (`currentUser`).
+- **Admin caller:** must supply a `model.OrganizerId` that resolves to an existing account that actually holds the Organizer role (`UserManager.IsInRoleAsync(selectedAccount, "Organizer")`) — an empty, missing, or non-Organizer selection is rejected with a generic validation message, never silently coerced to the acting Admin or defaulted.
+- **Dual-role Admin+Organizer account:** the Admin branch is checked first in both actions, so a dual-role account always follows the Admin path — consistent with `CanManageEventAsync` and `Details`'s `CanAssessParticipants`, which apply the same Admin-first precedence.
+- **Editing as a pure Organizer:** the Event's existing `OrganizerId` must match the caller (`existingEvent.OrganizerId == currentUser.Id`) — a null or mismatched `OrganizerId` is rejected the same way as a missing Event. On success, the *existing* `OrganizerId` is kept; nothing the client posts can reassign the Event to someone else. An Organizer cannot reassign an Event.
+- **Editing as Admin:** the same existence/role validation as `AddEvent` applies to a newly selected Organizer.
+- **`OrganizedBy`** (the legacy free-text display name) is never an authority for ownership or assignment — it's used only as a display-resolution fallback (`EventController.Details`) for a genuinely legacy Event whose `OrganizerId` is null/empty. `OrganizerId` is authoritative everywhere else.
+
+### Structured pickup schedules
+
+Owned by `Services/PickupScheduleHelper.cs`, called from `AddEvent`/`EditEvent` (never re-implemented per-controller):
+
+- Add/Edit Event submit separate Location and Time values per schedule row, not a single free-text field.
+- At least one schedule is required; a blank Location is rejected.
+- A Location containing a line break or an em dash (`—`) is rejected — both would be ambiguous against the canonical stored format below.
+- Time must parse as exact `HH:mm` (`DateTime.TryParseExact`); anything else is rejected.
+- An exact Location+Time duplicate is rejected case-insensitively; the same Location at a different Time is a legitimate second schedule and is allowed.
+- Canonical storage is one schedule per line, `Location — h:mm tt` (e.g. `Trailhead — 6:00 AM`), newline-joined onto `Event.PickupPoints`.
+- Registration submission matches the participant's selected value against the Event's stored canonical entries through `PickupScheduleHelper.FindCanonicalMatch` (case-insensitive) — only the matched canonical string is ever persisted onto the registration, never the raw submitted value, so a registration can't carry a fabricated or cross-event pickup value.
+- A legacy free-text entry (predating structured schedules) is preserved as-is during Edit hydration; it can't be resaved without first being given a valid `HH:mm` time, since `ValidateAndFormat` rejects anything that doesn't parse.
+
+### Weather snapshot
+
+See "Weather and ML" and "Weather implementation notes," above, for the broader weather rules — this section covers only Add/Edit Event's own handling.
+
+- A submitted structured weather snapshot is validated against the *selected Trail* and *Event date* (`WeatherSnapshotHelper.TryValidateForSubmission`, checking `TrailId` and forecast date match) before being trusted.
+- A snapshot that fails validation is never silently accepted: `AddEvent` discards it (stores `null`) and logs a warning; `EditEvent` leaves the previously stored snapshot untouched — it never overwrites a valid stored value with a failed one — and logs a warning.
+- The legacy advisory fields (`WeatherForecastAdvisory`, `WeatherRiskLevel`, `WeatherReminder`) are still read from the submitted model directly alongside the structured snapshot; `EditEvent` falls back to the existing stored value when the client sends a null risk level or reminder, preserving an organizer-edited reminder across a resubmission.
+- Both the structured snapshot and the legacy fields are written from the same Add/Edit Event request, populated client-side from one weather fetch — there is one validated structured source (`WeatherSnapshotJson`), and the legacy fields ride alongside it rather than being independently re-derived elsewhere in this flow.
 
 ---
 
@@ -787,11 +945,13 @@ The same pattern was found and fixed in `ParticipantController.Feedback` and `Su
 
 ### Antiforgery
 
-**Re-corrected claim:** this file has stated both that `SubmitFeedback` carries `[ValidateAntiForgeryToken]` and, in a later revision, that it does not — the latter "correction" was itself wrong. Checked directly against the current `ParticipantController.cs`: `SubmitFeedback` is `[HttpPost]` and does carry `[ValidateAntiForgeryToken]`. It also resolves the submitting Participant solely from the authenticated `NameIdentifier` claim (never a posted value), and independently requires — on every request, not merely because a GET happened to render the form first — that the target Event is persisted as `Completed` and that the same authenticated Participant holds a persisted `Accepted` `EventRegistration` for it (see "Feedback" > "Eligibility", above, and `ParticipantController.GetEligibleFeedbackRegistrationAsync`). The Give Feedback button's visibility on `Participant/Details.cshtml` is a UX convenience only, never the authorization boundary — a direct POST is rejected the same way regardless of what the view would have shown. Duplicate-feedback protection remains application-level (an `EventFeedbacks` existence check before insert) and is not guaranteed race-proof — no database uniqueness constraint backs it.
+Every MVC `[HttpPost]` action across the app currently carries `[ValidateAntiForgeryToken]` — verified directly against every controller, not assumed: **29 `[HttpPost]` actions, 29 with `[ValidateAntiForgeryToken]`**, zero gaps, across the 9 controllers that have any POST action at all — `AccountController` (3), `AdminController` (3), `AssessmentController` (1), `EventController` (6), `OrganizerController` (4), `ParticipantController` (1 — `SubmitFeedback`), `RegistrationController` (3), `SettingsController` (2), `TrailController` (6). `DocumentsController`, `HomeController`, `ProfileController`, `RecordsController`, and `ReportsController` have no `[HttpPost]` action at all.
 
-There is **no global antiforgery filter** — `Program.cs` registers a bare `AddControllersWithViews()`. As of this check, `[ValidateAntiForgeryToken]` exists on exactly seven actions, across four controllers: `AdminController` (3, including the `ChangeRole` role-management endpoint), `SettingsController` (2), `TrailController` (1), and `ParticipantController` (1 — `SubmitFeedback`, corrected above). Every POST action in `AssessmentController`, `EventController`, `OrganizerController`, and `RegistrationController` is unprotected, and so is every `ParticipantController` POST action other than `SubmitFeedback`. Several views still render `@Html.AntiForgeryToken()` into forms whose actions never validate it, which looks like protection and isn't.
+There is still **no global antiforgery filter** — `Program.cs` registers a bare `AddControllersWithViews()`, with no `AutoValidateAntiforgeryTokenAttribute` and no controller-wide `[ValidateAntiForgeryToken]`; protection is entirely per-action. `Program.cs` does configure `AddAntiforgery(options => options.HeaderName = "RequestVerificationToken")`, which is what lets a `fetch()`-based POST authenticate via a request header instead of a hidden form field — `wwwroot/js/site.js` reads the token and sends it on that header for script-driven POSTs.
 
-**Assume nothing is protected unless you check the controller directly** — the specific list above is a snapshot, not a guarantee it's still current by the time you read this.
+This is a verified snapshot, not a permanent guarantee — **re-audit whenever a new `[HttpPost]` action is added.** A new POST action must carry `[ValidateAntiForgeryToken]` explicitly (or send the `RequestVerificationToken` header, for a `fetch()` call) unless the project deliberately adopts a global filter as a separately approved architectural change — it hasn't, and this document isn't recommending one on its own.
+
+`ParticipantController.SubmitFeedback` specifically: `[HttpPost]`, carries `[ValidateAntiForgeryToken]`, resolves the submitting Participant solely from the authenticated `NameIdentifier` claim (never a posted value), and independently requires — on every request, not merely because a GET happened to render the form first — that the target Event is persisted as `Completed` and that the same authenticated Participant holds a persisted `Accepted` `EventRegistration` for it (see "Feedback" > "Eligibility", above, and `ParticipantController.GetEligibleFeedbackRegistrationAsync`). The Give Feedback button's visibility on `Participant/Details.cshtml` is a UX convenience only, never the authorization boundary — a direct POST is rejected the same way regardless of what the view would have shown. Duplicate-feedback protection remains application-level (an `EventFeedbacks` existence check before insert) and is not guaranteed race-proof — no database uniqueness constraint backs it.
 
 ---
 
@@ -823,6 +983,24 @@ The intended card width is 86% of the mobile scroll viewport, named once as `--m
 
 ---
 
+## Global Toast Notifications
+
+`wwwroot/js/toast.js` is the single canonical implementation — `showToast(message, type)`, exposed as `window.showToast`. Don't reintroduce a page-local toast/banner implementation; every page that needs transient feedback calls this.
+
+- Supported `type` values: `success`, `error`, `warning`, `info` (a small alias table normalizes common variants like `ok`/`err`/`warn`; anything unrecognized falls back to `info`).
+- The message is always inserted via `textContent`, never `innerHTML` or string interpolation into markup.
+- `Views/Shared/_Layout.cshtml` hosts the single toast host (`#tg-toast-host`) and bridges `TempData["Success"]`/`["Error"]`/`["Warning"]`/`["Info"]` into it through Razor-attribute-encoded `data-*` values on a hidden element — never raw-interpolated into script or HTML.
+- The toast host sits far above the modal layer (`z-60`, see `DESIGN.md`, Modals) and is explicitly exempted from a modal's inert/background sweep via `window.tgToastHostExempt` — opening a modal never hides or inerts an in-flight toast. A modal's own focus trap can include a visible toast's close button as an extra allowed tab stop via `window.tgGetToastCloseButtons()`.
+- Toasts auto-dismiss after 3 seconds; hovering, focusing, or the document going hidden each pause the remaining time via a shared pause-reason counter, and removing that reason resumes the timer.
+- Every toast has a close button with an `aria-label` naming the notification type.
+- Keyboard/close-button dismissal restores focus safely (`restoreFocusAwayFrom`) — back to whatever had focus before the toast appeared, or, failing that, into a currently open modal, or `document.body` — never dropping focus outright.
+- `prefers-reduced-motion: reduce` shortens/removes the exit transition rather than skipping the dismiss.
+- One dead compatibility selector remains in `toast.js` (a `.modal-visible` check alongside the current `.flex` check, inside the focus-restoration logic) — no current view still uses `.modal-visible`/`.modal-hidden` (see `DESIGN.md`, Modals), so this is tolerance for a class that no longer exists anywhere, not evidence of a second active modal system. Leave it as-is; removing it isn't part of any current task.
+
+Don't reintroduce a page-local `showToast`, `alert()`, or `confirm()`-based notification for anything this system already covers.
+
+---
+
 ## Conventions
 
 - Tailwind classes only — no custom CSS without a documented reason
@@ -847,26 +1025,28 @@ Since then, the ML pipeline has been migrated to v2 (ACSM gate, NPS-based diffic
 ### UI/UX pass
 
 **Done — participant side complete:**
-landing, login, register, participant dashboard, browse trails, browse events, event detail, my registrations, assessment form, assessment report, registration form, Settings.
+landing, login, register, participant dashboard, browse trails, browse events, event detail, my registrations, assessment form, assessment report, registration form, the read-only Profile page, Settings, and Feedback.
+
+Feedback (`Views/Participant/Feedback.cshtml`) is a three-step wizard (Hiking Experience, Trail Conditions, Organizer & Event) with its own JS-driven step gating and validation — native `required` is deliberately omitted, since a hidden wizard step doesn't validate reliably (the same reasoning as "Physical measurements," above, for the assessment form).
 
 `Views/Participant/Events.cshtml` (Browse Events) has been visually aligned to the Event Management card shell (`Views/Event/Index.cshtml`), which itself follows the Trail Management card shell: same `group`/`bg-white/5`/`backdrop-blur-xl`/`rounded-xl` card, `h-48` image with `group-hover:scale-105` zoom (`motion-reduce:*` respected) and the same broken/missing-image fallback (`handleEventImageError`, mirrored inline on this page rather than extracted — every other card page keeps its own copy of the same small handler), the same `-mt-10` overlapping content composition, and `py-2.5` action buttons. Participant-specific content is preserved on top of that shell: Difficulty stays the top-left image badge (not Event Status, since Browse Events only ever lists Upcoming events), Trail name gets its own compact accent-icon row, and the Register/Upload Payment CTA is `RegistrationButtonHelper`'s solid `bg-accent` treatment (the same non-gradient Participant primary-action recipe used by `Participant/Details.cshtml`), not the brand gradient. `trailFilter`/`difficultyFilter`/`sortFilter` are the shared portal-enabled `data-custom-select` component (`wwwroot/js/custom-select.js`); the difficulty options come from `DifficultyCalculator.Bands` rather than a hardcoded, PM-range-suffixed list. Filtering/sorting stays fully client-side and instant (no query-string round trip) — see Known Cleanup re: the still-dead `searchString`/`difficulty`/`trailFilter`/`sortOrder` query parameters `ParticipantController.Events` accepts.
 
 `Views/Participant/Trails.cshtml` (Browse Trails) received the same kind of pass: cards gained `group`/`group-hover:scale-105` image zoom and a broken-thumbnail fallback (`handleTrailImageError`, mirroring `Views/Trail/Index.cshtml`'s own copy) alongside their already-approved content and instant client-side search/sort (unchanged: name+location search, the same eight sort values, no new filter was added — the task explicitly ruled that out). `sortOrder` is now the shared portal-enabled custom select, inheriting `.tg-custom-select-scrollbar` automatically. The bespoke Trail Details modal was replaced with a read-only Participant adaptation of the approved Trail Management View modal — see DESIGN.md, Modals, Participant Trail Details, for the full comparison. Two Participant-facing endpoints on `ParticipantController` back it: `GetTrailEvents` (pre-existing, now guards non-positive ids) and `GetTrailPhotos` (new — a narrow, read-only, Participant-authorized counterpart to the Admin/Organizer-only `TrailController.GetTrailPhotos`, returning photo URL only, no `TrailPhoto.Id`/uploader/file-path data). Both the Additional Photos gallery and the Upcoming Events list guard against a stale response from a previously opened trail populating a newly opened one (an incrementing request token plus `AbortController`), and the Upcoming Events renderer was rebuilt on safe DOM construction (`document.createElement`/`textContent`) — it previously interpolated organizer-entered event fields (title, date, time, difficulty) directly into an `innerHTML` template.
 
-**Remaining:**
-- Feedback page (functionally a wizard, not yet restyled)
-- **All organizer pages** — dashboard, events, registrations, registration details, post-event assessment, event comparison
-- **All admin pages** — dashboard, accounts, records
-- **Reports** (aggregate model validation) — new page, not yet styled
-- Shared: navbar partials, error pages
+**Also complete — Organizer and Admin management pages:** Organizer Dashboard, Trail Management (list plus Add/Edit/View Trail and Deactivate/Deactivated Trails modals — Organizer Trail Details is rendered as the View Trail modal inside this same page; there is no separate Trail Details page), Event Management (list plus Add/Edit Event modals), Organizer Event Details (including the Reschedule Event and Cancel Event modals/flows), Organizer Registrations, Organizer Registration Details (including its Suitability Assessment/SHAP panel — see "Feature-name mapping," above), Post-event Assessment, Event Comparison, Admin Dashboard, Admin Account Management, and Records (Event History and Participant Registrations). All of these use the current glass-card/rounded/dark-surface-token system and route feedback through the global toast host (see "Global Toast Notifications," above) rather than a page-local banner.
 
-Note: `Organizer/RegistrationDetails.cshtml` has a SHAP panel added during earlier feature work, but has **not** been through the UI pass, and (see Explainability above) is currently rendering four SHAP feature names incorrectly regardless of styling.
+Records' Event History and Participant Registrations sections were specifically rewritten onto the same header-`<div>`/row-`<ul>`/`<li>` grid structure `Organizer/Registrations.cshtml` uses (not a literal `<table>`), including matching top/bottom scroll cues. This is scoped to those two Records sections — Admin Account Management, a separate page, still renders its own list as a literal `<table>`.
+
+A handful of destructive actions on these already-modernized pages still confirm through the browser's native `confirm()` instead of the styled confirmation-modal pattern used right next to them on the same page: Delete Trail and Delete Event (`Views/Trail/Index.cshtml`, `Views/Event/Index.cshtml`), and "Mark event as completed" (`Views/Event/Details.cshtml`). This is a minor, isolated polish item, not evidence the surrounding pages haven't been through the UI pass — Deactivate Trail and Cancel Event, sitting right next to these on the same pages, already use the full accessible-modal treatment.
+
+**Remaining:**
+- **Reports** (aggregate model validation) — has the glass/blur basics (`bg-white/5 backdrop-blur-xl border border-white/10`) but hasn't been refined to the rest of the app's current standard: `rounded-3xl` instead of the documented `rounded-xl`/`rounded-2xl` scale, no `bg-surface-*` tokens anywhere, two-tone gradient buttons/badges instead of the accent-token system, and a plain `<table>` confusion matrix with none of the scroll-cue treatment used elsewhere
+- Shared: navbar partials, error pages
 
 ---
 
 ## Known Cleanup / Outstanding Work
 
-- **Antiforgery** — `AutoValidateAntiforgeryTokenAttribute` is the correct end state but would break every `fetch()` POST that sends no token. Only 5 of the state-changing POST actions across the whole app currently carry `[ValidateAntiForgeryToken]`; get an up-to-date per-controller count before scoping this rather than trusting a number written here
 - **`AssessmentResultViewModel`** (used by `Views/Registration/Register.cshtml`) still carries `FitnessScore`/`ExperienceScore`/`HealthScore`/`GearScore` fields. They're populated (by the still-running legacy `Compute*` methods) but not rendered anywhere — the model isn't clean even though the display already was
 - **Ownership checks** — fixed in `RegistrationController` and `ParticipantController`'s feedback endpoints; the rest are unaudited (see Security)
 - **Three-segment confidence donut** for the organizer view — needs the Python service to return all three class probabilities (only the winning class's confidence is stored today) plus a migration to persist them
@@ -881,7 +1061,6 @@ Note: `Organizer/RegistrationDetails.cshtml` has a SHAP panel added during earli
 ## Development Workflow
 
 - Commit per logical phase, not grouped unrelated changes
-- `dotnet build` after significant changes; `npm run build` after any new Tailwind class
 - Run the ML service when testing the assessment flow. There is no fallback path to test anymore — if the ML service is down, the only correct behavior is the form rejecting the submission with an error, not a rule-based result
 - Migrations:
   ```bash
@@ -891,6 +1070,8 @@ Note: `Organizer/RegistrationDetails.cshtml` has a SHAP panel added during earli
 - **Inspect the generated migration before applying** when it warns about data loss. EF has produced a wrong rename here before, matching columns by position rather than name
 - For registration changes, test both participant ownership and organizer access
 - For ML changes, verify the C# mapping (`AssessmentController.BuildMlRequest`, `DifficultyCalculator`) and the Python `FEATURE_COLUMNS`/`acsm_gate.py` contract stay in sync
+
+See "Verification Requirements," under Working in This Repository, for the full per-change-type checklist and reporting format.
 
 ### Working with the planning conversation
 
