@@ -1,0 +1,85 @@
+{
+  "model_version": "v3-real-outcomes",
+  "training_rows": 1200,
+  "unique_participants": 300,
+  "unique_trails": 12,
+  "feature_columns": [
+    "bmi",
+    "exercise_frequency",
+    "cardio_duration",
+    "exercise_consistency",
+    "hiking_experience",
+    "last_hike_recency",
+    "hardest_trail_completed",
+    "gear_score",
+    "has_asthma",
+    "has_cvd",
+    "has_joint_knee_injury",
+    "has_signs_symptoms",
+    "distance_km",
+    "elevation_gain_m",
+    "trail_class",
+    "typical_duration_hours"
+  ],
+  "target": "completed",
+  "hyperparameters": {
+    "objective": "binary:logistic",
+    "eval_metric": "logloss",
+    "n_estimators": 150,
+    "max_depth": 3,
+    "learning_rate": 0.08,
+    "min_child_weight": 10,
+    "subsample": 0.9,
+    "colsample_bytree": 0.9,
+    "monotone_constraints": "(0,1,1,1,1,1,1,1,-1,-1,-1,-1,-1,-1,-1,-1)",
+    "random_state": 42
+  },
+  "monotone_constraints": {
+    "bmi": 0,
+    "exercise_frequency": 1,
+    "cardio_duration": 1,
+    "exercise_consistency": 1,
+    "hiking_experience": 1,
+    "last_hike_recency": 1,
+    "hardest_trail_completed": 1,
+    "gear_score": 1,
+    "has_asthma": -1,
+    "has_cvd": -1,
+    "has_joint_knee_injury": -1,
+    "has_signs_symptoms": -1,
+    "distance_km": -1,
+    "elevation_gain_m": -1,
+    "trail_class": -1,
+    "typical_duration_hours": -1
+  },
+  "thresholds": {
+    "borderline": 0.3,
+    "good_match": 0.8
+  },
+  "cross_validation": {
+    "method": "GroupKFold, 5 splits, grouped by participant_profile_id",
+    "mean_accuracy": 0.9333,
+    "std_accuracy": 0.0224,
+    "fold_accuracies": [
+      0.9292,
+      0.9583,
+      0.9292,
+      0.8958,
+      0.9542
+    ],
+    "safety_critical_errors_per_fold": [
+      10,
+      6,
+      6,
+      22,
+      4
+    ]
+  },
+  "out_of_fold_category_distribution": {
+    "Good Match": 391,
+    "Borderline": 233,
+    "Not Recommended": 576
+  },
+  "out_of_fold_unsafe_good_match": 4,
+  "out_of_fold_over_rejected": 5
+}

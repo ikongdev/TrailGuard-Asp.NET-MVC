@@ -21,3 +21,20 @@ venv/
 *.egg-info/
 
 TrailGuard-ML/expert_*_KEY_DO_NOT_SHARE.csv
+
+# ===== Data files (real participant records — not for version control) =====
+trailguard-ml-v2/data/
+TrailGuard-ML/*.csv
+*.xlsx
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.pyc
+.venv/
+venv/
+env/
+
+# ===== OS =====
+Thumbs.db
+.DS_Store
