@@ -69,12 +69,22 @@ def build_explainer(model):
     return shap.TreeExplainer(model)
 
 
+def is_displayable(name, raw_value):
+    if FEATURE_CATEGORY[name] != MEDICAL:
+        return True
+    return raw_value == 1
+
+
 def build_shap_breakdown(shap_row, feature_values, top_n=TOP_N):
     shap_row = np.asarray(shap_row, dtype=float)
     impacts = np.abs(shap_row)
-    order = np.argsort(-impacts)[:top_n]
 
-    displayed_total = impacts[order].sum()
+    eligible = [i for i in range(len(FEATURE_COLUMNS))
+                if is_displayable(FEATURE_COLUMNS[i], float(feature_values[i]))]
+
+    order = sorted(eligible, key=lambda i: -impacts[i])[:top_n]
+
+    displayed_total = sum(impacts[i] for i in order)
     if displayed_total == 0:
         return []
 

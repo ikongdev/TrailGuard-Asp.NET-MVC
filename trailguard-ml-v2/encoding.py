@@ -69,3 +69,33 @@ def load_and_encode(path, sheet_name="Training_Data"):
     df["completed"] = df["completed"].map(COMPLETED)
 
     return df
+
+CATEGORICAL_MAPS = {
+    "exercise_frequency": EXERCISE_FREQUENCY,
+    "cardio_duration": CARDIO_DURATION,
+    "exercise_consistency": EXERCISE_CONSISTENCY,
+    "hiking_experience": HIKING_EXPERIENCE,
+    "last_hike_recency": LAST_HIKE_RECENCY,
+    "hardest_trail_completed": HARDEST_TRAIL_COMPLETED,
+}
+
+
+class UnknownCategoryError(ValueError):
+    pass
+
+
+def encode_value(field, value):
+    mapping = CATEGORICAL_MAPS[field]
+    if value not in mapping:
+        raise UnknownCategoryError(
+            f"Unrecognised value for {field}: {value!r}. "
+            f"Expected one of: {sorted(mapping)}"
+        )
+    return mapping[value]
+
+
+def encode_request(payload):
+    encoded = dict(payload)
+    for field in CATEGORICAL_MAPS:
+        encoded[field] = encode_value(field, payload[field])
+    return [encoded[col] for col in FEATURE_COLUMNS]
