@@ -20,7 +20,7 @@ namespace TrailGuard.Services
         public static string MedicalClearanceReason(Assessment assessment)
         {
             // The raw screening flag selects the reason, not whether the upload
-            // is required. Python's label-capping GateReason is a separate concept.
+            // is required. The v3 prediction does not alter this combined requirement.
             if (assessment.MedicalClearanceRequired)
                 return "Required because your assessment flagged a health condition that needs medical clearance.";
             return assessment.Result == "Not Recommended"

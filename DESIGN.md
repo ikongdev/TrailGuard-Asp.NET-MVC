@@ -165,16 +165,12 @@ Donut charts use the solid values: `#34d399`, `#fbbf24`, `#f87171`.
 
 The result should be recognisable at a glance, but must not visually imply an automatic approval or rejection. The organizer decides.
 
-### Gate reason
+### Medical clearance
 
-When the ACSM gate has overridden the model's own label (`SuitabilityResult.GateApplied`), the reason is shown in an amber note, not folded silently into the result:
-
-```
-bg-amber-500/10 border border-amber-500/30 rounded-lg p-3
-text-amber-300 text-sm
-```
-
-`fa-shield-halved` icon. Used on the assessment report (`Assessment/Report.cshtml`) wherever `Model.GateApplied` is true.
+Medical clearance is independent of the v3 prediction. The assessment report uses
+the stored C# screening flag for its explanatory wording, while registration screens
+use `RegistrationRulesHelper`'s combined agency-policy requirement. Do not present a
+v3 prediction as an ACSM gate override.
 
 ### Missed-risk highlight
 

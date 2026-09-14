@@ -64,7 +64,6 @@
         ? "grid grid-cols-1 md:grid-cols-2 gap-6 mt-6"
         : "grid grid-cols-1 gap-6 mt-6";
 
-    var gateReason = ViewBag.GateReason as string;
     var hasMlPrediction = ViewBag.HasMlPrediction == true;
     var shapFactors = hasMlPrediction ? (ViewBag.ShapFactors as List<ShapDisplayItem> ?? new List<ShapDisplayItem>()) : new List<ShapDisplayItem>();
     var supportedFactors = shapFactors.Where(f => f.IsPositive).ToList();
@@ -364,26 +363,18 @@
                     <p class="text-lg font-semibold @resultTextClass(Model.Assessment.Result)">@(string.IsNullOrEmpty(Model.Assessment.Result) ? "No result available" : Model.Assessment.Result)</p>
                 </div>
                 <div>
-                    <p class="text-gray-500 text-[11px] uppercase tracking-wider">Model Confidence</p>
+                    <p class="text-gray-500 text-[11px] uppercase tracking-wider">Estimated completion chance</p>
                     @if (hasMlPrediction)
                     {
-                        <p class="text-accent font-semibold text-lg">@(((double)ViewBag.MlConfidence * 100).ToString("0.0"))%</p>
+                        <p class="text-accent font-semibold text-lg">@(((double)ViewBag.MlCompletionProbability * 100).ToString("0.0"))%</p>
                     }
                     else
                     {
-                        <p class="text-gray-500 text-sm">Confidence unavailable</p>
+                        <p class="text-gray-500 text-sm">Completion estimate unavailable</p>
                     }
                 </div>
             </div>
 
-            @if (clearanceRequired && !string.IsNullOrWhiteSpace(gateReason))
-            {
-                <div class="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 mb-5">
-                    <p class="text-amber-300 text-sm">
-                        <i class="fa-solid fa-shield-halved mr-1.5" aria-hidden="true"></i>@gateReason
-                    </p>
-                </div>
-            }
 
             @if (!hasMlPrediction)
             {
@@ -409,7 +400,7 @@
                                 {
                                     <div>
                                         <div class="flex justify-between items-center text-xs mb-1.5 gap-3">
-                                            <span class="text-gray-300 wrap-break-word">@factor.FriendlyName</span>
+                                            <span class="text-gray-300 wrap-break-word">@factor.FriendlyName <span class="text-gray-500">(@factor.Category)</span></span>
                                             <span class="text-emerald-400 font-semibold shrink-0">
                                                 <i class="fa-solid fa-arrow-up mr-1" aria-hidden="true"></i>Supported (@factor.BarWidth.ToString("0.0")%)
                                             </span>
@@ -435,7 +426,7 @@
                                 {
                                     <div>
                                         <div class="flex justify-between items-center text-xs mb-1.5 gap-3">
-                                            <span class="text-gray-300 wrap-break-word">@factor.FriendlyName</span>
+                                            <span class="text-gray-300 wrap-break-word">@factor.FriendlyName <span class="text-gray-500">(@factor.Category)</span></span>
                                             <span class="text-red-400 font-semibold shrink-0">
                                                 <i class="fa-solid fa-arrow-down mr-1" aria-hidden="true"></i>Weakened (@factor.BarWidth.ToString("0.0")%)
                                             </span>

@@ -84,21 +84,8 @@ namespace TrailGuard.Controllers
                 EventTitle = eventItem.EventTitle,
                 EventDifficulty = eventItem.Difficulty,
                 Result = assessment.Result ?? "Not Recommended",
-                TotalScore = assessment.TotalScore ?? 0,
-                MaxScore = 44,
-                FitnessScore = assessment.FitnessScore ?? 0,
-                FitnessMax = 12,
-                ExperienceScore = assessment.ExperienceScore ?? 0,
-                ExperienceMax = 12,
-                HealthScore = assessment.HealthScore ?? 0,
-                HealthMax = 12,
-                GearScore = assessment.GearScore ?? 0,
-                GearMax = 8,
-                RiskFlags = new List<string>(),
-                Recommendations = new List<string>(),
-                AlternativeEvents = new List<Event>(),
                 HasMlPrediction = suitabilityResult != null,
-                ConfidenceScore = suitabilityResult?.ConfidenceScore ?? 0
+                CompletionProbability = suitabilityResult?.CompletionProbability ?? 0
             };
 
             ViewBag.Event = eventItem;
@@ -452,7 +439,7 @@ namespace TrailGuard.Controllers
             }
 
             var shapFactors = suitabilityResult != null
-                ? ShapHelper.BuildDisplayItems(suitabilityResult.ShapValues, 3)
+                ? ShapHelper.BuildDisplayItems(suitabilityResult.ShapValues)
                 : new List<ShapDisplayItem>();
 
             return Json(new
@@ -482,12 +469,12 @@ namespace TrailGuard.Controllers
                     emergencyContactName = registration.EmergencyContactName,
                     emergencyContactNumber = registration.EmergencyContactNumber,
                     assessmentResult = registration.Assessment?.Result,
-                    assessmentScore = registration.Assessment?.TotalScore,
                     hasMlPrediction = suitabilityResult != null,
-                    confidenceScore = suitabilityResult?.ConfidenceScore,
+                    completionProbability = suitabilityResult?.CompletionProbability,
                     shapFactors = shapFactors.Select(f => new
                     {
                         friendlyName = f.FriendlyName,
+                        category = f.Category,
                         isPositive = f.IsPositive,
                         barWidth = f.BarWidth
                     }),

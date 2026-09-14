@@ -21,8 +21,8 @@
     var trailTerrain = eventItem != null ? eventItem.TrailTerrainSnapshot : null;
     var trailName = eventItem != null ? eventItem.TrailNameSnapshot : null;
 
-    var confidencePct = Math.Round((Model?.ConfidenceScore ?? 0) * 100, 1);
-    var confidenceDisplay = confidencePct.ToString("0.0");
+    var completionProbabilityPct = Math.Round((Model?.CompletionProbability ?? 0) * 100, 1);
+    var completionProbabilityDisplay = completionProbabilityPct.ToString("0.0");
 
     // What registration will actually ask for - same trigger RegistrationRulesHelper
     // uses, computed once in the controller so this can't drift from the form again.
@@ -72,8 +72,8 @@
                 <div class="relative shrink-0" style="width: 120px; height: 120px;">
                     <canvas id="confidenceDonutChart" width="120" height="120"></canvas>
                     <div class="absolute inset-0 flex flex-col items-center justify-center">
-                        <span class="text-xl font-bold text-white">@confidenceDisplay%</span>
-                        <span class="text-[8px] text-gray-400">confidence</span>
+                        <span class="text-xl font-bold text-white">@completionProbabilityDisplay%</span>
+                        <span class="text-[8px] text-gray-400">completion chance</span>
                     </div>
                 </div>
             }
@@ -138,15 +138,6 @@
 
             <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-6">
                 <h2 class="text-lg font-bold text-white mb-4"><i class="fa-solid fa-mountain text-accent mr-2"></i>Trail Demands</h2>
-                @if (Model?.HasMlPrediction == true)
-                {
-                    <p class="text-sm text-gray-400 mb-4">
-                        This trail rates <span class="text-white font-semibold">@Model.NpsScore.ToString("0.0")</span> on the NPS Shenandoah hiking difficulty scale,
-                        which maps onto the PinoyMountaineer difficulty tier
-                        <span class="text-white font-semibold">@Model.NpsBand</span>
-                        <span class="text-gray-500">(@TrailGuard.Services.DifficultyCalculator.PmRangeFor(Model.NpsBand))</span>.
-                    </p>
-                }
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <div class="flex justify-between text-sm mb-1">
@@ -203,32 +194,23 @@
                             <i class="fa-solid fa-brain text-accent mr-2"></i>Why This Result?
                         </h2>
                         <div class="text-right">
-                            <div class="text-xs text-gray-400">Model Confidence</div>
-                            <div class="text-lg font-bold text-accent">@confidenceDisplay%</div>
+                            <div class="text-xs text-gray-400">Estimated completion chance</div>
+                            <div class="text-lg font-bold text-accent">@completionProbabilityDisplay%</div>
                         </div>
                     </div>
                     <p class="text-sm text-gray-400 mb-1">
                         These are the factors that most influenced your assessment result.
                     </p>
                     <p class="text-xs text-gray-500 mb-5">
-                        Confidence reflects how certain the model is that this result matches its trained rules. It does not measure whether the recommendation is right for you.
+                        This is the model's estimated chance that you will complete this trail, based on outcomes from past participants. It supports the organizer's decision rather than replacing it.
                     </p>
-
-                    @if (Model.GateApplied)
-                    {
-                        <div class="mb-5 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-                            <p class="text-amber-300 text-sm">
-                                <i class="fa-solid fa-shield-halved mr-1"></i> @Model.GateReason
-                            </p>
-                        </div>
-                    }
 
                     <div class="space-y-4">
                         @foreach (var factor in Model.ShapFactors)
                         {
                             <div>
                                 <div class="flex justify-between items-center text-sm mb-1.5">
-                                    <span class="text-gray-300">@factor.FriendlyName</span>
+                                    <span class="text-gray-300">@factor.FriendlyName <span class="text-gray-500 text-xs">(@factor.Category)</span></span>
                                     <span class="@(factor.IsPositive ? "text-emerald-400" : "text-red-400") font-semibold text-xs">
                                         <i class="fa-solid @(factor.IsPositive ? "fa-arrow-up" : "fa-arrow-down") mr-1"></i>
                                         @(factor.IsPositive ? "Helped" : "Reduced") · @factor.BarWidth.ToString("0.#")%
@@ -327,8 +309,8 @@
                     @if (Model?.HasMlPrediction == true)
                     {
                         <div class="flex justify-between">
-                            <span class="text-gray-400">Model Confidence</span>
-                            <span class="text-accent font-semibold">@confidenceDisplay%</span>
+                            <span class="text-gray-400">Estimated completion chance</span>
+                            <span class="text-accent font-semibold">@completionProbabilityDisplay%</span>
                         </div>
                     }
                     <div class="flex justify-between">
@@ -422,15 +404,15 @@
     document.addEventListener('DOMContentLoaded', function() {
         var ctx = document.getElementById('confidenceDonutChart')?.getContext('2d');
         if (ctx) {
-            var confidencePct = @confidencePct;
+            var completionProbabilityPct = @completionProbabilityPct;
             var color = '@donutColor';
 
             new Chart(ctx, {
                 type: 'doughnut',
                 data: {
-                    labels: ['Confidence', 'Remaining'],
+                    labels: ['Completion chance', 'Remaining'],
                     datasets: [{
-                        data: [confidencePct, 100 - confidencePct],
+                        data: [completionProbabilityPct, 100 - completionProbabilityPct],
                         backgroundColor: [color, '#374151'],
                         borderWidth: 0,
                         cutout: '72%'

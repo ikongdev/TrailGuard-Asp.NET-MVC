@@ -45,13 +45,8 @@ namespace TrailGuard.Models
         // Consent
         public bool ConsentGiven { get; set; }
 
-        // Computed Fields
+        // Model result
         public string? Result { get; set; }
-        public int? TotalScore { get; set; }
-        public int? FitnessScore { get; set; }
-        public int? ExperienceScore { get; set; }
-        public int? HealthScore { get; set; }
-        public int? GearScore { get; set; }
 
         // ✅ BAGONG PROPERTY: Soft Delete
         public bool IsActive { get; set; } = true;

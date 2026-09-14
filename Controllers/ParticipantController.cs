@@ -77,7 +77,7 @@ namespace TrailGuard.Controllers
                     Result = latestAssessment.Result ?? "Not Recommended",
                     Description = GetAssessmentDescription(latestAssessment.Result ?? ""),
                     SubmittedAt = latestAssessment.SubmittedAt,
-                    ConfidenceScore = suitabilityResult?.ConfidenceScore ?? 0,
+                    CompletionProbability = suitabilityResult?.CompletionProbability ?? 0,
                     HasMlPrediction = suitabilityResult != null,
                     AssessmentId = latestAssessment.Id,
                     EventId = latestEvent?.Id ?? 0,

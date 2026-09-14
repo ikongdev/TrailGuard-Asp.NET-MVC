@@ -10,12 +10,10 @@ This document is the single shared context for anyone — human or coding agent 
 
 ## Active migration
 
-A v3 model rebuild is underway. `PLAN.md` supersedes specific rules in this document
-for the items it names, and only those. Every other rule here still applies in full.
-This file describes the running v2 system and is updated stage by stage, never in advance.
-Stage 1 adds recorded Trail duration and its Event snapshot; the running v2 ML request
-and difficulty calculation remain unchanged. See `scripts/STAGE1.md` for the user-run
-development catalog replacement procedure.
+The v3 cutover is complete. `PLAN.md` supersedes specific rules in this document for
+the items it names, and only those. The running assessment contract uses
+`trailguard-ml-v2/`; the legacy `TrailGuard-ML/` directory remains on disk until the
+user has verified v3 serving end to end.
 
 ---
 
@@ -45,11 +43,11 @@ Three processes, two of them required.
 ### Terminal 1 — ML service (required)
 
 ```bash
-cd TrailGuard-ML
+cd trailguard-ml-v2
 python -m uvicorn main:app --reload --port 8000
 ```
 
-Must be run from inside `TrailGuard-ML/` — `main.py` loads the model files (`trailguard_xgboost_model_v2.json`, `label_encoder_v2.pkl`, `trailguard_synthetic_dataset_v2.csv`) from the current directory.
+Must be run from inside `trailguard-ml-v2/` so `main.py` can load its v3 model and metadata files from the current directory.
 
 ### Terminal 2 — Web application (required)
 
@@ -123,14 +121,14 @@ git log -1 --oneline
 These are the highest-risk rules in this document, gathered here for visibility. Each links to the section with its full rationale and current detail:
 
 - The ML service is the only suitability mechanism; never add or restore a rule-based fallback — see "ML Failure — No Fallback."
-- The ACSM gate can only lower a model label, never raise one — see "ML Labels and the ACSM Gate."
+- ACSM clearance is a registration requirement calculated independently of the v3 label — see "ML Labels and the ACSM Gate."
 - The organizer makes the final registration decision; ML output is decision support, never automatic approval or rejection — see "Decision-Making Rule."
 - Never reintroduce legacy category-score bars or other rule-based results beside an ML prediction — see "ML Failure — No Fallback."
-- Confidence displays the real predicted-class probability, one decimal place, uncapped — see "Confidence Display."
+- Completion probability displays the model's calibrated completion estimate, one decimal place and uncapped — see "Completion-probability display."
 - `AssessmentController.BuildMlRequest` and the Python `FEATURE_COLUMNS` are a cross-language contract; check both sides before changing any input, mapping, type, or feature order — see "Feature Mapping."
 - An unrecognized categorical answer or SHAP feature name must fail explicitly, never silently default — see "Feature Mapping" and "Explainability."
 - Weather stays a separate event advisory, never an ML feature — see "Weather and ML."
-- Difficulty ordering/display use the terrain-adjusted rating, never the plain NPS value, and the Python/C# implementations must be changed together — see "Difficulty Bands."
+- Difficulty ordering/display use the terrain-adjusted rating, never the plain NPS value — see "Difficulty Bands."
 - Preserve antiforgery protection, authorization, role boundaries, and ownership checks on every changed endpoint — see "Security."
 - Reuse an established `DESIGN.md` pattern before introducing a new one; don't add a second modal-visibility mechanism, card hover-scaling, or undocumented radius.
 
@@ -219,52 +217,22 @@ Concretely: `GetResult()`'s trail-demand formula was never reconciled with the N
 
 ---
 
-## ML Pipeline (`TrailGuard-ML/`)
+## ML Pipeline (`trailguard-ml-v2/`)
 
 | File | Purpose |
 |---|---|
-| `acsm_gate.py` | Single source of truth for the NPS Shenandoah rating, the difficulty-band tiering, and the ACSM preparticipation gate. Imported by both `generate_synthetic_dataset.py` and `main.py` so training-time and serving-time logic can't diverge |
-| `generate_synthetic_dataset.py` | Generates the 6,000-row v2 synthetic training dataset; defines `FEATURE_COLUMNS` (the 14-feature contract) and `TERRAIN_MULTIPLIER` |
-| `train_model.py` | Trains the v2 XGBoost model with monotonic constraints on 13 of 14 features |
-| `evaluate_safety.py` | Sensitivity, monotonicity, and safety-regression checks; source of the safety tables in `MODEL.md` |
-| `evaluate_gate_breakdown.py` | Reproduces the ACSM gate's rule-by-rule override statistics for `MODEL.md`, cross-checked against the dataset's own stored `suitability_label`/`gate_reason` columns |
-| `main.py` | FastAPI service exposing `POST /predict` and `GET /model-info` |
-| `trailguard_xgboost_model_v2.json` | Trained v2 model (committed; loaded by `main.py`) |
-| `label_encoder_v2.pkl` | v2 class index → label mapping (committed; loaded by `main.py`) |
-| `trailguard_synthetic_dataset_v2.csv` | v2 training data, 6,000 rows; also reloaded by `main.py` at startup to compute a live test-accuracy figure for `/model-info` |
+| `main.py` | FastAPI v3 service exposing `POST /predict` and `GET /model-info` |
+| `encoding.py` | The authoritative 16-feature order and categorical encodings |
+| `explainer.py` | Categorised SHAP output and the canonical recommendation-selection rule |
+| `trailguard_model.json` / `model_metadata.json` | The trained v3 model and its feature/threshold metadata |
 
-`tune_model.py` and `test_shap.py` no longer exist.
+The service encodes the raw categorical answers itself, returns a calibrated
+`completion_probability`, and includes all 16 categorised SHAP values. It rejects an
+unknown categorical answer with HTTP 422. Its three display labels remain Good Match,
+Borderline, and Not Recommended; they are thresholds over a binary completion model.
 
-The v1 files — `trailguard_xgboost_model.json`, `label_encoder.pkl`, `trailguard_synthetic_dataset.csv` — are still present on disk but are **not loaded by anything**. They exist only as the "before" side of the v1-vs-v2 comparisons in `MODEL.md`. Don't treat their presence as meaning v1 is still in use.
-
-### Current model performance
-
-```
-Version:                  v2-acsm   (superseded: v1-synthetic)
-Accuracy:                  91.42%   (v1: 80.50%)
-Weighted F1:               0.9151   (v1: 0.8100)
-Fidelity to the rule engine: 95.22% (v1: 80.50%)
-Dataset:            6,000 rows, 14 features   (v1: 2,000 rows, 27 features)
-```
-
-These are the figures after the model was retrained to include Trail Class 4 (Simple Climbing) — every table in `MODEL.md` has been re-measured against that retrain; an earlier v2 build reported 91.75%/95.12%, which is superseded and appears only in `MODEL_EXPLAINED_EN.md`'s narrative.
-
-These figures describe performance on **synthetic** data, measured against the project's own rule engine. They must not be presented as accuracy on real hikers — see "Known limitations" in `MODEL.md` for what independent validation exists and doesn't.
-
-### Synthetic dataset basis
-
-Cite these in the manuscript:
-
-- **Trail demand** — NPS Shenandoah difficulty formula: `sqrt(elevation_gain_ft × 2 × distance_mi)`. Fed to the model directly as a feature (`trail_shenandoah_score`), not merely used to derive labels — this is the principal cause of the accuracy gain over v1
-- **Terrain multiplier** — 1.00 / 1.15 / 1.35 / 1.60 across the four PinoyMountaineer Trail Classes (Walking / Hiking / Scrambling / Simple Climbing). Fitted against 28 Philippine mountains with published PinoyMountaineer difficulty ratings (Spearman rho 0.859; see "Difficulty Bands" below)
-- **Fitness/health screening** — 2015 ACSM preparticipation screening algorithm: Riebe D, Franklin BA, Thompson PD, Garber CE, Whitfield GP, Magal M, Pescatello LS. *Updating ACSM's Recommendations for Exercise Preparticipation Health Screening.* Med Sci Sports Exerc. 2015;47(11):2473–2479
-- **BMI** — WHO BMI classification for adults
-- **Gear** — Ten Essentials Systems (The Mountaineers). The eight individual gear items remain on the participant checklist and drive the Recommendations panel; for the model they're collapsed into a single `gear_score` feature
-- **Health** — an ACSM preparticipation clearance **gate**, not weighted binary flags (see "ML Labels and the ACSM Gate" below)
-
-Labels come from a **demand-to-capacity ratio**, not z-score thresholding: `demand = trail_shenandoah_score × TERRAIN_MULTIPLIER[trail_class]`, compared against a participant readiness/capacity score and thresholded into Good Match / Borderline / Not Recommended. The ACSM gate is then applied on top of that label and can only lower it, never raise it.
-
-Several constants feeding this remain `PENDING EXPERT ELICITATION` in `generate_synthetic_dataset.py`: the readiness component weights, the capacity range, the exact ratio thresholds, and the joint-injury gate rule (the one gate rule with no ACSM basis).
+`TrailGuard-ML/` is retained temporarily for rollback and comparison only. It is not
+the running service and must not be modified as part of the v3 contract.
 
 ---
 
@@ -332,11 +300,15 @@ Age, height, and weight are range-validated **in JavaScript**. Native HTML `min`
 
 ## Feature Mapping
 
-`AssessmentController.BuildMlRequest` maps raw form answers into the 14 values the Python model expects. It uses a generic `MapScore(dictionary, value, fieldName)` helper against named lookup dictionaries (`ExerciseFrequencyMap`, `CardioEnduranceMap`, `ExerciseConsistencyMap`, `MountainsClimbedMap`, `RecencyOfHikeMap`, `TrailDifficultyCompletedMap`) — an answer that doesn't match a dictionary entry **throws** rather than silently defaulting to 0, since a silent default could make an unfit participant look fit, or vice versa. `trail.TrailClass` is sent straight through as `trail_terrain_type`; no separate mapping method is needed since `TrailClass` is already the 1–4 the model expects (and `BuildMlRequest` throws if it isn't).
+`AssessmentController.BuildMlRequest` sends the 16 v3 features. The six categorical
+answers are the exact raw strings accepted by `trailguard-ml-v2/encoding.py`; Python
+is the only encoder. An unknown string returns HTTP 422, which returns the form with
+a safe correction message and logs Python's detailed expected-values response.
 
-The legacy `ComputeFitnessScore` / `ComputeExperienceScore` / `ComputeHealthScore` / `ComputeMlGearScore` methods still run and still populate `Assessment.FitnessScore` / `ExperienceScore` / `HealthScore` / `GearScore` / `TotalScore` — **but they no longer feed the ML request.** `BuildMlRequest` computes the model's features independently, from the same raw form values. These legacy fields are stored on `Assessment` and rendered nowhere in the current UI; see Known Cleanup.
-
-Don't alter `BuildMlRequest`'s field mapping without checking the Python `FEATURE_COLUMNS` contract on both sides (`generate_synthetic_dataset.py` / `acsm_gate.py`).
+Trail fields come only from the Event snapshot, including
+`TrailDurationHoursSnapshot` as `typical_duration_hours`; never use editable
+`EstimatedDuration`. `TrailClassSnapshot` outside 1–4 fails safely. Legacy score
+methods and score columns were removed in Stage 4.
 
 ---
 
@@ -346,16 +318,9 @@ The API returns `"Good Match"` (space). The application uses `"Good-Match"` (hyp
 
 Keep this — changing every usage site is riskier than the conversion.
 
-`main.py`'s `/predict` applies an independent post-prediction safety check — the ACSM gate (`acsm_gate.apply_acsm_gate`) — after the model produces its label. **The gate can only lower a label, never raise one**, and runs four rules:
-
-1. Signs or symptoms present (`has_cvd_symptoms`) → capped at Not Recommended, medical clearance required, regardless of fitness or intensity
-2. Known CVD (`has_cvd`) and physically inactive → capped at Not Recommended, clearance required
-3. Known CVD, physically active, vigorous-intensity trail → capped at Borderline, clearance required
-4. Joint or knee injury on Trail Class ≥3 or a high-demand trail → capped at Borderline, no clearance flag (`PENDING EXPERT ELICITATION` — the one gate rule with no ACSM source)
-
-Asthma deliberately triggers no gate rule — ACSM treats pulmonary disease as not an automatic referral, unlike cardiovascular disease.
-
-The gate exists because the v2 model alone still occasionally predicts Good Match for a case the rules call Not Recommended (0.83 per 1,000 test rows, vs. 0 for v1). Applying the gate reduces that to 0. `SuitabilityResult.GateApplied` / `GateReason` record whether and why it fired for a given prediction. The Python response still includes `medical_clearance_required`, but Stage 2 no longer copies it into `Assessment.MedicalClearanceRequired`. The C# screening service supplies that stored flag; Python's label and gate metadata remain unchanged.
+v3 returns a binary-model probability thresholded into the same three labels. It has
+no Python ACSM gate and no `GateApplied`, `GateReason`, `ModelLabel`, NPS, or v2
+confidence fields. `NormalizeLabel()` remains the space/hyphen boundary.
 
 ### Stage 2 — C# clearance screening
 
@@ -372,11 +337,8 @@ Rules 2/3 collapse to known CVD because organized mountain hiking is 6.0–7.0 M
 at or above the 6.0 vigorous threshold. The agency's Not Recommended requirement is
 separate and belongs exclusively in `RegistrationRulesHelper`.
 
-**Intentional tightening:** active participants with known CVD now require clearance
-on every Trail, including adjusted demand below 100 where v2's Python clearance flag
-could be false. Python still serves and caps labels exactly as before. Existing
-Assessment flags are retained, not retrospectively recalculated; newly completed
-assessments use C# screening.
+**Intentional tightening:** active participants with known CVD require clearance on
+every Trail. This registration requirement is independent of the v3 prediction.
 
 **Outage visibility was explicitly deferred by the user.** ML failure still produces
 no result and saves no assessment or screening record. No partial assessment or new
@@ -387,7 +349,7 @@ visibility proposal without changing the "ML Failure — No Fallback" rule.
 
 ## Difficulty Bands
 
-`trail_shenandoah_score` (the plain NPS rating) is the only difficulty input the model itself sees. The **Event Difficulty** band shown to users — on event, report, and organizer pages, and as `SuitabilityResult.NpsBand` / `PredictionResponse.nps_band` — is a separate, deterministic step: the NPS rating is multiplied by the trail's `TrailClass` multiplier to get an *adjusted rating*, which is then mapped onto one of four PinoyMountaineer-derived tiers.
+The **Event Difficulty** band shown to users is a separate deterministic display calculation. It uses the NPS rating multiplied by the trail's `TrailClass` multiplier to get an *adjusted rating*, which is then mapped onto one of four PinoyMountaineer-derived tiers. It is no longer a v3 ML input or API/result field.
 
 | Adjusted rating | Band | PinoyMountaineer level |
 |---|---|---|
@@ -400,9 +362,9 @@ These replace the published NPS bands (50/100/150/200), which are calibrated for
 
 **This is not the PinoyMountaineer scale itself.** The system computes the NPS Shenandoah rating and maps it onto PinoyMountaineer difficulty tiers using boundaries calibrated on 28 Philippine mountains (82% exact-tier agreement, 100% agreement within one tier, Spearman rho 0.859). Applying PM's own written rule (duration + trail class) directly reproduced the same mountains' published ratings only 50% of the time — multi-day status in the Philippines often reflects logistics (e.g. camping for sunrise) rather than difficulty. **The 82%/100%/0.859 figures were measured on the same 28-mountain sample the boundaries were fitted to** — independent validation on mountains outside that sample hasn't been done; this is documented as a limitation in `MODEL.md`.
 
-This logic is duplicated deliberately in two places that must be changed together:
-- Python: `acsm_gate.shenandoah_rating()` / `nps_band()` (training and serving)
-- C#: `Services/DifficultyCalculator.cs` — `ComputeRating`/`ComputeAdjustedRating`/`LabelFor` (event/report/organizer pages)
+`Services/DifficultyCalculator.cs` computes this display-only Event Difficulty in C#.
+v3 does not consume the NPS rating or band, so there is no Python counterpart to
+keep synchronized after the v2 service is retired.
 
 Sort and compare by the **adjusted** rating, not the plain one — ordering by the plain NPS score would rank a short Class 4 trail as easier than a long Class 1 walk.
 
@@ -635,44 +597,37 @@ See "Weather and ML" and "Weather implementation notes," above, for the broader 
 
 ## Explainability
 
-Required, not optional. Every ML prediction is accompanied by an explanation when SHAP data exists.
+Every v3 prediction returns and persists all 16 raw SHAP factors in `shap_all`.
+Python separately produces `shap_breakdown`: the visible top five, with medical rows
+whose raw value is `0` excluded and shares that sum to 100% of that displayed set.
+`ShapHelper` validates both lists before the assessment transaction begins and stores
+the Python display order, names, and shares without recalculating them.
 
-### Participant
+The four categories are `actionable` (exercise frequency, cardio duration, exercise
+consistency, gear), `context` (BMI and hiking history), `medical`, and `trail`.
+Recommendations are a direct port of `trailguard-ml-v2/explainer.py`'s selection:
+all factors are scanned; only negative actionable factors at least 2% of total
+absolute impact qualify; the three most negative are shown. Context, medical, and
+trail factors never become recommendations.
 
-Assessment report shows: result → confidence → "Why This Result?" → SHAP factors → recommendations.
-
-SHAP factors use **Helped / Reduced** with a percentage representing that factor's share of total displayed impact.
-
-Recommendations are **derived from negative SHAP factors**, not score thresholds. Trail-side features (`trail_shenandoah_score`, `trail_terrain_type`) are excluded — the participant can't act on them.
-
-### Organizer
-
-Registration review shows an "Assessment Explanation" panel using **Supported / Weakened**, with a disclaimer that the ML result is decision support only.
-
-### Feature-name mapping — single shared source
-
-`Services/ShapHelper.cs` is the single shared display logic and friendly feature-name mapping, reused by every page that renders SHAP factors: `AssessmentController` (the Assessment Report page), `RegistrationController.cs` (the My Registrations SHAP modal, participant-facing), and `OrganizerController.cs` (the RegistrationDetails Suitability Assessment panel) all call `ShapHelper.BuildDisplayItems`/`ShapHelper.GetFriendlyFeatureName` — none of them holds a second, private copy. `GetFriendlyFeatureName` covers all 14 v2 features and **throws** on an unrecognized name rather than silently falling through to the raw snake_case string, so a Python-side feature-contract change that isn't mirrored here fails loudly instead of rendering `has_cvd_symptoms` to an organizer or participant.
-
-This file previously documented two divergent copies of this mapping (a stale v1 27-feature `ShapHelper` plus a separate, correct, private v2 copy inside `AssessmentController`) as a known, unfixed bug. That has since been resolved — confirmed by searching the repository for every `GetFriendlyFeatureName`/`BuildDisplayItems` call site — and this section is corrected to describe the current, single-mapping state.
+`ShapHelper` is the shared C# mapping for every renderer. It throws for unknown names
+or mismatched categories so a Python contract change cannot become unsafe raw text.
 
 ---
 
-## Confidence Display
+## Completion-probability display
 
-Displayed to one decimal place, **raw — no cap**. It was previously capped at 99.9% in six locations; the cap hid a real, measured property of the model rather than fixing anything: a meaningful share of predictions saturate near 100% because the training labels are near-deterministic. That is documented as a known limitation in [`./MODEL.md`](./MODEL.md); capping the UI while documenting the saturation in the model card meant the two contradicted each other, and the model card is what gets read at defense. **The cap has been removed and must not be re-added** — it was already documented as deliberate once (commit `1939df0`) and the file you're reading is what would mislead a future session into restoring it.
+`CompletionProbability` is displayed to one decimal place, raw and uncapped. It is a
+calibrated estimate that the participant completes this trail, based on past
+participant outcomes; it is not v2's winning-class confidence.
 
-```
-MODEL.md               — model card, versions, metrics, limitations
-MODEL_EXPLAINED_EN.md  — narrative on why v1 was rebuilt into v2
-```
+Participant context reads: "This is the model's estimated chance that you will
+complete this trail, based on outcomes from past participants. It supports the
+organizer's decision rather than replacing it."
 
-Shown to participants in: the participant dashboard, the My Registrations modal, and the assessment report (both the main panel and the sidebar). Also shown to organizers in RegistrationDetails, without the context line below (organizers get the disclaimer that ML is decision support only, covered under Explainability instead).
-
-Wherever confidence is shown to a **participant**, it carries one line of context beneath it: "Confidence reflects how certain the model is that this result matches its trained rules. It does not measure whether the recommendation is right for you." Calibration measurement backs this precise a claim and no more — measured against the Trail Class 4 retrain: below 70% confidence the model agrees with the rule engine 68.6% of the time (245 cases), 70–90% agrees 93.9% (376 cases), 90–99% agrees 99.0% (291 cases), above 99% agrees 100.0% (288 cases). The number predicts agreement with the model's own training rules, not real-world correctness — don't word this line to imply the latter.
-
-When there's no `SuitabilityResult` — the ML service was unreachable and the assessment was rejected rather than falling back to a rule-based guess (see "ML Failure — No Fallback") — show the label without a confidence value. Don't leave an empty space and don't invent one.
-
-Only a single confidence figure (the winning class's probability) is stored per `SuitabilityResult`, not the full three-class distribution — see Known Cleanup re: the three-segment confidence donut.
+When there is no `SuitabilityResult`, the ML service was unreachable and the
+assessment was rejected rather than falling back to a rule-based guess. One calibrated
+completion probability is stored per `SuitabilityResult`.
 
 ---
 
@@ -742,8 +697,7 @@ never Voluntary, even when the stored screening flag is false.
 `AcsmMedicalClearanceRequired` solely to select explanatory wording, alongside the
 combined `RequiresMedicalClearance`. Organizer list models expose only the combined
 `RequiresMedicalClearance`. `RegistrationRulesHelper.MedicalClearanceReason` distinguishes
-screening from agency policy in registration/document explanations; Python's `GateReason`
-remains separate label-explanation metadata.
+screening from agency policy in registration/document explanations.
 
 The former "with conditions" row was stale. `HasAnyMedicalCondition` and its unused
 Registration ViewBag/local were removed; selecting any condition is not itself the
@@ -1146,7 +1100,6 @@ A handful of destructive actions on these already-modernized pages still confirm
 
 ## Known Cleanup / Outstanding Work
 
-- **`AssessmentResultViewModel`** (used by `Views/Registration/Register.cshtml`) still carries `FitnessScore`/`ExperienceScore`/`HealthScore`/`GearScore` fields. They're populated (by the still-running legacy `Compute*` methods) but not rendered anywhere — the model isn't clean even though the display already was
 - **Ownership checks** — fixed in `RegistrationController` and `ParticipantController`'s feedback endpoints; the rest are unaudited (see Security)
 - **Three-segment confidence donut** for the organizer view — needs the Python service to return all three class probabilities (only the winning class's confidence is stored today) plus a migration to persist them
 - **Seed data** should be regenerated once the system is finalised; registration seeding is currently commented out

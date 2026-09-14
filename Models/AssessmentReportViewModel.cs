@@ -14,14 +14,10 @@ namespace TrailGuard.Models
         public Dictionary<string, string> Answers { get; set; } = new Dictionary<string, string>();
 
         public bool HasMlPrediction { get; set; }
-        public double ConfidenceScore { get; set; }
+        public double CompletionProbability { get; set; }
         public string ModelVersion { get; set; } = string.Empty;
         public List<ShapDisplayItem> ShapFactors { get; set; } = new List<ShapDisplayItem>();
 
-        public double NpsScore { get; set; }
-        public string NpsBand { get; set; } = string.Empty;
-        public bool GateApplied { get; set; }
-        public string GateReason { get; set; } = string.Empty;
         // Raw stored screening, used only to explain the reason for clearance.
         public bool AcsmMedicalClearanceRequired { get; set; }
 

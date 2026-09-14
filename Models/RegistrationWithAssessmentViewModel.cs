@@ -20,11 +20,9 @@ namespace TrailGuard.Models
         public string? EmergencyContactNumber { get; set; }
         public int? AssessmentId { get; set; }
         public string? AssessmentResult { get; set; }
-        public int? AssessmentTotalScore { get; set; }
 
-        // 0-1 scale, mirroring SuitabilityResult.ConfidenceScore - the list
-        // displays this as the winning class's confidence percentage.
-        public double? AssessmentConfidence { get; set; }
+        // 0-1 calibrated estimate that the participant completes the trail.
+        public double? CompletionProbability { get; set; }
         public string? MedicalConditions { get; set; }
         public string? FitnessLevel { get; set; }
         public string? HikingExperience { get; set; }

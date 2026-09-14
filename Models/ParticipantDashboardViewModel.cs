@@ -39,7 +39,7 @@ namespace TrailGuard.Models
         public string Description { get; set; } = string.Empty;
         public DateTime SubmittedAt { get; set; }
 
-        public double ConfidenceScore { get; set; }
+        public double CompletionProbability { get; set; }
         public bool HasMlPrediction { get; set; }
 
         public int AssessmentId { get; set; }

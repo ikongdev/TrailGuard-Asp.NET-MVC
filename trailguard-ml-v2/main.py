@@ -66,6 +66,14 @@ class ShapFactor(BaseModel):
     direction: str
 
 
+class ShapAllFactor(BaseModel):
+    feature: str
+    friendly_name: str
+    category: str
+    raw_value: float
+    shap_value: float
+
+
 class RecommendationTarget(BaseModel):
     feature: str
     friendly_name: str
@@ -80,6 +88,7 @@ class PredictionResponse(BaseModel):
     model_version: str
     thresholds: dict
     shap_breakdown: list[ShapFactor]
+    shap_all: list[ShapAllFactor]
     recommendations: list[RecommendationTarget]
     medical_flags: list[ShapFactor]
 
@@ -150,6 +159,7 @@ def predict(request: PredictionRequest):
         model_version=MODEL_VERSION,
         thresholds=METADATA["thresholds"],
         shap_breakdown=explanation["breakdown"],
+        shap_all=explanation["all"],
         recommendations=explanation["recommendations"],
         medical_flags=explanation["medical_flags"],
     )

@@ -145,13 +145,6 @@ namespace TrailGuard.Controllers
                 gearItemsString = string.Join(",", gearItems.Select(g => g.Trim()).Where(g => !string.IsNullOrEmpty(g)));
             }
 
-            var fitnessScore = ComputeFitnessScore(exerciseFrequency, exerciseType, cardioEndurance);
-            var experienceScore = ComputeExperienceScore(mountainsClimbed, recencyOfHike, trailDifficultyCompleted);
-            var healthScore = ComputeHealthScore(medicalConditions, age, heightCm, weightKg);
-            var gearScore = ComputeMlGearScore(gearItemsString);
-
-            var totalScore = fitnessScore + experienceScore + healthScore + gearScore;
-
             SuitabilityPredictionRequest mlRequest;
             try
             {
@@ -183,13 +176,21 @@ namespace TrailGuard.Controllers
                     || HasCondition(medicalConditions, "Shortness of breath"),
                 hasCvd: HasCondition(medicalConditions, "Hypertension"));
 
-            var mlResponse = await _suitabilityApi.PredictAsync(mlRequest);
+            var predictionCall = await _suitabilityApi.PredictAsync(mlRequest);
 
             // No rule-based fallback: GetResult() was a v1 heuristic with its own
             // notion of trail demand, agreeing with neither the model nor the ACSM/
             // NPS-based ground truth in generate_synthetic_dataset.py. Producing a
             // result from it would be a third, unvalidated answer to the same
             // question. If the model can't answer, neither do we.
+            if (predictionCall.IsValidationFailure)
+            {
+                TempData["Error"] = "One of your assessment answers could not be recognized. Please review the form and try again.";
+                await PopulateAssessmentFormViewBagAsync(eventId, userId);
+                return View();
+            }
+
+            var mlResponse = predictionCall.Prediction;
             if (mlResponse == null)
             {
                 TempData["Error"] = "The assessment service is temporarily unavailable. Please try again shortly.";
@@ -197,7 +198,22 @@ namespace TrailGuard.Controllers
                 return View();
             }
 
+            try
+            {
+                ShapHelper.ValidateResponseFeatures(mlResponse.ShapAll);
+                ShapHelper.ValidateDisplayBreakdown(mlResponse.ShapBreakdown, mlResponse.ShapAll);
+            }
+            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+            {
+                _logger.LogError(ex, "ML response for Event {EventId} did not satisfy the v3 SHAP contract.", eventId);
+                TempData["Error"] = "The assessment service returned an invalid result. Please try again shortly.";
+                await PopulateAssessmentFormViewBagAsync(eventId, userId);
+                return View();
+            }
+
             var result = NormalizeLabel(mlResponse.SuitabilityLabel);
+
+            await using var transaction = await _context.Database.BeginTransactionAsync();
 
             var oldAssessment = await _context.Assessments
                 .FirstOrDefaultAsync(a => a.EventId == eventId && a.UserId == userId && a.IsActive == true);
@@ -226,11 +242,6 @@ namespace TrailGuard.Controllers
                 GearItems = gearItemsString,
                 ConsentGiven = consentGiven,
                 Result = result,
-                TotalScore = totalScore,
-                FitnessScore = fitnessScore,
-                ExperienceScore = experienceScore,
-                HealthScore = healthScore,
-                GearScore = gearScore,
                 IsActive = true,
                 SubmittedAt = DateTime.Now
             };
@@ -242,12 +253,7 @@ namespace TrailGuard.Controllers
             {
                 AssessmentId = assessment.Id,
                 PredictedLabel = mlResponse.SuitabilityLabel,
-                ModelLabel = mlResponse.ModelLabel,
-                ConfidenceScore = mlResponse.ConfidenceScore,
-                GateApplied = mlResponse.GateApplied,
-                GateReason = mlResponse.GateReason,
-                NpsScore = mlResponse.NpsScore,
-                NpsBand = mlResponse.NpsBand,
+                CompletionProbability = mlResponse.CompletionProbability,
                 ModelVersion = mlResponse.ModelVersion,
                 PredictedAt = DateTime.Now
             };
@@ -255,18 +261,28 @@ namespace TrailGuard.Controllers
             _context.SuitabilityResults.Add(suitabilityResult);
             await _context.SaveChangesAsync();
 
-            foreach (var shap in mlResponse.ShapBreakdown)
+            var displayByFeature = mlResponse.ShapBreakdown
+                .Select((shap, index) => new { shap, index })
+                .ToDictionary(item => item.shap.Feature);
+
+            foreach (var shap in mlResponse.ShapAll)
             {
+                displayByFeature.TryGetValue(shap.Feature, out var display);
                 _context.ShapValues.Add(new ShapValue
                 {
                     SuitabilityResultId = suitabilityResult.Id,
                     FeatureName = shap.Feature,
-                    ImpactValue = shap.Impact,
-                    RawValue = shap.RawValue.ToString()
+                    Category = shap.Category,
+                    ImpactValue = shap.ShapValue,
+                    RawValue = shap.RawValue.ToString(),
+                    DisplayOrder = display?.index,
+                    DisplaySharePct = display?.shap.SharePct,
+                    DisplayFriendlyName = display?.shap.FriendlyName
                 });
             }
 
             await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
 
             return RedirectToAction("Report", new { assessmentId = assessment.Id });
         }
@@ -294,10 +310,12 @@ namespace TrailGuard.Controllers
                 .FirstOrDefaultAsync(s => s.AssessmentId == assessmentId);
 
             var shapFactors = suitabilityResult != null
-                ? ShapHelper.BuildDisplayItems(suitabilityResult.ShapValues, 6)
+                ? ShapHelper.BuildDisplayItems(suitabilityResult.ShapValues)
                 : new List<ShapDisplayItem>();
 
-            var recommendations = ComputeRecommendations(assessment.Result ?? "", shapFactors, suitabilityResult != null);
+            var recommendations = suitabilityResult != null
+                ? ShapHelper.BuildRecommendations(suitabilityResult.ShapValues)
+                : new List<string>();
 
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             var alternativeEvents = await GetAlternativeEvents(
@@ -330,13 +348,9 @@ namespace TrailGuard.Controllers
                     { "Gear Items", assessment.GearItems ?? "None" }
                 },
                 HasMlPrediction = suitabilityResult != null,
-                ConfidenceScore = suitabilityResult?.ConfidenceScore ?? 0,
+                CompletionProbability = suitabilityResult?.CompletionProbability ?? 0,
                 ModelVersion = suitabilityResult?.ModelVersion ?? "",
                 ShapFactors = shapFactors,
-                NpsScore = suitabilityResult?.NpsScore ?? 0,
-                NpsBand = suitabilityResult?.NpsBand ?? "",
-                GateApplied = suitabilityResult?.GateApplied ?? false,
-                GateReason = suitabilityResult?.GateReason ?? "",
                 AcsmMedicalClearanceRequired = assessment.MedicalClearanceRequired,
                 RequiresMedicalClearance = RegistrationRulesHelper.RequiresMedicalClearance(assessment),
                 RequiresPreparationPlan = RegistrationRulesHelper.RequiresPreparationPlan(assessment)
@@ -354,75 +368,13 @@ namespace TrailGuard.Controllers
             "Not Recommended" => "Not Recommended",
             _ => "Not Recommended"
         };
-        // Exact-string lookups for the ML request's ordinal fields. Keyed on the
-        // literal option values from Views/Assessment/Form.cshtml. An answer that
-        // doesn't match throws rather than silently defaulting to 0 - a silent
-        // default would make an unfit participant look unfit for the wrong reason,
-        // and a fit one look unfit too.
-        private static readonly Dictionary<string, int> ExerciseFrequencyMap = new()
-        {
-            ["I do not exercise / Sedentary"] = 0,
-            ["1 to 2 times per week"] = 1,
-            ["3 to 4 times per week"] = 2,
-            ["5 or more times per week"] = 3,
-        };
-
-        private static readonly Dictionary<string, int> CardioEnduranceMap = new()
-        {
-            ["Less than 15 minutes"] = 0,
-            ["15 to 29 minutes"] = 1,
-            ["30 to 60 minutes"] = 2,
-            ["More than 60 minutes"] = 3,
-        };
-
-        private static readonly Dictionary<string, int> ExerciseConsistencyMap = new()
-        {
-            ["Less than 1 month"] = 0,
-            ["1 to 2 months"] = 1,
-            ["3 months or more"] = 2,
-        };
-
-        private static readonly Dictionary<string, int> MountainsClimbedMap = new()
-        {
-            ["This will be my first time / First-timer"] = 0,
-            ["1 to 3 mountains / Beginner"] = 1,
-            ["4 to 10 mountains / Intermediate"] = 2,
-            ["More than 10 mountains / Experienced"] = 3,
-        };
-
-        private static readonly Dictionary<string, int> RecencyOfHikeMap = new()
-        {
-            ["I have never climbed a mountain before"] = 0,
-            ["More than 1 year ago"] = 1,
-            ["Within the past 4 to 12 months"] = 2,
-            ["Within the past 1 to 3 months"] = 3,
-        };
-
-        private static readonly Dictionary<string, int> TrailDifficultyCompletedMap = new()
-        {
-            ["None / I have never climbed before"] = 0,
-            ["Minor day hikes only"] = 1,
-            ["Major hikes with steep assault sections"] = 2,
-            ["Multi-day or overnight expeditions"] = 3,
-        };
-
-        private static int MapScore(IReadOnlyDictionary<string, int> map, string? value, string fieldName)
-        {
-            if (value != null && map.TryGetValue(value, out var score))
-            {
-                return score;
-            }
-
-            throw new ArgumentException($"Unrecognized {fieldName} value: '{value ?? "null"}'");
-        }
-
         private bool HasCondition(string? medicalConditions, string keyword)
         {
             if (string.IsNullOrEmpty(medicalConditions)) return false;
             return medicalConditions.Contains(keyword, StringComparison.OrdinalIgnoreCase);
         }
 
-        private int ComputeMlGearScore(string? gearItems)
+        private static int CountGearItems(string? gearItems)
         {
             if (string.IsNullOrEmpty(gearItems)) return 0;
 
@@ -464,198 +416,24 @@ namespace TrailGuard.Controllers
             return new SuitabilityPredictionRequest
             {
                 Bmi = Math.Round(bmi, 2),
-                ExerciseFrequencyScore = MapScore(ExerciseFrequencyMap, exerciseFrequency, "exerciseFrequency"),
-                ContinuousCardioDurationScore = MapScore(CardioEnduranceMap, cardioEndurance, "cardioEndurance"),
-                ExerciseConsistencyScore = MapScore(ExerciseConsistencyMap, exerciseConsistency, "exerciseConsistency"),
-                HikingExperienceScore = MapScore(MountainsClimbedMap, mountainsClimbed, "mountainsClimbed"),
-                LastHikeRecencyScore = MapScore(RecencyOfHikeMap, recencyOfHike, "recencyOfHike"),
-                HardestTrailCompletedScore = MapScore(TrailDifficultyCompletedMap, trailDifficultyCompleted, "trailDifficultyCompleted"),
-                GearScore = ComputeMlGearScore(gearItems),
+                ExerciseFrequency = exerciseFrequency ?? string.Empty,
+                CardioDuration = cardioEndurance ?? string.Empty,
+                ExerciseConsistency = exerciseConsistency ?? string.Empty,
+                HikingExperience = mountainsClimbed ?? string.Empty,
+                LastHikeRecency = recencyOfHike ?? string.Empty,
+                HardestTrailCompleted = trailDifficultyCompleted ?? string.Empty,
+                GearScore = CountGearItems(gearItems),
                 HasAsthma = HasCondition(medicalConditions, "Asthma") ? 1 : 0,
                 HasCvd = HasCondition(medicalConditions, "Hypertension") ? 1 : 0,
                 HasJointKneeInjury = HasCondition(medicalConditions, "Joint or knee") ? 1 : 0,
-                HasCvdSymptoms = (HasCondition(medicalConditions, "Vertigo")
+                HasSignsSymptoms = (HasCondition(medicalConditions, "Vertigo")
                                 || HasCondition(medicalConditions, "Chest pain")
                                 || HasCondition(medicalConditions, "Shortness of breath")) ? 1 : 0,
-                TrailDistanceKm = eventItem.TrailDistanceKmSnapshot,
-                TrailElevationGainM = eventItem.TrailElevationGainMetersSnapshot,
-                // The ML request field is still named TrailTerrainType/trail_terrain_type -
-                // that's the unchanged Python feature contract (FEATURE_COLUMNS, the trained
-                // model's column names) and continues to mean Technical Trail Class; unrelated
-                // to the C# snapshot property name it's sourced from here.
-                TrailTerrainType = eventItem.TrailClassSnapshot,
+                DistanceKm = eventItem.TrailDistanceKmSnapshot,
+                ElevationGainM = eventItem.TrailElevationGainMetersSnapshot,
+                TrailClass = eventItem.TrailClassSnapshot,
+                TypicalDurationHours = (double)eventItem.TrailDurationHoursSnapshot,
             };
-        }
-
-        private int ComputeFitnessScore(string? exerciseFrequency, string? exerciseType, string? cardioEndurance)
-        {
-            int score = 0;
-
-            score += exerciseFrequency switch
-            {
-                "5 or more times per week" => 4,
-                "3 to 4 times per week" => 3,
-                "1 to 2 times per week" => 2,
-                _ => 1 // Sedentary
-            };
-
-            score += exerciseType switch
-            {
-                "Combination of cardio and strength training" => 4,
-                "Cardio or endurance only" => 2,
-                "Strength or resistance only" => 2,
-                _ => 1
-            };
-
-            score += cardioEndurance switch
-            {
-                "More than 60 minutes" => 4,
-                "30 to 60 minutes" => 3,
-                "15 to 29 minutes" => 2,
-                _ => 1
-            };
-
-            return score;
-        }
-
-        private int ComputeExperienceScore(string? mountainsClimbed, string? recencyOfHike, string? trailDifficultyCompleted)
-        {
-            int score = 0;
-
-            score += mountainsClimbed switch
-            {
-                "More than 10 mountains / Experienced" => 4,
-                "4 to 10 mountains / Intermediate" => 3,
-                "1 to 3 mountains / Beginner" => 2,
-                _ => 1
-            };
-
-            score += recencyOfHike switch
-            {
-                "Within the past 1 to 3 months" => 4,
-                "Within the past 4 to 12 months" => 3,
-                "More than 1 year ago" => 2,
-                _ => 1 // Never climbed
-            };
-
-            score += trailDifficultyCompleted switch
-            {
-                "Multi-day or overnight expeditions" => 4,
-                "Major hikes with steep assault sections" => 3,
-                "Minor day hikes only" => 2,
-                _ => 1
-            };
-
-            return score;
-        }
-
-        private int ComputeHealthScore(string? medicalConditions, int? age, double? heightCm, double? weightKg)
-        {
-            int score = 0;
-
-            var conditions = medicalConditions?.Split(',').Where(c => !string.IsNullOrWhiteSpace(c)).ToList() ?? new List<string>();
-            var conditionCount = conditions.Count(c => c != "None of the above");
-
-            score += conditionCount switch
-            {
-                0 => 4,
-                1 => 3,
-                2 => 2,
-                _ => 1 
-            };
-
-            if (age.HasValue)
-            {
-                score += age.Value switch
-                {
-                    >= 18 and <= 35 => 4,
-                    >= 36 and <= 50 => 3,
-                    >= 51 and <= 65 => 2,
-                    _ => 1
-                };
-            }
-
-            if (heightCm.HasValue && heightCm.Value > 0 && weightKg.HasValue && weightKg.Value > 0)
-            {
-                var heightM = heightCm.Value / 100;
-                var bmi = weightKg.Value / (heightM * heightM);
-
-                score += bmi switch
-                {
-                    >= 18.5 and < 25 => 4,
-                    >= 25 and < 30 => 2,
-                    < 18.5 => 2,
-                    _ => 1
-                };
-            }
-
-            return score;
-        }
-
-        private static readonly HashSet<string> TrailSideFeatures = new HashSet<string>
-        {
-            "trail_shenandoah_score", "trail_terrain_type"
-        };
-
-        private static readonly HashSet<string> HealthFlagFeatures = new HashSet<string>
-        {
-            "has_asthma", "has_cvd", "has_joint_knee_injury", "has_cvd_symptoms"
-        };
-
-        private string? GetRecommendationForFeature(string featureName)
-        {
-            if (TrailSideFeatures.Contains(featureName)) return null;
-
-            // Reported symptoms are the one case the ACSM algorithm gates on
-            // regardless of fitness or intensity - the generic health-flag advice
-            // below undersells that, so this gets its own line.
-            if (featureName == "has_cvd_symptoms")
-                return "See a doctor before joining any hike — the symptoms you reported need to be checked first.";
-
-            if (HealthFlagFeatures.Contains(featureName)) return "Consult a physician before joining a hike of this difficulty";
-
-            return featureName switch
-            {
-                "exercise_frequency_score" => "Increase how often you exercise each week",
-                "continuous_cardio_duration_score" => "Build up how long you can sustain cardio without stopping",
-                "exercise_consistency_score" => "Build a consistent routine — aim for at least three months at your current frequency.",
-                "hiking_experience_score" => "Gain experience on easier trails before attempting this one",
-                "last_hike_recency_score" => "Consider a shorter warm-up hike before this event",
-                "hardest_trail_completed_score" => "Work up through easier trail types first",
-                "gear_score" => "Complete your gear checklist before the hike",
-                "bmi" => "General fitness preparation may help",
-                _ => null
-            };
-        }
-
-        private List<string> ComputeRecommendations(string result, List<ShapDisplayItem> shapFactors, bool hasMlPrediction)
-        {
-            var recommendations = new List<string>();
-
-            if (!hasMlPrediction)
-            {
-                recommendations.Add("Personalized recommendations aren't available for this result.");
-                return recommendations;
-            }
-
-            var negativeAdvice = shapFactors
-                .Where(f => !f.IsPositive)
-                .Select(f => GetRecommendationForFeature(f.FeatureName))
-                .Where(advice => advice != null)
-                .Select(advice => $"{advice} — this was one of the main factors working against your result.")
-                .Distinct()
-                .ToList();
-
-            if (negativeAdvice.Any())
-            {
-                recommendations.AddRange(negativeAdvice!);
-            }
-            else
-            {
-                recommendations.Add("Nothing significant is working against your result for this event.");
-            }
-
-            return recommendations;
         }
 
         private async Task<List<Event>> GetAlternativeEvents(int eventId, string currentDifficulty, string result, string? userId)

@@ -2,10 +2,10 @@ using TrailGuard.Models;
 
 namespace TrailGuard.Services
 {
-    // NPS Shenandoah hiking difficulty rating - mirrors TrailGuard-ML/acsm_gate.py's
-    // shenandoah_rating()/nps_band(). These two files must be changed
-    // together. ComputeRating is the PLAIN, un-terrain-adjusted value - a property of
-    // the trail's geometry alone, matching what main.py returns as nps_score.
+    // NPS Shenandoah hiking difficulty rating used only for Event Difficulty display.
+    // v3 does not consume this formula; its trail inputs are the captured distance,
+    // elevation, class, and recorded duration. ComputeRating is the plain,
+    // un-terrain-adjusted value derived from the trail geometry.
     // Ordering and display must use ComputeAdjustedRating - the
     // same value the difficulty band is derived from - or a short Class 4 trail sorts
     // as though it were an easy walk. Band labelling multiplies this by the trail's own

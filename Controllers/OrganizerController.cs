@@ -200,9 +200,9 @@ namespace TrailGuard.Controllers
                 .Distinct()
                 .ToList();
 
-            var confidenceByAssessmentId = await _context.SuitabilityResults
+            var completionProbabilityByAssessmentId = await _context.SuitabilityResults
                 .Where(sr => assessmentIds.Contains(sr.AssessmentId))
-                .ToDictionaryAsync(sr => sr.AssessmentId, sr => sr.ConfidenceScore);
+                .ToDictionaryAsync(sr => sr.AssessmentId, sr => sr.CompletionProbability);
 
             var viewModel = registrationsList.Select(r => new RegistrationWithAssessmentViewModel
             {
@@ -224,9 +224,8 @@ namespace TrailGuard.Controllers
                 EmergencyContactNumber = r.EmergencyContactNumber,
                 AssessmentId = r.AssessmentId,
                 AssessmentResult = r.Assessment?.Result,
-                AssessmentTotalScore = r.Assessment?.TotalScore,
-                AssessmentConfidence = r.AssessmentId.HasValue && confidenceByAssessmentId.TryGetValue(r.AssessmentId.Value, out var confidence)
-                    ? confidence
+                CompletionProbability = r.AssessmentId.HasValue && completionProbabilityByAssessmentId.TryGetValue(r.AssessmentId.Value, out var completionProbability)
+                    ? completionProbability
                     : (double?)null,
                 MedicalConditions = r.Assessment?.MedicalConditions,
                 FitnessLevel = r.Assessment?.ExerciseFrequency,
@@ -283,10 +282,9 @@ namespace TrailGuard.Controllers
                 if (suitabilityResult != null)
                 {
                     ViewBag.HasMlPrediction = true;
-                    ViewBag.MlConfidence = suitabilityResult.ConfidenceScore;
+                    ViewBag.MlCompletionProbability = suitabilityResult.CompletionProbability;
                     ViewBag.MlModelVersion = suitabilityResult.ModelVersion;
                     ViewBag.ShapFactors = ShapHelper.BuildDisplayItems(suitabilityResult.ShapValues);
-                    ViewBag.GateReason = suitabilityResult.GateReason;
                 }
                 else
                 {

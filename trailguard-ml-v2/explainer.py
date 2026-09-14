@@ -104,6 +104,21 @@ def build_shap_breakdown(shap_row, feature_values, top_n=TOP_N):
     return breakdown
 
 
+def build_shap_all(shap_row, feature_values):
+    """Return raw values for persistence; this list has no display denominator."""
+    shap_row = np.asarray(shap_row, dtype=float)
+    return [
+        {
+            "feature": name,
+            "friendly_name": FRIENDLY_NAMES[name],
+            "category": FEATURE_CATEGORY[name],
+            "raw_value": float(feature_values[i]),
+            "shap_value": float(shap_row[i]),
+        }
+        for i, name in enumerate(FEATURE_COLUMNS)
+    ]
+
+
 def recommendation_targets(shap_row, feature_values,
                            min_share_pct=MIN_RECOMMENDATION_SHARE_PCT,
                            max_items=MAX_RECOMMENDATIONS):
@@ -136,13 +151,15 @@ def recommendation_targets(shap_row, feature_values,
 
 def clearance_flags(breakdown):
     return [b for b in breakdown
-            if b["direction"] == "Reduced" and b["category"] == MEDICAL]
+            if b["direction"] == "Reduced" and b["category"] == MEDICAL
+            and b["raw_value"] == 1]
 
 
 def explain_one(shap_row, feature_values):
     breakdown = build_shap_breakdown(shap_row, feature_values)
     return {
         "breakdown": breakdown,
+        "all": build_shap_all(shap_row, feature_values),
         "recommendations": recommendation_targets(shap_row, feature_values),
         "medical_flags": clearance_flags(breakdown),
     }

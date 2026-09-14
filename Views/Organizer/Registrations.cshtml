@@ -144,11 +144,11 @@
                 @foreach (var item in Model)
                 {
                     var assessmentLabel = item.AssessmentResult ?? "Not assessed";
-                    string? confidenceLabel = item.AssessmentResult == null
+                    string? completionProbabilityLabel = item.AssessmentResult == null
                         ? null
-                        : (item.AssessmentConfidence.HasValue
-                            ? $"Confidence: {(item.AssessmentConfidence.Value * 100).ToString("0.0")}%"
-                            : "Confidence unavailable");
+                        : (item.CompletionProbability.HasValue
+                            ? $"Completion estimate: {(item.CompletionProbability.Value * 100).ToString("0.0")}%"
+                            : "Completion estimate unavailable");
 
                     <li>
                         <a asp-controller="Organizer" asp-action="RegistrationDetails" asp-route-id="@item.RegistrationId"
@@ -178,9 +178,9 @@
                             <div>
                                 <p class="lg:sr-only text-[11px] uppercase tracking-wider text-gray-500 mb-1">Assessment</p>
                                 <p class="font-semibold wrap-break-word @resultTextClass(item.AssessmentResult)">@assessmentLabel</p>
-                                @if (confidenceLabel != null)
+                                @if (completionProbabilityLabel != null)
                                 {
-                                    <p class="text-gray-400 text-sm mt-0.5">@confidenceLabel</p>
+                                    <p class="text-gray-400 text-sm mt-0.5">@completionProbabilityLabel</p>
                                 }
                                 @if (item.RequiresMedicalClearance)
                                 {

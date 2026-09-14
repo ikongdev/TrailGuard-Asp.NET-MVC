@@ -30,7 +30,7 @@ namespace TrailGuard.Services
             }
         }
 
-        public async Task<SuitabilityPredictionResponse?> PredictAsync(SuitabilityPredictionRequest request)
+        public async Task<SuitabilityPredictionCallResult> PredictAsync(SuitabilityPredictionRequest request)
         {
             try
             {
@@ -40,25 +40,31 @@ namespace TrailGuard.Services
                 {
                     var errorBody = await response.Content.ReadAsStringAsync();
                     _logger.LogError("ML API returned {StatusCode}: {Body}", response.StatusCode, errorBody);
-                    return null;
+                    return new SuitabilityPredictionCallResult
+                    {
+                        IsValidationFailure = (int)response.StatusCode == 422
+                    };
                 }
 
-                return await response.Content.ReadFromJsonAsync<SuitabilityPredictionResponse>();
+                return new SuitabilityPredictionCallResult
+                {
+                    Prediction = await response.Content.ReadFromJsonAsync<SuitabilityPredictionResponse>()
+                };
             }
             catch (TaskCanceledException)
             {
                 _logger.LogError("ML API request timed out.");
-                return null;
+                return new SuitabilityPredictionCallResult();
             }
             catch (HttpRequestException ex)
             {
                 _logger.LogError(ex, "Could not reach ML API.");
-                return null;
+                return new SuitabilityPredictionCallResult();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Unexpected error while calling ML API.");
-                return null;
+                return new SuitabilityPredictionCallResult();
             }
         }
     }

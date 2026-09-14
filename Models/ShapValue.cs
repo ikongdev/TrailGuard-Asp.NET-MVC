@@ -17,8 +17,17 @@ namespace TrailGuard.Models
         [Required]
         public string FeatureName { get; set; } = string.Empty;
 
+        [Required]
+        public string Category { get; set; } = string.Empty;
+
         public double ImpactValue { get; set; }
 
         public string? RawValue { get; set; }
+
+        public int? DisplayOrder { get; set; }
+
+        public double? DisplaySharePct { get; set; }
+
+        public string? DisplayFriendlyName { get; set; }
     }
 }
