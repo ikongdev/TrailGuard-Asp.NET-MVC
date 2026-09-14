@@ -28,11 +28,11 @@
     // uses, computed once in the controller so this can't drift from the form again.
     var requiresClearance = Model?.RequiresMedicalClearance == true;
     var requiresPlan = Model?.RequiresPreparationPlan == true;
-    // A gate-flagged health condition is the more serious reason and wins the
+    // An ACSM-screened health condition is the more serious reason and wins the
     // headline message even when Not Recommended would also require clearance on
     // its own; the itemized list below still shows everything that's required
     // either way, so nothing goes unmentioned.
-    var clearanceReasonText = Model?.MedicalClearanceRequired == true
+    var clearanceReasonText = Model?.AcsmMedicalClearanceRequired == true
         ? "Your assessment flagged a health condition that needs medical clearance before you can register."
         : "This trail is significantly beyond your current readiness. Registration will require a medical clearance and a preparation plan.";
 

@@ -22,7 +22,8 @@ namespace TrailGuard.Models
         public string NpsBand { get; set; } = string.Empty;
         public bool GateApplied { get; set; }
         public string GateReason { get; set; } = string.Empty;
-        public bool MedicalClearanceRequired { get; set; }
+        // Raw stored screening, used only to explain the reason for clearance.
+        public bool AcsmMedicalClearanceRequired { get; set; }
 
         // What registration will actually ask for - computed the same way
         // RegistrationController computes it (via RegistrationRulesHelper), so the

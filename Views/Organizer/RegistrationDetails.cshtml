@@ -45,7 +45,11 @@
     var receiptDownloadUrl = receiptAvailable ? Url.Action("RegistrationDownload", "Documents", new { id = Model.Id, kind = "receipt" }) : null;
     var hasReceiptOnFile = !string.IsNullOrEmpty(Model.PaymentReceiptUrl);
 
-    var clearanceRequired = Model.Assessment?.MedicalClearanceRequired == true;
+    // Document requirements include agency policy, not just the ACSM screening flag.
+    var clearanceRequired = Model.Assessment != null && TrailGuard.Services.RegistrationRulesHelper.RequiresMedicalClearance(Model.Assessment);
+    var clearanceReason = Model.Assessment != null
+        ? TrailGuard.Services.RegistrationRulesHelper.MedicalClearanceReason(Model.Assessment)
+        : string.Empty;
     var clearanceAvailable = ViewBag.ClearanceAvailable == true;
     var clearanceIsImage = ViewBag.ClearanceIsImage == true;
     var clearanceUrl = clearanceAvailable ? Url.Action("Registration", "Documents", new { id = Model.Id, kind = "clearance" }) : null;
@@ -295,9 +299,9 @@
                             @(clearanceRequired ? "Required" : "Voluntary")
                         </span>
                     </div>
-                    @if (clearanceRequired && !string.IsNullOrWhiteSpace(gateReason))
+                    @if (clearanceRequired)
                     {
-                        <p class="text-amber-400/80 text-xs mb-3 mt-2"><i class="fa-solid fa-circle-info mr-1" aria-hidden="true"></i>@gateReason</p>
+                        <p class="text-amber-400/80 text-xs mb-3 mt-2"><i class="fa-solid fa-circle-info mr-1" aria-hidden="true"></i>@clearanceReason</p>
                     }
                     <div class="mt-3">
                         @if (clearanceAvailable)

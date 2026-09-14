@@ -232,7 +232,7 @@ namespace TrailGuard.Controllers
                 FitnessLevel = r.Assessment?.ExerciseFrequency,
                 HikingExperience = r.Assessment?.MountainsClimbed,
                 GearItems = r.Assessment?.GearItems,
-                MedicalClearanceRequired = r.Assessment?.MedicalClearanceRequired ?? false,
+                RequiresMedicalClearance = r.Assessment != null && RegistrationRulesHelper.RequiresMedicalClearance(r.Assessment),
                 MedicalClearanceUrl = r.MedicalClearanceUrl
             }).ToList();
 

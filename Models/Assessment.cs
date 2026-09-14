@@ -25,6 +25,7 @@ namespace TrailGuard.Models
         public double? HeightCm { get; set; }
         public double? WeightKg { get; set; }
         public string? MedicalConditions { get; set; }
+        // Stored ACSM screening only; use RegistrationRulesHelper for upload requirements.
         public bool MedicalClearanceRequired { get; set; } = false;
 
         // SECTION 2: Fitness & Endurance

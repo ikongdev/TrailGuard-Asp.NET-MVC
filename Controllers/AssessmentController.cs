@@ -175,6 +175,14 @@ namespace TrailGuard.Controllers
                 return View();
             }
 
+            // Independent screening from the declared answers, not the ML request
+            // or response. Persist only after prediction succeeds, as before.
+            var acsmClearanceRequired = AcsmClearanceService.RequiresMedicalClearance(
+                hasSignsSymptoms: HasCondition(medicalConditions, "Vertigo")
+                    || HasCondition(medicalConditions, "Chest pain")
+                    || HasCondition(medicalConditions, "Shortness of breath"),
+                hasCvd: HasCondition(medicalConditions, "Hypertension"));
+
             var mlResponse = await _suitabilityApi.PredictAsync(mlRequest);
 
             // No rule-based fallback: GetResult() was a v1 heuristic with its own
@@ -207,7 +215,7 @@ namespace TrailGuard.Controllers
                 HeightCm = heightCm,
                 WeightKg = weightKg,
                 MedicalConditions = medicalConditions,
-                MedicalClearanceRequired = mlResponse.MedicalClearanceRequired,
+                MedicalClearanceRequired = acsmClearanceRequired,
                 ExerciseFrequency = exerciseFrequency,
                 ExerciseType = exerciseType,
                 CardioEndurance = cardioEndurance,
@@ -329,7 +337,7 @@ namespace TrailGuard.Controllers
                 NpsBand = suitabilityResult?.NpsBand ?? "",
                 GateApplied = suitabilityResult?.GateApplied ?? false,
                 GateReason = suitabilityResult?.GateReason ?? "",
-                MedicalClearanceRequired = assessment.MedicalClearanceRequired,
+                AcsmMedicalClearanceRequired = assessment.MedicalClearanceRequired,
                 RequiresMedicalClearance = RegistrationRulesHelper.RequiresMedicalClearance(assessment),
                 RequiresPreparationPlan = RegistrationRulesHelper.RequiresPreparationPlan(assessment)
             };

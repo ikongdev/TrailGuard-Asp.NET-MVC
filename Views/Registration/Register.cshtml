@@ -18,13 +18,7 @@
 
     var requiresClearance = ViewBag.RequiresMedicalClearance == true;
     var requiresPlan = ViewBag.RequiresPreparationPlan == true;
-    var hasMedicalCondition = ViewBag.HasMedicalCondition == true;
-    var gateReason = ViewBag.GateReason as string;
-    var clearanceReason = !string.IsNullOrWhiteSpace(gateReason)
-        ? gateReason
-        : isNotRecommended
-            ? "Required because your assessment result is Not Recommended."
-            : "Required because your assessment flagged a health condition that needs medical clearance.";
+    var clearanceReason = ViewBag.MedicalClearanceReason as string;
 
     // Trail-derived figures come from the Event's own frozen Trail Snapshot,
     // never a live read of Event.Trail - see CLAUDE.md, "Event Trail Snapshot".

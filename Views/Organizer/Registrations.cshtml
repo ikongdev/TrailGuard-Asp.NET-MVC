@@ -182,7 +182,7 @@
                                 {
                                     <p class="text-gray-400 text-sm mt-0.5">@confidenceLabel</p>
                                 }
-                                @if (item.MedicalClearanceRequired)
+                                @if (item.RequiresMedicalClearance)
                                 {
                                     var clearanceMissing = string.IsNullOrEmpty(item.MedicalClearanceUrl);
                                     <span class="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium mt-1 @(clearanceMissing ? "bg-red-500/20 text-red-400" : "bg-blue-500/20 text-blue-400")">

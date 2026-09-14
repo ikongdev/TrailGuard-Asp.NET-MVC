@@ -355,7 +355,33 @@ Keep this — changing every usage site is riskier than the conversion.
 
 Asthma deliberately triggers no gate rule — ACSM treats pulmonary disease as not an automatic referral, unlike cardiovascular disease.
 
-The gate exists because the v2 model alone still occasionally predicts Good Match for a case the rules call Not Recommended (0.83 per 1,000 test rows, vs. 0 for v1). Applying the gate reduces that to 0. `SuitabilityResult.GateApplied` / `GateReason` record whether and why it fired for a given prediction, and `medical_clearance_required` in the API response drives `Assessment.MedicalClearanceRequired`.
+The gate exists because the v2 model alone still occasionally predicts Good Match for a case the rules call Not Recommended (0.83 per 1,000 test rows, vs. 0 for v1). Applying the gate reduces that to 0. `SuitabilityResult.GateApplied` / `GateReason` record whether and why it fired for a given prediction. The Python response still includes `medical_clearance_required`, but Stage 2 no longer copies it into `Assessment.MedicalClearanceRequired`. The C# screening service supplies that stored flag; Python's label and gate metadata remain unchanged.
+
+### Stage 2 — C# clearance screening
+
+`AcsmClearanceService.RequiresMedicalClearance(hasSignsSymptoms, hasCvd)` is a pure
+C# calculation: `hasSignsSymptoms || hasCvd`. `AssessmentController` maps the declared
+answers using the existing condition matching (Hypertension / heart-related condition
+for CVD; Vertigo / frequent dizziness, Chest pain, or Shortness of breath for symptoms).
+It computes screening before calling the ML service and saves the value only after
+prediction succeeds. No ML request/response, predicted label, fitness score, or Trail
+demand is an input to the service. Asthma and joint/knee injury alone do not trigger it.
+
+The PLAN.md derivation is recorded on the service: ACSM Rule 1 covers signs/symptoms;
+Rules 2/3 collapse to known CVD because organized mountain hiking is 6.0–7.0 METs,
+at or above the 6.0 vigorous threshold. The agency's Not Recommended requirement is
+separate and belongs exclusively in `RegistrationRulesHelper`.
+
+**Intentional tightening:** active participants with known CVD now require clearance
+on every Trail, including adjusted demand below 100 where v2's Python clearance flag
+could be false. Python still serves and caps labels exactly as before. Existing
+Assessment flags are retained, not retrospectively recalculated; newly completed
+assessments use C# screening.
+
+**Outage visibility was explicitly deferred by the user.** ML failure still produces
+no result and saves no assessment or screening record. No partial assessment or new
+organizer workflow is introduced. This resolves PLAN.md Stage 2's original outage
+visibility proposal without changing the "ML Failure — No Fallback" rule.
 
 ---
 
@@ -701,9 +727,28 @@ Phone inputs use a fixed `+63` prefix with the local number starting at 9. Exist
 
 | Result | Medical clearance | Preparation plan |
 |---|---|---|
-| Good-Match / Borderline, no conditions | Optional | Not required |
-| Good-Match / Borderline, with conditions | Required | Not required |
-| Not Recommended | Required | Required |
+| Good-Match / Borderline, stored ACSM flag false | Optional | Not required |
+| Good-Match / Borderline, stored ACSM flag true | Required | Not required |
+| Not Recommended, either ACSM flag | Required by agency policy | Required |
+
+`RegistrationRulesHelper.RequiresMedicalClearance` is the single combined requirement:
+`Result == "Not Recommended" || Assessment.MedicalClearanceRequired`. The Not Recommended
+override is agency policy, not an ACSM rule. Registration GET/POST, the participant
+Assessment Report, organizer registration-list badges, and organizer document labels
+all use this helper. A fitness-driven Not Recommended document is therefore Required,
+never Voluntary, even when the stored screening flag is false.
+
+`Assessment.MedicalClearanceRequired` stores screening only. The report exposes it as
+`AcsmMedicalClearanceRequired` solely to select explanatory wording, alongside the
+combined `RequiresMedicalClearance`. Organizer list models expose only the combined
+`RequiresMedicalClearance`. `RegistrationRulesHelper.MedicalClearanceReason` distinguishes
+screening from agency policy in registration/document explanations; Python's `GateReason`
+remains separate label-explanation metadata.
+
+The former "with conditions" row was stale. `HasAnyMedicalCondition` and its unused
+Registration ViewBag/local were removed; selecting any condition is not itself the
+clearance rule. Asthma-only or knee-injury-only Good-Match/Borderline results do not
+require clearance, but Not Recommended still does under agency policy.
 
 `DecisionReason` is a free-text field on `EventRegistration`, persisted whenever the organizer approves, rejects, or otherwise decides — this is the "organizer decision reason" feature and it is fully implemented, not pending.
 

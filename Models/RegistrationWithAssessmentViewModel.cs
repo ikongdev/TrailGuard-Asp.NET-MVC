@@ -29,7 +29,8 @@ namespace TrailGuard.Models
         public string? FitnessLevel { get; set; }
         public string? HikingExperience { get; set; }
         public string? GearItems { get; set; }
-        public bool MedicalClearanceRequired { get; set; }
+        // Combined agency policy and stored ACSM screening from RegistrationRulesHelper.
+        public bool RequiresMedicalClearance { get; set; }
         public string? MedicalClearanceUrl { get; set; }
     }
 }

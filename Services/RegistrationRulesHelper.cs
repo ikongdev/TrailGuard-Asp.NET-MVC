@@ -6,14 +6,9 @@ namespace TrailGuard.Services
     {
         public static bool RequiresMedicalClearance(Assessment assessment)
         {
-            // Not Recommended always requires clearance regardless of what the ACSM gate
-            // set - a fitness-driven Not Recommended still warrants a look from a
-            // physician before proceeding. Otherwise, defer entirely to the gate's own
-            // MedicalClearanceRequired flag, not a raw "did they check any condition box"
-            // proxy: that proxy both under-triggers (ACSM Rule 3 caps a known-CVD,
-            // vigorous-intensity case at Borderline while still requiring clearance) and
-            // over-triggers (asthma-only and joint-injury-only conditions are checked
-            // boxes but the gate explicitly does not require clearance for either).
+            // Combined registration requirement for every participant/organizer UI
+            // and POST validator: agency Not Recommended policy OR stored ACSM
+            // screening. The agency policy is not part of AcsmClearanceService.
             return assessment.Result == "Not Recommended" || assessment.MedicalClearanceRequired;
         }
 
@@ -22,13 +17,15 @@ namespace TrailGuard.Services
             return assessment.Result == "Not Recommended";
         }
 
-        public static bool HasAnyMedicalCondition(string? medicalConditions)
+        public static string MedicalClearanceReason(Assessment assessment)
         {
-            if (string.IsNullOrWhiteSpace(medicalConditions)) return false;
-
-            return medicalConditions
-                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Any(c => !c.Equals("None of the above", StringComparison.OrdinalIgnoreCase));
+            // The raw screening flag selects the reason, not whether the upload
+            // is required. Python's label-capping GateReason is a separate concept.
+            if (assessment.MedicalClearanceRequired)
+                return "Required because your assessment flagged a health condition that needs medical clearance.";
+            return assessment.Result == "Not Recommended"
+                ? "Required by agency policy because your assessment result is Not Recommended."
+                : string.Empty;
         }
     }
 }
