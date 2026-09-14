@@ -783,33 +783,42 @@ All three guards compare the exact stored string `"Completed"`, matching every o
 
 ### Final suitability labels
 
-`FinalSuitabilityLabel` persists the empirical outcome for retraining:
+`FinalSuitabilityLabel` persists binary completion outcomes for retraining:
 
-- Both participant feedback and organizer assessment present → the **more conservative** label
-- One present → use it
-- Neither → **no record**, excluded from the retraining dataset
+- `Completed` is the outcome.
+- `NonCompletionReason` is `Readiness`, `External`, or `Withdrawal` only
+  when not completed; it is `NotApplicable` when completed.
+- `DifficultyExperience` remains a separate seven-answer account from participant
+  feedback. Difficulty and finishing are not derived from one another.
 
-`AssessmentId` on that table is what links a label back to its features. Without it there's a label with nothing attached.
+`AssessmentId` links the outcome to its features and is unique.
 
-The upsert must handle edits — feedback arrives in either order and either side can be revised. `FinalLabelService.ComputeKappa` and `LabelOrder`/`LabelCategories` (`{ "Good-Match", "Borderline", "Not Recommended" }`, best-to-worst by array index) are the single source of truth for what "more conservative" and "accurate" mean; the Reports page (below) reuses the same service so the per-event and aggregate views can't define agreement differently.
+Participant and organizer source records keep their own submitted completion/reason/
+difficulty answers. `FinalLabelService` uses the organizer's completion/reason pair
+when present; otherwise it uses the participant's pair, and never combines the two.
+It separately copies both difficulty answers to `FinalSuitabilityLabel` and resolves
+`DifficultyExperience` conservatively: either party's harder experience wins. The
+different rules are intentional: completion is an observation with an organizer-first
+witness, while difficulty is an experience that can honestly differ by person.
+Participant feedback remains single-submission, protected by a unique
+`(EventId, UserId)` database index; organizer assessment remains revisable. Each
+source save and outcome upsert run in one transaction.
 
 ---
 
 ## Reports: Aggregate Model Validation
 
-`ReportsController` is **Admin-only** (`[Authorize(Roles = "Admin")]`) — `Index` and `Export` both require the Admin role; Organizer and Participant accounts cannot reach either. The dataset is system-wide (no `OrganizerId` scoping). The Reports link renders only in the Admin navbar; a dual-role Admin+Organizer account is allowed via its Admin role. It is the multi-event counterpart to `OrganizerController.EventComparison`, reusing `FinalLabelService` for every label comparison so "accurate" and the ordinal category order can't drift between the per-event and aggregate views.
+`ReportsController` is **Admin-only** (`[Authorize(Roles = "Admin")]`) — `Index` and `Export` both require the Admin role; Organizer and Participant accounts cannot reach either. The dataset is system-wide (no `OrganizerId` scoping). The Reports link renders only in the Admin navbar; a dual-role Admin+Organizer account is allowed via its Admin role. It is the multi-event counterpart to `OrganizerController.EventComparison`; Stage 5 will define their shared outcome-based comparison metrics.
 
-It shows, over all resolved `FinalSuitabilityLabel` rows:
+Stage 3 keeps the sampling-bias funnel, the 20-outcome minimum, completion totals,
+difficulty/class outcome counts, and CSV export of stored outcome fields.
+Three-category agreement statistics, confusion matrices, and kappa are unavailable
+pending the Stage 5 rebuild; their report sections remain visible with unavailable
+values. The Not-Recommended acknowledgement pathway remains visible because it is a
+registration behavior; it reports real binary outcome counts but no label agreement.
+Binary outcomes are never fabricated into the old categories.
 
-- A sampling-bias funnel: total assessments → registrations with an assessment → accepted → resolved final labels (each stage narrows, and the narrowing itself is informative about who never gets an outcome recorded)
-- Accuracy breakdown (Accurate / Over-cautious / Missed risk / Unclassifiable) for both the pre-hike label shown to the participant and the model's label alone (pre-gate)
-- Confusion matrices for both
-- Cohen's kappa and weighted kappa (`FinalLabelService.ComputeKappa`), shown only once the sample is large enough (`ReportsController.MinSampleSize = 20`) — below that, only raw counts are shown
-- Breakdowns by NPS difficulty band and by Trail Class
-- A dedicated breakdown for the `Not Recommended` acknowledgement pathway — the only evidence the system has about whether its negative predictions were correct, since every other Not-Recommended participant either never registered or was rejected before an outcome could be observed
-- CSV export (`ReportsController.Export`) of the full row-level data behind the report
-
-This is new since the last time this file was accurate, and is **not yet in the UI/UX pass** (see below).
+The Stage 5 report will rebuild validation around binary completion.
 
 ---
 
@@ -817,19 +826,23 @@ This is new since the last time this file was accurate, and is **not yet in the 
 
 Three-step wizard:
 
-1. **Hiking experience** — `DifficultyExperience` (this alone drives the final label)
+1. **Completion and hiking experience** — completion, a reason when applicable,
+   and `DifficultyExperience`
 2. **Trail conditions** — condition, signage, water availability, hazards
 3. **Organizer evaluation** — rating, communication, safety, group management, comment
 
-Sections 2 and 3 **don't** affect the suitability label. Trail condition and organizer quality are different questions from whether this participant suited this trail.
+Sections 2 and 3 don't affect the recorded outcome.
 
 The wizard is one form with JS-toggled visibility, not real navigation — otherwise answers are lost going back.
 
 ### Single submission
 
-Participant feedback is submitted **once and cannot be revised**. `DifficultyExperience` is empirical training data; if it were editable it could be edited after the participant has seen the outcome.
+Participant feedback is submitted **once and cannot be revised**. Completion,
+reason, and `DifficultyExperience` are empirical training data.
 
-This is not the same thing as `FinalLabelService` tolerating change. The upsert must recompute rather than assume a first write, because the **organizer's** post-event assessment can be revised and the two sides arrive in either order. That is a requirement on the service, not permission for the participant to edit.
+The organizer assessment can be revised. The upsert recomputes from its
+completion/reason when present, otherwise the participant's; this is not permission
+for the participant to edit.
 
 ### Eligibility
 
@@ -844,6 +857,10 @@ The feedback form — both `ParticipantController.Feedback` (GET) and `SubmitFee
 Every eligibility failure (event not Completed, no Accepted registration, or a missing/unexpected claim) returns the same generic message — `"Feedback is available only after completing an event you joined."` — without distinguishing which of those actually failed, so a caller probing `eventId` values learns nothing about another participant's registration state. This is a separate outcome from "Event not found" (its own distinct message, unrelated to another participant's data) and from the duplicate-feedback message below, both of which remain their own distinct redirects.
 
 If a participant holds more than one historical registration row for the same event (e.g. an old Cancelled attempt plus a later Accepted one), only the Accepted row is ever eligible, and — in the aberrant case of more than one Accepted row for the same participant/event — the newest by `RegisteredAt` is chosen deterministically, never an unordered `FirstOrDefault`. `SubmitFeedback` passes that exact same registration's ID to `FinalLabelService.UpsertFinalLabel` — never a second, broader `EventId`+`UserId` lookup that could resolve to a different, non-Accepted row and silently no-op the final-label update.
+
+Cancelled events remain ineligible. An External reason is available for a completed
+event that was curtailed; feedback for a cancelled event remains a separate policy
+question outside Stage 3.
 
 ---
 

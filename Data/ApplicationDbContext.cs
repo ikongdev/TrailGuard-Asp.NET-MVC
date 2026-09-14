@@ -42,7 +42,18 @@ namespace TrailGuard.Data
             builder.Entity<IdentityUserToken<string>>().ToTable("UserTokens");
 
             builder.Entity<FinalSuitabilityLabel>()
-                .HasIndex(f => f.RegistrationId)
+                .ToTable("FinalSuitabilityLabels", table => table.HasCheckConstraint(
+                    "CK_FinalSuitabilityLabels_CompletionReason",
+                    "(\"Completed\" AND \"NonCompletionReason\" = 'NotApplicable') OR (NOT \"Completed\" AND \"NonCompletionReason\" IN ('Readiness', 'External', 'Withdrawal'))"));
+            builder.Entity<FinalSuitabilityLabel>()
+                .HasIndex(f => f.AssessmentId)
+                .IsUnique();
+
+            // Participant feedback is a single, unrevisable submission per Event.
+            // The controller's duplicate check is a UX guard; this is the database
+            // backstop for concurrent posts.
+            builder.Entity<EventFeedback>()
+                .HasIndex(f => new { f.EventId, f.UserId })
                 .IsUnique();
 
             // Public Profile lookup key (GET /Profile/{publicProfileId:guid}, not yet

@@ -795,18 +795,23 @@ namespace TrailGuard.Controllers
                 // exact-membership check for this value - it is false for
                 // anything outside the seven outcome strings the form can
                 // submit (unknown, blank, differently cased, or fabricated).
-                if (!FinalLabelService.IsKnownOutcome(request.DifficultyExperience))
+                if (!FinalLabelService.IsValidCompletion(request.Completed, request.NonCompletionReason) ||
+                    !FinalLabelService.IsKnownOutcome(request.DifficultyExperience))
                 {
-                    return Json(new { success = false, message = "Please select a valid hike outcome." });
+                    return Json(new { success = false, message = "Please select completion, a reason if not completed, and a valid difficulty experience." });
                 }
 
                 var userId = registration.UserId;
 
+                await using var transaction = await _context.Database.BeginTransactionAsync();
+                await _context.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM \"EventRegistrations\" WHERE \"Id\" = {registration.Id} FOR UPDATE");
                 var existingAssessment = await _context.PostEventAssessments
                     .FirstOrDefaultAsync(a => a.EventId == registration.EventId && a.UserId == userId);
 
                 if (existingAssessment != null)
                 {
+                    existingAssessment.Completed = request.Completed;
+                    existingAssessment.NonCompletionReason = request.Completed == true ? "NotApplicable" : request.NonCompletionReason;
                     existingAssessment.DifficultyExperience = request.DifficultyExperience;
                     existingAssessment.Notes = request.Notes;
                     existingAssessment.CreatedAt = DateTime.Now;
@@ -817,6 +822,8 @@ namespace TrailGuard.Controllers
                     {
                         EventId = registration.EventId,
                         UserId = userId,
+                        Completed = request.Completed,
+                        NonCompletionReason = request.Completed == true ? "NotApplicable" : request.NonCompletionReason,
                         DifficultyExperience = request.DifficultyExperience,
                         Notes = request.Notes,
                         CreatedAt = DateTime.Now
@@ -827,6 +834,7 @@ namespace TrailGuard.Controllers
                 await _context.SaveChangesAsync();
 
                 await FinalLabelService.UpsertFinalLabel(_context, registration.Id);
+                await transaction.CommitAsync();
 
                 return Json(new { success = true, message = "Assessment saved successfully!" });
             }
@@ -842,6 +850,8 @@ namespace TrailGuard.Controllers
         {
             public int EventId { get; set; }
             public int RegistrationId { get; set; }
+            public bool? Completed { get; set; }
+            public string? NonCompletionReason { get; set; }
             public string DifficultyExperience { get; set; } = string.Empty;
             public string? Notes { get; set; }
         }
@@ -884,41 +894,29 @@ namespace TrailGuard.Controllers
                 .Where(a => a.EventId == eventId)
                 .ToDictionaryAsync(a => a.UserId, a => a);
 
-            var finalLabels = await _context.FinalSuitabilityLabels
-                .Where(l => l.EventId == eventId)
-                .ToDictionaryAsync(l => l.RegistrationId, l => l.FinalLabel);
+            var outcomes = await _context.FinalSuitabilityLabels
+                .ToDictionaryAsync(l => l.AssessmentId, l => l);
 
             var results = new List<ComparisonResult>();
 
             foreach (var reg in registrations)
             {
                 var userId = reg.UserId;
-                var preHike = reg.Assessment?.Result ?? "Not available";
-
-                var participantFeedback = participantFeedbacks.ContainsKey(userId)
-                    ? participantFeedbacks[userId].DifficultyExperience ?? "No feedback"
-                    : "No feedback";
-
-                var organizerAssessment = organizerAssessments.ContainsKey(userId)
-                    ? organizerAssessments[userId].DifficultyExperience ?? "No assessment"
-                    : "No assessment";
-
-                var finalResult = GetConservativeResult(participantFeedback, organizerAssessment);
-                var finalCategory = FinalLabelService.MapFeedbackToClass(finalResult);
-                var classification = FinalLabelService.ClassifyAccuracy(preHike, finalCategory);
-                var comparison = ComparisonDisplay(classification);
+                participantFeedbacks.TryGetValue(userId, out var participantFeedback);
+                organizerAssessments.TryGetValue(userId, out var organizerAssessment);
+                outcomes.TryGetValue(reg.AssessmentId ?? 0, out var outcome);
 
                 results.Add(new ComparisonResult
                 {
                     ParticipantName = reg.User != null ? $"{reg.User.FirstName} {reg.User.LastName}" : reg.ParticipantName,
-                    PreHikeAssessment = preHike,
-                    ParticipantFeedback = participantFeedback,
-                    OrganizerAssessment = organizerAssessment,
-                    FinalResult = finalResult,
-                    FinalLabel = finalLabels.ContainsKey(reg.Id) ? finalLabels[reg.Id] : null,
-                    Comparison = comparison.Item1,
-                    ComparisonTextClass = comparison.Item2,
-                    IsMissedRisk = classification == "Missed risk"
+                    PreHikeAssessment = reg.Assessment?.Result ?? "Not available",
+                    ParticipantDifficultyExperience = participantFeedback?.DifficultyExperience,
+                    ParticipantCompletion = CompletionText(participantFeedback?.Completed, participantFeedback?.NonCompletionReason),
+                    OrganizerDifficultyExperience = organizerAssessment?.DifficultyExperience,
+                    OrganizerCompletion = CompletionText(organizerAssessment?.Completed, organizerAssessment?.NonCompletionReason),
+                    ConservativeDifficultyExperience = outcome?.DifficultyExperience,
+                    Completed = outcome?.Completed,
+                    NonCompletionReason = outcome?.NonCompletionReason
                 });
             }
 
@@ -926,29 +924,11 @@ namespace TrailGuard.Controllers
             return View(results);
         }
 
-        private string GetConservativeResult(string? participantFeedback, string? organizerAssessment)
+        private static string CompletionText(bool? completed, string? reason) => completed switch
         {
-            if (string.IsNullOrEmpty(participantFeedback) || string.IsNullOrEmpty(organizerAssessment))
-            {
-                return !string.IsNullOrEmpty(participantFeedback) ? participantFeedback :
-                    !string.IsNullOrEmpty(organizerAssessment) ? organizerAssessment :
-                    "Insufficient data";
-            }
-
-            return FinalLabelService.GetMoreConservativeFeedback(participantFeedback, organizerAssessment) ?? "Insufficient data";
-        }
-
-        // Display mapping for FinalLabelService.ClassifyAccuracy's three outcomes, shared
-        // in spirit with ReportsController — same classification, same names, so the
-        // per-event and aggregate views can't independently invert this comparison again.
-        // Item2 is a plain semantic text-color class only - EventComparison.cshtml renders
-        // this as plain weighted text, not a badge, and is this method's only consumer.
-        private static Tuple<string, string> ComparisonDisplay(string? classification) => classification switch
-        {
-            "Accurate" => Tuple.Create("Accurate", "text-emerald-400"),
-            "Over-cautious" => Tuple.Create("Over-cautious", "text-amber-400"),
-            "Missed risk" => Tuple.Create("Missed risk", "text-red-400"),
-            _ => Tuple.Create("Insufficient data", "text-gray-400")
+            true => "Completed",
+            false => $"Did not complete — {reason}",
+            _ => "Not submitted"
         };
 
     }

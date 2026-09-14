@@ -4,16 +4,13 @@ namespace TrailGuard.Models
     {
         public string ParticipantName { get; set; } = string.Empty;
         public string PreHikeAssessment { get; set; } = string.Empty;
-        public string ParticipantFeedback { get; set; } = string.Empty;
-        public string OrganizerAssessment { get; set; } = string.Empty;
-        public string FinalResult { get; set; } = string.Empty;
-        public string? FinalLabel { get; set; }
-        public string Comparison { get; set; } = string.Empty;
-        public string ComparisonTextClass { get; set; } = string.Empty;
-
-        // The failure mode the system exists to prevent — a participant was told they
-        // were ready and were not. Views highlight this distinctly, not as one of three
-        // equally-weighted outcomes.
-        public bool IsMissedRisk { get; set; }
+        public string? ParticipantDifficultyExperience { get; set; }
+        public string ParticipantCompletion { get; set; } = string.Empty;
+        public string? OrganizerDifficultyExperience { get; set; }
+        public string OrganizerCompletion { get; set; } = string.Empty;
+        public string? ConservativeDifficultyExperience { get; set; }
+        public bool? Completed { get; set; }
+        public string? NonCompletionReason { get; set; }
+        public string ComparisonNotice { get; set; } = "Unavailable pending Stage 5";
     }
 }

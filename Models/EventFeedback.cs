@@ -24,6 +24,9 @@ namespace TrailGuard.Models
         [Range(1, 5)]
         public int Rating { get; set; }
 
+        public bool? Completed { get; set; }
+        public string? NonCompletionReason { get; set; }
+
         public string? DifficultyExperience { get; set; }
 
         public string? TrailCondition { get; set; }

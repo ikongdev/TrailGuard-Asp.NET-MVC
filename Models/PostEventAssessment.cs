@@ -20,6 +20,9 @@ namespace TrailGuard.Models
         [ForeignKey("UserId")]
         public virtual ApplicationUser? User { get; set; }
 
+        public bool? Completed { get; set; }
+        public string? NonCompletionReason { get; set; }
+
         public string? DifficultyExperience { get; set; }
 
         public string? Notes { get; set; }

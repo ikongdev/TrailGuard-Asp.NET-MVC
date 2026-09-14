@@ -1,306 +1,167 @@
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TrailGuard.Data;
-using TrailGuard.Models;
 using TrailGuard.Services;
 
-namespace TrailGuard.Controllers
+namespace TrailGuard.Controllers;
+
+// Aggregate outcome-report shell. Stage 3 preserves the validation presentation so
+// Stage 5 can replace its data source without rebuilding the report.
+[Authorize(Roles = "Admin")]
+public class ReportsController : Controller
 {
-    // Aggregate model-validation report — the multi-event counterpart to
-    // OrganizerController.EventComparison. Reuses FinalLabelService for every
-    // label comparison so the definitions of "accurate" and the ordinal category
-    // order can't drift between the per-event and aggregate views.
-    //
-    // Admin-only: every query in this controller is already system-wide (no
-    // OrganizerId scoping anywhere below), so an Organizer previously granted
-    // access here saw every other Organizer's data, not just their own — this
-    // is an access-control fix, not a data-scope change. A dual-role
-    // Admin+Organizer account is still allowed, since it holds the Admin role.
-    [Authorize(Roles = "Admin")]
-    public class ReportsController : Controller
+    public const int MinSampleSize = 20;
+    private readonly ApplicationDbContext _context;
+
+    public ReportsController(ApplicationDbContext context) => _context = context;
+
+    public async Task<IActionResult> Index()
     {
-        // Below this many resolved labels, percentages and kappa are not shown —
-        // only raw counts. See DESIGN note in the view for why.
-        public const int MinSampleSize = 20;
-
-        private readonly ApplicationDbContext _context;
-
-        public ReportsController(ApplicationDbContext context)
+        await RegistrationStatusHelper.ExpireOverdueRegistrations(_context);
+        var model = new ReportsViewModel
         {
-            _context = context;
-        }
+            TotalAssessments = await _context.Assessments.CountAsync(),
+            TotalRegistrations = await _context.EventRegistrations.CountAsync(r => r.AssessmentId != null),
+            TotalAccepted = await _context.EventRegistrations.CountAsync(r => r.AssessmentId != null && r.Status == "Accepted")
+        };
 
-        public async Task<IActionResult> Index()
-        {
-            await RegistrationStatusHelper.ExpireOverdueRegistrations(_context);
-
-            var model = new ReportsViewModel();
-
-            // D. Sampling-bias funnel — computed independently of the label rows below,
-            // since it must count assessments/registrations that never produced a label.
-            model.TotalAssessments = await _context.Assessments.CountAsync();
-            model.TotalRegistrations = await _context.EventRegistrations.CountAsync(r => r.AssessmentId != null);
-            model.TotalAccepted = await _context.EventRegistrations.CountAsync(r => r.AssessmentId != null && r.Status == "Accepted");
-
-            // TrailClass comes from the Event's own frozen Trail Snapshot
-            // (TrailClassSnapshot), never a live join to Trails - a resolved
-            // label is a historical record, and reclassifying a Trail afterward
-            // must never shift which breakdown bucket a past label falls into.
-            // See CLAUDE.md, "Event Trail Snapshot".
-            var rows = await (
-                from label in _context.FinalSuitabilityLabels
-                join sr in _context.SuitabilityResults on label.AssessmentId equals sr.AssessmentId into srJoin
-                from sr in srJoin.DefaultIfEmpty()
-                join ev in _context.Events on label.EventId equals ev.Id into evJoin
-                from ev in evJoin.DefaultIfEmpty()
-                select new ReportRow
-                {
-                    PreHikeLabel = label.PreHikeLabel,
-                    ModelPreHikeLabel = label.ModelPreHikeLabel,
-                    FinalLabel = label.FinalLabel,
-                    NpsBand = sr != null ? sr.NpsBand : null,
-                    TrailClass = ev != null ? ev.TrailClassSnapshot : (int?)null
-                }
-            ).ToListAsync();
-
-            model.TotalResolvedLabels = rows.Count;
-
-            model.Overall = BuildBreakdown(rows.Select(r => (r.PreHikeLabel, r.FinalLabel)));
-            model.ModelOnly = BuildBreakdown(rows.Where(r => r.ModelPreHikeLabel != null).Select(r => (r.ModelPreHikeLabel, r.FinalLabel)));
-
-            model.ConfusionMatrix = BuildConfusionMatrix(rows.Select(r => (r.PreHikeLabel, r.FinalLabel)));
-            model.ModelConfusionMatrix = BuildConfusionMatrix(rows.Where(r => r.ModelPreHikeLabel != null).Select(r => (r.ModelPreHikeLabel, r.FinalLabel)));
-
-            if (model.TotalResolvedLabels >= MinSampleSize)
+        // Trail fields come from the Event snapshot, never from a live Trail join.
+        var rows = await (
+            from label in _context.FinalSuitabilityLabels
+            join assessment in _context.Assessments on label.AssessmentId equals assessment.Id
+            join ev in _context.Events on assessment.EventId equals ev.Id
+            select new OutcomeReportRow
             {
-                (model.Kappa, model.WeightedKappa) = FinalLabelService.ComputeKappa(model.ConfusionMatrix);
-            }
-            if (model.ModelOnly.Total >= MinSampleSize)
-            {
-                (model.ModelKappa, model.ModelWeightedKappa) = FinalLabelService.ComputeKappa(model.ModelConfusionMatrix);
-            }
+                Completed = label.Completed,
+                TrailClass = ev.TrailClassSnapshot,
+                Difficulty = ev.Difficulty,
+                PreHikeLabel = assessment.Result
+            }).ToListAsync();
 
-            model.ByNpsBand = rows
-                .Where(r => !string.IsNullOrEmpty(r.NpsBand))
-                .GroupBy(r => r.NpsBand!)
-                .Select(g => new GroupBreakdown
-                {
-                    GroupName = g.Key,
-                    Stats = BuildBreakdown(g.Select(r => (r.PreHikeLabel, r.FinalLabel)))
-                })
-                .OrderBy(g => Array.IndexOf(DifficultyCalculator.Bands, g.GroupName) is var i && i >= 0 ? i : int.MaxValue)
-                .ToList();
+        model.TotalRecordedOutcomes = rows.Count;
+        model.TotalResolvedLabels = rows.Count; // Retained report terminology for the Stage 5 replacement.
+        model.CompletedCount = rows.Count(r => r.Completed);
+        model.NotCompletedCount = rows.Count - model.CompletedCount;
+        model.ByNpsBand = BuildGroups(rows.Where(r => !string.IsNullOrEmpty(r.Difficulty))
+            .GroupBy(r => r.Difficulty!), g => g.Key);
+        model.ByTrailClass = BuildGroups(rows.GroupBy(r => r.TrailClass),
+            g => DifficultyCalculator.TrailClassLabel(g.Key));
 
-            model.ByTrailClass = rows
-                .Where(r => r.TrailClass.HasValue)
-                .GroupBy(r => r.TrailClass!.Value)
-                .OrderBy(g => g.Key) // Walking(1) -> Hiking(2) -> Scrambling(3) -> Simple Climbing(4); alphabetical on the label would scramble that order.
-                .Select(g => new GroupBreakdown
-                {
-                    GroupName = DifficultyCalculator.TrailClassLabel(g.Key),
-                    Stats = BuildBreakdown(g.Select(r => (r.PreHikeLabel, r.FinalLabel)))
-                })
-                .ToList();
+        // This pathway is a registration behavior, not a label-agreement statistic.
+        // Its outcome counts remain useful while the three-category comparisons wait
+        // for the Stage 5 metric definition.
+        var notRecommended = rows.Where(r => r.PreHikeLabel == "Not Recommended").ToList();
+        model.NotRecommendedResolvedCount = notRecommended.Count;
+        model.NotRecommendedCompletedCount = notRecommended.Count(r => r.Completed);
+        model.NotRecommendedNotCompletedCount = notRecommended.Count - model.NotRecommendedCompletedCount;
 
-            // D8. The "Not Recommended" acknowledgement pathway — the only evidence the
-            // system has about whether its negative predictions were correct, since every
-            // other Not-Recommended participant never registered or was rejected.
-            model.NotRecommendedResolvedCount = rows.Count(r => r.PreHikeLabel == "Not Recommended");
-            model.NotRecommendedPathway = BuildBreakdown(
-                rows.Where(r => r.PreHikeLabel == "Not Recommended").Select(r => (r.PreHikeLabel, r.FinalLabel)));
-
-            return View(model);
-        }
-
-        [HttpGet]
-        public async Task<IActionResult> Export()
-        {
-            // Trail fields come from each resolved label's own Event Trail
-            // Snapshot, never a live join to Trails - see the Index() action's
-            // identical reasoning and CLAUDE.md, "Event Trail Snapshot".
-            var rows = await (
-                from label in _context.FinalSuitabilityLabels
-                join reg in _context.EventRegistrations on label.RegistrationId equals reg.Id
-                join assessment in _context.Assessments on label.AssessmentId equals assessment.Id
-                join sr in _context.SuitabilityResults on label.AssessmentId equals sr.AssessmentId into srJoin
-                from sr in srJoin.DefaultIfEmpty()
-                join ev in _context.Events on label.EventId equals ev.Id into evJoin
-                from ev in evJoin.DefaultIfEmpty()
-                orderby label.ResolvedAt descending
-                select new
-                {
-                    label.Id,
-                    label.EventId,
-                    EventTitle = ev != null ? ev.EventTitle : "",
-                    TrailName = ev != null ? ev.TrailNameSnapshot : "",
-                    TrailDistanceKm = ev != null ? ev.TrailDistanceKmSnapshot : (double?)null,
-                    TrailElevationGainMeters = ev != null ? ev.TrailElevationGainMetersSnapshot : (int?)null,
-                    TrailClass = ev != null ? ev.TrailClassSnapshot : (int?)null,
-                    assessment.Age,
-                    assessment.HeightCm,
-                    assessment.WeightKg,
-                    assessment.MedicalConditions,
-                    assessment.ExerciseFrequency,
-                    assessment.ExerciseType,
-                    assessment.CardioEndurance,
-                    assessment.ExerciseConsistency,
-                    assessment.MountainsClimbed,
-                    assessment.RecencyOfHike,
-                    assessment.TrailDifficultyCompleted,
-                    assessment.GearItems,
-                    NpsScore = sr != null ? sr.NpsScore : (double?)null,
-                    NpsBand = sr != null ? sr.NpsBand : null,
-                    ConfidenceScore = sr != null ? sr.ConfidenceScore : (double?)null,
-                    label.PreHikeLabel,
-                    label.ModelPreHikeLabel,
-                    label.ParticipantFeedback,
-                    label.OrganizerAssessment,
-                    label.FinalLabel,
-                    label.ResolvedAt
-                }
-            ).ToListAsync();
-
-            var csv = new System.Text.StringBuilder();
-            csv.AppendLine("LabelId,EventId,EventTitle,TrailName,TrailDistanceKm,TrailElevationGainM,TrailClass," +
-                "Age,HeightCm,WeightKg,MedicalConditions,ExerciseFrequency,ExerciseType,CardioEndurance,ExerciseConsistency," +
-                "MountainsClimbed,RecencyOfHike,TrailDifficultyCompleted,GearItems,NpsScore,NpsBand,ConfidenceScore," +
-                "PreHikeLabel,ModelPreHikeLabel,ParticipantFeedback,OrganizerAssessment,FinalLabel,ResolvedAt");
-
-            foreach (var r in rows)
-            {
-                csv.AppendLine(string.Join(",", new[]
-                {
-                    r.Id.ToString(),
-                    r.EventId.ToString(),
-                    Csv(r.EventTitle),
-                    Csv(r.TrailName),
-                    r.TrailDistanceKm?.ToString() ?? "",
-                    r.TrailElevationGainMeters?.ToString() ?? "",
-                    r.TrailClass?.ToString() ?? "",
-                    r.Age?.ToString() ?? "",
-                    r.HeightCm?.ToString() ?? "",
-                    r.WeightKg?.ToString() ?? "",
-                    Csv(r.MedicalConditions),
-                    Csv(r.ExerciseFrequency),
-                    Csv(r.ExerciseType),
-                    Csv(r.CardioEndurance),
-                    Csv(r.ExerciseConsistency),
-                    Csv(r.MountainsClimbed),
-                    Csv(r.RecencyOfHike),
-                    Csv(r.TrailDifficultyCompleted),
-                    Csv(r.GearItems),
-                    r.NpsScore?.ToString() ?? "",
-                    Csv(r.NpsBand),
-                    r.ConfidenceScore?.ToString() ?? "",
-                    Csv(r.PreHikeLabel),
-                    Csv(r.ModelPreHikeLabel),
-                    Csv(r.ParticipantFeedback),
-                    Csv(r.OrganizerAssessment),
-                    Csv(r.FinalLabel),
-                    r.ResolvedAt.ToString("O")
-                }));
-            }
-
-            var fileName = $"ModelValidation_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
-            var bytes = System.Text.Encoding.UTF8.GetBytes(csv.ToString());
-            return File(bytes, "text/csv", fileName);
-        }
-
-        private static string Csv(string? value) => $"\"{(value ?? "").Replace("\"", "\"\"")}\"";
-
-        private static AccuracyBreakdown BuildBreakdown(IEnumerable<(string? predicted, string? final_)> pairs)
-        {
-            var breakdown = new AccuracyBreakdown();
-            foreach (var (predicted, final_) in pairs)
-            {
-                var classification = FinalLabelService.ClassifyAccuracy(predicted, final_);
-                switch (classification)
-                {
-                    case "Accurate": breakdown.Accurate++; break;
-                    case "Over-cautious": breakdown.OverCautious++; break;
-                    case "Missed risk": breakdown.MissedRisk++; break;
-                    default: breakdown.Unclassifiable++; break;
-                }
-                breakdown.Total++;
-            }
-            return breakdown;
-        }
-
-        private static int[,] BuildConfusionMatrix(IEnumerable<(string? predicted, string? final_)> pairs)
-        {
-            var k = FinalLabelService.LabelCategories.Length;
-            var matrix = new int[k, k];
-            foreach (var (predicted, final_) in pairs)
-            {
-                var i = FinalLabelService.LabelOrder(predicted);
-                var j = FinalLabelService.LabelOrder(final_);
-                if (i.HasValue && j.HasValue) matrix[i.Value, j.Value]++;
-            }
-            return matrix;
-        }
-
-        private class ReportRow
-        {
-            public string? PreHikeLabel { get; set; }
-            public string? ModelPreHikeLabel { get; set; }
-            public string? FinalLabel { get; set; }
-            public string? NpsBand { get; set; }
-            public int? TrailClass { get; set; }
-        }
+        return View(model);
     }
 
-    public class ReportsViewModel
+    [HttpGet]
+    public async Task<IActionResult> Export()
     {
-        public int TotalResolvedLabels { get; set; }
-        public bool HasEnoughData => TotalResolvedLabels >= ReportsController.MinSampleSize;
+        var rows = await (
+            from label in _context.FinalSuitabilityLabels
+            join assessment in _context.Assessments on label.AssessmentId equals assessment.Id
+            join ev in _context.Events on assessment.EventId equals ev.Id
+            orderby label.RecordedAt descending
+            select new
+            {
+                label.Id, label.AssessmentId, label.Completed, label.NonCompletionReason,
+                label.ParticipantFeedback, label.OrganizerAssessment, label.DifficultyExperience, label.RecordedAt,
+                EventId = ev.Id, ev.EventTitle, TrailName = ev.TrailNameSnapshot,
+                ev.TrailDistanceKmSnapshot, ev.TrailElevationGainMetersSnapshot, ev.TrailClassSnapshot,
+                assessment.Age, assessment.HeightCm, assessment.WeightKg, assessment.MedicalConditions,
+                assessment.ExerciseFrequency, assessment.ExerciseType, assessment.CardioEndurance,
+                assessment.ExerciseConsistency, assessment.MountainsClimbed, assessment.RecencyOfHike,
+                assessment.TrailDifficultyCompleted, assessment.GearItems
+            }).ToListAsync();
 
-        public AccuracyBreakdown Overall { get; set; } = new();
-        public AccuracyBreakdown ModelOnly { get; set; } = new();
-
-        public int[,] ConfusionMatrix { get; set; } = new int[3, 3];
-        public int[,] ModelConfusionMatrix { get; set; } = new int[3, 3];
-
-        public double? Kappa { get; set; }
-        public double? WeightedKappa { get; set; }
-        public double? ModelKappa { get; set; }
-        public double? ModelWeightedKappa { get; set; }
-
-        public List<GroupBreakdown> ByNpsBand { get; set; } = new();
-        public List<GroupBreakdown> ByTrailClass { get; set; } = new();
-
-        public int TotalAssessments { get; set; }
-        public int TotalRegistrations { get; set; }
-        public int TotalAccepted { get; set; }
-
-        public int NotRecommendedResolvedCount { get; set; }
-        public AccuracyBreakdown NotRecommendedPathway { get; set; } = new();
+        var csv = new System.Text.StringBuilder();
+        csv.AppendLine("OutcomeId,AssessmentId,EventId,EventTitle,TrailName,TrailDistanceKm,TrailElevationGainM,TrailClass,Completed,NonCompletionReason,ParticipantDifficultyExperience,OrganizerDifficultyExperience,ConservativeDifficultyExperience,RecordedAt,Age,HeightCm,WeightKg,MedicalConditions,ExerciseFrequency,ExerciseType,CardioEndurance,ExerciseConsistency,MountainsClimbed,RecencyOfHike,TrailDifficultyCompleted,GearItems");
+        foreach (var r in rows)
+            csv.AppendLine(string.Join(",", new[]
+            {
+                r.Id.ToString(), r.AssessmentId.ToString(), r.EventId.ToString(), Csv(r.EventTitle), Csv(r.TrailName),
+                r.TrailDistanceKmSnapshot.ToString(), r.TrailElevationGainMetersSnapshot.ToString(), r.TrailClassSnapshot.ToString(),
+                r.Completed.ToString(), Csv(r.NonCompletionReason), Csv(r.ParticipantFeedback), Csv(r.OrganizerAssessment), Csv(r.DifficultyExperience), r.RecordedAt.ToString("O"),
+                r.Age?.ToString() ?? "", r.HeightCm?.ToString() ?? "", r.WeightKg?.ToString() ?? "", Csv(r.MedicalConditions),
+                Csv(r.ExerciseFrequency), Csv(r.ExerciseType), Csv(r.CardioEndurance), Csv(r.ExerciseConsistency),
+                Csv(r.MountainsClimbed), Csv(r.RecencyOfHike), Csv(r.TrailDifficultyCompleted), Csv(r.GearItems)
+            }));
+        return File(System.Text.Encoding.UTF8.GetBytes(csv.ToString()), "text/csv",
+            $"OutcomeData_{DateTime.Now:yyyyMMdd_HHmmss}.csv");
     }
 
-    public class AccuracyBreakdown
+    private static List<GroupBreakdown> BuildGroups<TKey>(IEnumerable<IGrouping<TKey, OutcomeReportRow>> groups, Func<IGrouping<TKey, OutcomeReportRow>, string> name)
+        where TKey : notnull => groups.Select(g => new GroupBreakdown
+        {
+            GroupName = name(g),
+            Stats = new AccuracyBreakdown { Total = g.Count() },
+            CompletedCount = g.Count(r => r.Completed),
+            NotCompletedCount = g.Count(r => !r.Completed)
+        }).ToList();
+
+    private static string Csv(string? value) => $"\"{(value ?? "").Replace("\"", "\"\"")}\"";
+
+    private sealed class OutcomeReportRow
     {
-        public int Total { get; set; }
-        public int Accurate { get; set; }
-
-        // Predicted harder than it turned out. Inefficient, not unsafe.
-        public int OverCautious { get; set; }
-
-        // Predicted easier than it turned out — the failure mode the system exists to
-        // prevent. A participant was told they were ready and was not.
-        public int MissedRisk { get; set; }
-
-        public int Unclassifiable { get; set; }
-
-        public bool HasEnoughData => Total >= ReportsController.MinSampleSize;
-
-        public double AccuratePct => Total > 0 ? (double)Accurate / Total * 100 : 0;
-        public double OverCautiousPct => Total > 0 ? (double)OverCautious / Total * 100 : 0;
-        public double MissedRiskPct => Total > 0 ? (double)MissedRisk / Total * 100 : 0;
+        public bool Completed { get; set; }
+        public int TrailClass { get; set; }
+        public string? Difficulty { get; set; }
+        public string? PreHikeLabel { get; set; }
     }
+}
 
-    public class GroupBreakdown
-    {
-        public string GroupName { get; set; } = "";
-        public AccuracyBreakdown Stats { get; set; } = new();
-    }
+public class ReportsViewModel
+{
+    public int TotalResolvedLabels { get; set; }
+    public int TotalRecordedOutcomes { get; set; }
+    public int CompletedCount { get; set; }
+    public int NotCompletedCount { get; set; }
+    public bool HasEnoughData => TotalRecordedOutcomes >= ReportsController.MinSampleSize;
+    public bool HasStage5Metrics => false;
+
+    // Retained data-shape for the Stage 5 validation-metric replacement.
+    public AccuracyBreakdown Overall { get; set; } = new();
+    public AccuracyBreakdown ModelOnly { get; set; } = new();
+    public int[,] ConfusionMatrix { get; set; } = new int[3, 3];
+    public int[,] ModelConfusionMatrix { get; set; } = new int[3, 3];
+    public double? Kappa { get; set; }
+    public double? WeightedKappa { get; set; }
+    public double? ModelKappa { get; set; }
+    public double? ModelWeightedKappa { get; set; }
+
+    public List<GroupBreakdown> ByNpsBand { get; set; } = new();
+    public List<GroupBreakdown> ByTrailClass { get; set; } = new();
+    public int TotalAssessments { get; set; }
+    public int TotalRegistrations { get; set; }
+    public int TotalAccepted { get; set; }
+    public int NotRecommendedResolvedCount { get; set; }
+    public int NotRecommendedCompletedCount { get; set; }
+    public int NotRecommendedNotCompletedCount { get; set; }
+    public AccuracyBreakdown NotRecommendedPathway { get; set; } = new();
+}
+
+public class AccuracyBreakdown
+{
+    public int Total { get; set; }
+    public int Accurate { get; set; }
+    public int OverCautious { get; set; }
+    public int MissedRisk { get; set; }
+    public int Unclassifiable { get; set; }
+    public bool HasEnoughData => Total >= ReportsController.MinSampleSize;
+    public double AccuratePct => Total > 0 ? (double)Accurate / Total * 100 : 0;
+    public double OverCautiousPct => Total > 0 ? (double)OverCautious / Total * 100 : 0;
+    public double MissedRiskPct => Total > 0 ? (double)MissedRisk / Total * 100 : 0;
+}
+
+public class GroupBreakdown
+{
+    public string GroupName { get; set; } = string.Empty;
+    public AccuracyBreakdown Stats { get; set; } = new();
+    public int CompletedCount { get; set; }
+    public int NotCompletedCount { get; set; }
 }

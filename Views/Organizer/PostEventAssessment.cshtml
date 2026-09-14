@@ -31,6 +31,8 @@
             profilePictureUrl = reg.User?.ProfilePictureUrl,
             preHikeResult = reg.Assessment?.Result,
             savedOutcome = assessment?.DifficultyExperience,
+            savedCompleted = assessment?.Completed,
+            savedNonCompletionReason = assessment?.NonCompletionReason,
             savedNotes = assessment?.Notes
         });
     }
@@ -124,6 +126,21 @@
                     </div>
 
                     <form id="assessmentForm" novalidate>
+                        <fieldset class="mb-5">
+                            <legend class="block text-sm font-medium text-gray-300 mb-3">Did the participant complete the hike? <span class="text-red-400">*</span></legend>
+                            <div class="grid grid-cols-2 gap-2">
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-3 rounded-xl border border-gray-700 hover:border-accent transition-colors has-checked:border-accent has-checked:bg-accent/10"><input type="radio" name="completed" value="true" class="accent-accent" /><span class="text-gray-200 text-sm">Completed</span></label>
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-3 rounded-xl border border-gray-700 hover:border-accent transition-colors has-checked:border-accent has-checked:bg-accent/10"><input type="radio" name="completed" value="false" class="accent-accent" /><span class="text-gray-200 text-sm">Did not complete</span></label>
+                            </div>
+                        </fieldset>
+                        <fieldset id="nonCompletionReasonGroup" class="hidden mb-5">
+                            <legend class="block text-sm font-medium text-gray-300 mb-3">Reason for non-completion <span class="text-red-400">*</span></legend>
+                            <div class="space-y-2">
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-colors has-checked:border-accent has-checked:bg-accent/10"><input type="radio" name="nonCompletionReason" value="Readiness" class="accent-accent" /><span class="text-gray-200 text-sm">Readiness</span></label>
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-colors has-checked:border-accent has-checked:bg-accent/10"><input type="radio" name="nonCompletionReason" value="External" class="accent-accent" /><span class="text-gray-200 text-sm">External</span></label>
+                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-colors has-checked:border-accent has-checked:bg-accent/10"><input type="radio" name="nonCompletionReason" value="Withdrawal" class="accent-accent" /><span class="text-gray-200 text-sm">Withdrawal</span></label>
+                            </div>
+                        </fieldset>
                         <fieldset>
                             <legend class="block text-sm font-medium text-gray-300 mb-3">Hike Outcome <span class="text-red-400">*</span></legend>
                             <div class="space-y-2">
@@ -258,9 +275,9 @@
             // window.tgToastHostExempt, window.tgGetToastCloseButtons).
             // ------------------------------------------------------------------
             var participants = [];
-            var assessedByUserId = {};   // userId -> { outcome, notes } - saved baseline, server-confirmed only
+            var assessedByUserId = {};   // userId -> saved, server-confirmed assessment
             var selectedRegistrationId = null;
-            var baseline = { outcome: null, notes: '' };
+            var baseline = { outcome: null, completed: null, reason: null, notes: '' };
             var dirty = false;
             var activeFilter = 'all';
             var saving = false;
@@ -485,10 +502,22 @@
             function onOutcomeOrNotesChanged() {
                 var selected = els.form.querySelector('input[name="outcome"]:checked');
                 var currentOutcome = selected ? selected.value : null;
+                var completed = els.form.querySelector('input[name="completed"]:checked');
+                var currentCompleted = completed ? completed.value : null;
+                var reason = els.form.querySelector('input[name="nonCompletionReason"]:checked');
+                var currentReason = reason ? reason.value : null;
                 var currentNotes = els.notes.value;
-                var isDirty = currentOutcome !== baseline.outcome || currentNotes !== (baseline.notes || '');
+                var isDirty = currentOutcome !== baseline.outcome || currentCompleted !== baseline.completed ||
+                    currentReason !== baseline.reason || currentNotes !== (baseline.notes || '');
                 setDirty(isDirty);
                 if (!saving) setSaveStatus(isDirty ? 'dirty' : 'idle');
+            }
+
+            function updateReasonVisibility() {
+                var completed = els.form.querySelector('input[name="completed"]:checked');
+                var showReason = completed && completed.value === 'false';
+                els.nonCompletionReasonGroup.classList.toggle('hidden', !showReason);
+                if (!showReason) els.form.querySelectorAll('input[name="nonCompletionReason"]').forEach(function (radio) { radio.checked = false; });
             }
 
             function hydrateWorkspace(p) {
@@ -505,14 +534,19 @@
 
                 var saved = assessedByUserId[p.userId];
                 var savedOutcome = saved ? saved.outcome : null;
+                var savedCompleted = saved ? saved.completed : null;
+                var savedReason = saved ? saved.reason : null;
                 var savedNotes = saved ? (saved.notes || '') : '';
                 updateIdentityOutcomePill(p);
 
                 var radios = els.form.querySelectorAll('input[name="outcome"]');
                 radios.forEach(function (r) { r.checked = (r.value === savedOutcome); });
+                els.form.querySelectorAll('input[name="completed"]').forEach(function (r) { r.checked = (r.value === String(savedCompleted)); });
+                els.form.querySelectorAll('input[name="nonCompletionReason"]').forEach(function (r) { r.checked = (r.value === savedReason); });
+                updateReasonVisibility();
                 els.notes.value = savedNotes;
 
-                baseline = { outcome: savedOutcome || null, notes: savedNotes };
+                baseline = { outcome: savedOutcome || null, completed: savedCompleted === null ? null : String(savedCompleted), reason: savedCompleted === false ? (savedReason || null) : null, notes: savedNotes };
                 setDirty(false);
                 setSaveStatus('idle');
                 updateSaveButtonsEnabled();
@@ -581,6 +615,17 @@
                     showToast('Please select a hike outcome.', 'error');
                     return;
                 }
+                var completedRadio = els.form.querySelector('input[name="completed"]:checked');
+                if (!completedRadio) {
+                    showToast('Please indicate whether the participant completed the hike.', 'error');
+                    return;
+                }
+                var completed = completedRadio.value === 'true';
+                var reasonRadio = els.form.querySelector('input[name="nonCompletionReason"]:checked');
+                if (!completed && !reasonRadio) {
+                    showToast('Please select a reason for non-completion.', 'error');
+                    return;
+                }
                 var p = findParticipant(selectedRegistrationId);
                 if (!p) return;
 
@@ -596,6 +641,8 @@
                 postJson('/Organizer/SubmitPostEventAssessment', {
                     eventId: eventId,
                     registrationId: registrationId,
+                    completed: completed,
+                    nonCompletionReason: completed ? 'NotApplicable' : reasonRadio.value,
                     difficultyExperience: outcome,
                     notes: notes
                 })
@@ -605,8 +652,8 @@
                     saving = false;
 
                     if (data.success) {
-                        assessedByUserId[p.userId] = { outcome: outcome, notes: notes };
-                        baseline = { outcome: outcome, notes: notes };
+                        assessedByUserId[p.userId] = { outcome: outcome, completed: completed, reason: completed ? 'NotApplicable' : reasonRadio.value, notes: notes };
+                        baseline = { outcome: outcome, completed: String(completed), reason: completed ? null : reasonRadio.value, notes: notes };
                         setDirty(false);
                         renderCounts();
                         renderProgress();
@@ -777,6 +824,7 @@
                     workspaceOutcomePill: byId('workspaceOutcomePill'),
                     form: byId('assessmentForm'),
                     notes: byId('assessmentNotes'),
+                    nonCompletionReasonGroup: byId('nonCompletionReasonGroup'),
                     saveBtn: byId('saveAssessmentBtn'),
                     saveNextBtn: byId('saveAndNextBtn'),
                     saveStatus: byId('saveStatus')
@@ -798,7 +846,7 @@
 
                 participants.forEach(function (p) {
                     if (p.savedOutcome) {
-                        assessedByUserId[p.userId] = { outcome: p.savedOutcome, notes: p.savedNotes || '' };
+                        assessedByUserId[p.userId] = { outcome: p.savedOutcome, completed: p.savedCompleted, reason: p.savedNonCompletionReason, notes: p.savedNotes || '' };
                     }
                 });
 
@@ -819,7 +867,10 @@
                 if (els.form) {
                     els.form.addEventListener('submit', function (e) { e.preventDefault(); });
                     els.form.addEventListener('change', function (e) {
-                        if (e.target && e.target.name === 'outcome') onOutcomeOrNotesChanged();
+                        if (e.target && (e.target.name === 'outcome' || e.target.name === 'completed' || e.target.name === 'nonCompletionReason')) {
+                            if (e.target.name === 'completed') updateReasonVisibility();
+                            onOutcomeOrNotesChanged();
+                        }
                     });
                 }
                 if (els.notes) els.notes.addEventListener('input', onOutcomeOrNotesChanged);

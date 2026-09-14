@@ -605,6 +605,8 @@ namespace TrailGuard.Controllers
         public async Task<IActionResult> SubmitFeedback(
             int eventId,
             int Rating,
+            bool? Completed,
+            string? NonCompletionReason,
             string DifficultyExperience,
             string TrailCondition,
             string TrailSignage,
@@ -637,6 +639,8 @@ namespace TrailGuard.Controllers
                 return RedirectToAction("Details", new { id = eventId });
             }
 
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            await _context.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM \"EventRegistrations\" WHERE \"Id\" = {eligibleRegistration.Id} FOR UPDATE");
             var hasGivenFeedback = await _context.EventFeedbacks
                 .AnyAsync(f => f.EventId == eventId && f.UserId == eligibleRegistration.UserId);
 
@@ -646,7 +650,8 @@ namespace TrailGuard.Controllers
                 return RedirectToAction("Details", new { id = eventId });
             }
 
-            if (Rating < 1 || Rating > 5 ||
+            if (!FinalLabelService.IsValidCompletion(Completed, NonCompletionReason) ||
+                !FinalLabelService.IsKnownOutcome(DifficultyExperience) || Rating < 1 || Rating > 5 ||
                 string.IsNullOrWhiteSpace(DifficultyExperience) ||
                 string.IsNullOrWhiteSpace(TrailCondition) ||
                 string.IsNullOrWhiteSpace(TrailSignage) ||
@@ -664,6 +669,8 @@ namespace TrailGuard.Controllers
                 EventId = eventId,
                 UserId = eligibleRegistration.UserId,
                 Rating = Rating,
+                Completed = Completed,
+                NonCompletionReason = Completed == true ? "NotApplicable" : NonCompletionReason,
                 DifficultyExperience = DifficultyExperience,
                 TrailCondition = TrailCondition,
                 TrailSignage = TrailSignage,
@@ -687,6 +694,8 @@ namespace TrailGuard.Controllers
             // an Accepted registration genuinely exists. See CLAUDE.md,
             // "Feedback" > "Eligibility".
             await FinalLabelService.UpsertFinalLabel(_context, eligibleRegistration.Id);
+
+            await transaction.CommitAsync();
 
             TempData["Success"] = "Thank you for your feedback!";
             return RedirectToAction("Details", new { id = eventId });

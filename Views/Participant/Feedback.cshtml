@@ -67,6 +67,27 @@
             <!-- Step 1: Personal Hiking Experience -->
             <div id="step1" class="step-content space-y-6">
                 <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-3">Did you complete the hike? <span class="text-red-400">*</span></label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg border border-gray-700 hover:border-accent transition-colors has-checked:border-accent has-checked:bg-accent/10">
+                            <input type="radio" name="Completed" value="true" class="accent-accent" />
+                            <span class="text-gray-300 text-sm">Yes, completed</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg border border-gray-700 hover:border-accent transition-colors has-checked:border-accent has-checked:bg-accent/10">
+                            <input type="radio" name="Completed" value="false" class="accent-accent" />
+                            <span class="text-gray-300 text-sm">No, did not complete</span>
+                        </label>
+                    </div>
+                </div>
+                <div id="nonCompletionReasonGroup" class="hidden">
+                    <label class="block text-sm font-medium text-gray-300 mb-3">Why did you not complete the hike? <span class="text-red-400">*</span></label>
+                    <div class="space-y-2">
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg border border-gray-700 hover:border-accent transition-colors has-checked:border-accent has-checked:bg-accent/10"><input type="radio" name="NonCompletionReason" value="Readiness" class="accent-accent" /><span class="text-gray-300 text-sm">Readiness — fitness, stamina, health, or ability</span></label>
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg border border-gray-700 hover:border-accent transition-colors has-checked:border-accent has-checked:bg-accent/10"><input type="radio" name="NonCompletionReason" value="External" class="accent-accent" /><span class="text-gray-300 text-sm">External — weather, incident, emergency, or curtailed event</span></label>
+                        <label class="flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg border border-gray-700 hover:border-accent transition-colors has-checked:border-accent has-checked:bg-accent/10"><input type="radio" name="NonCompletionReason" value="Withdrawal" class="accent-accent" /><span class="text-gray-300 text-sm">Withdrawal — chose not to continue for another reason</span></label>
+                    </div>
+                </div>
+                <div>
                     <label class="block text-sm font-medium text-gray-300 mb-3">How did the trail difficulty compare to your expectations? <span class="text-red-400">*</span></label>
                     <div class="space-y-2">
                         <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-orange-500 transition-all has-checked:border-orange-500 has-checked:bg-orange-500/10">
@@ -355,6 +376,15 @@
         hideStepError();
 
         if (step === 1) {
+            const completed = document.querySelector('input[name="Completed"]:checked');
+            if (!completed) {
+                showStepError('Please indicate whether you completed the hike.');
+                return false;
+            }
+            if (completed.value === 'false' && !document.querySelector('input[name="NonCompletionReason"]:checked')) {
+                showStepError('Please select why you did not complete the hike.');
+                return false;
+            }
             const difficulty = document.querySelector('input[name="DifficultyExperience"]:checked');
             if (!difficulty) {
                 showStepError('Please select how the trail difficulty compared to your expectations.');
@@ -478,6 +508,12 @@
             updateStepUI();
         }
     });
+
+    document.querySelectorAll('input[name="Completed"]').forEach(input => input.addEventListener('change', () => {
+        const didNotComplete = document.querySelector('input[name="Completed"]:checked')?.value === 'false';
+        document.getElementById('nonCompletionReasonGroup')?.classList.toggle('hidden', !didNotComplete);
+        if (!didNotComplete) document.querySelectorAll('input[name="NonCompletionReason"]').forEach(reason => reason.checked = false);
+    }));
 
     document.getElementById('feedbackForm')?.addEventListener('submit', function(e) {
         if (!validateStep(3)) {
