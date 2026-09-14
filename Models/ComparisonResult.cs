@@ -11,6 +11,9 @@ namespace TrailGuard.Models
         public string? ConservativeDifficultyExperience { get; set; }
         public bool? Completed { get; set; }
         public string? NonCompletionReason { get; set; }
-        public string ComparisonNotice { get; set; } = "Unavailable pending Stage 5";
+        public string PredictedLabel { get; set; } = "Not available";
+        public double? CompletionProbability { get; set; }
+        public string Comparison { get; set; } = "Pending";
+        public bool IsSafetyCritical => Comparison == "Missed risk";
     }
 }

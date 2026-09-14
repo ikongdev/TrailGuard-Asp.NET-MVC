@@ -894,6 +894,10 @@ namespace TrailGuard.Controllers
 
             var outcomes = await _context.FinalSuitabilityLabels
                 .ToDictionaryAsync(l => l.AssessmentId, l => l);
+            var assessmentIds = registrations.Where(r => r.AssessmentId.HasValue).Select(r => r.AssessmentId!.Value).ToList();
+            var predictions = await _context.SuitabilityResults
+                .Where(r => assessmentIds.Contains(r.AssessmentId))
+                .ToDictionaryAsync(r => r.AssessmentId, r => r);
 
             var results = new List<ComparisonResult>();
 
@@ -903,6 +907,7 @@ namespace TrailGuard.Controllers
                 participantFeedbacks.TryGetValue(userId, out var participantFeedback);
                 organizerAssessments.TryGetValue(userId, out var organizerAssessment);
                 outcomes.TryGetValue(reg.AssessmentId ?? 0, out var outcome);
+                predictions.TryGetValue(reg.AssessmentId ?? 0, out var prediction);
 
                 results.Add(new ComparisonResult
                 {
@@ -914,7 +919,10 @@ namespace TrailGuard.Controllers
                     OrganizerCompletion = CompletionText(organizerAssessment?.Completed, organizerAssessment?.NonCompletionReason),
                     ConservativeDifficultyExperience = outcome?.DifficultyExperience,
                     Completed = outcome?.Completed,
-                    NonCompletionReason = outcome?.NonCompletionReason
+                    NonCompletionReason = outcome?.NonCompletionReason,
+                    PredictedLabel = prediction?.PredictedLabel ?? reg.Assessment?.Result ?? "Not available",
+                    CompletionProbability = prediction?.CompletionProbability,
+                    Comparison = ComparisonFor(prediction?.PredictedLabel ?? reg.Assessment?.Result, outcome?.Completed)
                 });
             }
 
@@ -927,6 +935,15 @@ namespace TrailGuard.Controllers
             true => "Completed",
             false => $"Did not complete — {reason}",
             _ => "Not submitted"
+        };
+        private static string ComparisonFor(string? label, bool? completed) => completed is null ? "Pending" : label switch
+        {
+            "Good Match" or "Good-Match" when completed.Value => "Accurate",
+            "Good Match" or "Good-Match" => "Missed risk",
+            "Not Recommended" when completed.Value => "Over-cautious",
+            "Not Recommended" => "Accurate",
+            "Borderline" => "Borderline outcome",
+            _ => "Not available"
         };
 
     }

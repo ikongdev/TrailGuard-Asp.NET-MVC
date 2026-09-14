@@ -30,21 +30,23 @@ public class ReportsController : Controller
         var rows = await (
             from label in _context.FinalSuitabilityLabels
             join assessment in _context.Assessments on label.AssessmentId equals assessment.Id
+            join result in _context.SuitabilityResults on assessment.Id equals result.AssessmentId
             join ev in _context.Events on assessment.EventId equals ev.Id
             select new OutcomeReportRow
             {
                 Completed = label.Completed,
                 TrailClass = ev.TrailClassSnapshot,
                 Difficulty = ev.Difficulty,
-                PreHikeLabel = assessment.Result
+                PreHikeLabel = assessment.Result,
+                PredictedLabel = result.PredictedLabel,
+                CompletionProbability = result.CompletionProbability,
+                NonCompletionReason = label.NonCompletionReason
             }).ToListAsync();
 
         model.TotalRecordedOutcomes = rows.Count;
         model.TotalResolvedLabels = rows.Count; // Retained report terminology for the Stage 5 replacement.
         model.CompletedCount = rows.Count(r => r.Completed);
         model.NotCompletedCount = rows.Count - model.CompletedCount;
-        model.ByNpsBand = BuildGroups(rows.Where(r => !string.IsNullOrEmpty(r.Difficulty))
-            .GroupBy(r => r.Difficulty!), g => g.Key);
         model.ByTrailClass = BuildGroups(rows.GroupBy(r => r.TrailClass),
             g => DifficultyCalculator.TrailClassLabel(g.Key));
 
@@ -55,6 +57,12 @@ public class ReportsController : Controller
         model.NotRecommendedResolvedCount = notRecommended.Count;
         model.NotRecommendedCompletedCount = notRecommended.Count(r => r.Completed);
         model.NotRecommendedNotCompletedCount = notRecommended.Count - model.NotRecommendedCompletedCount;
+        model.ConfusionMatrix = new int[3, 2];
+        foreach (var row in rows) model.ConfusionMatrix[LabelIndex(row.PredictedLabel), row.Completed ? 0 : 1]++;
+        model.CalibrationBands = Enumerable.Range(0, 10).Select(i => BuildRate(rows.Where(r => r.CompletionProbability >= i / 10d && (i == 9 ? r.CompletionProbability <= 1 : r.CompletionProbability < (i + 1) / 10d)), $"{i * 10}-{(i + 1) * 10}%")).ToList();
+        model.GoodMatchSafety = BuildRate(rows.Where(r => LabelIndex(r.PredictedLabel) == 0), "Good Match");
+        model.ThresholdBands = new List<OutcomeRate> { BuildRate(rows.Where(r => r.CompletionProbability < .30), "Below 30%"), BuildRate(rows.Where(r => r.CompletionProbability >= .30 && r.CompletionProbability < .80), "30-80%"), BuildRate(rows.Where(r => r.CompletionProbability >= .80), "80%+") };
+        model.NonCompletionReasons = rows.Where(r => !r.Completed).GroupBy(r => r.NonCompletionReason).Select(g => new ReasonCount { Reason = g.Key, Count = g.Count() }).ToList();
         var exportSummary = BuildExportRows(await ExportSource().ToListAsync());
         model.ExportIncludedCount = exportSummary.Included.Count;
         model.ExportNonReadinessExcludedCount = exportSummary.NonReadinessExcludedCount;
@@ -89,6 +97,8 @@ public class ReportsController : Controller
         }).ToList();
 
     private static string Csv(string? value) => $"\"{(value ?? "").Replace("\"", "\"\"")}\"";
+    private static int LabelIndex(string? label) => label switch { "Good Match" or "Good-Match" => 0, "Borderline" => 1, _ => 2 };
+    private static OutcomeRate BuildRate(IEnumerable<OutcomeReportRow> source, string label) { var rows = source.ToList(); return new OutcomeRate { Label = label, Total = rows.Count, Completed = rows.Count(r => r.Completed) }; }
 
     private sealed class OutcomeReportRow
     {
@@ -96,6 +106,9 @@ public class ReportsController : Controller
         public int TrailClass { get; set; }
         public string? Difficulty { get; set; }
         public string? PreHikeLabel { get; set; }
+        public string? PredictedLabel { get; set; }
+        public double CompletionProbability { get; set; }
+        public string NonCompletionReason { get; set; } = string.Empty;
     }
     private sealed class ExportData { public List<string[]> Included { get; }=[]; public int NonReadinessExcludedCount { get; set; } public List<string> IncompleteCaseKeys { get; }=[]; }
     private sealed class ExportSourceRow { public int Id { get; set; } public Guid Profile { get; set; } public int Trail { get; set; } public bool Completed { get; set; } public string Reason { get; set; }=""; public double? Height { get; set; } public double? Weight { get; set; } public string? Medical { get; set; } public string? Frequency { get; set; } public string? Cardio { get; set; } public string? Consistency { get; set; } public string? Experience { get; set; } public string? Recency { get; set; } public string? Hardest { get; set; } public string? Gear { get; set; } public double Distance { get; set; } public int Elevation { get; set; } public int TrailClass { get; set; } public decimal Duration { get; set; } }
@@ -120,7 +133,6 @@ public class ReportsViewModel
     public double? ModelKappa { get; set; }
     public double? ModelWeightedKappa { get; set; }
 
-    public List<GroupBreakdown> ByNpsBand { get; set; } = new();
     public List<GroupBreakdown> ByTrailClass { get; set; } = new();
     public int TotalAssessments { get; set; }
     public int TotalRegistrations { get; set; }
@@ -132,7 +144,13 @@ public class ReportsViewModel
     public int ExportIncludedCount { get; set; }
     public int ExportNonReadinessExcludedCount { get; set; }
     public List<string> ExportIncompleteCaseKeys { get; set; } = new();
+    public List<OutcomeRate> CalibrationBands { get; set; } = new();
+    public OutcomeRate GoodMatchSafety { get; set; } = new();
+    public List<OutcomeRate> ThresholdBands { get; set; } = new();
+    public List<ReasonCount> NonCompletionReasons { get; set; } = new();
 }
+public class OutcomeRate { public string Label { get; set; } = string.Empty; public int Total { get; set; } public int Completed { get; set; } public int NotCompleted => Total - Completed; public bool HasEnoughData => Total >= ReportsController.MinSampleSize; public double CompletionRate => Total == 0 ? 0 : (double)Completed / Total * 100; }
+public class ReasonCount { public string Reason { get; set; } = string.Empty; public int Count { get; set; } }
 
 public class AccuracyBreakdown
 {
