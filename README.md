@@ -30,7 +30,7 @@ Secure, separate dashboards and workflows for Administrators, Organizers, and Pa
 Organizers can create detailed trail profiles, upload photos, manage trail information, and schedule hiking events.
 
 ### Automated Difficulty Calculator
-The system uses a custom `DifficultyCalculator` service to objectively rate trails based on trail metrics such as distance and elevation gain.
+`DifficultyCalculator` computes a geometry-based Event Difficulty display from an Event's captured trail data. A Trail's technical class is metadata; the organizer remains responsible for the registration decision.
 
 ### Weather Integration
 A built-in `WeatherService` allows organizers to monitor weather conditions for scheduled events.
@@ -64,7 +64,8 @@ Participants can submit feedback after events to help organizers improve future 
 
 ## Prerequisites
 
-- .NET SDK (compatible with ASP.NET Core)
+- .NET 10 SDK
+- Python 3.14
 - Node.js and npm
 - Visual Studio 2022, Visual Studio Code, or any preferred IDE
 
@@ -87,9 +88,21 @@ npm install
 dotnet restore
 ```
 
+## Install ML Service Dependencies
+
+From the repository root, install the dependencies used by the v3 FastAPI service:
+
+```bash
+python -m pip install fastapi "uvicorn[standard]" xgboost shap numpy pandas scikit-learn
+```
+
 ## Database Setup
 
-Update the connection string in `appsettings.json` if necessary, then apply the Entity Framework migrations:
+Store the PostgreSQL connection string in User Secrets, then apply the Entity Framework migrations:
+
+```bash
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "<PostgreSQL connection string>"
+```
 
 ```bash
 dotnet ef database update
@@ -97,9 +110,20 @@ dotnet ef database update
 
 ## Run the Application
 
+Start the ML service **first**. It must run on the same address as `MlApi:BaseUrl` in `appsettings.json` (the committed setting is `http://127.0.0.1:8000`):
+
+```bash
+cd trailguard-ml-v2
+python -m uvicorn main:app --reload --port 8000
+```
+
+Then, in a second terminal at the repository root, start the web application:
+
 ```bash
 dotnet run
 ```
+
+Assessments require the ML service. If it is unavailable or running at a different address, assessment submission returns an error and saves no result.
 
 > Note: If you modify Tailwind CSS files, rebuild or watch the CSS assets as required by your project configuration.
 

@@ -145,7 +145,7 @@ Badge colours — dark and near-solid, because an 18%-opacity badge disappears a
 | `badge-orange` | `rgb(67 20 7 / 0.85)` | `rgb(253 186 116)` | `rgb(251 146 60 / 0.35)` |
 | `badge-hard` | `rgb(69 10 10 / 0.85)` | `rgb(252 165 165)` | `rgb(248 113 113 / 0.35)` |
 
-Where Event Difficulty is displayed, its badge styling must use `DifficultyCalculator.BadgeClass` so Event pages share the canonical label-to-color mapping. **Don't introduce a fifth band** without changing the calculator, `acsm_gate.py`'s matching Python-side bands, and this document together.
+Where Event Difficulty is displayed, its badge styling must use `DifficultyCalculator.BadgeClass` so Event pages share the canonical label-to-color mapping. **Don't introduce a fifth band** without changing the calculator and this document together.
 
 **Correction:** this section previously said `.badge-moderate` was kept in `input.css` for the landing page's static trail showcase (`Home/Index.cshtml`), which hand-wrote difficulty text like "Moderate 4/9" independent of `DifficultyCalculator`. `.badge-moderate` has since been removed from `input.css` (confirmed no remaining consumer repository-wide) — the showcase's Popular Trails cards don't show a difficulty badge at all now, canonical or otherwise. See Landing Page — Popular Trails Carousel, below, for why: those cards describe Trails, and Event Difficulty is a property of a scheduled Event, not a Trail on its own.
 
@@ -471,7 +471,7 @@ Both live in `Trail/Index.cshtml`, opened through the same shared `TrailModal` o
 
 Two related but distinct patterns exist — don't reach for the wrong one for a given message.
 
-**Inline contextual banner** — a persistent, page-embedded notice tied to the content around it: a required-clearance notice on the assessment report, a form error restated next to the form that produced it, a gate reason attached to a specific result. It stays on the page until the underlying condition changes, and its hue carries meaning (red still means "blocks you," amber still means "worth knowing"). This is what the table below documents.
+**Inline contextual banner** — a persistent, page-embedded notice tied to the content around it: a required-clearance notice on the assessment report, a form error restated next to the form that produced it, a contextual secondary assessment note. It stays on the page until the underlying condition changes, and its hue carries meaning (red still means "blocks you," amber still means "worth knowing"). This is what the table below documents.
 
 **Global toast** — a transient, one-off outcome of an action the user just took: a save succeeded, a delete failed, a validation error on a field the user can no longer see because the wizard moved on. It comes from the single shared host (`#tg-toast-host` in `_Layout.cshtml`), fires via `window.showToast(message, type)` (`wwwroot/js/toast.js`), and disappears on its own — see CLAUDE.md, "Global Toast Notifications," for the full implementation contract. Use a toast, not an inline banner, when the message describes something that just happened rather than a condition the page continues to reflect.
 
@@ -484,7 +484,7 @@ The inline-banner formula: `bg-{hue}-500/10 border border-{hue}-500/30`, an icon
 | Red — required medical clearance | `bg-red-500/10 border border-red-500/30 rounded-xl p-4` | `fa-notes-medical` | `Assessment/Report.cshtml`, when clearance is required |
 | Red — form error | `bg-red-500/10 border border-red-500/30 rounded-xl p-4` | `fa-triangle-exclamation` | `Assessment/Form.cshtml`, from `TempData["Error"]` |
 | Amber — retake notice | `bg-amber-500/10 border border-amber-500/30`, pill not a full-width box | `fa-rotate` | `Assessment/Report.cshtml`, "Retake Assessment" |
-| Amber — gate reason | `bg-amber-500/10 border border-amber-500/30 rounded-lg p-3` | `fa-shield-halved` | `Assessment/Report.cshtml`, see Suitability → Gate reason |
+| Amber — secondary assessment note | `bg-amber-500/10 border border-amber-500/30 rounded-lg p-3` | `fa-shield-halved` | `Assessment/Report.cshtml` |
 
 Red boxes use `rounded-xl p-4`; the amber gate-reason box uses the smaller `rounded-lg p-3` since it's a secondary note within a page that already has a headline result, not the first thing on the page. The retake notice is a pill-shaped link rather than a full banner — it's an action, not a warning.
 
@@ -580,7 +580,7 @@ Recommendations derive from **negative** SHAP factors. Trail-side features (dist
 
 ### Confidence
 
-One decimal place, **raw — no cap**. A cap was tried and removed: it hid a real, measured property of the model (a meaningful share of predictions saturate near 100%) rather than fixing anything. **Do not re-add it.** See CLAUDE.md, "Confidence Display," for why — it documents this exact regression risk by name.
+One decimal place, **raw — no cap**. This is the model's calibrated completion probability, not v2 class confidence. **Do not cap it.** 63.1% of predictions fall in extreme probability bands; the interpretation and limitation are documented in `MODEL.md`.
 
 With no `SuitabilityResult` — the ML service was unreachable and the assessment was rejected, not answered by a fallback — show the label without a donut. Don't leave an empty space and don't invent a number.
 

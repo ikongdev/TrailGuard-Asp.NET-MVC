@@ -6,17 +6,7 @@ PUP College of Computer and Information Sciences. This repository started as an 
 
 This document is the single shared context for anyone — human or coding agent — working in this repository. It combines the project/domain knowledge (architecture, ML contracts, domain rules, UI system pointers, and known issues) with the operating rules for an implementation agent (required context, instruction precedence, the collaboration workflow, and verification/handoff requirements), so the two can't drift into disagreement with each other. See "Working in This Repository — Agent Operating Rules," below, for the operating-rules half.
 
----
-
-## Active migration
-
-The v3 cutover is complete. `PLAN.md` supersedes specific rules in this document for
-the items it names, and only those. The running assessment contract uses
-`trailguard-ml-v2/`; the legacy `TrailGuard-ML/` directory remains on disk until the
-user has verified v3 serving end to end.
-
----
-
+---`r`n
 ## Tech Stack
 
 | Layer | Technology |
@@ -93,7 +83,7 @@ Do not silently resolve a conflict that could change safety behavior, stored dat
 
 ### Collaboration workflow
 
-1. Planning happens with the user before implementation begins (see "Working with the planning conversation," under Development Workflow, for how plans move from discussion into `PLAN.md`).
+1. Planning happens with the user before implementation begins (see "Working with the planning conversation," under Development Workflow).
 2. The implementation prompt authorizes only the scope it describes — no redesigning the plan, no speculative features, no unrelated cleanup. A small adjacent fix is allowed only when it's necessary to make the requested change correct and verifiable, and should be called out explicitly rather than folded in silently.
 3. If a new decision would materially affect behavior or scope, stop and ask rather than guessing.
 4. Implement, then perform every safe automated verification available (see "Verification Requirements," below).
@@ -209,7 +199,7 @@ Final decision:  Organizer
 
 The legacy `GetResult()` heuristic no longer exists in `AssessmentController`. In its place is a code comment explaining why:
 
-> No rule-based fallback: `GetResult()` was a v1 heuristic with its own notion of trail demand, agreeing with neither the model nor the ACSM/NPS-based ground truth in `generate_synthetic_dataset.py`. Producing a result from it would be a third, unvalidated answer to the same question. If the model can't answer, neither do we.
+> No rule-based fallback: `GetResult()` was a v1 heuristic with its own notion of trail demand, agreeing with neither the model nor the observed completion-outcome ground truth. Producing a result from it would be a third, unvalidated answer to the same question. If the model can't answer, neither do we.
 
 Concretely: `GetResult()`'s trail-demand formula was never reconciled with the NPS Shenandoah formula the model is now trained against, so the two could disagree — in testing, the same assessment returned Good-Match from the model and Borderline from the fallback. Silently falling back to it would mean a participant — including one reporting chest pain or another ACSM-gated condition — could receive a confident-looking result that bypassed the ACSM gate entirely, produced by a path nobody has validated the way the model and gate have been. Producing no result and asking the participant to retry is safer than producing a second, disagreeing one.
 
@@ -231,8 +221,7 @@ The service encodes the raw categorical answers itself, returns a calibrated
 unknown categorical answer with HTTP 422. Its three display labels remain Good Match,
 Borderline, and Not Recommended; they are thresholds over a binary completion model.
 
-`TrailGuard-ML/` is retained temporarily for rollback and comparison only. It is not
-the running service and must not be modified as part of the v3 contract.
+
 
 ---
 
@@ -267,7 +256,7 @@ The form is not a set of independent questions — several answers map into the 
 
 ### Age
 
-Restricted to **18–60**, matching the synthetic training range (`age` is not itself a model input, but the scope of who the system will assess at all). Predicting outside it returns a confident-looking score with no basis. Documented as a limitation in `MODEL.md` to revisit at retraining, when real participant data covers a wider demographic.
+Restricted to **18–60**, matching the current assessed-population scope (`age` is not itself a model input, but the scope of who the system will assess at all). Predicting outside it returns a confident-looking score with no basis. Documented as a limitation in `MODEL.md` to revisit at retraining, when real participant data covers a wider demographic.
 
 Note: the BMI thresholds are the adult WHO ranges. Widening the age range later isn't just an input change — BMI handling would need revisiting, since children are assessed against percentile charts.
 
@@ -308,7 +297,7 @@ a safe correction message and logs Python's detailed expected-values response.
 Trail fields come only from the Event snapshot, including
 `TrailDurationHoursSnapshot` as `typical_duration_hours`; never use editable
 `EstimatedDuration`. `TrailClassSnapshot` outside 1–4 fails safely. Legacy score
-methods and score columns were removed in Stage 4.
+methods and score columns were removed during the v3 cutover.
 
 ---
 
@@ -322,7 +311,7 @@ v3 returns a binary-model probability thresholded into the same three labels. It
 no Python ACSM gate and no `GateApplied`, `GateReason`, `ModelLabel`, NPS, or v2
 confidence fields. `NormalizeLabel()` remains the space/hyphen boundary.
 
-### Stage 2 — C# clearance screening
+### C# clearance screening
 
 `AcsmClearanceService.RequiresMedicalClearance(hasSignsSymptoms, hasCvd)` is a pure
 C# calculation: `hasSignsSymptoms || hasCvd`. `AssessmentController` maps the declared
@@ -332,7 +321,7 @@ It computes screening before calling the ML service and saves the value only aft
 prediction succeeds. No ML request/response, predicted label, fitness score, or Trail
 demand is an input to the service. Asthma and joint/knee injury alone do not trigger it.
 
-The PLAN.md derivation is recorded on the service: ACSM Rule 1 covers signs/symptoms;
+The derivation is recorded on the service: ACSM Rule 1 covers signs/symptoms;
 Rules 2/3 collapse to known CVD because organized mountain hiking is 6.0–7.0 METs,
 at or above the 6.0 vigorous threshold. The agency's Not Recommended requirement is
 separate and belongs exclusively in `RegistrationRulesHelper`.
@@ -342,7 +331,7 @@ every Trail. This registration requirement is independent of the v3 prediction.
 
 **Outage visibility was explicitly deferred by the user.** ML failure still produces
 no result and saves no assessment or screening record. No partial assessment or new
-organizer workflow is introduced. This resolves PLAN.md Stage 2's original outage
+organizer workflow is introduced. This records the original outage
 visibility proposal without changing the "ML Failure — No Fallback" rule.
 
 ---
@@ -408,7 +397,7 @@ There is deliberately no JSON blob and no second Trail navigation object — eve
 - **Add Event** (`EventController.AddEvent`) always calls it against the newly selected Trail.
 - **Edit Event** (`EventController.EditEvent`): if the submitted `TrailId` equals the persisted `Event.TrailId`, the snapshot is left completely untouched — no live Trail read happens at all, even to "refresh" it. If the organizer deliberately submits a different `TrailId`, the full snapshot is recaptured atomically from the newly selected Trail. Editing any other Event field (title, date, capacity, weather, payment, pickup, etc.) never touches the snapshot.
 - **Completed Events** stay immutable under the existing rule (see "Completed Events are immutable" below) — `EditEvent`'s persisted-status guard runs before the Trail comparison, so a Completed Event's snapshot can never be recaptured through this path either.
-- `Data/DbSeeder.cs` now seeds only the twelve agency Trails. The obsolete development Event seeds were removed with Stage 1; new Events are created through Add Event.
+- `Data/DbSeeder.cs` now seeds only the twelve agency Trails. The obsolete development Event seeds were removed; new Events are created through Add Event.
 
 ### Event duration estimate versus Trail duration snapshot
 
@@ -424,10 +413,8 @@ resets this manual-edit tracking. No persisted flag records an estimate's origin
 capture time, written only with the rest of the snapshot by `CaptureSnapshot`.
 Overriding `EstimatedDuration` never changes this snapshot. Existing Event estimates
 are not rewritten by this default-source change. Event-facing displays still use
-`EstimatedDuration`; Stage 1 sends neither duration field in the v2 ML request.
-The C# NPS pace/default-duration helpers have been removed; difficulty ratings and
-bands are unchanged. This extends Stage 1 and supersedes PLAN.md's original instruction
-to retain those C# pace helpers.
+`EstimatedDuration`; The v3 request uses the immutable duration snapshot, never the editable estimate.
+The C# NPS pace/default-duration helpers have been removed; difficulty ratings and bands are unchanged.
 
 ### Trail edits no longer cascade
 
@@ -465,8 +452,8 @@ Migration `AddEventTrailSnapshot` adds the seven snapshot columns and backfills 
 
 **Limitation:** existing Events can only be backfilled from the Trail values available at migration time. If a Trail was edited between an Event's original creation and this migration running, the Trail's values *at original creation* cannot be reconstructed — nothing in the schema recorded them before this feature existed. The backfilled values become frozen (immutable) from that point forward, same as any newly captured snapshot.
 
-Stage 1 migration `AddTrailDuration` adds positive, non-null decimal duration columns
-on Trail and Event. It first backfills named reference Trails from `PLAN.md`, copies
+Migration `AddTrailDuration` adds positive, non-null decimal duration columns
+on Trail and Event. It backfills the seeded reference Trails, copies
 the duration from each Event's currently linked Trail, then enforces the constraints.
 Unknown Trails or unbackfillable Events abort the migration; no duration is computed
 or defaulted. The development catalog cleanup is a separate, user-run operation.
@@ -621,13 +608,20 @@ or mismatched categories so a Python contract change cannot become unsafe raw te
 calibrated estimate that the participant completes this trail, based on past
 participant outcomes; it is not v2's winning-class confidence.
 
+```
+MODEL.md               — model card, versions, metrics, limitations
+MODEL_EXPLAINED_EN.md  — narrative on why v1 was rebuilt into v2
+```
+
+Shown to participants in: the participant dashboard, the My Registrations modal, and the assessment report (both the main panel and the sidebar). Also shown to organizers in RegistrationDetails, without the context line below (organizers get the disclaimer that ML is decision support only, covered under Explainability instead).
+
 Participant context reads: "This is the model's estimated chance that you will
 complete this trail, based on outcomes from past participants. It supports the
 organizer's decision rather than replacing it."
 
-When there is no `SuitabilityResult`, the ML service was unreachable and the
-assessment was rejected rather than falling back to a rule-based guess. One calibrated
-completion probability is stored per `SuitabilityResult`.
+When there's no `SuitabilityResult` — the ML service was unreachable and the assessment was rejected rather than falling back to a rule-based guess (see "ML Failure — No Fallback") — show the label without a confidence value. Don't leave an empty space and don't invent one.
+
+One calibrated completion probability is stored per `SuitabilityResult`.
 
 ---
 
@@ -636,7 +630,7 @@ completion probability is stored per `SuitabilityResult`.
 The system **never automatically approves or rejects**.
 
 ```
-Participant → Assessment → ML prediction → ACSM gate → SHAP explanation
+Participant → Assessment → ML prediction → C# clearance screening → SHAP explanation
     → Registration → Organizer review → Organizer final decision
 ```
 
@@ -762,17 +756,9 @@ source save and outcome upsert run in one transaction.
 
 ## Reports: Aggregate Model Validation
 
-`ReportsController` is **Admin-only** (`[Authorize(Roles = "Admin")]`) — `Index` and `Export` both require the Admin role; Organizer and Participant accounts cannot reach either. The dataset is system-wide (no `OrganizerId` scoping). The Reports link renders only in the Admin navbar; a dual-role Admin+Organizer account is allowed via its Admin role. It is the multi-event counterpart to `OrganizerController.EventComparison`; Stage 5 will define their shared outcome-based comparison metrics.
+`ReportsController` is **Admin-only** (`[Authorize(Roles = "Admin")]`) — `Index` and `Export` both require the Admin role; Organizer and Participant accounts cannot reach either. The dataset is system-wide (no `OrganizerId` scoping). The Reports link renders only in the Admin navbar; a dual-role Admin+Organizer account is allowed via its Admin role. It is the multi-event counterpart to `OrganizerController.EventComparison`; It is the multi-event counterpart to `OrganizerController.EventComparison`.
 
-Stage 3 keeps the sampling-bias funnel, the 20-outcome minimum, completion totals,
-difficulty/class outcome counts, and CSV export of stored outcome fields.
-Three-category agreement statistics, confusion matrices, and kappa are unavailable
-pending the Stage 5 rebuild; their report sections remain visible with unavailable
-values. The Not-Recommended acknowledgement pathway remains visible because it is a
-registration behavior; it reports real binary outcome counts but no label agreement.
-Binary outcomes are never fabricated into the old categories.
-
-The Stage 5 report will rebuild validation around binary completion.
+Reports show a 3×2 predicted-category/completion matrix, live ten-band probability calibration, threshold validation at 0.30/0.80, Good Match safety errors, non-completion reasons, Trail Class outcomes, and the Not Recommended pathway. Each derived rate has its own 20-outcome minimum; counts remain visible below it. The export uses raw encoding strings, immutable Event snapshots, and stable PublicProfileId values; External/Withdrawal and incomplete rows are counted separately.
 
 ---
 
@@ -814,7 +800,7 @@ If a participant holds more than one historical registration row for the same ev
 
 Cancelled events remain ineligible. An External reason is available for a completed
 event that was curtailed; feedback for a cancelled event remains a separate policy
-question outside Stage 3.
+question outside this outcome-collection flow.
 
 ---
 
@@ -1060,7 +1046,7 @@ Don't reintroduce a page-local `showToast`, `alert()`, or `confirm()`-based noti
 - Use surface theme tokens, never raw hex (see `DESIGN.md`)
 - Strongly typed ViewModels where one exists; `ViewBag` otherwise
 - `DateTime.Now` throughout — `Program.cs` sets `Npgsql.EnableLegacyTimestampBehavior`
-- Keep C# feature mappings (`AssessmentController.BuildMlRequest`, `Services/DifficultyCalculator.cs`) synchronised with the Python model (`generate_synthetic_dataset.py` / `acsm_gate.py`)
+- Keep `AssessmentController.BuildMlRequest` synchronised with `trailguard-ml-v2/encoding.py` and its 16-feature contract
 - Never display legacy rule-based category scores beside ML results
 - Never treat an ML prediction as an automatic organizer decision
 - Never reintroduce a rule-based fallback for a failed ML call — see "ML Failure — No Fallback"
@@ -1073,7 +1059,7 @@ Don't reintroduce a page-local `showToast`, `alert()`, or `confirm()`-based noti
 
 The pre-capstone App Dev feature set (result-based registration workflow, event completion with persisted final labels, organizer decision reason, notes & reminders, weather risk level as a separate field, three-section feedback) is complete and working end-to-end, along with trail/event CRUD, organizer approve/reject, alternative event recommendation, and post-event assessment. This is no longer usefully described as a gap list — see "Known Cleanup / Outstanding Work" below for what's actually unresolved.
 
-Since then, the ML pipeline has been migrated to v2 (ACSM gate, NPS-based difficulty, Trail Class), the rule-based fallback has been removed, the Reports aggregate-validation page has been added, Event Trail data is now an immutable per-Event snapshot (see "Event Trail Snapshot") rather than a live read through `Event.Trail`, and Trails can now be deactivated/reactivated without deleting them or affecting any existing Event (see "Trail Deactivation").
+Since then, the ML pipeline has been migrated to v3 real-outcome prediction, the rule-based fallback has been removed, the Reports aggregate-validation page has been added, Event Trail data is now an immutable per-Event snapshot (see "Event Trail Snapshot") rather than a live read through `Event.Trail`, and Trails can now be deactivated/reactivated without deleting them or affecting any existing Event (see "Trail Deactivation").
 
 ### UI/UX pass
 
@@ -1101,11 +1087,9 @@ A handful of destructive actions on these already-modernized pages still confirm
 ## Known Cleanup / Outstanding Work
 
 - **Ownership checks** — fixed in `RegistrationController` and `ParticipantController`'s feedback endpoints; the rest are unaudited (see Security)
-- **Three-segment confidence donut** for the organizer view — needs the Python service to return all three class probabilities (only the winning class's confidence is stored today) plus a migration to persist them
 - **Seed data** should be regenerated once the system is finalised; registration seeding is currently commented out
 - **Expert validation** — a physician and a hiking expert have completed rounds 1 and 2 (100 profiles total), reporting a quadratic weighted kappa of 0.555. **`MODEL.md` and `MODEL_EXPLAINED_EN.md` do not yet reflect this** — both still describe the expert instrument as prepared but not yet returned ("Until that is returned, no claim about real-world accuracy is supportable"). Updating those two files with the actual result is outstanding, and until it's done, treat the model card's stated limitations as authoritative over this bullet, not the other way around
-- **The joint-injury ACSM gate rule** has no clinical source (`PENDING EXPERT ELICITATION` in `generate_synthetic_dataset.py`), as do the readiness component weights, the capacity range, and the decision thresholds
-- **Manuscript realignment** — the approved proposal specified Laravel/PHP/MySQL; the system is ASP.NET Core/C#/PostgreSQL. Chapter 3 needs updating, along with the documented age-range limitation and the v1→v2 model change
+- **Manuscript realignment** — the approved proposal specified Laravel/PHP/MySQL; the system is ASP.NET Core/C#/PostgreSQL. Chapter 3 needs updating, along with the documented age-range limitation and the v3 model migration
 - **`ParticipantController.Events`'s `searchString`/`difficulty`/`trailFilter`/`sortOrder` query parameters and their `ViewData["Current*"]` entries are dead** — Browse Events filters entirely client-side and no caller (navbar, dashboard, Trails, event/assessment "back" links) passes any of these on the route, so the controller's server-side filter/sort logic and the corresponding `ViewData` are unreachable from the UI. Confirmed by search, not removed in the Event Management alignment pass (a narrower, in-scope fix instead: the malformed-`trailFilter` `int.Parse` that could throw on manual/malformed input was replaced with the `int.TryParse` convention `EventController.Index` already uses). A broader cleanup — deleting the dead parameters and `ViewData`, or wiring them up as real deep-link entry points — is future work, not done here
 
 ---
@@ -1121,10 +1105,10 @@ A handful of destructive actions on these already-modernized pages still confirm
   ```
 - **Inspect the generated migration before applying** when it warns about data loss. EF has produced a wrong rename here before, matching columns by position rather than name
 - For registration changes, test both participant ownership and organizer access
-- For ML changes, verify the C# mapping (`AssessmentController.BuildMlRequest`, `DifficultyCalculator`) and the Python `FEATURE_COLUMNS`/`acsm_gate.py` contract stay in sync
+- For ML changes, verify `AssessmentController.BuildMlRequest` against the 16-field Python `FEATURE_COLUMNS` contract in `trailguard-ml-v2/encoding.py`
 
 See "Verification Requirements," under Working in This Repository, for the full per-change-type checklist and reporting format.
 
 ### Working with the planning conversation
 
-Plans are discussed and written into `PLAN.md`, then implemented from that file. If an instruction in the plan looks wrong — a wrong assumption about an API, a change that would break something outside the stated scope — say so rather than implementing it literally. That has caught real problems here more than once.
+Plans are discussed and documented before implementation. If an instruction in the plan looks wrong — a wrong assumption about an API, a change that would break something outside the stated scope — say so rather than implementing it literally. That has caught real problems here more than once.

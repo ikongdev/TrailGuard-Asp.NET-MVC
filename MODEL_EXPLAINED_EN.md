@@ -1,7 +1,7 @@
-# Why the model was rebuilt — v1 to v2
+# Model Version History — v1 to v2 (Superseded)
 
 A narrative explanation of what was wrong with v1, what changed in v2, and
-what is still unresolved. Written to be defensible under questioning.
+what is still unresolved. Written to be defensible under questioning.`r`n`r`n> **Historical document.** This narrative describes the retired v1 and v2 systems, retained because it records how the team identified and corrected foundational modelling and safety errors. It does not describe the running v3 model. See `MODEL.md` for v3; the retired v2 code remains recoverable from Git history at commit `15c28a0`.
 
 ---
 
