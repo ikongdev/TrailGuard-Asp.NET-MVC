@@ -19,6 +19,12 @@ namespace TrailGuard.Models
         [Display(Name = "Total Distance (km)")]
         public double DistanceKm { get; set; } 
 
+        [Required(ErrorMessage = "Typical duration is required.")]
+        [Range(typeof(decimal), "0", "79228162514264337593543950335",
+            MinimumIsExclusive = true, ErrorMessage = "Typical duration must be greater than zero.")]
+        [Display(Name = "Typical Duration (hours)")]
+        public decimal TypicalDurationHours { get; set; }
+
         [Required]
         [Display(Name = "Elevation Gain (masl)")]
         public int ElevationGainMeters { get; set; } 

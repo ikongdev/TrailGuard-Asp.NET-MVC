@@ -8,6 +8,17 @@ This document is the single shared context for anyone — human or coding agent 
 
 ---
 
+## Active migration
+
+A v3 model rebuild is underway. `PLAN.md` supersedes specific rules in this document
+for the items it names, and only those. Every other rule here still applies in full.
+This file describes the running v2 system and is updated stage by stage, never in advance.
+Stage 1 adds recorded Trail duration and its Event snapshot; the running v2 ML request
+and difficulty calculation remain unchanged. See `scripts/STAGE1.md` for the user-run
+development catalog replacement procedure.
+
+---
+
 ## Tech Stack
 
 | Layer | Technology |
@@ -393,6 +404,7 @@ Event Trail Snapshot
 |---|---|
 | `TrailNameSnapshot` | Trail name at capture time |
 | `TrailDistanceKmSnapshot` | Trail distance at capture time |
+| `TrailDurationHoursSnapshot` | Manually entered `Trail.TypicalDurationHours` at capture time; positive decimal hours |
 | `TrailElevationGainMetersSnapshot` | Trail elevation gain at capture time |
 | `TrailTerrainSnapshot` | Trail terrain string at capture time |
 | `TrailClassSnapshot` | Trail Class (1–4) at capture time |
@@ -408,7 +420,26 @@ There is deliberately no JSON blob and no second Trail navigation object — eve
 - **Add Event** (`EventController.AddEvent`) always calls it against the newly selected Trail.
 - **Edit Event** (`EventController.EditEvent`): if the submitted `TrailId` equals the persisted `Event.TrailId`, the snapshot is left completely untouched — no live Trail read happens at all, even to "refresh" it. If the organizer deliberately submits a different `TrailId`, the full snapshot is recaptured atomically from the newly selected Trail. Editing any other Event field (title, date, capacity, weather, payment, pickup, etc.) never touches the snapshot.
 - **Completed Events** stay immutable under the existing rule (see "Completed Events are immutable" below) — `EditEvent`'s persisted-status guard runs before the Trail comparison, so a Completed Event's snapshot can never be recaptured through this path either.
-- `Data/DbSeeder.cs`'s seeded events call the same helper.
+- `Data/DbSeeder.cs` now seeds only the twelve agency Trails. The obsolete development Event seeds were removed with Stage 1; new Events are created through Add Event.
+
+### Event duration estimate versus Trail duration snapshot
+
+`Event.EstimatedDuration` is an organizer-editable per-event hiking-time estimate,
+prefilled from the selected Trail's recorded `TypicalDurationHours`. It is not defined
+as including travel or assembly. Add Event follows Trail selections until the organizer
+manually edits the duration. Edit Event opens with the stored estimate unchanged; a
+deliberate Trail selection uses that Trail's recorded duration unless the organizer
+has manually edited the estimate in the current modal session. Closing/reopening
+resets this manual-edit tracking. No persisted flag records an estimate's origin.
+
+`Event.TrailDurationHoursSnapshot` is the immutable record of what the Trail said at
+capture time, written only with the rest of the snapshot by `CaptureSnapshot`.
+Overriding `EstimatedDuration` never changes this snapshot. Existing Event estimates
+are not rewritten by this default-source change. Event-facing displays still use
+`EstimatedDuration`; Stage 1 sends neither duration field in the v2 ML request.
+The C# NPS pace/default-duration helpers have been removed; difficulty ratings and
+bands are unchanged. This extends Stage 1 and supersedes PLAN.md's original instruction
+to retain those C# pace helpers.
 
 ### Trail edits no longer cascade
 
@@ -445,6 +476,12 @@ Additional Trail Photos remain Trail-owned and are **not** part of the Event sna
 Migration `AddEventTrailSnapshot` adds the seven snapshot columns and backfills every existing Event from its currently linked Trail in the same migration, via a raw SQL `UPDATE ... FROM` (provider-specific, PostgreSQL) that reproduces `DifficultyCalculator`'s formula and boundaries as a one-time backfill computation — not a third permanently-maintained implementation.
 
 **Limitation:** existing Events can only be backfilled from the Trail values available at migration time. If a Trail was edited between an Event's original creation and this migration running, the Trail's values *at original creation* cannot be reconstructed — nothing in the schema recorded them before this feature existed. The backfilled values become frozen (immutable) from that point forward, same as any newly captured snapshot.
+
+Stage 1 migration `AddTrailDuration` adds positive, non-null decimal duration columns
+on Trail and Event. It first backfills named reference Trails from `PLAN.md`, copies
+the duration from each Event's currently linked Trail, then enforces the constraints.
+Unknown Trails or unbackfillable Events abort the migration; no duration is computed
+or defaulted. The development catalog cleanup is a separate, user-run operation.
 
 ### Milestone 2: Trail Deactivation
 

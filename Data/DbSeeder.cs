@@ -149,90 +149,161 @@ namespace TrailGuard.Data
                 {
                     var trails = new List<Trail>
                     {
-                        // TrailClass is a placeholder pending organizer review, same as the
-                        // rest of this seed data - not a substitute for a real PinoyMountaineer
-                        // classification.
+                        // Numeric values are the agency's Stage 1 reference table in PLAN.md.
+                        // Terrain/description were not supplied; do not infer terrain from TrailClass.
                         new Trail
                         {
-                            Name = "Mt. Ulap",
-                            Location = "Itogon, Benguet",
-                            DistanceKm = 8.5,
-                            ElevationGainMeters = 700,
-                            Terrain = "Grassland, Pine Forest",
-                            TrailClass = 2, // Hiking
-                            Description = "A scenic trail with breathtaking views of the Cordillera mountains.",
-                            IsActive = true,
-                            DateAdded = DateTime.Now
-                        },
-                        new Trail
-                        {
-                            Name = "Mt. Pulag",
+                            Name = "Mt. Pulag (Ambangeg)",
                             Location = "Kabayan, Benguet",
-                            DistanceKm = 12.5,
-                            ElevationGainMeters = 1200,
-                            Terrain = "Mossy Forest, Grassland",
-                            TrailClass = 2, // Hiking (Ambangeg trail)
-                            Description = "The highest peak in Luzon. Known for its sea of clouds.",
+                            DistanceKm = 14.65,
+                            ElevationGainMeters = 830,
+                            TrailClass = 2,
+                            TypicalDurationHours = 5.47m,
+                            Terrain = "Not recorded",
+                            Description = "Agency reference trail; description not recorded.",
                             IsActive = true,
                             DateAdded = DateTime.Now
                         },
                         new Trail
                         {
-                            Name = "Mt. Batulao",
+                            Name = "Mt. Pinatubo (crater)",
+                            Location = "Capas, Tarlac",
+                            DistanceKm = 11.27,
+                            ElevationGainMeters = 625,
+                            TrailClass = 1,
+                            TypicalDurationHours = 4.17m,
+                            Terrain = "Not recorded",
+                            Description = "Agency reference trail; description not recorded.",
+                            IsActive = true,
+                            DateAdded = DateTime.Now
+                        },
+                        new Trail
+                        {
+                            Name = "Mt. Tapulao (Dampay)",
+                            Location = "Palauig, Zambales",
+                            DistanceKm = 29.13,
+                            ElevationGainMeters = 2036,
+                            TrailClass = 3,
+                            TypicalDurationHours = 12.25m,
+                            Terrain = "Not recorded",
+                            Description = "Agency reference trail; description not recorded.",
+                            IsActive = true,
+                            DateAdded = DateTime.Now
+                        },
+                        new Trail
+                        {
+                            Name = "Mt. Talamitam",
                             Location = "Nasugbu, Batangas",
-                            DistanceKm = 6.5,
-                            ElevationGainMeters = 550,
-                            Terrain = "Grassland, Rocky",
-                            TrailClass = 2, // Hiking
-                            Description = "A popular day hike with panoramic views of Batangas.",
+                            DistanceKm = 7.08,
+                            ElevationGainMeters = 471,
+                            TrailClass = 3,
+                            TypicalDurationHours = 2.90m,
+                            Terrain = "Not recorded",
+                            Description = "Agency reference trail; description not recorded.",
                             IsActive = true,
                             DateAdded = DateTime.Now
                         },
                         new Trail
                         {
-                            Name = "Mt. Makiling",
+                            Name = "Mt. Makiling (UPLB)",
                             Location = "Los Baños, Laguna",
-                            DistanceKm = 10.0,
-                            ElevationGainMeters = 800,
-                            Terrain = "Forest, Rocky",
-                            TrailClass = 2, // Hiking
-                            Description = "A well-known trail with diverse flora and fauna.",
+                            DistanceKm = 17.38,
+                            ElevationGainMeters = 971,
+                            TrailClass = 3,
+                            TypicalDurationHours = 6.45m,
+                            Terrain = "Not recorded",
+                            Description = "Agency reference trail; description not recorded.",
                             IsActive = true,
                             DateAdded = DateTime.Now
                         },
                         new Trail
                         {
-                            Name = "Mt. Daraitan",
-                            Location = "Tanay, Rizal",
-                            DistanceKm = 5.5,
-                            ElevationGainMeters = 400,
-                            Terrain = "Forest, Rocky, River",
-                            TrailClass = 2, // Hiking
-                            Description = "Features a crystal-clear river and limestone formations.",
+                            Name = "Mt. Ayaas (Mascap)",
+                            Location = "Rodriguez, Rizal",
+                            DistanceKm = 10.78,
+                            ElevationGainMeters = 617,
+                            TrailClass = 3,
+                            TypicalDurationHours = 4.05m,
+                            Terrain = "Not recorded",
+                            Description = "Agency reference trail; description not recorded.",
                             IsActive = true,
                             DateAdded = DateTime.Now
                         },
                         new Trail
                         {
-                            Name = "Mt. Pinatubo",
-                            Location = "Zambales",
-                            DistanceKm = 7.0,
-                            ElevationGainMeters = 300,
-                            Terrain = "Lahar, Rocky",
-                            TrailClass = 1, // Walking (flat lahar riverbed trek)
-                            Description = "Famous for its crater lake and unique lahar landscape.",
+                            Name = "Mt. Pamitinan (Wawa)",
+                            Location = "Rodriguez, Rizal",
+                            DistanceKm = 3.06,
+                            ElevationGainMeters = 308,
+                            TrailClass = 4,
+                            TypicalDurationHours = 1.62m,
+                            Terrain = "Not recorded",
+                            Description = "Agency reference trail; description not recorded.",
                             IsActive = true,
                             DateAdded = DateTime.Now
                         },
                         new Trail
                         {
-                            Name = "Mt. Arayat",
-                            Location = "Arayat, Pampanga",
-                            DistanceKm = 8.0,
-                            ElevationGainMeters = 900,
-                            Terrain = "Forest, Rocky",
-                            TrailClass = 3, // Scrambling (rocky, root-climbing sections near the summit)
-                            Description = "A dormant volcano with a challenging trail.",
+                            Name = "Mt. Hapunang Banoi (Wawa)",
+                            Location = "Rodriguez, Rizal",
+                            DistanceKm = 3.54,
+                            ElevationGainMeters = 431,
+                            TrailClass = 4,
+                            TypicalDurationHours = 2.15m,
+                            Terrain = "Not recorded",
+                            Description = "Agency reference trail; description not recorded.",
+                            IsActive = true,
+                            DateAdded = DateTime.Now
+                        },
+                        new Trail
+                        {
+                            Name = "Mt. Manalmon (Madlum)",
+                            Location = "San Miguel, Bulacan",
+                            DistanceKm = 3.70,
+                            ElevationGainMeters = 150,
+                            TrailClass = 2,
+                            TypicalDurationHours = 1.17m,
+                            Terrain = "Not recorded",
+                            Description = "Agency reference trail; description not recorded.",
+                            IsActive = true,
+                            DateAdded = DateTime.Now
+                        },
+                        new Trail
+                        {
+                            Name = "Mt. Kitanglad (Intavas)",
+                            Location = "Impasugong, Bukidnon",
+                            DistanceKm = 16.09,
+                            ElevationGainMeters = 1551,
+                            TrailClass = 4,
+                            TypicalDurationHours = 8.27m,
+                            Terrain = "Not recorded",
+                            Description = "Agency reference trail; description not recorded.",
+                            IsActive = true,
+                            DateAdded = DateTime.Now
+                        },
+                        new Trail
+                        {
+                            Name = "Mt. Dulang-Dulang (Bol-ogan)",
+                            Location = "Lantapan, Bukidnon",
+                            DistanceKm = 16.09,
+                            ElevationGainMeters = 1543,
+                            TrailClass = 4,
+                            TypicalDurationHours = 8.23m,
+                            Terrain = "Not recorded",
+                            Description = "Agency reference trail; description not recorded.",
+                            IsActive = true,
+                            DateAdded = DateTime.Now
+                        },
+                        new Trail
+                        {
+                            Name = "Mt. Tagapo (Janosa)",
+                            Location = "Binangonan, Rizal",
+                            DistanceKm = 5.47,
+                            ElevationGainMeters = 402,
+                            TrailClass = 2,
+                            TypicalDurationHours = 2.37m,
+                            Terrain = "Not recorded",
+                            Description = "Agency reference trail; description not recorded.",
                             IsActive = true,
                             DateAdded = DateTime.Now
                         }
@@ -253,128 +324,8 @@ namespace TrailGuard.Data
                 Console.WriteLine($"Error seeding trails: {ex.Message}");
             }
 
-            // ============================================
-            // 6. SEED EVENTS (NASA EVENTS ANG DIFFICULTY)
-            // ============================================
-            Console.WriteLine("Seeding events...");
-            try
-            {
-                var eventCount = await context.Events.CountAsync();
-                Console.WriteLine($"   📊 Current events count: {eventCount}");
-
-                if (eventCount == 0)
-                {
-                    var trails = await context.Trails.ToListAsync();
-                    var organizer = await userManager.FindByEmailAsync("organizer@trailguard.com");
-                    var organizerId = organizer?.Id;
-
-                    if (organizerId != null && trails.Any())
-                    {
-                        var ulapTrail = trails.First(t => t.Name == "Mt. Ulap");
-                        var pulagTrail = trails.First(t => t.Name == "Mt. Pulag");
-                        var batulaoTrail = trails.First(t => t.Name == "Mt. Batulao");
-                        var daraitanTrail = trails.First(t => t.Name == "Mt. Daraitan");
-
-                        // TrailId/Location/Difficulty and every Trail*Snapshot field are
-                        // captured via EventTrailSnapshotHelper immediately below, the
-                        // same central helper Add Event/Edit Event use - see CLAUDE.md,
-                        // "Event Trail Snapshot".
-                        var events = new List<Event>
-                        {
-                            new Event
-                            {
-                                EventTitle = "Mt. Ulap Sunrise Hike",
-                                Description = "Join us for an early morning hike to witness the beautiful sunrise at Mt. Ulap.",
-                                EventDate = DateTime.Now.AddDays(14),
-                                EventTime = new TimeSpan(4, 0, 0),
-                                EstimatedDuration = 5,
-                                Capacity = 20,
-                                OrganizedBy = organizerId,
-                                Status = "Upcoming",
-                                WeatherForecastAdvisory = "Partly cloudy, 15-20°C",
-                                NotesAndReminders = "Bring water and trail food. Meeting: 3:30 AM.",
-                                PaymentDetails = "PHP 500. BDO: 1234567890",
-                                PickupPoints = "1. McDonald's Trinoma - 2:30 AM\n2. Shell Balintawak - 3:00 AM",
-                                DateCreated = DateTime.Now,
-                                DateUpdated = DateTime.Now
-                            },
-                            new Event
-                            {
-                                EventTitle = "Mt. Pulag Weekend Climb",
-                                Description = "A 2-day adventure to the highest peak in Luzon.",
-                                EventDate = DateTime.Now.AddDays(21),
-                                EventTime = new TimeSpan(6, 0, 0),
-                                EstimatedDuration = 8,
-                                Capacity = 15,
-                                OrganizedBy = organizerId,
-                                Status = "Upcoming",
-                                WeatherForecastAdvisory = "Cold, 5-15°C",
-                                NotesAndReminders = "Overnight camping. Bring tent and sleeping bag.",
-                                PaymentDetails = "PHP 2,500. BDO: 1234567890",
-                                PickupPoints = "1. Victory Liner Cubao - 4:00 AM",
-                                DateCreated = DateTime.Now,
-                                DateUpdated = DateTime.Now
-                            },
-                            new Event
-                            {
-                                EventTitle = "Mt. Batulao Day Hike",
-                                Description = "A quick day hike perfect for beginners.",
-                                EventDate = DateTime.Now.AddDays(7),
-                                EventTime = new TimeSpan(5, 30, 0),
-                                EstimatedDuration = 4,
-                                Capacity = 25,
-                                OrganizedBy = organizerId,
-                                Status = "Upcoming",
-                                WeatherForecastAdvisory = "Sunny, 25-30°C",
-                                NotesAndReminders = "Bring trail food and 2L water.",
-                                PaymentDetails = "PHP 350. BDO: 1234567890",
-                                PickupPoints = "1. McDonald's Macapagal - 4:00 AM\n2. Shell SLEX - 4:30 AM",
-                                DateCreated = DateTime.Now,
-                                DateUpdated = DateTime.Now
-                            },
-                            new Event
-                            {
-                                EventTitle = "Mt. Daraitan River Trek",
-                                Description = "Experience the scenic river and limestone formations.",
-                                EventDate = DateTime.Now.AddDays(10),
-                                EventTime = new TimeSpan(5, 0, 0),
-                                EstimatedDuration = 4.5,
-                                Capacity = 20,
-                                OrganizedBy = organizerId,
-                                Status = "Upcoming",
-                                WeatherForecastAdvisory = "Fair weather, 22-28°C",
-                                NotesAndReminders = "Bring extra clothes for river crossing.",
-                                PaymentDetails = "PHP 400. BDO: 1234567890",
-                                PickupPoints = "1. SM East Ortigas - 3:30 AM",
-                                DateCreated = DateTime.Now,
-                                DateUpdated = DateTime.Now
-                            }
-                        };
-
-                        EventTrailSnapshotHelper.CaptureSnapshot(events[0], ulapTrail);
-                        EventTrailSnapshotHelper.CaptureSnapshot(events[1], pulagTrail);
-                        EventTrailSnapshotHelper.CaptureSnapshot(events[2], batulaoTrail);
-                        EventTrailSnapshotHelper.CaptureSnapshot(events[3], daraitanTrail);
-
-                        Console.WriteLine($"Adding {events.Count} events...");
-                        await context.Events.AddRangeAsync(events);
-                        await context.SaveChangesAsync();
-                        Console.WriteLine($"{events.Count} events added successfully!");
-                    }
-                    else
-                    {
-                        Console.WriteLine("Cannot seed events: Missing organizer or trails");
-                    }
-                }
-                else
-                {
-                    Console.WriteLine("Events already exist, skipping...");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error seeding events: {ex.Message}");
-            }
+            // The former sample Events referenced the retired development catalog.
+            // Create Events through Add Event after reseeding the agency trails.
 
             // // ============================================
             // // 7. SEED REGISTRATIONS

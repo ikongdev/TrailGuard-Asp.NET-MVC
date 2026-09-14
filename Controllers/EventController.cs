@@ -192,6 +192,7 @@ namespace TrailGuard.Controllers
                 location = trail.Location,
                 elevationGainMeters = trail.ElevationGainMeters,
                 distance = trail.DistanceKm,
+                typicalDurationHours = trail.TypicalDurationHours,
                 terrain = trail.Terrain,
                 trailClass = trail.TrailClass,
                 trailClassLabel = DifficultyCalculator.TrailClassLabel(trail.TrailClass)
@@ -210,8 +211,7 @@ namespace TrailGuard.Controllers
             return Json(new
             {
                 success = true,
-                difficulty = DifficultyCalculator.ComputeDifficulty(trail),
-                suggestedDurationHours = Math.Round(DifficultyCalculator.SuggestedDurationHours(trail), 1)
+                difficulty = DifficultyCalculator.ComputeDifficulty(trail)
             });
         }
 

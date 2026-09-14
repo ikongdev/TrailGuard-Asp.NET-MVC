@@ -385,7 +385,7 @@
                             <label for="eventDuration" class="block text-sm font-medium text-gray-300 mb-2">Estimated Duration (Hours) <span class="text-red-400">*</span></label>
                             <input type="number" step="any" min="0.1" id="eventDuration" name="EstimatedDuration" required
                                    class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm" placeholder="e.g., 6">
-                            <p class="text-xs text-gray-500 mt-2">Prefilled from the NPS pace estimate — adjust as needed.</p>
+                            <p class="text-xs text-gray-500 mt-2">Prefilled from the Trail’s recorded duration. Follows Trail changes until you edit it.</p>
                         </div>
                         <div>
                             <label for="eventCapacity" class="block text-sm font-medium text-gray-300 mb-2">Slots Available (Capacity) <span class="text-red-400">*</span></label>
@@ -774,7 +774,7 @@
                             <label for="editEventDuration" class="block text-sm font-medium text-gray-300 mb-2">Estimated Duration (Hours) <span class="text-red-400">*</span></label>
                             <input type="number" step="any" min="0.1" id="editEventDuration" name="EstimatedDuration" required
                                    class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm" placeholder="e.g., 6">
-                            <p class="text-xs text-gray-500 mt-2">Prefilled from the NPS pace estimate — adjust as needed.</p>
+                            <p class="text-xs text-gray-500 mt-2">Prefilled from the Trail’s recorded duration. Follows Trail changes until you edit it.</p>
                         </div>
                         <div>
                             <label for="editEventCapacity" class="block text-sm font-medium text-gray-300 mb-2">Slots Available (Capacity) <span class="text-red-400">*</span></label>
@@ -2108,18 +2108,31 @@
     // Declared as `function`, not an arrow function, so `this` inside it is
     // the select element the listener fired on, matching how the browser
     // invokes a regular function passed to addEventListener.
+    // Manual edits belong to this modal session; request tokens prevent an older
+    // Trail selection or a closed modal from replacing the latest preview/default.
+    let addEventDurationEdited = false;
+    let addEventTrailRequestToken = 0;
+
     async function handleAddEventTrailChange() {
+        const requestToken = ++addEventTrailRequestToken;
         const trailId = this.value;
+        const durationInput = document.getElementById('eventDuration');
+        if (!addEventDurationEdited) durationInput.value = '';
         if (!trailId) return;
 
         try {
             const response = await fetch(`/Event/GetTrailDetails?trailId=${trailId}`);
             const data = await response.json();
+            if (requestToken !== addEventTrailRequestToken) return;
 
             if (!data.success) {
                 resetAddEventTrailPreview();
                 showToast('Unable to load details for this trail. Please reselect it.', 'error');
                 return;
+            }
+
+            if (!addEventDurationEdited) {
+                durationInput.value = data.typicalDurationHours;
             }
 
             document.getElementById('previewDifficulty').textContent = 'Calculating...';
@@ -2131,12 +2144,9 @@
 
             const diffResponse = await fetch(`/Event/GetCalculatedDifficulty?trailId=${trailId}`);
             const diffData = await diffResponse.json();
+            if (requestToken !== addEventTrailRequestToken) return;
             if (diffData.success) {
                 document.getElementById('previewDifficulty').textContent = diffData.difficulty;
-                const durationInput = document.getElementById('eventDuration');
-                if (durationInput && !durationInput.value) {
-                    durationInput.value = diffData.suggestedDurationHours;
-                }
             } else {
                 document.getElementById('previewDifficulty').textContent = '-';
                 showToast('Unable to calculate difficulty for this trail. You can still continue.', 'error');
@@ -2147,6 +2157,7 @@
                 await fetchWeatherForecast(trailId, eventDate);
             }
         } catch (error) {
+            if (requestToken !== addEventTrailRequestToken) return;
             console.error('Error:', error);
             resetAddEventTrailPreview();
             showToast('Unable to load trail details. Please try again.', 'error');
@@ -2400,6 +2411,8 @@
 
         const form = document.getElementById('addEventForm');
         if (form) form.reset();
+        addEventDurationEdited = false;
+        addEventTrailRequestToken++;
         setAddEventSubmitting(false);
 
         const scrollContainer = document.querySelector('#addEventModal .overflow-y-auto');
@@ -2427,6 +2440,7 @@
 
         document.getElementById('nextBtn')?.addEventListener('click', handleAddEventNextClick);
         document.getElementById('prevBtn')?.addEventListener('click', handleAddEventPrevClick);
+        document.getElementById('eventDuration')?.addEventListener('input', () => { addEventDurationEdited = true; });
         document.getElementById('eventTrailId')?.addEventListener('change', handleAddEventTrailChange);
         document.getElementById('eventDate')?.addEventListener('change', handleAddEventDateChange);
         document.getElementById('addEventForm')?.addEventListener('submit', handleAddEventSubmit);
@@ -3138,8 +3152,16 @@
     // populateEditEventForm sets the select's value directly and resyncs via
     // CustomSelect.refresh(), neither of which dispatches 'change' (see that
     // function's own comment and custom-select.js's syncFromSelect/refresh).
+    // Manual edits belong to this modal session; request tokens prevent an older
+    // Trail selection or a closed modal from replacing the latest preview/default.
+    let editEventDurationEdited = false;
+    let editEventTrailRequestToken = 0;
+
     async function handleEditEventTrailChange() {
+        const requestToken = ++editEventTrailRequestToken;
         const trailId = this.value;
+        const durationInput = document.getElementById('editEventDuration');
+        if (!editEventDurationEdited) durationInput.value = '';
         if (!trailId) return;
 
         // The "Deactivated" note only applies while the injected current-Trail
@@ -3153,11 +3175,16 @@
         try {
             const response = await fetch(`/Event/GetTrailDetails?trailId=${trailId}`);
             const data = await response.json();
+            if (requestToken !== editEventTrailRequestToken) return;
 
             if (!data.success) {
                 resetEditEventTrailPreview();
                 showToast('Unable to load details for this trail. Please reselect it.', 'error');
                 return;
+            }
+
+            if (!editEventDurationEdited) {
+                durationInput.value = data.typicalDurationHours;
             }
 
             document.getElementById('editPreviewDifficulty').textContent = 'Calculating...';
@@ -3169,12 +3196,9 @@
 
             const diffResponse = await fetch(`/Event/GetCalculatedDifficulty?trailId=${trailId}`);
             const diffData = await diffResponse.json();
+            if (requestToken !== editEventTrailRequestToken) return;
             if (diffData.success) {
                 document.getElementById('editPreviewDifficulty').textContent = diffData.difficulty;
-                const durationInput = document.getElementById('editEventDuration');
-                if (durationInput && !durationInput.value) {
-                    durationInput.value = diffData.suggestedDurationHours;
-                }
             } else {
                 document.getElementById('editPreviewDifficulty').textContent = '-';
             }
@@ -3184,6 +3208,7 @@
                 await editFetchWeatherForecast(trailId, eventDate);
             }
         } catch (error) {
+            if (requestToken !== editEventTrailRequestToken) return;
             console.error('Error:', error);
             resetEditEventTrailPreview();
             showToast('Unable to load trail details. Please try again.', 'error');
@@ -3387,6 +3412,8 @@
     // after openEditModal has confirmed the response still belongs to the
     // currently-requested event (see its own stale-response guard).
     function populateEditEventForm(data) {
+        editEventDurationEdited = false;
+        editEventTrailRequestToken++;
         document.getElementById('editEventId').value = data.id;
         document.getElementById('editEventTitle').value = data.eventTitle;
         document.getElementById('editEventDescription').value = data.description;
@@ -3606,6 +3633,8 @@
 
         const form = document.getElementById('editEventForm');
         if (form) form.reset();
+        editEventDurationEdited = false;
+        editEventTrailRequestToken++;
         setEditEventSubmitting(false);
 
         editEventCurrentEventId = null;
@@ -3704,6 +3733,7 @@
 
         document.getElementById('editNextBtn')?.addEventListener('click', handleEditEventNextClick);
         document.getElementById('editPrevBtn')?.addEventListener('click', handleEditEventPrevClick);
+        document.getElementById('editEventDuration')?.addEventListener('input', () => { editEventDurationEdited = true; });
         document.getElementById('editEventTrailId')?.addEventListener('change', handleEditEventTrailChange);
         document.getElementById('editEventDate')?.addEventListener('change', handleEditEventDateChange);
         document.getElementById('editEventForm')?.addEventListener('submit', handleEditEventSubmit);

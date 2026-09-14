@@ -307,6 +307,7 @@ namespace TrailGuard.Controllers
                 existingTrail.Name = model.Name;
                 existingTrail.Location = model.Location;
                 existingTrail.DistanceKm = model.DistanceKm;
+                existingTrail.TypicalDurationHours = model.TypicalDurationHours;
                 existingTrail.ElevationGainMeters = model.ElevationGainMeters;
                 existingTrail.Terrain = model.Terrain;
                 existingTrail.TrailClass = model.TrailClass;

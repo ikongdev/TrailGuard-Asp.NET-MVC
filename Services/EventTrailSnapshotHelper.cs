@@ -7,7 +7,7 @@ namespace TrailGuard.Services
     // Single place that captures a validated Trail into an Event's immutable
     // Trail Snapshot fields - see CLAUDE.md, "Event Trail Snapshot". Every
     // write site (EventController.AddEvent, EventController.EditEvent when the
-    // organizer deliberately changes TrailId, Data/DbSeeder) must call this
+    // organizer deliberately changes TrailId) must call this
     // rather than assigning Location/Difficulty/TrailXSnapshot individually, so
     // the fields captured together can never drift out of sync with each
     // other. The Trail passed in must already be loaded fresh from the
@@ -21,6 +21,7 @@ namespace TrailGuard.Services
             eventItem.TrailId = trail.Id;
             eventItem.TrailNameSnapshot = trail.Name;
             eventItem.TrailDistanceKmSnapshot = trail.DistanceKm;
+            eventItem.TrailDurationHoursSnapshot = trail.TypicalDurationHours;
             eventItem.TrailElevationGainMetersSnapshot = trail.ElevationGainMeters;
             eventItem.TrailTerrainSnapshot = trail.Terrain;
             eventItem.TrailClassSnapshot = trail.TrailClass;

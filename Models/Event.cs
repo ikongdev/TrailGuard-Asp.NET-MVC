@@ -66,6 +66,9 @@ namespace TrailGuard.Models
         [Display(Name = "Trail Distance km (Snapshot)")]
         public double TrailDistanceKmSnapshot { get; set; }
 
+        [Display(Name = "Trail Duration Hours (Snapshot)")]
+        public decimal TrailDurationHoursSnapshot { get; set; }
+
         [Display(Name = "Trail Elevation Gain Meters (Snapshot)")]
         public int TrailElevationGainMetersSnapshot { get; set; }
 

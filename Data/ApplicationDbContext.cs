@@ -28,6 +28,11 @@ namespace TrailGuard.Data
         {
             base.OnModelCreating(builder);
 
+            builder.Entity<Trail>().ToTable("Trails", table =>
+                table.HasCheckConstraint("CK_Trails_TypicalDurationHours_Positive", "\"TypicalDurationHours\" > 0"));
+            builder.Entity<Event>().ToTable("Events", table =>
+                table.HasCheckConstraint("CK_Events_TrailDurationHoursSnapshot_Positive", "\"TrailDurationHoursSnapshot\" > 0"));
+
             builder.Entity<ApplicationUser>().ToTable("Users");
             builder.Entity<IdentityRole>().ToTable("Roles");
             builder.Entity<IdentityUserRole<string>>().ToTable("UserRoles");

@@ -148,6 +148,13 @@
                                 </div>
                             </div>
 
+                            <div class="mb-4">
+                                <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Typical Duration</p>
+                                <p class="text-gray-200 text-sm font-medium flex items-center gap-2">
+                                    <i class="fa-regular fa-clock text-gray-400" aria-hidden="true"></i> @trail.TypicalDurationHours.ToString("0.############################") hours
+                                </p>
+                            </div>
+
                             <div class="mb-6">
                                 <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-1.5">Terrain</p>
                                 <div class="flex flex-wrap gap-1.5">
@@ -164,6 +171,7 @@
                                         data-name="@trail.Name"
                                         data-location="@trail.Location"
                                         data-distance="@trail.DistanceKm"
+                                        data-duration="@trail.TypicalDurationHours.ToString(System.Globalization.CultureInfo.InvariantCulture)"
                                         data-elevation="@trail.ElevationGainMeters"
                                         data-terrain="@trail.Terrain"
                                         data-terrain-type="@trail.TrailClass"
@@ -179,6 +187,7 @@
                                         data-name="@trail.Name"
                                         data-location="@trail.Location"
                                         data-distance="@trail.DistanceKm"
+                                        data-duration="@trail.TypicalDurationHours.ToString(System.Globalization.CultureInfo.InvariantCulture)"
                                         data-elevation="@trail.ElevationGainMeters"
                                         data-terrain="@trail.Terrain"
                                         data-terrain-type="@trail.TrailClass"
@@ -266,6 +275,10 @@
                             <i class="fa-solid fa-hand text-gray-500" aria-hidden="true"></i>
                             Class <span id="viewTrailClass"></span>
                         </span>
+                        <span class="text-gray-300 flex items-center gap-2">
+                            <i class="fa-regular fa-clock text-gray-500" aria-hidden="true"></i>
+                            Typical duration: <span id="viewDuration"></span> hours
+                        </span>
                         <span class="text-gray-500 flex items-center gap-2 text-xs">
                             <i class="fa-regular fa-calendar" aria-hidden="true"></i>
                             Added <span id="viewDateAdded"></span>
@@ -331,10 +344,16 @@
                                 <input id="addLocation" name="Location" required class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm" placeholder="e.g., Kabayan, Benguet" />
                             </div>
 
+                            <div>
+                                <label for="addDuration" class="block text-sm font-medium text-gray-300 mb-2">Typical Duration (hours) <span class="text-red-400">*</span></label>
+                                <input id="addDuration" name="TypicalDurationHours" type="number" step="any" min="0" required aria-describedby="addDurationHelp" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm" placeholder="e.g., 5.47" />
+                                <p id="addDurationHelp" class="text-xs text-gray-400 mt-2">Enter the typical recorded hiking time in hours, greater than zero.</p>
+                            </div>
+
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label for="addDistance" class="block text-sm font-medium text-gray-300 mb-2">Distance (km) <span class="text-red-400">*</span></label>
-                                    <input id="addDistance" name="DistanceKm" type="number" step="0.1" min="0" required class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm" placeholder="e.g., 12" />
+                                    <input id="addDistance" name="DistanceKm" type="number" step="0.01" min="0" required class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm" placeholder="e.g., 12" />
                                 </div>
                                 <div>
                                     <label for="addElevation" class="block text-sm font-medium text-gray-300 mb-2">Elevation Gain (m) <span class="text-red-400">*</span></label>
@@ -454,10 +473,16 @@
                                 <input id="editLocation" name="Location" required class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm" placeholder="e.g., Kabayan, Benguet" />
                             </div>
 
+                            <div>
+                                <label for="editDuration" class="block text-sm font-medium text-gray-300 mb-2">Typical Duration (hours) <span class="text-red-400">*</span></label>
+                                <input id="editDuration" name="TypicalDurationHours" type="number" step="any" min="0" required aria-describedby="editDurationHelp" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm" placeholder="e.g., 5.47" />
+                                <p id="editDurationHelp" class="text-xs text-gray-400 mt-2">Enter the typical recorded hiking time in hours, greater than zero.</p>
+                            </div>
+
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label for="editDistance" class="block text-sm font-medium text-gray-300 mb-2">Distance (km) <span class="text-red-400">*</span></label>
-                                    <input id="editDistance" name="DistanceKm" type="number" step="0.1" min="0" required class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm" placeholder="e.g., 12" />
+                                    <input id="editDistance" name="DistanceKm" type="number" step="0.01" min="0" required class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm" placeholder="e.g., 12" />
                                 </div>
                                 <div>
                                     <label for="editElevation" class="block text-sm font-medium text-gray-300 mb-2">Elevation Gain (m) <span class="text-red-400">*</span></label>
@@ -1161,6 +1186,7 @@
             const name = button.getAttribute('data-name');
             const location = button.getAttribute('data-location');
             const distance = button.getAttribute('data-distance');
+            const duration = button.getAttribute('data-duration');
             const elevation = button.getAttribute('data-elevation');
             const terrain = button.getAttribute('data-terrain');
             const description = button.getAttribute('data-description');
@@ -1170,6 +1196,7 @@
             document.getElementById('viewName').textContent = name;
             document.getElementById('viewLocation').textContent = location;
             document.getElementById('viewDistance').textContent = distance;
+            document.getElementById('viewDuration').textContent = duration;
             document.getElementById('viewElevation').textContent = elevation;
             document.getElementById('viewTrailClass').textContent = trailClassLabel(currentEditTerrainType);
             document.getElementById('viewDescriptionText').textContent = description || 'No description provided.';
@@ -1220,6 +1247,7 @@
             fakeButton.setAttribute('data-name', document.getElementById('viewName').textContent);
             fakeButton.setAttribute('data-location', document.getElementById('viewLocation').textContent);
             fakeButton.setAttribute('data-distance', document.getElementById('viewDistance').textContent);
+            fakeButton.setAttribute('data-duration', document.getElementById('viewDuration').textContent);
             fakeButton.setAttribute('data-elevation', document.getElementById('viewElevation').textContent);
             fakeButton.setAttribute('data-terrain', currentTrailTerrain || '');
             fakeButton.setAttribute('data-terrain-type', currentEditTerrainType);
@@ -1397,6 +1425,7 @@
             const name = button.getAttribute('data-name');
             const location = button.getAttribute('data-location');
             const distance = button.getAttribute('data-distance');
+            const duration = button.getAttribute('data-duration');
             const elevation = button.getAttribute('data-elevation');
             const terrain = button.getAttribute('data-terrain');
             const terrainType = button.getAttribute('data-terrain-type');
@@ -1407,6 +1436,8 @@
             document.getElementById('editName').value = name;
             document.getElementById('editLocation').value = location;
             document.getElementById('editDistance').value = distance;
+            document.getElementById('editDuration').value = duration;
+            document.getElementById('editDuration').setCustomValidity('');
             document.getElementById('editElevation').value = elevation;
 
             // Clear any leftover invalid state from a previous Edit session
@@ -1841,7 +1872,20 @@
             const submitLabel = document.getElementById(submitLabelId);
             if (!form || !submitBtn) return;
 
+            const duration = document.getElementById(idPrefix + 'Duration');
+            const validateDuration = () => {
+                duration.setCustomValidity(duration.value !== '' && !(duration.valueAsNumber > 0)
+                    ? 'Typical duration must be greater than zero.' : '');
+            };
+            duration.addEventListener('input', validateDuration);
+            form.addEventListener('reset', () => duration.setCustomValidity(''));
+
             form.addEventListener('submit', function (event) {
+                validateDuration();
+                if (!duration.reportValidity()) {
+                    event.preventDefault();
+                    return;
+                }
                 if (!validateTerrainSelection(idPrefix, form, true)) {
                     event.preventDefault();
                     return;

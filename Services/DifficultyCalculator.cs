@@ -3,10 +3,10 @@ using TrailGuard.Models;
 namespace TrailGuard.Services
 {
     // NPS Shenandoah hiking difficulty rating - mirrors TrailGuard-ML/acsm_gate.py's
-    // shenandoah_rating()/nps_band()/nps_pace_mph(). These two files must be changed
+    // shenandoah_rating()/nps_band(). These two files must be changed
     // together. ComputeRating is the PLAIN, un-terrain-adjusted value - a property of
-    // the trail's geometry alone, matching what main.py returns as nps_score and used
-    // for pace/duration only. Ordering and display must use ComputeAdjustedRating - the
+    // the trail's geometry alone, matching what main.py returns as nps_score.
+    // Ordering and display must use ComputeAdjustedRating - the
     // same value the difficulty band is derived from - or a short Class 4 trail sorts
     // as though it were an easy walk. Band labelling multiplies this by the trail's own
     // TrailClass multiplier before applying the
@@ -18,7 +18,6 @@ namespace TrailGuard.Services
     // SOURCE (rating formula): National Park Service, Shenandoah National Park.
     //         "How to Determine Hiking Difficulty."
     //         Rating = sqrt(elevation_gain_ft * 2 * distance_mi)
-    //         Pace bands: 1.5 / 1.4 / 1.3 / 1.2 mph at <50 / 50-100 / 100-150 / >=150.
     //
     // SOURCE (difficulty bands): boundaries fitted against 28 Philippine mountains
     //         with published PinoyMountaineer difficulty ratings (1-9 scale), applied
@@ -88,27 +87,6 @@ namespace TrailGuard.Services
         public static string ComputeDifficulty(Trail trail)
         {
             return LabelFor(ComputeAdjustedRating(trail));
-        }
-
-        // Pace is about the raw geometry of the trail, not its technicality, so this
-        // stays on the plain (un-adjusted) rating.
-        public static double PaceMph(double rating)
-        {
-            if (rating < 50) return 1.5;
-            if (rating < 100) return 1.4;
-            if (rating < 150) return 1.3;
-            return 1.2;
-        }
-
-        // Suggested starting duration from the NPS pace band for this rating - a
-        // prefilled default the organizer can override, not a value silently forced
-        // onto every event.
-        public static double SuggestedDurationHours(Trail trail)
-        {
-            var rating = ComputeRating(trail);
-            var pace = PaceMph(rating);
-            var distanceMi = trail.DistanceKm / 1.60934;
-            return distanceMi / pace;
         }
 
         // Single source for band -> badge CSS class. Every view must call this rather
