@@ -55,6 +55,10 @@ public class ReportsController : Controller
         model.NotRecommendedResolvedCount = notRecommended.Count;
         model.NotRecommendedCompletedCount = notRecommended.Count(r => r.Completed);
         model.NotRecommendedNotCompletedCount = notRecommended.Count - model.NotRecommendedCompletedCount;
+        var exportSummary = BuildExportRows(await ExportSource().ToListAsync());
+        model.ExportIncludedCount = exportSummary.Included.Count;
+        model.ExportNonReadinessExcludedCount = exportSummary.NonReadinessExcludedCount;
+        model.ExportIncompleteCaseKeys = exportSummary.IncompleteCaseKeys;
 
         return View(model);
     }
@@ -62,38 +66,18 @@ public class ReportsController : Controller
     [HttpGet]
     public async Task<IActionResult> Export()
     {
-        var rows = await (
-            from label in _context.FinalSuitabilityLabels
-            join assessment in _context.Assessments on label.AssessmentId equals assessment.Id
-            join ev in _context.Events on assessment.EventId equals ev.Id
-            orderby label.RecordedAt descending
-            select new
-            {
-                label.Id, label.AssessmentId, label.Completed, label.NonCompletionReason,
-                label.ParticipantFeedback, label.OrganizerAssessment, label.DifficultyExperience, label.RecordedAt,
-                EventId = ev.Id, ev.EventTitle, TrailName = ev.TrailNameSnapshot,
-                ev.TrailDistanceKmSnapshot, ev.TrailElevationGainMetersSnapshot, ev.TrailClassSnapshot,
-                assessment.Age, assessment.HeightCm, assessment.WeightKg, assessment.MedicalConditions,
-                assessment.ExerciseFrequency, assessment.ExerciseType, assessment.CardioEndurance,
-                assessment.ExerciseConsistency, assessment.MountainsClimbed, assessment.RecencyOfHike,
-                assessment.TrailDifficultyCompleted, assessment.GearItems
-            }).ToListAsync();
-
-        var csv = new System.Text.StringBuilder();
-        csv.AppendLine("OutcomeId,AssessmentId,EventId,EventTitle,TrailName,TrailDistanceKm,TrailElevationGainM,TrailClass,Completed,NonCompletionReason,ParticipantDifficultyExperience,OrganizerDifficultyExperience,ConservativeDifficultyExperience,RecordedAt,Age,HeightCm,WeightKg,MedicalConditions,ExerciseFrequency,ExerciseType,CardioEndurance,ExerciseConsistency,MountainsClimbed,RecencyOfHike,TrailDifficultyCompleted,GearItems");
-        foreach (var r in rows)
-            csv.AppendLine(string.Join(",", new[]
-            {
-                r.Id.ToString(), r.AssessmentId.ToString(), r.EventId.ToString(), Csv(r.EventTitle), Csv(r.TrailName),
-                r.TrailDistanceKmSnapshot.ToString(), r.TrailElevationGainMetersSnapshot.ToString(), r.TrailClassSnapshot.ToString(),
-                r.Completed.ToString(), Csv(r.NonCompletionReason), Csv(r.ParticipantFeedback), Csv(r.OrganizerAssessment), Csv(r.DifficultyExperience), r.RecordedAt.ToString("O"),
-                r.Age?.ToString() ?? "", r.HeightCm?.ToString() ?? "", r.WeightKg?.ToString() ?? "", Csv(r.MedicalConditions),
-                Csv(r.ExerciseFrequency), Csv(r.ExerciseType), Csv(r.CardioEndurance), Csv(r.ExerciseConsistency),
-                Csv(r.MountainsClimbed), Csv(r.RecencyOfHike), Csv(r.TrailDifficultyCompleted), Csv(r.GearItems)
-            }));
+        var data = BuildExportRows(await ExportSource().ToListAsync());
+        var csv = new System.Text.StringBuilder("case_id,participant_profile_id,trail_id,bmi,exercise_frequency,cardio_duration,exercise_consistency,hiking_experience,last_hike_recency,hardest_trail_completed,gear_score,has_asthma,has_cvd,has_joint_knee_injury,has_signs_symptoms,distance_km,elevation_gain_m,trail_class,typical_duration_hours,completed\n");
+        foreach (var r in data.Included) csv.AppendLine(string.Join(",", r.Select(Csv)));
         return File(System.Text.Encoding.UTF8.GetBytes(csv.ToString()), "text/csv",
-            $"OutcomeData_{DateTime.Now:yyyyMMdd_HHmmss}.csv");
+            $"TrailGuard_Retraining_{DateTime.Now:yyyyMMdd_HHmmss}.csv");
     }
+
+    private IQueryable<ExportSourceRow> ExportSource() => from l in _context.FinalSuitabilityLabels join a in _context.Assessments on l.AssessmentId equals a.Id join e in _context.Events on a.EventId equals e.Id join u in _context.Users on a.UserId equals u.Id select new ExportSourceRow { Id=l.Id, Profile=u.PublicProfileId, Trail=e.TrailId, Completed=l.Completed, Reason=l.NonCompletionReason, Height=a.HeightCm, Weight=a.WeightKg, Medical=a.MedicalConditions, Frequency=a.ExerciseFrequency, Cardio=a.CardioEndurance, Consistency=a.ExerciseConsistency, Experience=a.MountainsClimbed, Recency=a.RecencyOfHike, Hardest=a.TrailDifficultyCompleted, Gear=a.GearItems, Distance=e.TrailDistanceKmSnapshot, Elevation=e.TrailElevationGainMetersSnapshot, TrailClass=e.TrailClassSnapshot, Duration=e.TrailDurationHoursSnapshot };
+    private static ExportData BuildExportRows(IEnumerable<ExportSourceRow> rows) { var d=new ExportData(); foreach(var r in rows) { var key=$"TG-{r.Id}"; if(!r.Completed && (r.Reason=="External"||r.Reason=="Withdrawal")){d.NonReadinessExcludedCount++;continue;} if(!Valid(r)){d.IncompleteCaseKeys.Add(key);continue;} var m=r.Medical??""; var bmi=Math.Round(r.Weight!.Value/Math.Pow(r.Height!.Value/100,2),2); d.Included.Add(new[]{key,r.Profile.ToString("N"),r.Trail.ToString(),bmi.ToString(System.Globalization.CultureInfo.InvariantCulture),r.Frequency!,r.Cardio!,r.Consistency!,r.Experience!,r.Recency!,r.Hardest!,Gear(r.Gear).ToString(),Flag(m,"Asthma").ToString(),Flag(m,"Hypertension").ToString(),Flag(m,"Joint or knee").ToString(),((Flag(m,"Vertigo")+Flag(m,"Chest pain")+Flag(m,"Shortness of breath"))>0?1:0).ToString(),r.Distance.ToString(System.Globalization.CultureInfo.InvariantCulture),r.Elevation.ToString(),r.TrailClass.ToString(),((double)r.Duration).ToString(System.Globalization.CultureInfo.InvariantCulture),r.Completed?"Yes":"No"}); } return d; }
+    private static bool Valid(ExportSourceRow r) => r.Height is > 0 && r.Weight is > 0 && r.Distance>0 && r.Elevation>=0 && r.Duration>0 && r.TrailClass is >=1 and <=4 && new[]{"Sedentary","1-2x","3-4x","5+ times per week"}.Contains(r.Frequency) && new[]{"<15min","15-29min","30-60min",">60min"}.Contains(r.Cardio) && new[]{"<1 month","1-2 months","3+ months"}.Contains(r.Consistency) && new[]{"First-timer","1-3","4-10","10+ mountains"}.Contains(r.Experience) && new[]{"Never",">1yr ago","4-12 months ago","1-3 months ago"}.Contains(r.Recency) && new[]{"None","Minor day hikes","Major w/ steep sections","Multi-day"}.Contains(r.Hardest);
+    private static int Gear(string? s) => string.IsNullOrWhiteSpace(s)?0:s.Split(',').Count(x=>!string.IsNullOrWhiteSpace(x)&&!x.Trim().Equals("None of the above",StringComparison.OrdinalIgnoreCase));
+    private static int Flag(string s,string v)=>s.Contains(v,StringComparison.OrdinalIgnoreCase)?1:0;
 
     private static List<GroupBreakdown> BuildGroups<TKey>(IEnumerable<IGrouping<TKey, OutcomeReportRow>> groups, Func<IGrouping<TKey, OutcomeReportRow>, string> name)
         where TKey : notnull => groups.Select(g => new GroupBreakdown
@@ -113,6 +97,8 @@ public class ReportsController : Controller
         public string? Difficulty { get; set; }
         public string? PreHikeLabel { get; set; }
     }
+    private sealed class ExportData { public List<string[]> Included { get; }=[]; public int NonReadinessExcludedCount { get; set; } public List<string> IncompleteCaseKeys { get; }=[]; }
+    private sealed class ExportSourceRow { public int Id { get; set; } public Guid Profile { get; set; } public int Trail { get; set; } public bool Completed { get; set; } public string Reason { get; set; }=""; public double? Height { get; set; } public double? Weight { get; set; } public string? Medical { get; set; } public string? Frequency { get; set; } public string? Cardio { get; set; } public string? Consistency { get; set; } public string? Experience { get; set; } public string? Recency { get; set; } public string? Hardest { get; set; } public string? Gear { get; set; } public double Distance { get; set; } public int Elevation { get; set; } public int TrailClass { get; set; } public decimal Duration { get; set; } }
 }
 
 public class ReportsViewModel
@@ -143,6 +129,9 @@ public class ReportsViewModel
     public int NotRecommendedCompletedCount { get; set; }
     public int NotRecommendedNotCompletedCount { get; set; }
     public AccuracyBreakdown NotRecommendedPathway { get; set; } = new();
+    public int ExportIncludedCount { get; set; }
+    public int ExportNonReadinessExcludedCount { get; set; }
+    public List<string> ExportIncompleteCaseKeys { get; set; } = new();
 }
 
 public class AccuracyBreakdown

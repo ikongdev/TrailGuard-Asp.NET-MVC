@@ -1,4 +1,5 @@
 import json
+import sys
 import numpy as np
 import pandas as pd
 import xgboost as xgb
@@ -7,7 +8,7 @@ from sklearn.metrics import accuracy_score, confusion_matrix
 
 from encoding import load_and_encode, FEATURE_COLUMNS
 
-DATA_PATH = "data/TrailGuard_Training_Data_Final.xlsx"
+DATA_PATH = sys.argv[1] if len(sys.argv) > 1 else "data/TrailGuard_Training_Data_Final.xlsx"
 MODEL_PATH = "trailguard_model.json"
 METADATA_PATH = "model_metadata.json"
 

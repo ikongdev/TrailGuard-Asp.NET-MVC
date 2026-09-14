@@ -579,6 +579,50 @@ than against an opinion.
   band and Trail Class, CSV export, and the `Not Recommended` acknowledgement pathway
 - Keep `MinSampleSize = 20` before reporting any derived statistic
 
+### The retraining export
+
+The CSV export exists to produce retraining data, so it must load into
+`encoding.py` without manual editing. The exact contract:
+
+**Columns, in this order**, matching `TrailGuard_Training_Data_Final.xlsx`:
+
+```
+case_id, participant_profile_id, trail_id,
+bmi, exercise_frequency, cardio_duration, exercise_consistency,
+hiking_experience, last_hike_recency, hardest_trail_completed, gear_score,
+has_asthma, has_cvd, has_joint_knee_injury, has_signs_symptoms,
+distance_km, elevation_gain_m, trail_class, typical_duration_hours,
+completed
+```
+
+The first three are identifiers. `participant_profile_id` must be a **stable
+per-participant identifier**, not a per-assessment one — `encoding.py`'s consumer
+groups by it to prevent the group leakage described in the technical documentation,
+where a row-level split put 167 of 168 test participants into training as well and
+inflated accuracy from 93.33% to 97.50%. A per-row identifier would silently defeat
+that protection. It must also not be the participant's real identity: hash or map it.
+
+**Categorical values are exported as the exact strings `encoding.py` accepts**, not
+as encoded integers — `"3-4x"`, `">60min"`, `"10+ mountains"`. The full list is in
+Stage 4's request table. An unmatched string is rejected at import, which is the
+intended behaviour.
+
+Trail geometry comes from the **Event snapshot**, not the live Trail, for the same
+reason it does at prediction time.
+
+**Rows to exclude:**
+
+- `NonCompletionReason` of `External` or `Withdrawal` — the cause was not readiness,
+  so the row teaches the model nothing and adds the noise Stage 3 exists to remove
+- Any assessment with no recorded outcome
+
+**Rows to include:** completed hikes, and non-completions with reason `Readiness`.
+
+Export the excluded count alongside the file. It is a useful figure in its own right
+— it measures how much of the raw outcome data is non-readiness noise, which is the
+quantity the technical documentation currently estimates at roughly 7% from
+cross-validation rather than from observation.
+
 ### Out of scope
 
 - Authorization, scoping, and export mechanics are unchanged

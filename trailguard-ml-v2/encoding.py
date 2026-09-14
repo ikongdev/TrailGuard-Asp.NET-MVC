@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 
 EXERCISE_FREQUENCY = {
@@ -56,7 +57,18 @@ FEATURE_COLUMNS = [
 
 
 def load_and_encode(path, sheet_name="Training_Data"):
-    df = pd.read_excel(path, sheet_name=sheet_name)
+    extension = os.path.splitext(path)[1].lower()
+    if extension == ".csv":
+        df = pd.read_csv(path)
+    elif extension in {".xlsx", ".xls"}:
+        df = pd.read_excel(path, sheet_name=sheet_name)
+    else:
+        raise ValueError(f"Unsupported training-data format: {extension}")
+
+    required = {"case_id", "participant_profile_id", "trail_id", *FEATURE_COLUMNS, "completed"}
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(f"Training data is missing required columns: {sorted(missing)}")
 
     df["hardest_trail_completed"] = df["hardest_trail_completed"].fillna("None")
 
@@ -68,6 +80,8 @@ def load_and_encode(path, sheet_name="Training_Data"):
     df["hardest_trail_completed"] = df["hardest_trail_completed"].map(HARDEST_TRAIL_COMPLETED)
     df["completed"] = df["completed"].map(COMPLETED)
 
+    if df[list(CATEGORICAL_MAPS)].isna().any().any() or df["completed"].isna().any():
+        raise UnknownCategoryError("Training data contains an unrecognised categorical or completed value.")
     return df
 
 CATEGORICAL_MAPS = {
