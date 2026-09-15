@@ -57,6 +57,33 @@ Database credentials live in **User Secrets**, not `appsettings.json`.
 
 ---
 
+## Startup Seeding
+
+`Data/DbSeeder.cs` (`SeedRolesAndAdminAsync`, called once from `Program.cs` on every startup) seeds exactly two things, and nothing else:
+
+1. The three operational roles (`Admin`, `Organizer`, `Participant`), read from `OperationalRolePolicy.AllowedRoles` — the same allow-list every other role-creation/role-edit path uses (see "Account Roles").
+2. One initial Admin account, `admin@trailguard.com`, created only if no account with that email already exists.
+
+There is no Organizer or Participant sample-account seeding, no Trail seeding, and no Event/registration seeding — commented out or otherwise. A development catalog (sample Trails, Events, Organizer/Participant accounts) is created manually through the app once signed in as the seeded Admin, not by this startup path.
+
+**The initial Admin password comes from configuration, with no fallback.** `DbSeeder` reads `IConfiguration["SeedAdmin:Password"]` and requires it only at the moment it is about to create the `admin@trailguard.com` account for the first time — an already-existing Admin account never reads or needs this setting. There is no hardcoded or default password anywhere in the seeder; if the setting is missing or empty when the account doesn't yet exist, the seeder logs that it is skipping Admin creation and startup continues normally (no exception, no partial account, roles are still seeded).
+
+Set the password before the first run that needs to create the account:
+
+```bash
+dotnet user-secrets set "SeedAdmin:Password" "<choose-a-strong-password>"
+```
+
+For a deployment target that uses environment variables instead of User Secrets (double underscore, matching ASP.NET Core's configuration key convention for nested keys):
+
+```bash
+SeedAdmin__Password=<choose-a-strong-password>
+```
+
+**Seeding never touches an existing record.** `DbSeeder` only ever creates a role that doesn't exist yet or the one named Admin account if it isn't already present — it never resets a password, role, or `IsActive` status on an account that already exists, and every startup after the first is a no-op for both roles and the Admin account. Account creation goes through `RoleAssignmentService.CreateAccountWithRoleAsync` (the same transactional creation path `AccountController.Register`/`AdminController.AddAccount` use), so a failure partway through (weak password rejected by Identity's policy, role assignment failure, etc.) rolls back cleanly with no partial user row — the seeder logs the safe, generic failure description and does not claim success.
+
+---
+
 ## Working in This Repository — Agent Operating Rules
 
 ### Required context before editing
@@ -397,7 +424,7 @@ There is deliberately no JSON blob and no second Trail navigation object — eve
 - **Add Event** (`EventController.AddEvent`) always calls it against the newly selected Trail.
 - **Edit Event** (`EventController.EditEvent`): if the submitted `TrailId` equals the persisted `Event.TrailId`, the snapshot is left completely untouched — no live Trail read happens at all, even to "refresh" it. If the organizer deliberately submits a different `TrailId`, the full snapshot is recaptured atomically from the newly selected Trail. Editing any other Event field (title, date, capacity, weather, payment, pickup, etc.) never touches the snapshot.
 - **Completed Events** stay immutable under the existing rule (see "Completed Events are immutable" below) — `EditEvent`'s persisted-status guard runs before the Trail comparison, so a Completed Event's snapshot can never be recaptured through this path either.
-- `Data/DbSeeder.cs` now seeds only the twelve agency Trails. The obsolete development Event seeds were removed; new Events are created through Add Event.
+- `Data/DbSeeder.cs` no longer seeds any Trail (the former twelve agency Trails were removed from the seeder along with the Organizer/Participant sample accounts — see "Startup Seeding," below); every Trail and Event now originates from Trail Management / Add Event.
 
 ### Event duration estimate versus Trail duration snapshot
 
@@ -509,7 +536,7 @@ Three call sites read `Trail.IsActive`; every other Trail query keeps seeing eve
 | `RecordsController.BuildEventHistoryAsync`/`BuildTrailUsageAsync`, `ReportsController`, `ParticipantProgressService`, Achievements | Historical/identity data — see "Event Trail Snapshot" and "Records, History, Analytics" below; deactivation is a catalog-availability concept with no bearing on any of these |
 | `AdminController`'s `TotalTrails` | An administrative total across the whole catalog — retains its pre-existing meaning, not silently narrowed to Active-only |
 | `TrailController.DeleteTrail`'s hard-delete-protection check | Independent of `IsActive` entirely — see "Hard-delete policy stays separate" below |
-| `Data/DbSeeder.cs` | Only ever adds Trails when none exist yet; every seeded Trail already sets `IsActive = true` explicitly and no existing row is ever touched |
+| `Data/DbSeeder.cs` | No longer seeds any Trail at all (see "Startup Seeding," below) — not applicable to `IsActive` filtering |
 
 ### Existing Events, Records, History, Analytics, and progress are unaffected
 
@@ -1087,7 +1114,7 @@ A handful of destructive actions on these already-modernized pages still confirm
 ## Known Cleanup / Outstanding Work
 
 - **Ownership checks** — fixed in `RegistrationController` and `ParticipantController`'s feedback endpoints; the rest are unaudited (see Security)
-- **Seed data** should be regenerated once the system is finalised; registration seeding is currently commented out
+- **Seed data**: `Data/DbSeeder.cs` now seeds only the three operational roles and one initial Admin account (`admin@trailguard.com`) — see "Startup Seeding," below. There is no longer any Organizer/Participant sample account, Trail, Event, or registration seeding, commented out or otherwise; a development catalog (Trails, Events, sample Organizer/Participant accounts) is created manually through the app once signed in as Admin
 - **Expert validation** — a physician and a hiking expert have completed rounds 1 and 2 (100 profiles total), reporting a quadratic weighted kappa of 0.555. **`MODEL.md` and `MODEL_EXPLAINED_EN.md` do not yet reflect this** — both still describe the expert instrument as prepared but not yet returned ("Until that is returned, no claim about real-world accuracy is supportable"). Updating those two files with the actual result is outstanding, and until it's done, treat the model card's stated limitations as authoritative over this bullet, not the other way around
 - **Manuscript realignment** — the approved proposal specified Laravel/PHP/MySQL; the system is ASP.NET Core/C#/PostgreSQL. Chapter 3 needs updating, along with the documented age-range limitation and the v3 model migration
 - **`ParticipantController.Events`'s `searchString`/`difficulty`/`trailFilter`/`sortOrder` query parameters and their `ViewData["Current*"]` entries are dead** — Browse Events filters entirely client-side and no caller (navbar, dashboard, Trails, event/assessment "back" links) passes any of these on the route, so the controller's server-side filter/sort logic and the corresponding `ViewData` are unreachable from the UI. Confirmed by search, not removed in the Event Management alignment pass (a narrower, in-scope fix instead: the malformed-`trailFilter` `int.Parse` that could throw on manual/malformed input was replaced with the `int.TryParse` convention `EventController.Index` already uses). A broader cleanup — deleting the dead parameters and `ViewData`, or wiring them up as real deep-link entry points — is future work, not done here

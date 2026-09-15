@@ -108,6 +108,22 @@ dotnet user-secrets set "ConnectionStrings:DefaultConnection" "<PostgreSQL conne
 dotnet ef database update
 ```
 
+## Initial Admin Account
+
+On first startup, `DbSeeder` creates exactly one account — `admin@trailguard.com` with the Admin role — and nothing else (no Organizer/Participant sample accounts, no Trails, no Events). It reads the account's password from configuration only; there is no hardcoded or default password. Set it before the first run:
+
+```bash
+dotnet user-secrets set "SeedAdmin:Password" "<choose-a-strong-password>"
+```
+
+For a deployment environment that configures settings via environment variables instead of User Secrets, use the double-underscore form of the same key:
+
+```
+SeedAdmin__Password=<choose-a-strong-password>
+```
+
+This setting is only read the first time the seeder needs to create the Admin account. It is never required again, and startup never resets an existing account's password, role, or active status — every run after the first is a no-op for seeding.
+
 ## Run the Application
 
 Start the ML service **first**. It must run on the same address as `MlApi:BaseUrl` in `appsettings.json` (the committed setting is `http://127.0.0.1:8000`):
