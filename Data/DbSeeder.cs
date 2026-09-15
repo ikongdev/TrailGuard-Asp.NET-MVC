@@ -16,10 +16,14 @@ namespace TrailGuard.Data
             var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
             var roleAssignmentService = serviceProvider.GetRequiredService<RoleAssignmentService>();
             var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+            var databaseTarget = serviceProvider.GetRequiredService<ResolvedDatabaseTarget>();
 
             Console.WriteLine("=========================================");
             Console.WriteLine("STARTING DATABASE SEEDING");
             Console.WriteLine("=========================================");
+            // Non-sensitive: target name plus host/database only, never the
+            // connection string itself.
+            Console.WriteLine($"Database target: {databaseTarget.SafeEndpointDescription}");
 
             // ============================================
             // 1. SEED OPERATIONAL ROLES
@@ -67,13 +71,18 @@ namespace TrailGuard.Data
             {
                 // Required only for this creation path - an already-existing
                 // Admin account never needs it, so a missing setting on a
-                // later, already-seeded startup is not an error.
-                var adminPassword = configuration["SeedAdmin:Password"];
+                // later, already-seeded startup is not an error. Which key is
+                // read depends on the resolved Database:Target - Local and
+                // Supabase never share a password, so a Local seed password can
+                // never be reused as a cloud fallback.
+                var passwordKey = databaseTarget.SeedAdminPasswordKey;
+                var adminPassword = configuration[passwordKey];
                 if (string.IsNullOrEmpty(adminPassword))
                 {
-                    Console.WriteLine("SeedAdmin:Password is not configured. Skipping initial Admin account creation.");
-                    Console.WriteLine("Set it via 'dotnet user-secrets set \"SeedAdmin:Password\" \"<password>\"' (local) " +
-                        "or the SeedAdmin__Password environment variable (deployment), then restart the application.");
+                    var envVarName = passwordKey.Replace(":", "__");
+                    Console.WriteLine($"{passwordKey} is not configured. Skipping initial Admin account creation.");
+                    Console.WriteLine($"Set it via 'dotnet user-secrets set \"{passwordKey}\" \"<password>\"' (local) " +
+                        $"or the {envVarName} environment variable (deployment), then restart the application.");
                 }
                 else
                 {

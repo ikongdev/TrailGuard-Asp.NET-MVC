@@ -98,31 +98,72 @@ python -m pip install fastapi "uvicorn[standard]" xgboost shap numpy pandas scik
 
 ## Database Setup
 
-Store the PostgreSQL connection string in User Secrets, then apply the Entity Framework migrations:
+TrailGuard can run against either a local PostgreSQL install or a cloud Supabase PostgreSQL instance. Which one is active is controlled by a single setting, `Database:Target`, which accepts `Local` (the default) or `Supabase`:
+
+| Setting | Used when | Holds |
+|---|---|---|
+| `ConnectionStrings:DefaultConnection` | `Database:Target` is `Local` or unset | Local PostgreSQL connection string |
+| `ConnectionStrings:SupabaseConnection` | `Database:Target` is `Supabase` | Supabase session-pooler connection string (`SSL Mode=VerifyFull`) |
+
+Store both connection strings in User Secrets — never in `appsettings.json`:
 
 ```bash
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" "<PostgreSQL connection string>"
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "<local PostgreSQL connection string>"
+dotnet user-secrets set "ConnectionStrings:SupabaseConnection" "<Supabase connection string>"
 ```
+
+**Choosing a target for `dotnet run` or `dotnet ef`:** both read the same `Database:Target` setting, resolved in one shared place (`Services/DatabaseTargetResolver.cs`) so they can never disagree. Leaving the key unset (or set to `Local`) uses local PostgreSQL, matching current behavior with no changes required. To point either command at Supabase instead:
+
+```bash
+dotnet user-secrets set "Database:Target" "Supabase"
+```
+
+Set it back to `"Local"` (or remove the key) to switch back. **The application must be restarted after changing this setting** — it is only read at startup, not re-checked while running. An unsupported or blank `Database:Target` value fails startup immediately with a clear configuration error rather than silently defaulting.
+
+**Switching targets selects a separate database — it does not transfer, sync, or copy any records.** Local and Supabase are independent databases with independent schemas and data; migrations must be applied to each target separately, and rows created against one are never visible from the other. For this project's Supabase instance, the database name is `postgres` (Supabase's session pooler for this project routes connections there) — that's expected for this connection string specifically, not something to change to `trailguard_db` to "match" Local; a different Supabase project could be configured with a different database name.
+
+A malformed `ConnectionStrings:DefaultConnection`/`SupabaseConnection` value, or one missing a `Host` or `Database`, fails startup immediately with a clear, credential-free error — it is never passed through to a Npgsql connection attempt that could surface a less clear failure later.
+
+Apply migrations to whichever target is currently selected:
 
 ```bash
 dotnet ef database update
 ```
 
+For a deployment environment that configures settings via environment variables instead of User Secrets, use the double-underscore form of the same keys:
+
+```
+Database__Target=Supabase
+ConnectionStrings__DefaultConnection=<local PostgreSQL connection string>
+ConnectionStrings__SupabaseConnection=<Supabase connection string>
+```
+
 ## Initial Admin Account
 
-On first startup, `DbSeeder` creates exactly one account — `admin@trailguard.com` with the Admin role — and nothing else (no Organizer/Participant sample accounts, no Trails, no Events). It reads the account's password from configuration only; there is no hardcoded or default password. Set it before the first run:
+On first startup, `DbSeeder` creates exactly one account — `admin@trailguard.com` with the Admin role — and nothing else (no Organizer/Participant sample accounts, no Trails, no Events). It reads the account's password from configuration only; there is no hardcoded or default password. Which setting is read depends on the selected `Database:Target`, so a Local seed password is never reused as a Supabase fallback:
+
+| `Database:Target` | Password setting |
+|---|---|
+| `Local` (or unset) | `SeedAdmin:Password` |
+| `Supabase` | `SeedAdmin:SupabasePassword` |
+
+Set the one that matches your selected target before the first run against that database:
 
 ```bash
 dotnet user-secrets set "SeedAdmin:Password" "<choose-a-strong-password>"
+dotnet user-secrets set "SeedAdmin:SupabasePassword" "<choose-a-different-strong-password>"
 ```
 
-For a deployment environment that configures settings via environment variables instead of User Secrets, use the double-underscore form of the same key:
+For a deployment environment that configures settings via environment variables instead of User Secrets, use the double-underscore form of the matching key:
 
 ```
 SeedAdmin__Password=<choose-a-strong-password>
+SeedAdmin__SupabasePassword=<choose-a-different-strong-password>
 ```
 
-This setting is only read the first time the seeder needs to create the Admin account. It is never required again, and startup never resets an existing account's password, role, or active status — every run after the first is a no-op for seeding.
+Each setting is only read the first time its target's database needs to create the Admin account. It is never required again once that account exists, and startup never resets an existing account's password, role, or active status — a startup is a no-op only for whatever already exists; if a previous run skipped Admin creation (e.g. the password setting wasn't set yet), the next startup against that same database retries it rather than skipping forever.
+
+Because Local and Supabase are separate databases (see "Database Setup" above), each one independently gets its own `admin@trailguard.com` account the first time it's seeded, using that target's own password setting. **Both databases legitimately containing an account with the same email is expected, not a conflict** — they are two distinct accounts that can (and, per the guidance above, should) have different passwords. When verifying a login against Supabase, use the Supabase target's own password (`SeedAdmin:SupabasePassword`) and confirm you're actually connected to Supabase (check the startup log's `Database target:` line) — don't assume success on one target confirms the other, and don't reuse the Local password when testing Supabase.
 
 ## Run the Application
 

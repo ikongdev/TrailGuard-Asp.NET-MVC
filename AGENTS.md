@@ -66,21 +66,36 @@ Database credentials live in **User Secrets**, not `appsettings.json`.
 
 There is no Organizer or Participant sample-account seeding, no Trail seeding, and no Event/registration seeding — commented out or otherwise. A development catalog (sample Trails, Events, Organizer/Participant accounts) is created manually through the app once signed in as the seeded Admin, not by this startup path.
 
-**The initial Admin password comes from configuration, with no fallback.** `DbSeeder` reads `IConfiguration["SeedAdmin:Password"]` and requires it only at the moment it is about to create the `admin@trailguard.com` account for the first time — an already-existing Admin account never reads or needs this setting. There is no hardcoded or default password anywhere in the seeder; if the setting is missing or empty when the account doesn't yet exist, the seeder logs that it is skipping Admin creation and startup continues normally (no exception, no partial account, roles are still seeded).
+**The initial Admin password comes from configuration, with no fallback.** Which key `DbSeeder` reads depends on the resolved `Database:Target` (see "Database Target Switching," below): `SeedAdmin:Password` for `Local`, `SeedAdmin:SupabasePassword` for `Supabase` — the two are never interchangeable, so a Local seed password can never be reused as a cloud fallback. Either way, the key is required only at the moment the seeder is about to create the `admin@trailguard.com` account for the first time on that database — an already-existing Admin account never reads or needs this setting. There is no hardcoded or default password anywhere in the seeder; if the applicable setting is missing or empty when the account doesn't yet exist, the seeder logs that it is skipping Admin creation and startup continues normally (no exception, no partial account, roles are still seeded).
 
-Set the password before the first run that needs to create the account:
+Set the password that matches your selected target before the first run that needs to create the account:
 
 ```bash
 dotnet user-secrets set "SeedAdmin:Password" "<choose-a-strong-password>"
+dotnet user-secrets set "SeedAdmin:SupabasePassword" "<choose-a-different-strong-password>"
 ```
 
 For a deployment target that uses environment variables instead of User Secrets (double underscore, matching ASP.NET Core's configuration key convention for nested keys):
 
 ```bash
 SeedAdmin__Password=<choose-a-strong-password>
+SeedAdmin__SupabasePassword=<choose-a-different-strong-password>
 ```
 
-**Seeding never touches an existing record.** `DbSeeder` only ever creates a role that doesn't exist yet or the one named Admin account if it isn't already present — it never resets a password, role, or `IsActive` status on an account that already exists, and every startup after the first is a no-op for both roles and the Admin account. Account creation goes through `RoleAssignmentService.CreateAccountWithRoleAsync` (the same transactional creation path `AccountController.Register`/`AdminController.AddAccount` use), so a failure partway through (weak password rejected by Identity's policy, role assignment failure, etc.) rolls back cleanly with no partial user row — the seeder logs the safe, generic failure description and does not claim success.
+**Seeding never touches an existing record, but a startup that didn't fully succeed is retried, not permanently skipped.** `DbSeeder` only ever creates a role that doesn't exist yet or the one named Admin account if it isn't already present — it never resets a password, role, or `IsActive` status on an account that already exists. That makes every startup a no-op only for whatever already exists; anything still missing (a role that failed to create, or an Admin account skipped because its password setting wasn't configured yet) is attempted again on the *next* startup, exactly as it would have been attempted on this one. Account creation goes through `RoleAssignmentService.CreateAccountWithRoleAsync` (the same transactional creation path `AccountController.Register`/`AdminController.AddAccount` use), so a failure partway through (weak password rejected by Identity's policy, role assignment failure, etc.) rolls back cleanly with no partial user row — the seeder logs the safe, generic failure description, does not claim success, and leaves the account creatable on a later startup once the underlying problem (e.g. the missing password) is fixed.
+
+---
+
+## Database Target Switching
+
+`Database:Target` (`Local`, the default, or `Supabase`) selects which physical database TrailGuard runs against. `Services/DatabaseTargetResolver.cs` is the single shared place that resolves it — `Program.cs` calls it before building the `DbContext` (the same top-level statements EF Core design-time tooling executes for `dotnet ef`), and `DbSeeder` reads the resolved value via DI — so runtime, EF tooling, and the seeder can never disagree about which target or which `SeedAdmin` password key is active.
+
+```
+Local     → ConnectionStrings:DefaultConnection, SeedAdmin:Password
+Supabase  → ConnectionStrings:SupabaseConnection, SeedAdmin:SupabasePassword
+```
+
+An unset `Database:Target` defaults to `Local`, preserving prior behavior. An explicitly blank or unrecognized value fails startup immediately with a configuration error naming the two supported values — it never silently defaults. A selected target whose connection string isn't configured also fails startup the same way; **Supabase is never silently downgraded to Local, or Local to Supabase, for any reason.** The selected connection string is parsed eagerly (`NpgsqlConnectionStringBuilder`) before `Resolve` returns — a malformed value, or one missing a non-blank `Host`/`Database`, fails startup immediately with a fixed, credential-free message naming only the target and the configuration key, never the parser's own exception message, the raw string, or an offending token. Only the selected target's endpoint (host, port, and database name — never credentials) is logged, built from that same successfully parsed value. See `README.md`, Database Setup, for the full switching walkthrough and environment-variable equivalents. Local and Supabase are independent databases — switching does not transfer, sync, or copy records, and each is seeded independently the first time it's used, so **both databases legitimately end up with their own, separately-created `admin@trailguard.com` account** — that isn't a conflict, and verifying one target's Admin login must use that target's own selected password setting, never assume the two accounts share a password.
 
 ---
 

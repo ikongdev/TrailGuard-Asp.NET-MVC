@@ -8,9 +8,12 @@ AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+// Resolved once, here, and reused via DI (DbSeeder) - see DatabaseTargetResolver
+// for why runtime, EF tooling, and the seeder must never resolve this separately.
+var databaseTarget = DatabaseTargetResolver.Resolve(builder.Configuration);
+builder.Services.AddSingleton(databaseTarget);
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(connectionString));
+    options.UseNpgsql(databaseTarget.ConnectionString));
 
 builder.Services.AddDefaultIdentity<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = false)
     .AddRoles<IdentityRole>()
@@ -90,17 +93,20 @@ app.MapRazorPages();
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
+    var startupLogger = services.GetRequiredService<ILogger<Program>>();
+
+    // Non-sensitive: target name plus host/database only, never the connection
+    // string itself (see DatabaseTargetResolver.DescribeEndpointSafely).
+    startupLogger.LogInformation("Database target: {DatabaseEndpoint}", databaseTarget.SafeEndpointDescription);
+
     try
     {
         await TrailGuard.Data.DbSeeder.SeedRolesAndAdminAsync(services);
     }
     catch (Exception ex)
     {
-        var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred while seeding the database.");
+        startupLogger.LogError(ex, "An error occurred while seeding the database.");
     }
-
-    var startupLogger = services.GetRequiredService<ILogger<Program>>();
 
     // Read-only: never mutates a role. Existing multi-role/role-less accounts
     // are resolved manually by an Admin (Account Management), never
