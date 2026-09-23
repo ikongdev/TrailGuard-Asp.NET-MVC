@@ -3848,6 +3848,9 @@
     }
   }
   @media (width >= 48rem) {
+    .md\:mb-6 {
+      margin-bottom: calc(var(--spacing) * 6);
+    }
     .md\:mb-10 {
       margin-bottom: calc(var(--spacing) * 10);
     }
