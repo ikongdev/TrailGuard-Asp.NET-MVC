@@ -169,7 +169,7 @@ namespace TrailGuard.Controllers
                 UserName = model.Email, 
                 Email = model.Email,
                 FirstName = model.FirstName,
-                MiddleName = model.MiddleName,
+                MiddleName = string.IsNullOrWhiteSpace(model.MiddleName) ? null : model.MiddleName,
                 LastName = model.LastName,
                 IsActive = true,
                 DateCreated = DateTime.Now

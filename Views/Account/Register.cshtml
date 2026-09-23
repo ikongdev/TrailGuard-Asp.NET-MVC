@@ -1,6 +1,31 @@
 @model TrailGuard.Models.RegisterViewModel
+@inject Microsoft.Extensions.Options.IOptions<Microsoft.AspNetCore.Identity.IdentityOptions> IdentityOptionsAccessor
 @{
     ViewData["Title"] = "Register";
+
+    var passwordOptions = IdentityOptionsAccessor.Value.Password;
+    var minimumPasswordLength = Math.Max(RegisterViewModel.MinimumPasswordLength, passwordOptions.RequiredLength);
+    var passwordCharacterRequirements = new List<string>();
+    if (passwordOptions.RequireUppercase) passwordCharacterRequirements.Add("an uppercase letter");
+    if (passwordOptions.RequireLowercase) passwordCharacterRequirements.Add("a lowercase letter");
+    if (passwordOptions.RequireDigit) passwordCharacterRequirements.Add("a number");
+    if (passwordOptions.RequireNonAlphanumeric) passwordCharacterRequirements.Add("a symbol");
+    if (passwordOptions.RequiredUniqueChars > 1)
+    {
+        passwordCharacterRequirements.Add($"at least {passwordOptions.RequiredUniqueChars} unique characters");
+    }
+
+    string JoinRequirements(List<string> requirements) => requirements.Count switch
+    {
+        0 => string.Empty,
+        1 => requirements[0],
+        2 => $"{requirements[0]} and {requirements[1]}",
+        _ => $"{string.Join(", ", requirements.Take(requirements.Count - 1))}, and {requirements[^1]}"
+    };
+
+    var passwordRequirementsText = passwordCharacterRequirements.Count == 0
+        ? $"Use at least {minimumPasswordLength} characters."
+        : $"Use at least {minimumPasswordLength} characters, including {JoinRequirements(passwordCharacterRequirements)}.";
 }
 
 @section PageHero {
@@ -32,15 +57,15 @@
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label asp-for="FirstName" class="block text-sm font-medium text-gray-300 mb-2">First Name</label>
-                            <input asp-for="FirstName" class="block w-full px-4 py-3 bg-surface-card border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" required>
+                            <input asp-for="FirstName" autocomplete="given-name" placeholder="Enter first name" class="block w-full px-4 py-3 bg-surface-card border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" required>
                         </div>
                         <div>
-                            <label asp-for="MiddleName" class="block text-sm font-medium text-gray-300 mb-2">Middle Name</label>
-                            <input asp-for="MiddleName" class="block w-full px-4 py-3 bg-surface-card border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors">
+                            <label asp-for="MiddleName" class="block text-sm font-medium text-gray-300 mb-2">Middle Name <span class="text-gray-500 text-xs">(Optional)</span></label>
+                            <input asp-for="MiddleName" autocomplete="additional-name" placeholder="Enter middle name" class="block w-full px-4 py-3 bg-surface-card border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors">
                         </div>
                         <div>
                             <label asp-for="LastName" class="block text-sm font-medium text-gray-300 mb-2">Last Name</label>
-                            <input asp-for="LastName" class="block w-full px-4 py-3 bg-surface-card border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" required>
+                            <input asp-for="LastName" autocomplete="family-name" placeholder="Enter last name" class="block w-full px-4 py-3 bg-surface-card border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" required>
                         </div>
                     </div>
 
@@ -50,7 +75,7 @@
                             <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                 <i class="fa-regular fa-envelope text-gray-500"></i>
                             </div>
-                            <input asp-for="Email" class="block w-full pl-11 pr-4 py-3 bg-surface-card border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" placeholder="account@trailguard.com" required>
+                            <input asp-for="Email" autocomplete="email" class="block w-full pl-11 pr-4 py-3 bg-surface-card border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" placeholder="you@example.com" required>
                         </div>
                     </div>
 
@@ -61,7 +86,7 @@
                                 <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                     <i class="fa-solid fa-lock text-gray-500"></i>
                                 </div>
-                                <input asp-for="Password" type="password" id="password" class="block w-full pl-11 pr-12 py-3 bg-surface-card border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" placeholder="••••••••" required>
+                                <input asp-for="Password" type="password" id="password" autocomplete="new-password" aria-describedby="passwordRequirements" class="block w-full pl-11 pr-12 py-3 bg-surface-card border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" placeholder="Create a password" required>
                                 <button type="button" onclick="togglePasswordVisibility('password', 'eyeIcon1')" class="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-500 hover:text-gray-300 focus:outline-none">
                                     <i id="eyeIcon1" class="fa-regular fa-eye"></i>
                                 </button>
@@ -73,12 +98,13 @@
                                 <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                     <i class="fa-solid fa-lock text-gray-500"></i>
                                 </div>
-                                <input asp-for="ConfirmPassword" type="password" id="confirmPassword" class="block w-full pl-11 pr-12 py-3 bg-surface-card border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" placeholder="••••••••" required>
+                                <input asp-for="ConfirmPassword" type="password" id="confirmPassword" autocomplete="new-password" class="block w-full pl-11 pr-12 py-3 bg-surface-card border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" placeholder="Confirm your password" required>
                                 <button type="button" onclick="togglePasswordVisibility('confirmPassword', 'eyeIcon2')" class="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-500 hover:text-gray-300 focus:outline-none">
                                     <i id="eyeIcon2" class="fa-regular fa-eye"></i>
                                 </button>
                             </div>
                         </div>
+                        <p id="passwordRequirements" class="md:col-span-2 text-xs leading-relaxed text-gray-400">@passwordRequirementsText</p>
                     </div>
 
                     <button type="submit" class="w-full flex justify-center py-3.5 px-4 mt-2 rounded-full text-sm font-semibold text-white bg-linear-to-r from-orange-500 via-pink-500 to-violet-500 hover:brightness-110 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-base transition duration-200 ease-out">

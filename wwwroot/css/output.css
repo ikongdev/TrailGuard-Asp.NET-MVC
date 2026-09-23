@@ -3643,6 +3643,13 @@
   .focus-visible\:ring-offset-surface-base:focus-visible {
     --tw-ring-offset-color: var(--color-surface-base);
   }
+  .focus-visible\:ring-offset-surface-card:focus-visible {
+    --tw-ring-offset-color: var(--color-surface-card);
+  }
+  .focus-visible\:outline-none:focus-visible {
+    --tw-outline-style: none;
+    outline-style: none;
+  }
   .focus-visible\:ring-inset:focus-visible {
     --tw-ring-inset: inset;
   }
@@ -3848,6 +3855,9 @@
     }
   }
   @media (width >= 48rem) {
+    .md\:col-span-2 {
+      grid-column: span 2 / span 2;
+    }
     .md\:mb-6 {
       margin-bottom: calc(var(--spacing) * 6);
     }
