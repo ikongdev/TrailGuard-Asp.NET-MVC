@@ -38,7 +38,7 @@ namespace TrailGuard.Models
         public string? SafetyManagement { get; set; }
         public string? GroupManagement { get; set; }
 
-        public string? Comment { get; set; } // ✅ Pinalitan from Comments to Comment
+        public string? Comment { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
     }

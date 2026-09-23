@@ -8,8 +8,8 @@ AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Resolved once, here, and reused via DI (DbSeeder) - see DatabaseTargetResolver
-// for why runtime, EF tooling, and the seeder must never resolve this separately.
+
+
 var databaseTarget = DatabaseTargetResolver.Resolve(builder.Configuration);
 builder.Services.AddSingleton(databaseTarget);
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -29,9 +29,9 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddScoped<RoleAssignmentService>();
 builder.Services.AddScoped<ParticipantProgressService>();
 builder.Services.AddScoped<ProfileAccessService>();
-// HeaderName lets fetch()-based POSTs (JSON or FormData, both use this - see
-// postJson/postForm in site.js) authenticate with a header instead of a form
-// field, since neither request shape carries the usual hidden form input.
+
+
+
 builder.Services.AddAntiforgery(options => options.HeaderName = "RequestVerificationToken");
 builder.Services.AddHttpClient<WeatherService>();
 builder.Services.AddHttpClient<SuitabilityApiClient>(client =>
@@ -50,15 +50,15 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// Payment receipts and medical clearances are sensitive documents served only
-// through the authenticated, ownership-checked DocumentsController - never
-// directly as static files. This must run before UseStaticFiles() below, or
-// static-file middleware would serve them to anyone who knows/guesses a URL,
-// with no authentication, ownership, or Organizer/Event check at all.
-// Segment-based matching (not a plain string prefix) so a differently named
-// public folder that merely starts with the same characters is never caught
-// by accident - every other wwwroot path (profile images, trail images,
-// event images, css/js/fonts) is unaffected.
+
+
+
+
+
+
+
+
+
 var blockedUploadSegments = new[] { "uploads/receipts", "uploads/medical-clearances" };
 app.Use(async (context, next) =>
 {
@@ -95,8 +95,8 @@ using (var scope = app.Services.CreateScope())
     var services = scope.ServiceProvider;
     var startupLogger = services.GetRequiredService<ILogger<Program>>();
 
-    // Non-sensitive: target name plus host/database only, never the connection
-    // string itself (see DatabaseTargetResolver.DescribeEndpointSafely).
+
+
     startupLogger.LogInformation("Database target: {DatabaseEndpoint}", databaseTarget.SafeEndpointDescription);
 
     try
@@ -108,10 +108,10 @@ using (var scope = app.Services.CreateScope())
         startupLogger.LogError(ex, "An error occurred while seeding the database.");
     }
 
-    // Read-only: never mutates a role. Existing multi-role/role-less accounts
-    // are resolved manually by an Admin (Account Management), never
-    // auto-normalized here - this only makes sure an existing conflict is
-    // reported instead of silently going unnoticed.
+
+
+
+
     try
     {
         var roleAssignmentService = services.GetRequiredService<RoleAssignmentService>();

@@ -18,7 +18,6 @@
     --color-orange-400: oklch(75% 0.183 55.934);
     --color-orange-500: oklch(70.5% 0.213 47.604);
     --color-amber-100: oklch(96.2% 0.059 95.617);
-    --color-amber-200: oklch(92.4% 0.12 95.746);
     --color-amber-300: oklch(87.9% 0.169 91.605);
     --color-amber-400: oklch(82.8% 0.189 84.429);
     --color-amber-500: oklch(76.9% 0.188 70.08);
@@ -361,6 +360,9 @@
   .end-100 {
     inset-inline-end: calc(var(--spacing) * 100);
   }
+  .-top-1 {
+    top: calc(var(--spacing) * -1);
+  }
   .top-0 {
     top: 0px;
   }
@@ -474,9 +476,6 @@
   }
   .z-70 {
     z-index: 70;
-  }
-  .z-100 {
-    z-index: 100;
   }
   .order-0 {
     order: 0;
@@ -630,6 +629,9 @@
   }
   .my-5 {
     margin-block: calc(var(--spacing) * 5);
+  }
+  .my-6 {
+    margin-block: calc(var(--spacing) * 6);
   }
   .my-auto {
     margin-block: auto;
@@ -978,9 +980,6 @@
   }
   .w-1\.5 {
     width: calc(var(--spacing) * 1.5);
-  }
-  .w-2\.5 {
-    width: calc(var(--spacing) * 2.5);
   }
   .w-4 {
     width: calc(var(--spacing) * 4);
@@ -1628,9 +1627,6 @@
       border-color: color-mix(in oklab, var(--color-emerald-500) 50%, transparent);
     }
   }
-  .border-gray-500 {
-    border-color: var(--color-gray-500);
-  }
   .border-gray-500\/20 {
     border-color: color-mix(in srgb, oklch(55.1% 0.027 264.364) 20%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
@@ -1775,6 +1771,9 @@
   .border-l-accent {
     border-left-color: var(--color-accent);
   }
+  .border-l-red-500 {
+    border-left-color: var(--color-red-500);
+  }
   .border-l-transparent {
     border-left-color: transparent;
   }
@@ -1822,9 +1821,6 @@
     @supports (color: color-mix(in lab, red, red)) {
       background-color: color-mix(in oklab, var(--color-accent) 70%, transparent);
     }
-  }
-  .bg-amber-400 {
-    background-color: var(--color-amber-400);
   }
   .bg-amber-500 {
     background-color: var(--color-amber-500);
@@ -1918,9 +1914,6 @@
   }
   .bg-blue-950 {
     background-color: var(--color-blue-950);
-  }
-  .bg-emerald-400 {
-    background-color: var(--color-emerald-400);
   }
   .bg-emerald-500 {
     background-color: var(--color-emerald-500);
@@ -2730,23 +2723,8 @@
   .text-amber-100 {
     color: var(--color-amber-100);
   }
-  .text-amber-200 {
-    color: var(--color-amber-200);
-  }
-  .text-amber-200\/75 {
-    color: color-mix(in srgb, oklch(92.4% 0.12 95.746) 75%, transparent);
-    @supports (color: color-mix(in lab, red, red)) {
-      color: color-mix(in oklab, var(--color-amber-200) 75%, transparent);
-    }
-  }
   .text-amber-300 {
     color: var(--color-amber-300);
-  }
-  .text-amber-300\/80 {
-    color: color-mix(in srgb, oklch(87.9% 0.169 91.605) 80%, transparent);
-    @supports (color: color-mix(in lab, red, red)) {
-      color: color-mix(in oklab, var(--color-amber-300) 80%, transparent);
-    }
   }
   .text-amber-400 {
     color: var(--color-amber-400);

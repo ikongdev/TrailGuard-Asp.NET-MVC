@@ -9,9 +9,9 @@ public static class ShapHelper
     public const string Medical = "medical";
     public const string Trail = "trail";
 
-    // This is the C# presentation boundary for the v3 Python feature contract.
-    // An unrecognized name or category means the serving contract changed without
-    // its human-facing safety rules changing too, so fail before anything is saved.
+
+
+
     private static readonly IReadOnlyDictionary<string, (string FriendlyName, string Category)> Features =
         new Dictionary<string, (string, string)>
         {
@@ -33,8 +33,8 @@ public static class ShapHelper
             ["typical_duration_hours"] = ("Trail duration", Trail)
         };
 
-    // Matches trailguard-ml-v2/encoding.py::FEATURE_COLUMNS. This is only a
-    // deterministic tie-breaker for recommendation_targets' stable Python sort.
+
+
     private static readonly string[] FeatureOrder = Features.Keys.ToArray();
 
     public static void ValidateResponseFeatures(IReadOnlyCollection<ShapAllFeatureImpactDto> factors)
@@ -95,8 +95,8 @@ public static class ShapHelper
             }).ToList();
     }
 
-    // Port of trailguard-ml-v2/explainer.py::recommendation_targets. It must scan
-    // all persisted factors, including ones omitted from the display top-five.
+
+
     public static List<string> BuildRecommendations(ICollection<ShapValue> shapValues)
     {
         var totalImpact = shapValues.Sum(s => Math.Abs(s.ImpactValue));

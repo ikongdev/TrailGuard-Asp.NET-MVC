@@ -17,8 +17,8 @@ namespace TrailGuard.Models
         [Required]
         public string PredictedLabel { get; set; } = string.Empty;
 
-        // Calibrated probability that this participant completes this trail.
-        // It is not v2's class-confidence value.
+
+
         public double CompletionProbability { get; set; }
 
         public string ModelVersion { get; set; } = "v3-real-outcomes";

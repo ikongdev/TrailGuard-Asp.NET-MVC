@@ -92,13 +92,10 @@
         </p>
     </div>
 
-    <!-- Overview: grid's default stretch (no items-start) so all three cards in
-         this desktop row match the tallest one's height; h-full makes each card
-         actually fill the stretched cell, min-w-0 stops long unbroken content
-         (email, pickup point) from forcing the column wider than its track. -->
+
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-        <!-- Participant -->
+
         <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 h-full min-w-0">
             <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
                 <i class="fa-regular fa-user text-accent" aria-hidden="true"></i>
@@ -148,7 +145,7 @@
             </dl>
         </div>
 
-        <!-- Event & Trail -->
+
         <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 h-full min-w-0">
             <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
                 <i class="fa-regular fa-calendar text-accent" aria-hidden="true"></i>
@@ -177,8 +174,7 @@
                 </dl>
             </div>
             <div class="mt-4 pt-4 border-t border-white/10">
-                @* Trail Snapshot fields (Event's own frozen copy), never a live
-                   Event.Trail read - see CLAUDE.md, "Event Trail Snapshot". *@
+
                 @if (Model.Event != null)
                 {
                     <p class="text-gray-500 text-[11px] uppercase tracking-wider">Trail</p>
@@ -205,7 +201,7 @@
             </div>
         </div>
 
-        <!-- Registration & Payment -->
+
         <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 h-full min-w-0">
             <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
                 <i class="fa-regular fa-receipt text-accent" aria-hidden="true"></i>
@@ -281,7 +277,7 @@
         </div>
     </div>
 
-    <!-- Documents -->
+
     @if (showClearanceCard || hasPreparationPlan)
     {
         <div class="@documentsGridClass">
@@ -344,7 +340,7 @@
         </div>
     }
 
-    <!-- Suitability Assessment -->
+
     <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 mt-6">
         <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
             <i class="fa-solid fa-clipboard-check text-accent" aria-hidden="true"></i>
@@ -453,8 +449,7 @@
 
     @if (isPending)
     {
-        <!-- Decision and Available Alternatives are intentional desktop-row
-             siblings - same default-stretch treatment as the rows above. -->
+
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
 
             <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 h-full min-w-0">
@@ -548,12 +543,7 @@
 </div>
 
 @section Modals {
-    <!-- Document Preview - one reusable dialog for both the payment receipt and
-         the medical clearance document. Mirrors the accessible lifecycle already
-         established by Event/Details.cshtml's RescheduleModal/CancelEventModal
-         and Organizer/PostEventAssessment.cshtml's DiscardModal: focus trap,
-         exact focus return, Escape/backdrop close, background inert, scroll
-         lock, toast-host exemption, z-60. -->
+
     <div id="documentPreviewModal" class="fixed inset-0 z-60 hidden items-center justify-center p-4">
         <div data-doc-preview-backdrop class="fixed inset-0 bg-black/70 backdrop-blur-sm z-60" aria-hidden="true"></div>
         <div role="dialog" aria-modal="true" aria-labelledby="documentPreviewTitle"
@@ -566,10 +556,7 @@
             </div>
             <div class="overflow-y-auto flex-1 p-6 flex items-center justify-center min-h-48">
                 <img id="documentPreviewImage" src="" alt="" class="hidden max-w-full max-h-[60vh] object-contain rounded-lg border border-white/10" />
-                <!-- Non-image documents (PDF) get a plain state here, not a
-                     second clickable "open" link - the footer below (Open in
-                     new tab / Download) is the single action area for every
-                     document type, so this never duplicates it. -->
+
                 <div id="documentPreviewOpenWrap" class="hidden text-center text-gray-400 py-6">
                     <i class="fa-regular fa-file-lines text-3xl block mb-3" aria-hidden="true"></i>
                     <p class="text-sm font-medium text-gray-300">PDF document</p>
@@ -580,10 +567,7 @@
                     <p class="text-sm">Document unavailable</p>
                 </div>
             </div>
-            <!-- Open/Download - protected-route actions, valid for every
-                 verified document type (image or PDF), not just the inline
-                 image preview above. Hidden whenever no document is currently
-                 loaded (see showError()/onClose() in the script below). -->
+
             <div id="documentPreviewActions" class="hidden flex-col sm:flex-row gap-3 px-6 py-4 border-t border-white/10 shrink-0">
                 <a id="documentPreviewOpenTabLink" href="#" target="_blank" rel="noopener noreferrer"
                    class="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-accent">
@@ -597,9 +581,7 @@
         </div>
     </div>
 
-    <!-- Registration Action - one reusable confirmation dialog for Approve,
-         Reject, Recommend Alternative, Verify Payment, and Reject Payment
-         Proof. Same accessible lifecycle as Document Preview above. -->
+
     <div id="actionConfirmModal" class="fixed inset-0 z-60 hidden items-center justify-center p-4">
         <div data-action-confirm-backdrop class="fixed inset-0 bg-black/70 backdrop-blur-sm z-60" aria-hidden="true"></div>
         <div role="dialog" aria-modal="true" aria-labelledby="actionConfirmTitle"

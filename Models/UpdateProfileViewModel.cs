@@ -10,7 +10,8 @@ namespace TrailGuard.Models
         public string FirstName { get; set; } = string.Empty;
 
         [Display(Name = "Middle Name")]
-        public string MiddleName { get; set; } = string.Empty;
+        [MaxLength(50, ErrorMessage = "Middle Name cannot exceed 50 characters.")]
+        public string? MiddleName { get; set; }
 
         [Required(ErrorMessage = "Last Name is required.")]
         [Display(Name = "Last Name")]
@@ -24,27 +25,27 @@ namespace TrailGuard.Models
         [Phone(ErrorMessage = "Invalid phone number.")]
         public string PhoneNumber { get; set; } = string.Empty;
 
-        // [Url] alone is intentionally permissive (it accepts ftp:// and does
-        // little more than a prefix check) so its jquery-unobtrusive client
-        // validation keeps working unchanged. SettingsController.UpdateProfile
-        // additionally enforces the stricter absolute-http/https-only rule
-        // that ProfileController.SafeAbsoluteHttpUrl requires for the link to
-        // ever render as clickable on the Profile page - see that check for
-        // the authoritative rule.
+
+
+
+
+
+
+
         [Display(Name = "Facebook Link")]
         [Url(ErrorMessage = "Invalid URL format.")]
         public string FacebookLink { get; set; } = string.Empty;
 
         [Display(Name = "Bio")]
         [MaxLength(500, ErrorMessage = "Bio cannot exceed 500 characters.")]
-        public string Bio { get; set; } = string.Empty;
+        public string? Bio { get; set; }
 
         [Display(Name = "Profile Picture")]
         public IFormFile? ProfileImage { get; set; }
 
         public string? CurrentProfilePictureUrl { get; set; }
 
-        // Password fields - optional
+
         [Display(Name = "Current Password")]
         [DataType(DataType.Password)]
         public string CurrentPassword { get; set; } = string.Empty;

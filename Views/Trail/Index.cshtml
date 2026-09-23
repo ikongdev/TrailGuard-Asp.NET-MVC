@@ -5,10 +5,7 @@
     var currentSort = ViewData["CurrentSort"] as string ?? TrailGuard.Controllers.TrailController.DefaultSortOrder;
 }
 
-@* Success/Error feedback for this page now goes through the canonical global
-   toast host in _Layout.cshtml (window.showToast, fed by TempData via
-   #tg-toast-tempdata) instead of a page-local fixed banner - see the
-   notification centralization pass. *@
+
 
 @section PageHero {
     <div class="pt-24 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
@@ -49,21 +46,7 @@
 
                 <div class="relative shrink-0 w-full lg:w-64">
                     <label for="sortOrder" class="sr-only">Sort trails by</label>
-                    <!-- data-custom-select-portal: the filter bar
-                         (bg-white/5 backdrop-blur-xl) uses a CSS backdrop
-                         blur, which per the containing-block spec becomes
-                         the containing block for the enhanced menu's
-                         position:fixed coordinates - portal mode appends the
-                         menu to document.body instead, the same fix already
-                         used for every filter select on Accounts/Records/
-                         Registrations and the Add Account Role select. The
-                         trigger-class override reproduces this select's own
-                         existing visual recipe (rounded-full, bg-black/20,
-                         accent focus) so enhancement is a no-op visually.
-                         onchange is untouched - custom-select.js dispatches a
-                         real native 'change' event on the underlying select
-                         when the user picks an option, which this existing
-                         inline handler still receives exactly as before. -->
+
                     <select id="sortOrder" name="sortOrder" data-custom-select data-custom-select-portal
                             data-cs-decorative-chevron="sortOrderChevron"
                             data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-5 py-3 rounded-full bg-black/20 border border-white/10 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer hover:bg-white/10"
@@ -722,7 +705,7 @@
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
-        
+
         /* Modal visibility now uses Tailwind's own hidden/flex toggle (DESIGN.md's
            documented modal pattern), not a bespoke .modal-hidden/.modal-visible
            pair with hardcoded padding-top hacks to force the panel on screen -
@@ -1500,18 +1483,18 @@
         async function deleteExistingPhoto(buttonElement, event) {
             if (event) event.preventDefault();
             if (event) event.stopPropagation();
-            
+
             const photoId = parseInt(buttonElement.getAttribute('data-photo-id'));
             const photoDiv = buttonElement.closest('.group');
-            
+
             buttonElement.disabled = true;
             photoDiv.style.opacity = '0.5';
-            
+
             try {
                 const response = await postJson('/Trail/DeleteTrailPhoto', { photoId: photoId });
-                
+
                 const result = await response.json();
-                
+
                 if (result.success) {
                     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
                     const removeDelay = reduceMotion ? 0 : 300;
@@ -1543,12 +1526,12 @@
             if (!confirm(`Are you sure you want to delete "${name}"? This action cannot be undone.`)) {
                 return;
             }
-            
+
             try {
                 const response = await postJson('/Trail/DeleteTrail', { id: id });
-                
+
                 const result = await response.json();
-                
+
                 if (result.success) {
                     showToast('Trail deleted successfully', 'success');
                     setTimeout(() => {

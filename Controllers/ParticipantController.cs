@@ -40,13 +40,13 @@ namespace TrailGuard.Controllers
                 .Where(e => e != null && e.EventDate >= DateTime.Today && e.Status == "Upcoming")
                 .ToList();
 
-            // Personal-best difficulty/distance/elevation below stay on this
-            // already-loaded, per-user registrations list rather than moving to
-            // ParticipantProgressService - Max/OrderByDescending selections are
-            // unaffected by a duplicate Accepted+Completed row for the same Event, so
-            // this list needs no separate GroupBy-by-EventId deduplication step to stay
-            // correct. CompletedHikes below, by contrast, is a plain count, so it comes
-            // from the shared service instead of registrations.Count.
+
+
+
+
+
+
+
             var completedRegistrations = registrations
                 .Where(r => r.Status == "Accepted" && r.Event != null && r.Event.Status == "Completed")
                 .ToList();
@@ -99,11 +99,11 @@ namespace TrailGuard.Controllers
             double? personalBestDistanceKm = null;
             int? personalBestElevationMeters = null;
 
-            // Personal bests read each completed hike's own frozen Trail
-            // Snapshot (TrailDistanceKmSnapshot/TrailElevationGainMetersSnapshot),
-            // never the live Trail - editing a Trail's distance/elevation must
-            // never retroactively change a participant's already-earned
-            // personal-best record. See CLAUDE.md, "Event Trail Snapshot".
+
+
+
+
+
             if (completedRegistrations.Any())
             {
                 personalBestDifficulty = completedRegistrations
@@ -115,10 +115,10 @@ namespace TrailGuard.Controllers
                 personalBestElevationMeters = completedRegistrations.Max(r => r.Event!.TrailElevationGainMetersSnapshot);
             }
 
-            // Sole source for the completed-hike count and all-time Trail Points
-            // ranking - see ParticipantProgressService/ParticipantProgressPolicy.
-            // Leaderboard eligibility is decided entirely inside the service; the
-            // controller has no say in whether this account gets ranked.
+
+
+
+
             var progress = string.IsNullOrEmpty(userId)
                 ? new ParticipantProgressResult()
                 : await _participantProgressService.GetProgressAsync(userId);
@@ -155,9 +155,9 @@ namespace TrailGuard.Controllers
                 return Json(new { success = false, unavailableReason = "NoLocation" });
             }
 
-            // Event.Location is the Event's own canonical, immutable snapshot of
-            // the Trail's location at capture time - not a live read through
-            // Event.Trail. See CLAUDE.md, "Event Trail Snapshot".
+
+
+
             var forecast = await _weatherService.GetWeatherForecastAsync(eventItem.Location, eventItem.EventDate);
 
             if (!string.IsNullOrEmpty(forecast.UnavailableReason))
@@ -176,8 +176,8 @@ namespace TrailGuard.Controllers
 
             if (string.IsNullOrEmpty(eventItem.WeatherReminder) || previousRiskLevel != forecast.RiskLevel)
             {
-                // Reminder is either unset or no longer matches the current conditions — refresh it.
-                // Otherwise the organizer already edited it and a background refresh shouldn't discard that.
+
+
                 eventItem.WeatherReminder = forecast.SuggestedReminder;
             }
 
@@ -241,10 +241,10 @@ namespace TrailGuard.Controllers
         }
         public async Task<IActionResult> Trails()
         {
-            // Active Trails only - a deactivated Trail must disappear from Browse
-            // Trails, though it remains fully intact in the database and on any
-            // Event that already references it. See CLAUDE.md, "Trail
-            // Deactivation".
+
+
+
+
             var trails = await _context.Trails
                 .Where(t => t.IsActive)
                 .OrderByDescending(t => t.DateAdded)
@@ -278,10 +278,10 @@ namespace TrailGuard.Controllers
                 events = events.Where(e => e.Difficulty == difficulty);
             }
 
-            // Matches EventController.Index's established safe-parsing convention: an
-            // invalid, non-numeric, zero, or negative trailFilter simply fails to match
-            // any real Trail.Id and falls through as the default "All" state - never a
-            // thrown FormatException from a malformed manually-supplied query value.
+
+
+
+
             if (!string.IsNullOrEmpty(trailFilter) && trailFilter != "All" && int.TryParse(trailFilter, out var trailId))
             {
                 events = events.Where(e => e.TrailId == trailId);
@@ -290,16 +290,16 @@ namespace TrailGuard.Controllers
             List<Event> eventsList;
             if (sortOrder == "difficulty_asc" || sortOrder == "difficulty_desc")
             {
-                // Event.Difficulty is a band name ("Easy", "Minor Climb", ...),
-                // not a rank - an alphabetical OrderBy on the string only happened to match
-                // severity order for today's exact band names and would silently break the
-                // moment a label changed. Sorting on the stored adjusted-rating snapshot
-                // (TrailAdjustedRatingSnapshot - the same value the band was derived from at
-                // capture time) can't drift that way, and it's the only way to order two
-                // events that share a band. This must be the stored snapshot, never a live
-                // recalculation from the current Trail - see CLAUDE.md, "Event Trail
-                // Snapshot" and "Difficulty sorting": an Event's ordering must not change
-                // just because its Trail was edited afterward.
+
+
+
+
+
+
+
+
+
+
                 eventsList = sortOrder == "difficulty_asc"
                     ? await events.OrderBy(e => e.TrailAdjustedRatingSnapshot).ToListAsync()
                     : await events.OrderByDescending(e => e.TrailAdjustedRatingSnapshot).ToListAsync();
@@ -333,9 +333,9 @@ namespace TrailGuard.Controllers
                 .Where(r => eventIds.Contains(r.EventId) && r.UserId == userId)
                 .ToListAsync();
 
-            // A participant can hold several rows for one event (cancel, then register
-            // again), so this can't be a plain lookup - the active one wins if there is
-            // one, otherwise fall back to whichever attempt is most recent.
+
+
+
             var statusByEventId = userRegistrations
                 .GroupBy(r => r.EventId)
                 .ToDictionary(
@@ -354,12 +354,12 @@ namespace TrailGuard.Controllers
             return View(cardViewModels);
         }
 
-        // GET: Participant/GetTrailEvents (for modal)
+
         [HttpGet]
         public async Task<JsonResult> GetTrailEvents(int trailId)
         {
-            // A non-positive id can never match a real Trail.Id - short-circuit rather
-            // than let the query run and (harmlessly, but pointlessly) return empty.
+
+
             if (trailId <= 0)
             {
                 return Json(Array.Empty<object>());
@@ -381,22 +381,22 @@ namespace TrailGuard.Controllers
             return Json(events);
         }
 
-        // GET: Participant/GetTrailPhotos (for the read-only Trail Details modal's
-        // Additional Photos gallery). A narrow, Participant-scoped counterpart to
-        // TrailController.GetTrailPhotos (Admin/Organizer-only) - never call or relax
-        // that endpoint's authorization for this. Returns only the photo URL: no
-        // TrailPhoto.Id (that's a delete target on the Organizer side and this gallery
-        // has no delete capability), no uploader/account data, no file-system path.
-        //
-        // Browse Trails (ParticipantController.Trails, above) now lists Active
-        // Trails only, so a normal click-through never reaches this for a
-        // deactivated Trail - but this endpoint deliberately still doesn't filter
-        // on IsActive itself. A deactivated Trail retains its photos (see
-        // CLAUDE.md, "Trail Deactivation") and this is a narrow, read-only,
-        // already-Participant-authorized lookup with nothing sensitive to
-        // protect; gating it here would only add a second, easily-drifting
-        // definition of "visible" without serving any actual catalog-visibility
-        // purpose Browse Trails' own filtering doesn't already cover.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         [HttpGet]
         public async Task<JsonResult> GetTrailPhotos(int trailId)
         {
@@ -440,13 +440,13 @@ namespace TrailGuard.Controllers
             ViewBag.RegisteredCount = registeredCount;
             ViewBag.AvailableSlots = eventItem.Capacity - registeredCount;
 
-            // Joined Participants: Accepted-only, minimal safe projection (name +
-            // avatar), filtered and ordered in the database - never the full
-            // EventRegistration/ApplicationUser entities other participants'
-            // sensitive data lives on. See CLAUDE.md, "Joined Participants" /
-            // Models/ParticipantEventJoinedRowViewModel. Distinct from
-            // registeredCount above, which still counts every ActiveStatuses
-            // row for capacity - Accepted-only is a narrower set than that.
+
+
+
+
+
+
+
             var joinedParticipants = await _context.EventRegistrations
                 .AsNoTracking()
                 .Where(r => r.EventId == id && r.Status == "Accepted")
@@ -460,13 +460,13 @@ namespace TrailGuard.Controllers
 
             ViewBag.JoinedParticipants = joinedParticipants;
 
-            // Stable Organizer resolution: OrganizerId is the actual ownership/
-            // identity key on Event (see Models/Event.cs) - OrganizedBy is a
-            // mutable display-name snapshot that can drift from the account it
-            // once matched. A populated but invalid OrganizerId never falls back
-            // to a different account that happens to match the display text;
-            // only a genuinely legacy Event (OrganizerId null/empty) uses the
-            // name/email/id matching fallback. Read-only, so AsNoTracking.
+
+
+
+
+
+
+
             ApplicationUser? organizer = null;
             if (!string.IsNullOrEmpty(eventItem.OrganizerId))
             {
@@ -489,17 +489,17 @@ namespace TrailGuard.Controllers
 
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
-            // Scoped to this event and the authenticated user's own stable ID -
-            // never a client-supplied ID - so this can never surface another
-            // participant's recommendation. Includes AlternativeEvent (not
-            // needed by the minimal joinedParticipants projection above, which
-            // only drives the public Joined Participants list) so the
-            // recommendation panel can render without a second round-trip. A
-            // participant can hold more than one
-            // row for this event (cancel, then register again), so this can't
-            // be a plain FirstOrDefault - the row that's still "live" (active,
-            // or the organizer's Alternative Recommended decision) wins, same
-            // rule ParticipantController.Events already applies per-card.
+
+
+
+
+
+
+
+
+
+
+
             var ownRegistrations = await _context.EventRegistrations
                 .Include(r => r.AlternativeEvent)
                 .Where(r => r.EventId == id && r.UserId == userId)
@@ -512,7 +512,7 @@ namespace TrailGuard.Controllers
 
             ViewBag.UserRegistration = userRegistration;
 
-            // ✅ I-check kung nagbigay na ng feedback ang participant
+
             var hasGivenFeedback = false;
             if (userId != null && eventItem.Status == "Completed")
             {
@@ -524,32 +524,32 @@ namespace TrailGuard.Controllers
             return View(eventItem);
         }
 
-        // Single generic rejection message for every feedback-eligibility failure
-        // (not Completed, no Accepted registration, missing claim) - never
-        // distinguished from each other, so a caller probing eventId values can't
-        // learn anything about another participant's registration state. This is
-        // a different message from "Event not found" (a separate, earlier
-        // failure mode - see GetEligibleFeedbackRegistrationAsync's callers) and
-        // from the duplicate-feedback message below, both of which stay distinct.
+
+
+
+
+
+
+
         private const string FeedbackIneligibleMessage = "Feedback is available only after completing an event you joined.";
 
-        // Single source of truth for feedback eligibility, called independently
-        // by both Feedback (GET) and SubmitFeedback (POST) so the two can never
-        // drift into different rules - see CLAUDE.md, "Feedback" > "Eligibility".
-        // Derives eligibility exclusively from persisted server-side data: the
-        // already-loaded Event's own Status, the authenticated user's stable
-        // NameIdentifier claim, and a fresh database read of that user's
-        // Accepted registration for this Event. Never trusts a posted user ID,
-        // posted registration ID/status, a query-string value, or the view's own
-        // Give Feedback button visibility. Returns null on any failure - not
-        // Completed, no claim, or no Accepted row - without revealing which one.
-        // Read-only, so AsNoTracking(); if more than one Accepted row exists for
-        // the same participant/event (malformed historical data - registrations
-        // are not otherwise unique per participant/event), the newest by
-        // RegisteredAt wins deterministically rather than an unordered
-        // FirstOrDefault. Never selects a Pending, Awaiting Payment, For Payment
-        // Verification, Rejected, Cancelled, Voided, or Alternative Recommended
-        // row.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         private async Task<EventRegistration?> GetEligibleFeedbackRegistrationAsync(Event eventItem)
         {
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
@@ -576,10 +576,10 @@ namespace TrailGuard.Controllers
                 return RedirectToAction("Events");
             }
 
-            // A direct URL to this page must not bypass eligibility - the Give
-            // Feedback button's own visibility on Details is a UX convenience,
-            // never the authorization boundary. See CLAUDE.md, "Feedback" >
-            // "Eligibility".
+
+
+
+
             var eligibleRegistration = await GetEligibleFeedbackRegistrationAsync(eventItem);
             if (eligibleRegistration == null)
             {
@@ -626,12 +626,12 @@ namespace TrailGuard.Controllers
                 return RedirectToAction("Events");
             }
 
-            // Independently re-checked here, never inferred from the GET having
-            // rendered the form - a stale form, a replayed POST, or a crafted
-            // direct request must all be rejected the same way GET would reject
-            // them. Nothing below this point is trusted until eligibility
-            // succeeds: no EventFeedback is added and FinalLabelService is never
-            // called for a rejected request.
+
+
+
+
+
+
             var eligibleRegistration = await GetEligibleFeedbackRegistrationAsync(eventItem);
             if (eligibleRegistration == null)
             {
@@ -686,13 +686,13 @@ namespace TrailGuard.Controllers
             _context.EventFeedbacks.Add(feedback);
             await _context.SaveChangesAsync();
 
-            // The exact Accepted registration that established eligibility above -
-            // never a second, broader FirstOrDefault(EventId + UserId) lookup,
-            // which could silently resolve to a historical Cancelled/Rejected/
-            // Voided/Pending/Alternative Recommended row for the same
-            // participant/event and cause UpsertFinalLabel to no-op even though
-            // an Accepted registration genuinely exists. See CLAUDE.md,
-            // "Feedback" > "Eligibility".
+
+
+
+
+
+
+
             await FinalLabelService.UpsertFinalLabel(_context, eligibleRegistration.Id);
 
             await transaction.CommitAsync();

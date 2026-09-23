@@ -1,17 +1,17 @@
-// Canonical global toast system. Single source of truth for showToast(message, type)
-// across the whole app - see CLAUDE.md/DESIGN.md notification-centralization task.
-//
-// Replaces N near-identical page-local showToast() copies (Event/Index.cshtml,
-// Trail/Index.cshtml, Registration/MyRegistrations.cshtml, Event/Details.cshtml,
-// Organizer/PostEventAssessment.cshtml, Organizer/Registrations.cshtml,
-// Organizer/RegistrationDetails.cshtml, Assessment/Form.cshtml) that each
-// document.body.appendChild()'d a fixed z-50 div - which rendered behind, and
-// inside the inert subtree of, any open Add/Edit Event or Trail modal (those
-// modals inert every sibling of their ancestor chain up to <body>, and a toast
-// appended straight to <body> is exactly such a sibling).
-//
-// This module never touches business logic, controllers, or endpoints - it only
-// owns presentation of already-produced success/error/warning/info messages.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 (function () {
     'use strict';
 
@@ -22,9 +22,9 @@
 
     var TYPES = ['success', 'error', 'warning', 'info'];
 
-    // Callers that used a two-state (success/error) local showToast, or passed
-    // something close-but-not-exact, are normalized here rather than made to
-    // update every call site - see "Global API" call-shape requirement.
+
+
+
     var ALIASES = {
         ok: 'success', successful: 'success', done: 'success', good: 'success',
         err: 'error', danger: 'error', failure: 'error', fail: 'error', failed: 'error',
@@ -51,10 +51,10 @@
         return document.getElementById(HOST_ID);
     }
 
-    // Tracks the last element that had focus outside the toast host, so a
-    // toast dismissed via keyboard can hand focus back somewhere sensible
-    // instead of dropping it to <body>. One listener for the whole page -
-    // registered once, at module load, not per toast.
+
+
+
+
     var lastNonToastFocus = null;
     document.addEventListener('focusin', function (event) {
         var host = getHost();
@@ -75,8 +75,8 @@
             return;
         }
 
-        // Fall back to whichever modal is currently open, if any - every modal
-        // in this app uses an id ending in "Modal" and is shown via .flex.
+
+
         var openModal = document.querySelector('[id$="Modal"].flex, [id$="Modal"].modal-visible');
         if (openModal) {
             var firstFocusable = openModal.querySelector(
@@ -249,15 +249,15 @@
                 finalize();
             });
 
-            // Deterministic fallback: reduced-motion CSS can drop the
-            // transition entirely, which would otherwise never fire
-            // transitionend and strand the toast in the DOM.
+
+
+
             setTimeout(finalize, prefersReducedMotion ? 60 : EXIT_FALLBACK_MS);
         }
 
-        // Entry: wait one frame so the initial (pre-enter) state actually
-        // paints before switching to the visible state, otherwise the browser
-        // can coalesce both states into a single frame and skip the transition.
+
+
+
         requestAnimationFrame(function () {
             requestAnimationFrame(function () {
                 toast.classList.add('tg-toast-visible');
@@ -288,27 +288,27 @@
 
     window.showToast = showToast;
 
-    // Shared exemption used by every modal's background-inert sweep (see
-    // makeBackgroundInert in Event/Index.cshtml and Trail/Index.cshtml) so a
-    // toast fired while a modal is open never gets swept up as an inert
-    // "background sibling" of the modal.
+
+
+
+
     window.tgToastHostExempt = function (el) {
         return !!(el && el.id === HOST_ID);
     };
 
-    // Shared helper letting a modal's own Tab focus-trap treat any currently
-    // visible toast dismiss button as a permitted extra stop, without opening
-    // the trap to anything else in the background.
+
+
+
     window.tgGetToastCloseButtons = function () {
         var host = getHost();
         if (!host) return [];
         return Array.prototype.slice.call(host.querySelectorAll('.tg-toast-close'));
     };
 
-    // Bridges server-rendered TempData["Success"/"Error"/"Warning"/"Info"]
-    // (read once, centrally, in _Layout.cshtml and passed through safely
-    // encoded data-attributes - never interpolated into script text) into the
-    // same toast pipeline used by every client-side call site.
+
+
+
+
     document.addEventListener('DOMContentLoaded', function () {
         var bridge = document.getElementById('tg-toast-tempdata');
         if (!bridge) return;

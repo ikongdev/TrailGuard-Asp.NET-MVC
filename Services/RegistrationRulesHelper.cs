@@ -6,9 +6,9 @@ namespace TrailGuard.Services
     {
         public static bool RequiresMedicalClearance(Assessment assessment)
         {
-            // Combined registration requirement for every participant/organizer UI
-            // and POST validator: agency Not Recommended policy OR stored ACSM
-            // screening. The agency policy is not part of AcsmClearanceService.
+
+
+
             return assessment.Result == "Not Recommended" || assessment.MedicalClearanceRequired;
         }
 
@@ -19,8 +19,8 @@ namespace TrailGuard.Services
 
         public static string MedicalClearanceReason(Assessment assessment)
         {
-            // The raw screening flag selects the reason, not whether the upload
-            // is required. The v3 prediction does not alter this combined requirement.
+
+
             if (assessment.MedicalClearanceRequired)
                 return "Required because your assessment flagged a health condition that needs medical clearance.";
             return assessment.Result == "Not Recommended"

@@ -25,20 +25,20 @@ namespace TrailGuard.Controllers
 
         public const string DefaultSortOrder = "date_asc";
 
-        // Soonest/Latest only - name-based sorting was removed (see the Event
-        // Management redesign). Anything unrecognized - missing, blank, or a stale
-        // bookmark from a removed option - normalizes to DefaultSortOrder rather
-        // than reaching the switch below unnormalized.
+
+
+
+
         private static readonly HashSet<string> AllowedSortOrders = new(StringComparer.Ordinal)
         {
             "date_asc", "date_desc",
         };
 
-        // Upcoming and Completed always lead, matching CLAUDE.md's Event Lifecycle
-        // model, regardless of whether either currently has any events. Everything
-        // else (Cancelled, or a stray value written through the free-text EditEvent
-        // Status field) is data-driven - it only ever appears if some event actually
-        // has it, so the listing never invents a status nobody has.
+
+
+
+
+
         private static readonly string[] FixedStatusPriority = { "Upcoming", "Completed" };
 
         public EventController(ApplicationDbContext context, IWebHostEnvironment webHostEnvironment, UserManager<ApplicationUser> userManager, WeatherService weatherService, ILogger<EventController> logger, RoleAssignmentService roleAssignmentService)
@@ -51,14 +51,14 @@ namespace TrailGuard.Controllers
             _roleAssignmentService = roleAssignmentService;
         }
 
-        // Single ownership rule for every Organizer-facing Event action in
-        // this controller: an Admin (and therefore a dual-role
-        // Admin+Organizer account, which always also holds the Admin role)
-        // retains full access; a pure Organizer may only act on an Event
-        // whose stable OrganizerId matches their own account. A null
-        // OrganizerId (an unresolved legacy Event - see CLAUDE.md) or a
-        // different Organizer's ID both deny access outright - ownership is
-        // never inferred from OrganizedBy, email, or display name.
+
+
+
+
+
+
+
+
         private async Task<bool> CanManageEventAsync(Event eventItem, ApplicationUser currentUser)
         {
             if (await _userManager.IsInRoleAsync(currentUser, "Admin")) return true;
@@ -81,12 +81,12 @@ namespace TrailGuard.Controllers
             ViewData["CurrentDifficulty"] = normalizedDifficulty;
             ViewData["CurrentSort"] = normalizedSort;
 
-            // Two deliberately separate Trail lists - see CLAUDE.md, "Trail
-            // Deactivation": the history filter (below) must still let an
-            // organizer find Events linked to a deactivated Trail, so it keeps
-            // seeing every Trail; Add/Edit Event's own Trail selects use the
-            // Active-only list instead (never this one), since a deactivated
-            // Trail must not be selectable for a new Event or as a replacement.
+
+
+
+
+
+
             ViewBag.Trails = await _context.Trails.OrderBy(t => t.Name).ToListAsync();
             ViewBag.ActiveTrails = await _context.Trails.Where(t => t.IsActive).OrderBy(t => t.Name).ToListAsync();
 
@@ -98,19 +98,19 @@ namespace TrailGuard.Controllers
                 .Concat(actualStatuses.Except(FixedStatusPriority, StringComparer.Ordinal).OrderBy(s => s, StringComparer.Ordinal))
                 .ToList();
 
-            // Independent of every filter below, by design - this is the same
-            // Status == "Upcoming" classifier the Upcoming section itself uses, just
-            // counted against the whole catalog instead of the filtered subset, so
-            // the header summary and an unfiltered Upcoming section always agree.
+
+
+
+
             var upcomingEventsCount = await _context.Events.CountAsync(e => e.Status == "Upcoming");
 
             IQueryable<Event> query = _context.Events;
 
             if (!string.IsNullOrEmpty(normalizedSearch))
             {
-                // TrailNameSnapshot - the Event's own frozen Trail name - not a
-                // live join through Event.Trail. See CLAUDE.md, "Event Trail
-                // Snapshot".
+
+
+
                 query = query.Where(e =>
                     e.EventTitle.Contains(normalizedSearch) ||
                     e.Location.Contains(normalizedSearch) ||
@@ -132,9 +132,9 @@ namespace TrailGuard.Controllers
                 query = query.Where(e => e.Difficulty == normalizedDifficulty);
             }
 
-            // Soonest/Latest sort by the event's actual schedule - date, then start
-            // time - never by title or DateCreated, with Id as the final, deterministic
-            // tiebreaker so two events sharing a date and time still sort consistently.
+
+
+
             query = normalizedSort switch
             {
                 "date_desc" => query.OrderByDescending(e => e.EventDate).ThenByDescending(e => e.EventTime).ThenByDescending(e => e.Id),
@@ -155,10 +155,10 @@ namespace TrailGuard.Controllers
                 eventItem.RegisteredCount = capacityCounts.TryGetValue(eventItem.Id, out var count) ? count : 0;
             }
 
-            // ToLookup over the already status-priority-known list preserves each
-            // status's internal Soonest/Latest order (LINQ-to-Objects grouping is
-            // stable) - this just arranges the groups in the fixed section order and
-            // drops any status with zero matches, per "do not render empty sections."
+
+
+
+
             var eventsByStatus = filteredEvents.ToLookup(e => e.Status);
             var statusGroups = orderedStatuses
                 .Where(s => normalizedStatus == "All" || s == normalizedStatus)
@@ -236,7 +236,7 @@ namespace TrailGuard.Controllers
                         !string.IsNullOrEmpty(existingEvent.WeatherReminder) &&
                         existingEvent.WeatherRiskLevel == forecast.RiskLevel)
                     {
-                        // Organizer already edited the reminder and the risk level hasn't changed since — keep their wording.
+
                         reminder = existingEvent.WeatherReminder;
                     }
                 }
@@ -247,10 +247,10 @@ namespace TrailGuard.Controllers
                     forecastDetails = forecast.ForecastDetails,
                     riskLevel = forecast.RiskLevel,
                     suggestedReminder = reminder,
-                    // Structured fields for Add Event's forecast result card.
-                    // Edit Event's own weather JS predates these and simply
-                    // ignores them - forecastDetails/riskLevel/suggestedReminder
-                    // above are unchanged, so it keeps working as before.
+
+
+
+
                     condition = forecast.Condition,
                     weatherCode = forecast.WeatherCode,
                     temperatureMinC = forecast.TemperatureMinC,
@@ -281,24 +281,24 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "Trail not found" });
                 }
 
-                // A deactivated Trail can never be selected for a new Event -
-                // checked against the persisted value just loaded above, never
-                // the dropdown the client posted from. Add Event's own Trail
-                // select only ever lists Active Trails (see CLAUDE.md, "Trail
-                // Deactivation"), so this only ever fires for a stale page or a
-                // crafted request.
+
+
+
+
+
+
                 if (!trail.IsActive)
                 {
                     return Json(new { success = false, message = "The selected trail is no longer active. Please choose another trail." });
                 }
 
-                // Organizer assignment is resolved entirely server-side from the
-                // authenticated user's role - a client-submitted OrganizerId is
-                // only ever consulted for an Admin caller, and even then it must
-                // resolve to an account actually holding the Organizer role. See
-                // CLAUDE.md's Add Event modal task: the old endpoint trusted
-                // whatever OrganizedBy value the browser sent, which allowed
-                // organizer spoofing.
+
+
+
+
+
+
+
                 var currentUser = await _userManager.GetUserAsync(User);
                 if (currentUser == null)
                 {
@@ -323,32 +323,32 @@ namespace TrailGuard.Controllers
                 }
                 else
                 {
-                    // Not an Admin, so [Authorize(Roles = "Admin,Organizer")] on
-                    // this controller guarantees the caller holds the Organizer
-                    // role. Any OrganizerId the client sent is ignored.
+
+
+
                     organizerAccount = currentUser;
                 }
 
                 var organizerName = $"{organizerAccount.FirstName} {organizerAccount.LastName}";
 
-                // Add Event submits structured schedules, never a raw
-                // PickupPoints string - the server (not the browser) is what
-                // turns validated schedules into the canonical stored lines.
+
+
+
                 var scheduleResult = PickupScheduleHelper.ValidateAndFormat(model.PickupSchedules);
                 if (!scheduleResult.Success)
                 {
                     return Json(new { success = false, message = scheduleResult.Error });
                 }
 
-                // A structured weather snapshot is optional - Add Event only
-                // sends one when a successful forecast is currently in its
-                // state. It's never trusted as submitted: TryValidateForSubmission
-                // re-checks every field's shape/range and confirms the
-                // snapshot's own TrailId/ForecastDate actually match this
-                // same request's TrailId/EventDate, so a stale snapshot left
-                // over from a since-changed trail or date can't be saved as
-                // if it were current. No match or no submission at all both
-                // mean a null snapshot - never fabricated.
+
+
+
+
+
+
+
+
+
                 string? weatherSnapshotJson = null;
                 if (WeatherSnapshotHelper.TryValidateForSubmission(model.WeatherSnapshot, model.TrailId, model.EventDate, out var snapshotRejectReason))
                 {
@@ -379,10 +379,10 @@ namespace TrailGuard.Controllers
                     PickupPoints = string.Join("\n", scheduleResult.CanonicalLines)
                 };
 
-                // The selected Trail, loaded fresh from the database above, is
-                // the only source for TrailId/Location/Difficulty and every
-                // Trail*Snapshot field - never the browser-posted model. See
-                // CLAUDE.md, "Event Trail Snapshot".
+
+
+
+
                 EventTrailSnapshotHelper.CaptureSnapshot(newEvent, trail);
 
                 _context.Events.Add(newEvent);
@@ -416,35 +416,35 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "Event not found" });
                 }
 
-                // Completed Events are immutable historical records (see CLAUDE.md,
-                // Event Lifecycle) - checked only now, after authorization/ownership
-                // has already succeeded, so an unauthorized caller still gets the
-                // same indistinguishable "Event not found" above rather than a
-                // response that reveals this Event exists and is Completed.
+
+
+
+
+
                 if (eventItem.Status == "Completed")
                 {
                     return Json(new { success = false, message = "Completed events are read-only and cannot be edited." });
                 }
 
-                // Defensive read - malformed/unsupported stored JSON
-                // degrades to null (treated the same as a legacy event that
-                // never had one) rather than breaking this endpoint. Never
-                // returned as a raw string; only as this validated,
-                // explicitly-shaped object, with field names matching
-                // GetWeatherForecast's own response so the same client-side
-                // renderer can consume either one.
+
+
+
+
+
+
+
                 var weatherSnapshot = WeatherSnapshotHelper.TryDeserialize(eventItem.WeatherSnapshotJson, _logger);
 
-                // The Edit modal's Trail select only lists Active Trails - if this
-                // Event's own current Trail has since been deactivated, the client
-                // injects one temporary option for it (labelled with this Event's
-                // own TrailNameSnapshot plus a "Deactivated" suffix) so the select
-                // can still show/keep it selected without offering it as a
-                // reusable choice for any other Event. A missing Trail row
-                // (should be impossible under the TrailId FK) defaults to true -
-                // no injected option, no alarming label - rather than treating an
-                // unrelated data problem as a deactivation state. See CLAUDE.md,
-                // "Trail Deactivation".
+
+
+
+
+
+
+
+
+
+
                 var trailIsActive = await _context.Trails
                     .Where(t => t.Id == eventItem.TrailId)
                     .Select(t => (bool?)t.IsActive)
@@ -461,17 +461,17 @@ namespace TrailGuard.Controllers
                     trailId = eventItem.TrailId,
                     trailName = eventItem.TrailNameSnapshot,
                     trailIsActive = trailIsActive,
-                    // Trail preview fields the Edit Event modal's Step 1 cards
-                    // show on open - the Event's own frozen snapshot, not a live
-                    // read of the current Trail (see CLAUDE.md, "Event Trail
-                    // Snapshot": same-TrailId preservation means this hydration
-                    // must show what was captured, not what the Trail looks
-                    // like right now). If the organizer picks a *different*
-                    // Trail from the dropdown, the client's existing
-                    // GetTrailDetails/GetCalculatedDifficulty calls preview
-                    // that newly-selected Trail live, exactly as Add Event
-                    // does; only submitting the edit actually recaptures the
-                    // snapshot.
+
+
+
+
+
+
+
+
+
+
+
                     trailLocation = eventItem.Location,
                     trailDistanceKm = eventItem.TrailDistanceKmSnapshot,
                     trailElevationGainMeters = eventItem.TrailElevationGainMetersSnapshot,
@@ -488,24 +488,24 @@ namespace TrailGuard.Controllers
                     announcements = eventItem.NotesAndReminders,
                     paymentDetails = eventItem.PaymentDetails,
                     pickupPoints = eventItem.PickupPoints,
-                    // Structured hydration for the Pickup Schedules builder -
-                    // legacy lines without a valid canonical time suffix come
-                    // back with time: null, requiresTime: true rather than
-                    // being dropped or given an invented time.
+
+
+
+
                     pickupSchedules = PickupScheduleHelper.ParseForEditing(eventItem.PickupPoints).Select(s => new
                     {
                         location = s.Location,
                         time = s.Time,
                         requiresTime = s.RequiresTime
                     }),
-                    // Structured hydration for the modern weather card - null
-                    // when the event has never had a successfully-validated
-                    // snapshot saved (legacy events, or one that failed
-                    // validation). trailId/forecastDate let the client decide
-                    // whether this snapshot still matches the event's current
-                    // trail/date (rendered as the live card) or belongs to a
-                    // previous context (rendered as a stale/previous notice) -
-                    // see the Edit Event weather hydration logic.
+
+
+
+
+
+
+
+
                     weatherSnapshot = weatherSnapshot == null ? null : new
                     {
                         trailId = weatherSnapshot.TrailId,
@@ -551,25 +551,25 @@ namespace TrailGuard.Controllers
                 return RedirectToAction("Index");
             }
 
-            // Assess Participants is an Organizer-only feature - a dual-role
-            // Admin+Organizer account holds the Admin role too and follows
-            // the Admin branch everywhere else in this app, so it's excluded
-            // here as well, not just given access via CanManageEventAsync
-            // above. Ownership is re-derived explicitly (rather than assumed
-            // from the page-access check just passed) since this flag
-            // controls whether a sensitive action is even shown.
+
+
+
+
+
+
+
             ViewBag.CanAssessParticipants = eventItem.Status == "Completed"
                 && await _userManager.IsInRoleAsync(currentUser, "Organizer")
                 && !await _userManager.IsInRoleAsync(currentUser, "Admin")
                 && eventItem.OrganizerId != null
                 && eventItem.OrganizerId == currentUser.Id;
 
-            // View Comparison's destination (OrganizerController.EventComparison)
-            // is Organizer-only and, unlike assessment, does NOT exclude a
-            // dual-role Admin+Organizer account - it only requires ownership.
-            // This flag mirrors that exact policy so the link is never shown
-            // to a viewer its destination would deny (including an Admin-only
-            // account, which lacks the Organizer role entirely).
+
+
+
+
+
+
             ViewBag.CanViewComparison = eventItem.Status == "Completed"
                 && await _userManager.IsInRoleAsync(currentUser, "Organizer")
                 && eventItem.OrganizerId != null
@@ -588,23 +588,23 @@ namespace TrailGuard.Controllers
             ViewBag.RegisteredCount = capacityRegistrations.Count;
             ViewBag.AvailableSlots = eventItem.Capacity - capacityRegistrations.Count;
 
-            // Registered Participants card (Views/Event/Details.cshtml): same
-            // Accepted/Pending-only, RegisteredAt-ascending set this page has always
-            // shown - built here, not in the view, so the same pass that decides what
-            // renders also decides each row's Profile-link eligibility from one
-            // bounded role lookup, never a query (or a ProfileAccessService.ResolveAsync
-            // call) per row.
+
+
+
+
+
+
             var joinedRegistrations = allRegistrations
                 .Where(r => r.Status == "Accepted" || r.Status == "Pending")
                 .OrderBy(r => r.RegisteredAt)
                 .ToList();
 
-            // One check for the viewer (not per row). CanManageEventAsync above
-            // already confirms this viewer is Admin, or the Organizer who owns this
-            // Event - a conflicted Admin+Organizer account still evaluates to a
-            // single clean status here since OperationalRolePolicy.Evaluate treats
-            // "holds more than one operational role" as Conflict, which grants no
-            // Profile-link privilege below (matching ProfileAccessService).
+
+
+
+
+
+
             var viewerIntegrity = OperationalRolePolicy.Evaluate(await _userManager.GetRolesAsync(currentUser));
 
             var targetUserIds = joinedRegistrations
@@ -642,13 +642,13 @@ namespace TrailGuard.Controllers
 
             ViewBag.ParticipantRows = participantRows;
 
-            // Stable Organizer resolution: OrganizerId is the actual ownership/
-            // identity key on Event (see Models/Event.cs) - OrganizedBy is a
-            // mutable display-name snapshot that can drift from the account it
-            // once matched. A populated but invalid OrganizerId never falls back
-            // to a different account that happens to match the display text;
-            // only a genuinely legacy Event (OrganizerId null/empty) uses the
-            // name/email/id matching fallback below. Read-only, so AsNoTracking.
+
+
+
+
+
+
+
             ApplicationUser? organizer = null;
             if (!string.IsNullOrEmpty(eventItem.OrganizerId))
             {
@@ -831,9 +831,9 @@ namespace TrailGuard.Controllers
         {
             try
             {
-                // Everything below is validation - existingEvent's properties
-                // are only ever touched once every check has passed, so a
-                // rejected request never leaves a partial mutation to save.
+
+
+
                 var existingEvent = await _context.Events.FindAsync(model.Id);
                 if (existingEvent == null)
                 {
@@ -846,26 +846,26 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "Trail not found" });
                 }
 
-                // A deactivated Trail is only rejected when the organizer is
-                // deliberately switching this Event to it. Keeping the Event on
-                // its own already-deactivated current Trail (TrailId unchanged)
-                // is explicitly allowed and requires no reactivation - see
-                // CLAUDE.md, "Trail Deactivation". Checked against the
-                // persisted existingEvent.TrailId, never model fields the client
-                // could shape to bypass this.
+
+
+
+
+
+
+
                 if (existingEvent.TrailId != model.TrailId && !trail.IsActive)
                 {
                     return Json(new { success = false, message = "The selected trail is no longer active. Please choose another trail." });
                 }
 
-                // Organizer assignment is resolved the same way Add Event
-                // resolves it - see AddEvent's own comment for the full
-                // rationale. The one Edit-specific difference: a non-Admin
-                // (Organizer) caller does NOT get assigned as the organizer the
-                // way a new event's creator does - editing an existing event
-                // must never reassign it to whoever happens to be editing it,
-                // so the event's current OrganizedBy is preserved untouched
-                // instead.
+
+
+
+
+
+
+
+
                 var currentUser = await _userManager.GetUserAsync(User);
                 if (currentUser == null)
                 {
@@ -892,15 +892,15 @@ namespace TrailGuard.Controllers
                 }
                 else
                 {
-                    // Not an Admin, so [Authorize(Roles = "Admin,Organizer")] on
-                    // this controller guarantees the caller holds the Organizer
-                    // role. Ownership is checked against the stable
-                    // OrganizerId only - never OrganizedBy, a display-name
-                    // snapshot that is not a safe identity key - and a null
-                    // OrganizerId (an unresolved legacy Event) is never
-                    // treated as owned by whichever Organizer happens to ask.
-                    // Any OrganizerId the client sent is ignored either way;
-                    // the event keeps its existing organizer assignment.
+
+
+
+
+
+
+
+
+
                     if (existingEvent.OrganizerId == null || existingEvent.OrganizerId != currentUser.Id)
                     {
                         return Json(new { success = false, message = "Event not found" });
@@ -910,19 +910,19 @@ namespace TrailGuard.Controllers
                     resolvedOrganizerId = existingEvent.OrganizerId;
                 }
 
-                // Independent, persisted-status guard - Completed Events are
-                // immutable historical records (see CLAUDE.md, Event Lifecycle).
-                // Placed only now, after both the Admin and Organizer-ownership
-                // branches above have already succeeded, so this never runs for
-                // an unauthorized caller. Checked against existingEvent.Status -
-                // the value already loaded from the database, before anything
-                // below touches it - never model.Status, which the client fully
-                // controls and which would otherwise let a stale Edit modal (or a
-                // crafted request) "reopen" a Completed event just by posting a
-                // different value. existingEvent is re-fetched fresh on every
-                // request (FindAsync against this request's own DbContext), so a
-                // stale modal opened before the event was marked Completed is
-                // still rejected here regardless of what it was showing.
+
+
+
+
+
+
+
+
+
+
+
+
+
                 if (existingEvent.Status == "Completed")
                 {
                     return Json(new { success = false, message = "Completed events are read-only and cannot be edited." });
@@ -934,21 +934,21 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = scheduleResult.Error });
                 }
 
-                // Weather snapshot: replace only when a valid new one is
-                // submitted for THIS event's TrailId/EventDate; otherwise
-                // preserve whatever the event already had. This covers every
-                // case the same way:
-                //   - no new snapshot submitted, trail/date unchanged -> the
-                //     organizer didn't touch weather this edit; keep the
-                //     existing snapshot as-is.
-                //   - trail/date changed but no successful matching refresh
-                //     was submitted -> the old snapshot (with its OWN,
-                //     original trail/date) is preserved rather than rewritten
-                //     to pretend it matches the new context.
-                //   - a valid snapshot matching the submitted trail/date IS
-                //     supplied -> it replaces the stored one.
-                // A failed/rejected submission never overwrites a valid
-                // stored snapshot with null.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 var weatherSnapshotJson = existingEvent.WeatherSnapshotJson;
                 if (WeatherSnapshotHelper.TryValidateForSubmission(model.WeatherSnapshot, model.TrailId, model.EventDate, out var snapshotRejectReason))
                 {
@@ -964,11 +964,11 @@ namespace TrailGuard.Controllers
                 existingEvent.EventDate = model.EventDate;
                 existingEvent.EventTime = model.EventTime;
 
-                // Trail Snapshot: same TrailId preserves the existing snapshot
-                // exactly (no live Trail read, no partial refresh of just
-                // Location/Difficulty) - a deliberate TrailId change captures a
-                // complete, atomic new snapshot from the newly selected Trail.
-                // See CLAUDE.md, "Event Trail Snapshot".
+
+
+
+
+
                 if (existingEvent.TrailId != model.TrailId)
                 {
                     EventTrailSnapshotHelper.CaptureSnapshot(existingEvent, trail);
@@ -1018,12 +1018,12 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "Event not found" });
                 }
 
-                // Independent, persisted-status guard - Completed Events are part
-                // of the event history (participant completion history, Trail
-                // Points/Tier/Rank/Achievements, post-event assessments and
-                // comparisons all read them) and must never be deletable, by
-                // Admin or Organizer alike. Checked only after authorization/
-                // ownership has already succeeded above.
+
+
+
+
+
+
                 if (eventItem.Status == "Completed")
                 {
                     return Json(new { success = false, message = "Completed events are part of the event history and cannot be deleted." });

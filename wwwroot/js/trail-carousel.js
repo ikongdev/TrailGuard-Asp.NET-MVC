@@ -47,8 +47,8 @@
         }, ANNOUNCE_DELAY);
     }
 
-    // silent=true skips the live-region announcement - used only for the initial
-    // render so the page doesn't narrate "trail 1 of 6" the instant it loads.
+
+
     function applyActiveState(i, silent) {
         cards.forEach((card, cardIndex) => {
             const active = cardIndex === i;
@@ -69,8 +69,8 @@
         return rect.left + rect.width / 2;
     }
 
-    // Centers a card by moving the track's own scrollLeft (never scrollIntoView,
-    // which could drag the whole document vertically).
+
+
     function centerCard(i, instant) {
         const card = cards[i];
         const trackRect = track.getBoundingClientRect();
@@ -85,9 +85,9 @@
         });
     }
 
-    // Single entry point for every state change: tap, keyboard, autoplay, and
-    // native-scroll sync all funnel through here so is-active/--tone/the
-    // indicator can never drift out of sync with each other.
+
+
+
     function select(next, options) {
         const opts = options || {};
         index = normalize(next);
@@ -125,9 +125,9 @@
         return nearest;
     }
 
-    // Native swipe changes scrollLeft on its own; this keeps is-active/--tone/the
-    // indicator following whichever card is actually centered, without ever
-    // issuing a programmatic scroll itself (that would fight the user's swipe).
+
+
+
     function onTrackScroll() {
         if (!isMobile()) return;
         if (scrollFrame) return;
@@ -175,9 +175,9 @@
         if (mobileNow) {
             stopAutoplay();
             if (!wasMobile) {
-                // Just crossed into mobile - snap the current card to center
-                // instantly. Re-centering on every subsequent mobile resize
-                // (e.g. a keyboard opening) would fight the user's own swipe.
+
+
+
                 requestAnimationFrame(() => centerCard(index, true));
             }
         } else {

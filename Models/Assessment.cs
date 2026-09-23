@@ -20,35 +20,35 @@ namespace TrailGuard.Models
         [ForeignKey("UserId")]
         public virtual ApplicationUser? User { get; set; }
 
-        // SECTION 1: Personal and Physical Profile
+
         public int? Age { get; set; }
         public double? HeightCm { get; set; }
         public double? WeightKg { get; set; }
         public string? MedicalConditions { get; set; }
-        // Stored ACSM screening only; use RegistrationRulesHelper for upload requirements.
+
         public bool MedicalClearanceRequired { get; set; } = false;
 
-        // SECTION 2: Fitness & Endurance
+
         public string? ExerciseFrequency { get; set; }
         public string? ExerciseType { get; set; }
         public string? CardioEndurance { get; set; }
         public string? ExerciseConsistency { get; set; }
 
-        // SECTION 3: Hiking Experience
+
         public string? MountainsClimbed { get; set; }
         public string? RecencyOfHike { get; set; }
         public string? TrailDifficultyCompleted { get; set; }
 
-        // SECTION 4: Gear Preparedness
+
         public string? GearItems { get; set; }
 
-        // Consent
+
         public bool ConsentGiven { get; set; }
 
-        // Model result
+
         public string? Result { get; set; }
 
-        // ✅ BAGONG PROPERTY: Soft Delete
+
         public bool IsActive { get; set; } = true;
 
         public DateTime SubmittedAt { get; set; } = DateTime.Now;

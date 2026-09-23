@@ -6,8 +6,8 @@ using TrailGuard.Services;
 
 namespace TrailGuard.Controllers;
 
-// Aggregate outcome-report shell. Stage 3 preserves the validation presentation so
-// Stage 5 can replace its data source without rebuilding the report.
+
+
 [Authorize(Roles = "Admin")]
 public class ReportsController : Controller
 {
@@ -26,7 +26,7 @@ public class ReportsController : Controller
             TotalAccepted = await _context.EventRegistrations.CountAsync(r => r.AssessmentId != null && r.Status == "Accepted")
         };
 
-        // Trail fields come from the Event snapshot, never from a live Trail join.
+
         var rows = await (
             from label in _context.FinalSuitabilityLabels
             join assessment in _context.Assessments on label.AssessmentId equals assessment.Id
@@ -44,15 +44,15 @@ public class ReportsController : Controller
             }).ToListAsync();
 
         model.TotalRecordedOutcomes = rows.Count;
-        model.TotalResolvedLabels = rows.Count; // Retained report terminology for the Stage 5 replacement.
+        model.TotalResolvedLabels = rows.Count;
         model.CompletedCount = rows.Count(r => r.Completed);
         model.NotCompletedCount = rows.Count - model.CompletedCount;
         model.ByTrailClass = BuildGroups(rows.GroupBy(r => r.TrailClass),
             g => DifficultyCalculator.TrailClassLabel(g.Key));
 
-        // This pathway is a registration behavior, not a label-agreement statistic.
-        // Its outcome counts remain useful while the three-category comparisons wait
-        // for the Stage 5 metric definition.
+
+
+
         var notRecommended = rows.Where(r => r.PreHikeLabel == "Not Recommended").ToList();
         model.NotRecommendedResolvedCount = notRecommended.Count;
         model.NotRecommendedCompletedCount = notRecommended.Count(r => r.Completed);
@@ -123,7 +123,7 @@ public class ReportsViewModel
     public bool HasEnoughData => TotalRecordedOutcomes >= ReportsController.MinSampleSize;
     public bool HasStage5Metrics => false;
 
-    // Retained data-shape for the Stage 5 validation-metric replacement.
+
     public AccuracyBreakdown Overall { get; set; } = new();
     public AccuracyBreakdown ModelOnly { get; set; } = new();
     public int[,] ConfusionMatrix { get; set; } = new int[3, 3];

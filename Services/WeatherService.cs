@@ -21,16 +21,16 @@ namespace TrailGuard.Services
 
             try
             {
-                // "City, Province" — Open-Meteo's geocoder only understands the city part.
-                // The province becomes a hint for disambiguating same-named places (e.g. "San Jose").
+
+
                 var parts = location.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
                 var searchTerm = parts[0];
                 var provinceHint = parts.Length > 1 ? parts[^1] : null;
 
-                // Geocoding - convert location name to coordinates
+
                 var geoUrl = $"https://geocoding-api.open-meteo.com/v1/search?name={Uri.EscapeDataString(searchTerm)}&count=10&language=en&format=json&countryCode=PH";
-                // ASP.NET's HttpClient logging redacts query strings by default, which is
-                // why a bad request here was previously undiagnosable - log the real URL.
+
+
                 _logger.LogDebug("Weather geocoding request: {GeoUrl}", geoUrl);
                 var geoResponse = await _httpClient.GetAsync(geoUrl);
 
@@ -48,24 +48,24 @@ namespace TrailGuard.Services
                 var latitude = chosenResult.GetProperty("latitude").GetDouble();
                 var longitude = chosenResult.GetProperty("longitude").GetDouble();
 
-                // Get forecast for the specific date with wind speed included
+
                 var targetDate = eventDate.ToString("yyyy-MM-dd");
                 var forecastUrl = $"https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,weathercode,windspeed_10m_max&timezone=auto&start_date={targetDate}&end_date={targetDate}";
 
-                // ASP.NET's HttpClient logging redacts query strings by default, which is
-                // why a bad request here was previously undiagnosable - log the real URL.
+
+
                 _logger.LogDebug("Weather forecast request: {ForecastUrl}", forecastUrl);
                 var forecastResponse = await _httpClient.GetAsync(forecastUrl);
 
-                // Open-Meteo answers a date past its ~16-day horizon with 400 Bad Request
-                // (verified: in-range dates return 200, out-of-range return 400 with a JSON
-                // body like {"reason":"Parameter 'start_date' is out of allowed range from
-                // 2026-05-18 to 2026-09-03","error":true}) — not a 200 with null values, so
-                // this has to be caught here rather than after parsing "daily". But Open-Meteo
-                // returns 400 for other malformed requests too (bad parameter names, invalid
-                // coordinates, etc.), and treating every 400 as "date out of range" silently
-                // mislabels those as a normal, expected outcome instead of a real bug - read
-                // the actual reason and only call it a date problem when it says so.
+
+
+
+
+
+
+
+
+
                 if (forecastResponse.StatusCode == System.Net.HttpStatusCode.BadRequest)
                 {
                     var errorBody = await forecastResponse.Content.ReadAsStringAsync();
@@ -102,7 +102,7 @@ namespace TrailGuard.Services
                 var precipitation = daily.GetProperty("precipitation_sum")[0].GetDouble();
                 var weatherCode = daily.GetProperty("weathercode")[0].GetInt32();
 
-                // Get wind speed (try to get it, default to 0 if not available)
+
                 double windSpeed = 0;
                 if (daily.TryGetProperty("windspeed_10m_max", out var windElement))
                 {
@@ -114,15 +114,15 @@ namespace TrailGuard.Services
                 var windDescription = GetWindDescriptionLabel(windSpeed);
                 var windSpeedText = GetWindSpeedDescription(windSpeed);
 
-                // One timestamp, used for both the structured UpdatedAt and the
-                // legacy ForecastDetails text, so the two can't disagree by even
-                // a few milliseconds if this method is ever slow to return.
+
+
+
                 var updatedAt = DateTimeOffset.Now;
 
-                // precipitation_sum is Open-Meteo's expected rainfall amount in
-                // millimeters, not a probability - the previous "Chance of Rain: X%"
-                // line was actually just precipitation*10 relabeled as a percentage.
-                // Millimeters is what the number actually means.
+
+
+
+
                 var forecastDetails = $"Expected Weather: {weatherDescription}\n" +
                        $"Temperature: {tempMin:F0}°C ~ {tempMax:F0}°C\n" +
                        $"Expected Rainfall: {FormatRainfall(precipitation)} mm\n" +
@@ -156,8 +156,8 @@ namespace TrailGuard.Services
             return new WeatherResult { ForecastDetails = message, UnavailableReason = reason };
         }
 
-        // Open-Meteo's error body is {"reason": "...", "error": true}. Falls back to null
-        // (caller uses the raw body) if it isn't in that shape.
+
+
         private static string? TryGetErrorReason(string errorBody)
         {
             try
@@ -173,13 +173,13 @@ namespace TrailGuard.Services
             return null;
         }
 
-        // Prefers a geocoding result whose region (admin1) or province (admin2) matches the
-        // hint from Trail.Location, since several Philippine places share the same city name
-        // across provinces (e.g. "San Jose" exists in at least ten). Open-Meteo's admin1 is the
-        // region (e.g. "Calabarzon"), not the province — the province itself is admin2 (e.g.
-        // "Province of Batangas") — so a hint like "Batangas" only ever matches admin2.
-        // Checking both keeps this correct regardless of whether the hint happens to name a
-        // region or a province.
+
+
+
+
+
+
+
         private static JsonElement SelectBestMatch(JsonElement results, string? provinceHint)
         {
             if (!string.IsNullOrWhiteSpace(provinceHint))
@@ -250,10 +250,10 @@ namespace TrailGuard.Services
             return "Low";
         }
 
-        // Thresholds unchanged from the original GetWindSpeedDescription - just
-        // split out so the structured WindDescription field and the legacy
-        // combined string can't drift into two different wordings for the same
-        // reading.
+
+
+
+
         private string GetWindDescriptionLabel(double windSpeedKmh)
         {
             if (windSpeedKmh <= 0)
@@ -278,9 +278,9 @@ namespace TrailGuard.Services
             return $"{windSpeedKmh:F0} km/h ({GetWindDescriptionLabel(windSpeedKmh)})";
         }
 
-        // "0.#" shows one decimal place only when it's non-zero (10 -> "10",
-        // 10.5 -> "10.5"), matching precipitation_sum's actual precision without
-        // padding a whole-number reading with a trailing ".0".
+
+
+
         private static string FormatRainfall(double rainfallMm)
         {
             return rainfallMm.ToString("0.#");

@@ -4,11 +4,11 @@ using TrailGuard.Models;
 
 namespace TrailGuard.Services
 {
-    // Single source of truth for turning a WeatherSnapshot into the string
-    // stored on Event.WeatherSnapshotJson and back. Add/Edit Event and the
-    // Edit Event hydration endpoint all go through this rather than calling
-    // JsonSerializer directly, so persisted-data validation can't drift
-    // between them.
+
+
+
+
+
     public static class WeatherSnapshotHelper
     {
         private const int MaxTextLength = 200;
@@ -21,22 +21,22 @@ namespace TrailGuard.Services
         private const double MinReasonableWindKmh = 0;
         private const double MaxReasonableWindKmh = 400;
 
-        // Serializes an already-validated snapshot. Callers must have gone
-        // through TryValidateForSubmission (or built the snapshot directly
-        // from a trusted WeatherResult) first - this never validates on the
-        // way out, only on the way back in.
+
+
+
+
         public static string Serialize(WeatherSnapshot snapshot)
         {
             return JsonSerializer.Serialize(snapshot);
         }
 
-        // Defensive deserialization of a persisted Event.WeatherSnapshotJson
-        // value. Malformed JSON, an unrecognized Version, or an
-        // out-of-range/oversized field all return null rather than throwing
-        // into the caller - a corrupted or hand-edited row degrades to "no
-        // snapshot" (the same as a legacy event that never had one) instead
-        // of breaking the page. logger is optional so this stays usable from
-        // a Razor view, which has no logger of its own.
+
+
+
+
+
+
+
         public static WeatherSnapshot? TryDeserialize(string? json, ILogger? logger = null)
         {
             if (string.IsNullOrWhiteSpace(json)) return null;
@@ -63,12 +63,12 @@ namespace TrailGuard.Services
             return snapshot;
         }
 
-        // Validates a snapshot built from client-submitted request fields
-        // (never trusted on its own) before it's allowed to replace a
-        // persisted snapshot. expectedTrailId/expectedForecastDate are the
-        // Event's own submitted TrailId/EventDate in the same request - a
-        // snapshot fetched for a different trail or date is rejected here
-        // rather than accepted as if it were current.
+
+
+
+
+
+
         public static bool TryValidateForSubmission(WeatherSnapshot? snapshot, int expectedTrailId, DateTime expectedForecastDate, out string? reason)
         {
             reason = null;
@@ -125,14 +125,14 @@ namespace TrailGuard.Services
             return true;
         }
 
-        // Maps an Open-Meteo weather code to the FontAwesome icon class used by
-        // the modern weather card - mirrors Views/Event/Index.cshtml's client-
-        // side getAddEventWeatherIconClass(weatherCode) exactly (categories
-        // match WeatherService.GetWeatherDescription's own groupings,
-        // deliberately kept in sync) so a persisted snapshot renders the same
-        // icon server-side (Event/Details.cshtml) that a live fetch would have
-        // shown client-side. Presentation only - no risk/condition/business
-        // logic lives here.
+
+
+
+
+
+
+
+
         public static string GetIconClass(int? weatherCode)
         {
             return weatherCode switch
@@ -154,9 +154,9 @@ namespace TrailGuard.Services
             return value == null || value.Length <= MaxTextLength;
         }
 
-        // Absent (null) is fine here - only a present-but-bad value fails.
-        // Whether a field is required at all for a "successful" forecast is
-        // WeatherService's concern, not this helper's.
+
+
+
         private static bool IsFiniteInRange(double? value, double min, double max)
         {
             if (value == null) return true;

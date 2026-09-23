@@ -5,8 +5,8 @@ namespace TrailGuard.Services
 {
     public static class RegistrationStatusHelper
     {
-        // Non-terminal statuses: a registration in one of these still holds a capacity slot
-        // and blocks the participant from starting a new registration for the same event.
+
+
         public static readonly string[] ActiveStatuses =
         {
             "Pending", "Awaiting Payment", "For Payment Verification", "Accepted"

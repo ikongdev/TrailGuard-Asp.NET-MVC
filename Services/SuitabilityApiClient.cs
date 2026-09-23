@@ -14,8 +14,8 @@ namespace TrailGuard.Services
             _logger = logger;
         }
 
-        // Startup-only liveness probe against GET / - lets us log loudly before a
-        // participant ever hits a submission that silently can't get a prediction.
+
+
         public async Task<bool> CheckHealthAsync()
         {
             try

@@ -1,13 +1,13 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace TrailGuard.Migrations
 {
-    /// <inheritdoc />
+
     public partial class AddEventTrailSnapshot : Migration
     {
-        /// <inheritdoc />
+
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AddColumn<double>(
@@ -61,37 +61,37 @@ namespace TrailGuard.Migrations
                 maxLength: 300,
                 nullable: true);
 
-            // Backfill every existing Event's Trail Snapshot from its currently
-            // linked Trail - see CLAUDE.md, "Event Trail Snapshot", "Existing
-            // Event Migration and Backfill". This can only ever capture the
-            // Trail values available NOW, at migration time; if a Trail was
-            // edited since a given Event was originally created, this backfill
-            // freezes the Trail's current (possibly already-edited) values, not
-            // the ones that existed when the Event was created - that
-            // limitation cannot be reconstructed from anywhere in this schema
-            // and is documented in CLAUDE.md.
-            //
-            // Difficulty is also recomputed here (never left as whatever was
-            // last stored) so it is guaranteed self-consistent with the newly
-            // backfilled TrailAdjustedRatingSnapshot going forward - in
-            // practice this reasserts the same value Event.Difficulty already
-            // held for the overwhelming majority of rows, since
-            // TrailController.EditTrail previously cascaded a live recompute
-            // onto every linked Event on every Trail edit (a behavior this
-            // same milestone removes).
-            //
-            // Events.TrailId is a required (non-null), FK-restricted column
-            // (Trails cannot be deleted while any Event references them - see
-            // ApplicationDbContext's DeleteBehavior.Restrict), so under normal
-            // operation every Event row has a matching Trails row. The
-            // subquery join below still safely leaves any Event whose TrailId
-            // has no matching Trail row (an otherwise-impossible legacy state)
-            // at the column defaults added above (empty name/terrain, zero
-            // distance/elevation/class/rating, null thumbnail) rather than
-            // fabricating a value - this migration does not assume such rows
-            // exist, and none were found against the current development
-            // database (see the implementation report for the verification
-            // query and its result).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
             migrationBuilder.Sql(@"
                 UPDATE ""Events"" AS e
                 SET
@@ -131,7 +131,7 @@ namespace TrailGuard.Migrations
             ");
         }
 
-        /// <inheritdoc />
+
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropColumn(

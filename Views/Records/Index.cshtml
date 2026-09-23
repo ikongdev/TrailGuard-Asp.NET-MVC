@@ -59,7 +59,7 @@
         : "lg:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]";
 }
 
-@* Success/Error feedback goes through the canonical global toast host in _Layout.cshtml. *@
+
 
 <div class="pt-24 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
 
@@ -345,11 +345,7 @@
                         }
                     }
                 </div>
-                @* Accessible text alternative to the star row above - this is
-                   the node search-driven recomputation updates, and it's the
-                   only place the average/count is described in a way a
-                   screen reader announces, so "don't rely on stars or color
-                   alone" holds even after client-side recomputation. *@
+
                 <p id="feedbackAverageSummaryText" class="text-gray-300 text-sm mt-2">@Model.FeedbackAverage.ToString("F1") out of 5 &bull; @Model.FeedbackCount @reviewWord</p>
             </div>
 

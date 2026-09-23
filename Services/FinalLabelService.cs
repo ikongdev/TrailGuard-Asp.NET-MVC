@@ -7,8 +7,8 @@ namespace TrailGuard.Services
 {
     public static class FinalLabelService
     {
-        // Difficulty is an experience rather than a single observed fact. If either
-        // party reports a harder experience, preserve that conservative signal.
+
+
         private static readonly Dictionary<string, int> ConservativeDifficultyOrder = new()
         {
             { "Could not finish - injured", 1 },
@@ -38,9 +38,9 @@ namespace TrailGuard.Services
             return participantKnown ? participantDifficulty : organizerKnown ? organizerDifficulty : null;
         }
 
-        // Completion and difficulty are independent observations. Keep each party's
-        // completion/reason together; the organizer observes the group and is the
-        // authoritative source when present, regardless of submission order.
+
+
+
         public static bool IsValidCompletion(bool? completed, string? reason) => completed switch
         {
             true => string.IsNullOrEmpty(reason) || reason == "NotApplicable",
@@ -62,8 +62,8 @@ namespace TrailGuard.Services
 
         public static async Task UpsertFinalLabel(ApplicationDbContext context, int registrationId)
         {
-            // Both callers hold the registration lock and transaction across source
-            // save and this upsert. Concurrent submissions cannot resolve stale inputs.
+
+
             if (context.Database.CurrentTransaction == null)
                 throw new InvalidOperationException("Outcome resolution requires the source transaction.");
             var registration = await context.EventRegistrations.Include(r => r.Assessment)

@@ -216,10 +216,7 @@
 @section Modals {
     @if (totalCount > 0)
     {
-        <!-- Unsaved-change protection dialog - same @@section Modals / z-60 pattern
-             and accessible lifecycle established by Event/Details.cshtml's
-             Reschedule/Cancel Event modals (focus trap, focus restoration,
-             Escape, background inert, scroll lock, toast host exemption). -->
+
         <div id="discardChangesModal" class="fixed inset-0 z-60 hidden items-center justify-center p-4">
             <div data-discard-backdrop class="fixed inset-0 bg-black/70 backdrop-blur-sm z-60" aria-hidden="true"></div>
             <div role="dialog" aria-modal="true" aria-labelledby="discardChangesModalTitle"
@@ -253,15 +250,7 @@
     }
 }
 
-@* Authored CSS for this page (participant-queue scrollbar) now lives in
-   wwwroot/css/input.css, scoped under #postEventAssessmentRoot - see the
-   "Post-Event Assessment" section there. The reduced-motion handling that
-   used to live here is now done directly in markup/script instead: the
-   progress bar carries motion-reduce:transition-none, and the saving-state
-   spinner icon is chosen in JS based on prefers-reduced-motion (Font
-   Awesome's own .fa-spin has no built-in reduced-motion behavior, and
-   overriding it globally in a shared stylesheet would affect every other
-   page's spinners too). *@
+
 
 @if (totalCount > 0)
 {

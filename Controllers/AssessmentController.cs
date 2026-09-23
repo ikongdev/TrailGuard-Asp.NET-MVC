@@ -21,13 +21,13 @@ namespace TrailGuard.Controllers
             _logger = logger;
         }
 
-        // Loads the event and sets ViewBag.Event / ViewBag.RetakeMode the same way
-        // for the GET form and every POST validation-failure redisplay, so the two
-        // paths can't drift apart. Returns null if the event doesn't exist.
+
+
+
         private async Task<Event?> PopulateAssessmentFormViewBagAsync(int eventId, string? userId)
         {
-            // Views/Assessment/Form.cshtml reads only Event's own Trail Snapshot
-            // fields, never the live Trail navigation - no Include needed here.
+
+
             var eventItem = await _context.Events
                 .FirstOrDefaultAsync(e => e.Id == eventId);
 
@@ -62,7 +62,7 @@ namespace TrailGuard.Controllers
 
             var activeRegistration = await _context.EventRegistrations
                 .FirstOrDefaultAsync(r => r.EventId == eventId && r.UserId == userId && RegistrationStatusHelper.ActiveStatuses.Contains(r.Status));
-            
+
             if (activeRegistration != null)
             {
                 TempData["Success"] = "You are already registered for this event.";
@@ -101,8 +101,8 @@ namespace TrailGuard.Controllers
         {
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
-            // ML feature construction reads only Event.Trail*Snapshot (via
-            // BuildMlRequest below) - no Include of the live Trail is needed here.
+
+
             var eventItem = await _context.Events
                 .FirstOrDefaultAsync(e => e.Id == eventId);
 
@@ -157,19 +157,19 @@ namespace TrailGuard.Controllers
             }
             catch (InvalidOperationException ex)
             {
-                // eventItem.TrailClassSnapshot is invalid (outside 1-4) - never
-                // repaired or mutated here, and never repaired by falling back to
-                // the live Trail (see CLAUDE.md, "Event Trail Snapshot"). Only the
-                // Event id and its own snapshot Trail name are logged - the raw
-                // exception is never shown to the participant.
+
+
+
+
+
                 _logger.LogError(ex, "Assessment submission for Event {EventId} (Trail snapshot '{TrailNameSnapshot}') could not build an ML request: invalid TrailClassSnapshot.", eventItem.Id, eventItem.TrailNameSnapshot);
                 TempData["Error"] = "This event's trail details could not be validated. Please contact the organizer.";
                 await PopulateAssessmentFormViewBagAsync(eventId, userId);
                 return View();
             }
 
-            // Independent screening from the declared answers, not the ML request
-            // or response. Persist only after prediction succeeds, as before.
+
+
             var acsmClearanceRequired = AcsmClearanceService.RequiresMedicalClearance(
                 hasSignsSymptoms: HasCondition(medicalConditions, "Vertigo")
                     || HasCondition(medicalConditions, "Chest pain")
@@ -178,11 +178,11 @@ namespace TrailGuard.Controllers
 
             var predictionCall = await _suitabilityApi.PredictAsync(mlRequest);
 
-            // No rule-based fallback: GetResult() was a v1 heuristic with its own
-            // notion of trail demand, agreeing with neither the model nor the ACSM/
-            // NPS-based ground truth in generate_synthetic_dataset.py. Producing a
-            // result from it would be a third, unvalidated answer to the same
-            // question. If the model can't answer, neither do we.
+
+
+
+
+
             if (predictionCall.IsValidationFailure)
             {
                 TempData["Error"] = "One of your assessment answers could not be recognized. Please review the form and try again.";
@@ -360,7 +360,7 @@ namespace TrailGuard.Controllers
             return View(viewModel);
         }
 
-        // for ML
+
         private string NormalizeLabel(string mlLabel) => mlLabel switch
         {
             "Good Match" => "Good-Match",
@@ -383,12 +383,12 @@ namespace TrailGuard.Controllers
                 .Count(g => !string.IsNullOrEmpty(g) && !g.Equals("None of the above", StringComparison.OrdinalIgnoreCase));
         }
 
-        // Trail-side ML inputs are sourced from the Event's own immutable Trail
-        // Snapshot (Event.Trail*Snapshot), never the live Trail navigation - see
-        // CLAUDE.md, "Event Trail Snapshot". Taking the whole Event rather than a
-        // Trail makes that dependency explicit at the call site: there is no live
-        // Trail parameter to accidentally pass here, and no competing fallback
-        // between a snapshot and a live value.
+
+
+
+
+
+
         private SuitabilityPredictionRequest BuildMlRequest(
             double? heightCm, double? weightKg,
             string? medicalConditions, string? exerciseFrequency, string? cardioEndurance,
@@ -400,13 +400,13 @@ namespace TrailGuard.Controllers
             var heightM = h / 100;
             var bmi = heightM > 0 ? w / (heightM * heightM) : 22.0;
 
-            // Validated against the Event's own captured TrailClassSnapshot, not
-            // trail.TrailClass - the valid range (1-4) is unchanged. A snapshot
-            // value outside it (an unclassified Trail at capture time, or a
-            // pre-snapshot legacy Event whose backfill produced one) must fail
-            // here rather than silently falling back to the live Trail or a
-            // default value - the caller catches this and fails the submission
-            // safely without repairing or mutating the snapshot.
+
+
+
+
+
+
+
             if (eventItem.TrailClassSnapshot < 1 || eventItem.TrailClassSnapshot > 4)
             {
                 throw new InvalidOperationException(

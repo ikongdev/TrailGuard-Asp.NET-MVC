@@ -43,18 +43,18 @@ namespace TrailGuard.Controllers
             _logger = logger;
         }
 
-        // A bounded "recent" window for the dashboard - not the full
-        // registration history Records already exposes in full elsewhere.
-        // Comfortably larger than the 5 rows shown before scrolling, so the
-        // fixed viewport and its cue have real content to demonstrate.
+
+
+
+
         private const int RecentRegistrationsWindow = 20;
 
         public async Task<IActionResult> Index()
         {
-            // Registration status is a lazy check everywhere else it's read
-            // (Records, Reports, Organizer, Participant, Event) - Recent
-            // Registrations below reads and displays canonical Status, so it
-            // needs the same freshness guarantee before it's shown.
+
+
+
+
             await RegistrationStatusHelper.ExpireOverdueRegistrations(_context);
 
             var model = new AdminDashboardViewModel();
@@ -63,47 +63,47 @@ namespace TrailGuard.Controllers
             model.ActiveAccountsCount = await _userManager.Users.AsNoTracking().CountAsync(u => u.IsActive);
             model.TotalTrails = await _context.Trails.AsNoTracking().CountAsync();
 
-            // Upcoming Events - Status == "Upcoming" is a bounded subset (not
-            // every Event ever created; Completed/Cancelled events are never
-            // in this set at all). Three views of it, kept explicitly
-            // separate rather than reusing one for another purpose:
-            //
-            //   joinableEvents    - EventJoinabilityHelper.IsJoinable
-            //                       (Status == "Upcoming" && date in the
-            //                       future). Feeds ONLY the Upcoming Events
-            //                       summary count and displayed list - the
-            //                       same predicate Organizer Dashboard uses,
-            //                       unbroadened.
-            //   staleEvents       - EventJoinabilityHelper.RequiresManualClosure
-            //                       (Status == "Upcoming" but the date has
-            //                       passed). Feeds the "stale Upcoming"
-            //                       Needs Attention category.
-            //   operationalUpcomingEvents - every stored-Upcoming event that
-            //                       is NOT stale, i.e. NOT RequiresManualClosure.
-            //                       Feeds the Organizer-integrity Needs
-            //                       Attention categories below. Deliberately
-            //                       NOT joinableEvents: a future event that's
-            //                       full or has a closed registration window
-            //                       still needs a valid, active Organizer,
-            //                       and must not be silently skipped just
-            //                       because it isn't currently accepting new
-            //                       participants. (As EventJoinabilityHelper
-            //                       is implemented today - Status+date only,
-            //                       no Capacity/registration-window check,
-            //                       which RegistrationController applies
-            //                       separately at join time - this set is
-            //                       numerically identical to joinableEvents;
-            //                       it's kept as its own explicit definition
-            //                       so the Organizer-integrity checks stay
-            //                       correct independent of whatever
-            //                       "joinable" comes to mean later, without
-            //                       needing a second fix here.)
-            //
-            // staleEvents and operationalUpcomingEvents partition
-            // upcomingStatusEvents exactly (every stored-Upcoming event is in
-            // exactly one of the two), which is what guarantees no event is
-            // ever flagged under both the stale category and an
-            // Organizer-integrity category below.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
             var upcomingStatusEvents = await _context.Events
                 .AsNoTracking()
                 .Where(e => e.Status == "Upcoming")
@@ -124,8 +124,8 @@ namespace TrailGuard.Controllers
 
             model.UpcomingEventsCount = joinableEvents.Count;
 
-            // Recent Registrations - bounded window, newest first with a
-            // stable id tiebreaker.
+
+
             var recentRegistrations = await _context.EventRegistrations
                 .AsNoTracking()
                 .Include(r => r.Event)
@@ -133,11 +133,11 @@ namespace TrailGuard.Controllers
                 .Take(RecentRegistrationsWindow)
                 .ToListAsync();
 
-            // Bulk Organizer identity resolution - one query covering the
-            // union of every Organizer id referenced anywhere below
-            // (joinable Upcoming Events display, every operational Upcoming
-            // event Needs Attention checks against, and Recent
-            // Registrations) - never one lookup per row/event/category.
+
+
+
+
+
             var organizerIds = joinableEvents
                 .Select(e => e.OrganizerId)
                 .Concat(operationalUpcomingEvents.Select(e => e.OrganizerId))
@@ -159,15 +159,15 @@ namespace TrailGuard.Controllers
                 {
                     EventId = e.Id,
                     EventTitle = e.EventTitle,
-                    // Event's own Trail Snapshot, never a live Event.Trail read -
-                    // see CLAUDE.md, "Event Trail Snapshot".
+
+
                     TrailName = string.IsNullOrEmpty(e.TrailNameSnapshot) ? "Unknown Trail" : e.TrailNameSnapshot,
                     EventDate = e.EventDate,
                     EventTime = e.EventTime,
                     Difficulty = e.Difficulty,
-                    // Unassigned only when there's no owner id at all;
-                    // "Organizer unavailable" when one exists but couldn't be
-                    // resolved - never a raw id or email as a fallback.
+
+
+
                     OrganizerName = organizer != null
                         ? $"{organizer.FirstName} {organizer.LastName}"
                         : (e.OrganizerId == null ? null : "Organizer unavailable"),
@@ -197,11 +197,11 @@ namespace TrailGuard.Controllers
                 };
             }).ToList();
 
-            // Monthly Registration Activity - 6 calendar months including the
-            // current one, oldest to newest, zero-filled, system-wide.
-            // Registrations This Month is this exact same series' last
-            // element, not a second query - mirrors OrganizerController.
-            // Index's identical (Organizer-scoped) pattern.
+
+
+
+
+
             var currentMonthStart = new DateTime(now.Year, now.Month, 1);
             var chartStart = currentMonthStart.AddMonths(-5);
             var nextMonthStart = currentMonthStart.AddMonths(1);
@@ -219,26 +219,26 @@ namespace TrailGuard.Controllers
             }).ToList();
             model.RegistrationsThisMonthCount = monthCounts.GetValueOrDefault((now.Year, now.Month));
 
-            // Needs Attention - concatenated in deterministic severity order:
-            // (1) system-wide account role integrity, as one aggregate item
-            //     (never N+1 per-account lookups to render every account);
-            // (2) stale Upcoming events - already overdue, the most urgent
-            //     per-event category;
-            // (3) operational (non-stale) Upcoming events with a null or
-            //     unresolvable OrganizerId;
-            // (4) operational (non-stale) Upcoming events whose Organizer
-            //     resolves but is inactive.
-            // (3)/(4) are drawn only from operationalUpcomingEvents, which by
-            // construction excludes every event in staleEvents (the two sets
-            // partition upcomingStatusEvents) - so an event already flagged
-            // as stale in (2) is never also evaluated for an Organizer issue
-            // in (3)/(4). Within (3)/(4) themselves: an event with a null
-            // OrganizerId can only ever match (3); an event with a non-null
-            // OrganizerId resolves to exactly one of unresolved (3) /
-            // inactive (4) / active-and-fine (no item at all) - so no event
-            // is ever flagged under both (3) and (4) either. Every event in
-            // upcomingStatusEvents therefore produces at most one Needs
-            // Attention item.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
             var attentionItems = new List<OrganizerAttentionItem>();
 
             var roleAudit = await _roleAssignmentService.AuditRoleIntegrityAsync();
@@ -313,11 +313,11 @@ namespace TrailGuard.Controllers
 
             foreach (var user in users)
             {
-                // RoleAssignmentService.GetRoleIntegrityAsync is the single
-                // source of truth for "does this account hold exactly one
-                // operational role" - a plain roles.FirstOrDefault() here would
-                // silently present a multi-role or role-less account as though
-                // it were a normal single-role one.
+
+
+
+
+
                 var integrity = await _roleAssignmentService.GetRoleIntegrityAsync(user);
 
                 string initials = "";
@@ -345,10 +345,10 @@ namespace TrailGuard.Controllers
 
             model.Accounts = accountList;
             model.TotalAccounts = accountList.Count;
-            // Conflict/Missing accounts are excluded from these three exact-role
-            // totals (RoleStatus is only ever exactly Admin/Organizer/Participant
-            // for a clean single-role account - see OperationalRolePolicy.Evaluate)
-            // so a conflicted account is never double-counted under two roles.
+
+
+
+
             model.TotalAdmins = accountList.Count(u => u.RoleStatus == RoleIntegrityStatus.Admin);
             model.TotalOrganizers = accountList.Count(u => u.RoleStatus == RoleIntegrityStatus.Organizer);
             model.TotalParticipants = accountList.Count(u => u.RoleStatus == RoleIntegrityStatus.Participant);
@@ -367,10 +367,10 @@ namespace TrailGuard.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> AddAccount(AddAccountViewModel model)
         {
-            // The <select> on the view only ever submits one of the three
-            // operational role names, but the server never trusts that -
-            // an unknown or tampered value is rejected here before a user
-            // row is even created.
+
+
+
+
             if (!OperationalRolePolicy.IsAllowedRole(model.Role))
             {
                 ModelState.AddModelError(nameof(model.Role), "Please select a valid role.");
@@ -389,10 +389,10 @@ namespace TrailGuard.Controllers
                     DateCreated = DateTime.UtcNow
                 };
 
-                // CreateAccountWithRoleAsync creates the user and assigns
-                // model.Role in one transaction - a role-assignment failure
-                // rolls the user row back too, so there is never a committed,
-                // active, role-less account to compensate for afterward.
+
+
+
+
                 var creation = await _roleAssignmentService.CreateAccountWithRoleAsync(user, model.Password, model.Role);
                 if (creation.Succeeded)
                 {
@@ -415,14 +415,14 @@ namespace TrailGuard.Controllers
             return View(model);
         }
 
-        // JSON endpoint backing the account-status confirmation dialog on
-        // Views/Admin/Accounts.cshtml (replaces the previous native confirm()
-        // + form-post-and-redirect flow, matching the ChangeRole endpoint's
-        // shape below). request.Active is the target state decided by the
-        // row's Enable/Disable trigger at render time - the server never
-        // infers "the opposite of the account's current state" itself,
-        // since SetAccountActiveAsync re-reads and authoritatively decides
-        // from inside its own transaction regardless of what the client sent.
+
+
+
+
+
+
+
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ToggleAccountStatus([FromBody] ToggleAccountStatusRequest request)
@@ -440,12 +440,12 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "An unexpected error occurred. Please try again." });
                 }
 
-                // SetAccountActiveAsync rejects a self-disable attempt, and
-                // (when disabling someone else) re-reads the account and
-                // re-counts other Admins inside one Serializable transaction
-                // with the write itself - the last-Admin check here can't
-                // race against a concurrent request disabling/role-changing a
-                // different Admin account (see RoleAssignmentService for why).
+
+
+
+
+
+
                 var result = await _roleAssignmentService.SetAccountActiveAsync(callerId, request.Id, request.Active);
                 if (!result.Succeeded)
                 {
@@ -462,13 +462,13 @@ namespace TrailGuard.Controllers
             }
         }
 
-        // Exclusive role-replacement endpoint - one shared server-side method
-        // (RoleAssignmentService.ReplaceRoleAsync) for both resolving a
-        // conflicted/role-less account and changing an already-valid account
-        // to a different role. Returns JSON so Views/Admin/Accounts.cshtml's
-        // reusable confirmation dialog can show a toast without a full page
-        // reload, matching the established ActionConfirm pattern (see
-        // Organizer/RegistrationDetails.cshtml).
+
+
+
+
+
+
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ChangeRole([FromBody] ChangeRoleRequest request)

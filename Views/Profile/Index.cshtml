@@ -10,33 +10,15 @@
 
 <div class="pt-24 px-4 max-w-6xl mx-auto min-h-screen text-white pb-12">
 
-    @* ============================= Top row: Profile + Tier Progress ============================= *@
-    @* Mobile/tablet (grid-cols-1): items-start, so each stacked card keeps its own
-       natural content height - there is only ever one item per row, so "stretch"
-       would have had no visible effect anyway, but this keeps the default explicit.
-       Desktop (lg:grid-cols-2): lg:items-stretch restores equal-height siblings -
-       both card divs are direct, unwrapped grid items with no explicit height of
-       their own, so CSS Grid's stretch alignment alone makes the shorter card's
-       box grow to match the taller one; no additional h-full is needed on either
-       card for this to work. *@
+
+
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 items-start lg:items-stretch">
 
-        @* ----------------------------- Profile card ----------------------------- *@
-        @* flex flex-col (no lg:h-full needed): this div is the direct, unwrapped
-           lg:items-stretch grid item from the row above, so CSS Grid's stretch
-           alignment already sets its used height to match the taller sibling at
-           lg+ regardless of its own display value; flex-col only changes how ITS
-           children distribute within that already-established height, letting the
-           owner-only Edit Profile action's mt-auto (below) anchor to the bottom
-           whenever there's leftover stretched space. *@
+
+
         <div class="flex flex-col bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl px-6 sm:px-8 py-5 sm:py-6">
 
-            @* Header - visually aligned with the Tier Progress card's own heading
-               (same text-sm/font-semibold/icon-scale/gap treatment). "Participant"
-               names the profile's subject, not the viewer - every Profile route
-               only ever resolves a Participant target (ProfileAccessService can
-               never resolve an Organizer/Admin account as a Profile subject), so
-               this is a safe fixed label, not a role read from the model. *@
+
             <div class="flex items-center justify-between mb-4">
                 <h2 class="text-sm font-semibold text-white flex items-center gap-2">
                     <i class="fa-solid fa-user text-accent" aria-hidden="true"></i> Profile
@@ -44,10 +26,7 @@
                 <span class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Participant</span>
             </div>
 
-            @* Horizontal identity block - avatar left, name/Member Since/Bio right at
-               sm+ (matching this card's own sm breakpoint elsewhere); stacks and
-               centers below sm so a long name is never squeezed into a narrow
-               column instead of simply wrapping. *@
+
             <div class="flex flex-col items-center text-center gap-3 sm:flex-row sm:items-start sm:text-left sm:gap-4">
                 <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-accent flex items-center justify-center text-white text-3xl font-bold shrink-0 overflow-hidden">
                     @if (!string.IsNullOrEmpty(Model.ProfilePictureUrl))
@@ -89,10 +68,7 @@
                 </div>
             </div>
 
-            @* Contact Details - unframed group (a divider between rows, not three
-               separate nested cards), already-authorized Profile fields only, plain
-               text/attribute interpolation throughout (Razor's default encoding),
-               never Html.Raw. *@
+
             <div class="mt-5 pt-4 border-t border-white/10">
                 <p class="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-3">Contact Details</p>
 
@@ -147,7 +123,7 @@
             }
         </div>
 
-        @* ----------------------------- Tier Progress card ----------------------------- *@
+
         <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl px-6 sm:px-8 py-5 sm:py-6">
             <h2 class="text-sm font-semibold text-white mb-3 flex items-center gap-2">
                 <i class="fa-solid fa-ranking-star text-accent" aria-hidden="true"></i> Tier Progress
@@ -160,15 +136,7 @@
 
             @if (Model.IsOwner)
             {
-                @* Manual preview carousel, owner-only - browsing it never changes the
-                   participant's actual progression data below. Every slide (emblem +
-                   name + lock status, animated together as one unit) for all five
-                   tiers is fully server-rendered up front; JavaScript only toggles
-                   which one is visible/settled by index (see
-                   wwwroot/js/profile-tier-carousel.js). Without JavaScript, the actual
-                   current tier's slide/disabled state is already the correct,
-                   meaningful presentation - nothing here depends on script execution
-                   to be truthful. *@
+
                 <div data-tier-carousel
                      data-initial-index="@Model.CurrentTierIndex"
                      role="group" aria-label="Tier emblem preview" tabindex="0">
@@ -208,9 +176,7 @@
                     </div>
                 </div>
 
-                @* Actual progress - always describes the participant's real current-to-
-                   next tier, regardless of which slide is currently previewed above.
-                   Owner-only, same as the carousel above it. *@
+
                 <div class="mt-4 pt-4 border-t border-white/10">
                     <p class="text-gray-400 text-xs uppercase tracking-wide mb-2">Your Progress</p>
                     @if (Model.IsTopTier)
@@ -267,13 +233,7 @@
             }
             else
             {
-                @* Static current-Tier-only emblem for an authorized Organizer/Admin
-                   visitor - no carousel, no other Tier previews. Excluded server-
-                   side (not merely hidden), so profile-tier-carousel.js has no
-                   [data-tier-carousel] element to find here and safely does
-                   nothing. TierKey is already the controller's SafeTierKey-
-                   validated value - never derived from display text or any user-
-                   controlled value. *@
+
                 <div class="flex flex-col items-center gap-1">
                     <img src="/images/tiers/tier-@(Model.TierKey).webp"
                          width="512" height="512"
@@ -282,13 +242,7 @@
                     <p class="text-white font-semibold text-sm text-center">@Model.Tier</p>
                 </div>
 
-                @* Trail Points and rank ARE shown to an authorized visitor (same
-                   server-computed values the owner sees) - only the next-tier
-                   progress detail (the "Your Progress" block above, owner-only) is
-                   excluded here. This block otherwise mirrors that block's own
-                   Trail Points/rank/disclosure markup exactly, since a visitor sees
-                   identical values, just without the carousel's progress-bar box
-                   supplying a divider above it. *@
+
                 <div class="mt-4 pt-4 border-t border-white/10">
                     <div class="flex justify-between items-center mb-1">
                         <span class="text-gray-400 text-sm">Trail Points</span>
@@ -329,7 +283,7 @@
         </div>
     </div>
 
-    @* ============================= Summary cards ============================= *@
+
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div class="h-full min-w-0 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4 text-center flex flex-col justify-center items-center gap-1">
             <i class="fa-solid fa-mountain text-accent" aria-hidden="true"></i>
@@ -353,10 +307,10 @@
         </div>
     </div>
 
-    @* ============================= Lower row: Recent Hikes + Achievements ============================= *@
+
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        @* ----------------------------- Recent Hikes (1/3 desktop) ----------------------------- *@
+
         <div class="lg:col-span-1 h-full bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden flex flex-col">
             <div class="px-6 py-4 border-b border-white/10">
                 <h2 class="text-sm font-semibold text-white flex items-center gap-2">
@@ -402,7 +356,7 @@
             }
         </div>
 
-        @* ----------------------------- Achievements (2/3 desktop) ----------------------------- *@
+
         <div class="lg:col-span-2 h-full bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
             <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
                 <i class="fa-solid fa-award text-accent" aria-hidden="true"></i> Achievements
@@ -418,10 +372,7 @@
             }
             else
             {
-                @* Resting cards show only the badge, title, and progress bar (see
-                   DESIGN.md, Achievements). Requirement text, progress fraction, and
-                   earned date all move into the hover/focus/tap requirement reveal
-                   below - never shown permanently. *@
+
                 <div data-achievements-grid class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                     @for (var i = 0; i < Model.Achievements.Count; i++)
                     {
@@ -434,17 +385,7 @@
                             ? (earnedDateText != null ? $"Earned {earnedDateText}" : "Earned")
                             : $"{achievement.ClampedProgress} of {achievement.TargetValue}";
 
-                        @* group + data-expanded/data-focus-visible/data-focus-suppressed:
-                           the CSS reveal below responds to group-hover declaratively (no
-                           script needed for mouse), but keyboard/tap visibility is owned
-                           entirely by profile-achievements.js via these three data
-                           attributes - there is deliberately no group-focus-within here.
-                           A plain :focus-within rule can't be told "the script just
-                           closed this," so it would keep the panel visible from residual
-                           DOM focus after Escape or a second tap even once the script
-                           says closed; see wwwroot/js/profile-achievements.js. relative +
-                           overflow-hidden keeps the reveal panel fully contained, so it
-                           can never shift layout or clip outside this card. *@
+
                         <div data-achievement-card data-expanded="false" data-focus-visible="false" data-focus-suppressed="false"
                              class="group relative h-full min-w-0 overflow-hidden rounded-xl border flex flex-col items-center text-center gap-2 p-4 @(earned ? "bg-accent/10 border-accent/30" : "bg-white/5 border-white/10")">
 
@@ -462,10 +403,7 @@
                                 </div>
                             </div>
 
-                            @* Screen-reader-only accessible description covering exactly
-                               what the visible reveal panel shows (requirement, plus
-                               progress or earned date) - the panel itself is
-                               aria-hidden so the two are never announced twice. *@
+
                             <span id="@descriptionId" class="sr-only">
                                 @achievement.Description
                                 @(earned
@@ -503,11 +441,6 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        // Reuses Views/Records/Index.cshtml's measured-viewport + bottom-only scroll
-        // cue recipe verbatim (row heights vary with wrapped titles/trail names, so
-        // the viewport height is measured from actual rendered content rather than a
-        // fixed pixel guess) - see wwwroot/css/input.css, .tg-records-scroll /
-        // .tg-records-cue.
         var list = document.getElementById('recentAdventuresList');
         var cue = document.getElementById('recentAdventuresCue');
         if (!list) return;

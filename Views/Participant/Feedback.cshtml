@@ -36,7 +36,7 @@
             </div>
         </div>
 
-        <!-- Progress Indicator -->
+
         <div class="mb-6">
             <div class="flex items-center justify-between max-w-lg mx-auto">
                 <div class="step-indicator flex-1 text-center">
@@ -64,7 +64,7 @@
         <form method="post" asp-action="SubmitFeedback" asp-route-eventId="@eventItem?.Id" id="feedbackForm">
             @Html.AntiForgeryToken()
 
-            <!-- Step 1: Personal Hiking Experience -->
+
             <div id="step1" class="step-content space-y-6">
                 <div>
                     <label class="block text-sm font-medium text-gray-300 mb-3">Did you complete the hike? <span class="text-red-400">*</span></label>
@@ -122,7 +122,7 @@
                 </div>
             </div>
 
-            <!-- Step 2: Trail Conditions -->
+
             <div id="step2" class="step-content space-y-6 hidden">
                 <div>
                     <label class="block text-sm font-medium text-gray-300 mb-3">How would you rate the overall trail condition? <span class="text-red-400">*</span></label>
@@ -192,7 +192,7 @@
                 </div>
             </div>
 
-            <!-- Step 3: Organizer & Event Management -->
+
             <div id="step3" class="step-content space-y-6 hidden">
                 <div>
                     <label class="block text-sm font-medium text-gray-300 mb-3">Overall Rating <span class="text-red-400">*</span></label>

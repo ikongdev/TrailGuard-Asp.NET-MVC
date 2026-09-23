@@ -33,11 +33,11 @@ namespace TrailGuard.Controllers
 
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
-            // Rejected is deliberately left out of this block: it's a point-in-time outcome
-            // (missing document, event was full, etc.) and those conditions can change, so a
-            // rejected participant may try again. Alternative Recommended is a judgement call
-            // about fit for this trail, not a fixable problem, so it blocks re-registration
-            // here the same way an active registration would.
+
+
+
+
+
             var activeRegistration = await _context.EventRegistrations
                 .FirstOrDefaultAsync(r => r.EventId == eventId && r.UserId == userId &&
                     (RegistrationStatusHelper.ActiveStatuses.Contains(r.Status) || r.Status == "Alternative Recommended"));
@@ -134,12 +134,12 @@ namespace TrailGuard.Controllers
                 return RedirectToAction("Form", "Assessment", new { eventId = eventId });
             }
 
-            // ✅ I-check kung may active registration
-            // Rejected is deliberately left out of this block: it's a point-in-time outcome
-            // (missing document, event was full, etc.) and those conditions can change, so a
-            // rejected participant may try again. Alternative Recommended is a judgement call
-            // about fit for this trail, not a fixable problem, so it blocks re-registration
-            // here the same way an active registration would.
+
+
+
+
+
+
             var activeRegistration = await _context.EventRegistrations
                 .FirstOrDefaultAsync(r => r.EventId == eventId && r.UserId == userId &&
                     (RegistrationStatusHelper.ActiveStatuses.Contains(r.Status) || r.Status == "Alternative Recommended"));
@@ -180,12 +180,12 @@ namespace TrailGuard.Controllers
                 return RedirectToAction("Register", new { eventId, assessmentId });
             }
 
-            // The submitted pickupPoint is never trusted as-is - it must match
-            // one of this event's own PickupPoints lines. This rejects a
-            // fabricated DevTools/curl value, a schedule copied from another
-            // event, a blank submission, and a malformed value alike, and the
-            // *matched* stored entry (not the raw submission) is what actually
-            // gets saved below.
+
+
+
+
+
+
             var canonicalPickupPoint = PickupScheduleHelper.FindCanonicalMatch(eventItem.PickupPoints, pickupPoint);
             if (canonicalPickupPoint == null)
             {
@@ -193,13 +193,13 @@ namespace TrailGuard.Controllers
                 return RedirectToAction("Register", new { eventId, assessmentId });
             }
 
-            // ✅ I-check kung may cancelled registration, i-soft delete ang assessment nito
+
             var cancelledRegistration = await _context.EventRegistrations
                 .FirstOrDefaultAsync(r => r.EventId == eventId && r.UserId == userId && r.Status == "Cancelled");
 
             if (cancelledRegistration != null)
             {
-                // I-soft delete ang assessment ng cancelled registration
+
                 var oldAssessment = await _context.Assessments
                     .FirstOrDefaultAsync(a => a.Id == cancelledRegistration.AssessmentId);
 
@@ -217,12 +217,12 @@ namespace TrailGuard.Controllers
             string? medicalClearanceUrl = null;
             if (medicalClearance != null && medicalClearance.Length > 0)
             {
-                // Validated before anything is written or the registration is
-                // created - extension and file signature must both match one of
-                // the allowed types (see DocumentFileSignature; this is the same
-                // check DocumentsController re-runs whenever the file is served
-                // back). Rejecting here means an unrecognized/mismatched upload
-                // never reaches disk and never gets attached to the registration.
+
+
+
+
+
+
                 var verifiedType = await DocumentUploadValidator.ValidateAsync(medicalClearance);
                 if (verifiedType == null)
                 {
@@ -236,8 +236,8 @@ namespace TrailGuard.Controllers
                     Directory.CreateDirectory(uploadsFolder);
                 }
 
-                // Server-generated name only - never the client's original
-                // filename (see DocumentUploadValidator.GenerateStoredFileName).
+
+
                 var fileName = DocumentUploadValidator.GenerateStoredFileName(uploadsFolder, verifiedType.Value);
                 var filePath = Path.Combine(uploadsFolder, fileName);
 
@@ -288,10 +288,10 @@ namespace TrailGuard.Controllers
                 .OrderByDescending(r => r.RegisteredAt)
                 .ToListAsync();
 
-            // Alternative Recommended is a closed door back to the original event - the
-            // participant is pointed at the organizer instead, so this page needs the
-            // organizer's contact details. Resolved only for that status; every other
-            // status has no need for it.
+
+
+
+
             var organizerNames = registrations
                 .Where(r => r.Status == "Alternative Recommended" && !string.IsNullOrEmpty(r.Event?.OrganizedBy))
                 .Select(r => r.Event!.OrganizedBy!)
@@ -327,8 +327,8 @@ namespace TrailGuard.Controllers
             var registration = await _context.EventRegistrations
                 .FirstOrDefaultAsync(r => r.Id == request.Id);
 
-            // Same message whether the ID doesn't exist or just isn't this user's —
-            // no reason to confirm someone else's registration ID is valid.
+
+
             if (registration == null || registration.UserId != userId)
             {
                 return Json(new { success = false, message = "Registration not found" });
@@ -361,8 +361,8 @@ namespace TrailGuard.Controllers
             var registration = await _context.EventRegistrations
                 .FirstOrDefaultAsync(r => r.Id == id);
 
-            // Same message whether the ID doesn't exist or just isn't this user's —
-            // no reason to confirm someone else's registration ID is valid.
+
+
             if (registration == null || registration.UserId != userId)
             {
                 return Json(new { success = false, message = "Registration not found" });
@@ -375,10 +375,10 @@ namespace TrailGuard.Controllers
 
             if (paymentReceipt != null && paymentReceipt.Length > 0)
             {
-                // Validated before anything is written or the registration is
-                // mutated - see the identical check in Register's medical-clearance
-                // upload above, and DocumentFileSignature/DocumentUploadValidator
-                // for why this must be the same rule the serving endpoint re-runs.
+
+
+
+
                 var verifiedType = await DocumentUploadValidator.ValidateAsync(paymentReceipt);
                 if (verifiedType == null)
                 {
@@ -391,8 +391,8 @@ namespace TrailGuard.Controllers
                     Directory.CreateDirectory(uploadsFolder);
                 }
 
-                // Server-generated name only - never the client's original
-                // filename (see DocumentUploadValidator.GenerateStoredFileName).
+
+
                 var fileName = DocumentUploadValidator.GenerateStoredFileName(uploadsFolder, verifiedType.Value);
                 var filePath = Path.Combine(uploadsFolder, fileName);
 
@@ -423,8 +423,8 @@ namespace TrailGuard.Controllers
                 .Include(r => r.AlternativeEvent)
                 .FirstOrDefaultAsync(r => r.Id == id);
 
-            // Same message whether the ID doesn't exist or just isn't this user's —
-            // no reason to confirm someone else's registration ID is valid.
+
+
             if (registration == null || registration.UserId != userId)
             {
                 return Json(new { success = false, message = "Registration not found" });
@@ -455,8 +455,8 @@ namespace TrailGuard.Controllers
                     eventLocation = registration.Event?.Location,
                     eventDifficulty = registration.Event?.Difficulty,
                     eventDuration = registration.Event?.EstimatedDuration,
-                    // Trail Snapshot fields - never a live Event.Trail read. See
-                    // CLAUDE.md, "Event Trail Snapshot".
+
+
                     trailName = registration.Event?.TrailNameSnapshot,
                     trailDistance = registration.Event?.TrailDistanceKmSnapshot,
                     trailElevation = registration.Event?.TrailElevationGainMetersSnapshot,

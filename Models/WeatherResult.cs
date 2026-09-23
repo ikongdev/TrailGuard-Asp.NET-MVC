@@ -7,10 +7,10 @@ namespace TrailGuard.Models
         public string SuggestedReminder { get; set; } = string.Empty;
         public string? UnavailableReason { get; set; }
 
-        // Structured fields backing the Add Event forecast result card.
-        // Null on an unavailable result (see WeatherService.UnavailableResult) -
-        // never a fabricated zero, since a missing measurement and a real
-        // reading of zero mean different things to a reader of the card.
+
+
+
+
         public string? Condition { get; set; }
         public int? WeatherCode { get; set; }
         public double? TemperatureMinC { get; set; }

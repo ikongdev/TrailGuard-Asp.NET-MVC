@@ -40,14 +40,14 @@
     accent-color: var(--color-accent);
 }
 
-/* Add Event modal only (Views/Event/Index.cshtml) - a native date/time
-   input's calendar/clock picker icon renders as a near-black glyph by
-   default, invisible against this app's dark surfaces. color-scheme tells
-   the browser to draw the rest of the control's own chrome for a dark
-   background, and the inverted filter fixes the one part (the picker
-   glyph) some browsers don't reflect that through. Scoped to this one
-   class rather than every input[type=date/time] in the app, since Edit
-   Event's date/time fields are out of scope for this task. */
+
+
+
+
+
+
+
+
 .add-event-datetime {
     color-scheme: dark;
 }
@@ -160,13 +160,13 @@
     border: 1px solid rgb(248 113 113 / 0.35);
 }
 
-/* wwwroot/js/custom-select.js's chevron toggles this instead of Tailwind's
-   rotate-180 - on the SVG chevron, rotate-180 alone was not producing a
-   visible rotation (transform-origin/transform-box behave differently for
-   SVG geometry than for HTML boxes without an explicit fill-box declaration).
-   Explicit, so the rotation and its pivot point are guaranteed regardless of
-   that. transition/duration/motion-reduce still come from the SVG's own
-   Tailwind classes - this only sets the target transform. */
+
+
+
+
+
+
+
 .custom-select-chevron-open {
     transform: rotate(180deg);
     transform-origin: center;
@@ -249,9 +249,9 @@
         overscroll-behavior-inline: contain;
         height: 22rem;
         gap: 0.5rem;
-        /* Card width as a fraction of the scroll viewport, named so it's set in
-           exactly one place. The card itself must NOT also say 86% - see the
-           comment on .trail-card below for why that would compound. */
+
+
+
         --mobile-trail-card-width: 86%;
         padding-inline: calc((100% - var(--mobile-trail-card-width)) / 2);
         scrollbar-width: thin;
@@ -266,19 +266,19 @@
     .carousel-track::-webkit-scrollbar-thumb:hover { background: rgb(139 92 246 / 0.85); }
     .carousel-track::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
 
-    /* Content visibility is deliberately decoupled from .is-active on mobile - every
-       card shows its full detail block regardless of which one is centered, so cards
-       never mismatch in what's visible. .is-active still drives --tone/aria-current. */
-    /* flex-basis percentages resolve against the track's CONTENT box, i.e. AFTER
-       the padding-inline above has already carved the viewport down to
-       --mobile-trail-card-width (86%) of itself. A card asking for another 86%
-       of that already-86% box compounds to ~74% of the real viewport
-       (86% x 86%), not 86% - this was a real, fixed bug. The card must claim
-       the WHOLE padded content box (100%): do not restore `flex-basis: 86%`
-       here without also removing the track's padding-inline, or the two will
-       compound again. scroll-snap-stop: always keeps one swipe/fling settling
-       on one adjacent card - scroll-snap-type alone permits skipping several
-       snap points at high velocity. */
+
+
+
+
+
+
+
+
+
+
+
+
+
     .trail-card,
     .trail-card.is-active {
         flex: 0 0 100%;
@@ -330,21 +330,21 @@
     }
 }
 
-/* ==========================================================================
-   Toast system (wwwroot/js/toast.js)
 
-   Documented application z-index layers, so this doesn't become another
-   scattered arbitrary z-* escalation:
-     50    navbar, back-to-top button
-     60    standard modal backdrop/panel (see DESIGN.md > Modals)
-     100   legacy modal wrapper class (Settings/Event Details/Organizer
-           Registrations/Participant Trails - pre-existing, not part of
-           this pass)
-     9999  hover-preview tooltips (Organizer/RegistrationDetails.cshtml)
-     ----  toast layer: above every layer above, deliberately far above
-           the highest one in current use, while staying below browser-
-           native top-layer content (dialog::backdrop, fullscreen).
-   ========================================================================== */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 .tg-toast-host {
     position: fixed;
@@ -506,21 +506,21 @@
 }
 .tg-toast-info .tg-toast-icon { color: rgb(56 189 248); }
 
-/* ==========================================================================
-   Shared custom-select listbox scrollbar (wwwroot/js/custom-select.js)
 
-   Every enhanced <select>'s generated listbox - portalled (appended to
-   document.body) or not - carries this one class instead of the generic, ad
-   hoc "custom-scrollbar" name eight different pages redefine locally (with
-   several different colors and widths) inside their own page <style> blocks.
-   Those page-local rules are unscoped, so a portalled menu matched whichever
-   one happened to belong to the currently-loaded page by accident, and a
-   page defining no local ".custom-scrollbar" rule at all (e.g. Browse
-   Events) fell all the way back to the native OS scrollbar - a bright white
-   track and thick gray thumb/arrows inside the otherwise dark listbox. This
-   is the single canonical definition; extend it here rather than adding
-   another page-local recipe for this component.
-   ========================================================================== */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 .tg-custom-select-scrollbar {
     scrollbar-width: thin;
@@ -539,25 +539,25 @@
 .tg-custom-select-scrollbar::-webkit-scrollbar-thumb:hover {
     background: rgb(139 92 246 / 0.85);
 }
-/* Chromium/WebKit's native up/down arrow buttons have no dark-theme-aware
-   styling of their own and would otherwise paint as a second, brighter
-   control glued to the thumb - collapse them entirely rather than trying to
-   reskin them. Firefox never renders these regardless of scrollbar-width. */
+
+
+
+
 .tg-custom-select-scrollbar::-webkit-scrollbar-button {
     display: none;
     width: 0;
     height: 0;
 }
 
-/* ==========================================================================
-   Post-Event Assessment (Views/Organizer/PostEventAssessment.cshtml)
 
-   Scoped under the page's own root id rather than the shared, ad hoc
-   "custom-scrollbar" class name several other pages define independently
-   (with different colors) in their own local <style> blocks - living here in
-   the shared stylesheet under that name would apply this exact color to all
-   of them instead of just this page.
-   ========================================================================== */
+
+
+
+
+
+
+
+
 
 #postEventAssessmentRoot .pea-scrollbar::-webkit-scrollbar {
     width: 5px;
@@ -579,26 +579,26 @@
 }
 .tg-toast-info .tg-toast-progress-bar { background: rgb(56 189 248); }
 
-/* ==========================================================================
-   Organizer Registrations - five-record desktop scroll viewport + cues
-   (Views/Organizer/Registrations.cshtml)
 
-   #registrationList's max-height is set inline by that page's own script,
-   computed from the actual rendered heights of the first five currently
-   visible records (they wrap and vary in height, so this can't be a fixed
-   pixel value) - this block only supplies the scrollbar look and the two
-   edge cues. Scoped by id rather than the shared, ad hoc "custom-scrollbar"
-   class name other pages define independently in their own local <style>
-   blocks - see the identical note on #postEventAssessmentRoot above.
 
-   The cue visuals mirror the Dashboard's .dashboard-scroll-region /
-   .dashboard-scroll-cue recipe (Views/Organizer/Index.cshtml) exactly
-   (same colors, same display:none/is-visible toggle owned entirely by
-   JS - never mixed with the native `hidden` attribute), extended with a
-   second, top-edge cue: the Dashboard's panels are only ever scrolled
-   downward from a resting top position, but this list can be scrolled
-   back up from the middle or bottom, so both edges need their own cue.
-   ========================================================================== */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #registrationList {
     scrollbar-width: thin;
@@ -643,19 +643,19 @@
     background: linear-gradient(to top, rgb(15 23 42), rgb(15 23 42 / .9), transparent);
 }
 
-/* ==========================================================================
-   Records - shared scrollbar + bottom-only scroll cue
-   (Views/Records/Index.cshtml)
 
-   .tg-records-scroll is the same scrollbar recipe as #registrationList
-   above, scoped by class instead of id since Records applies it to three
-   independent regions (Event History list, Registrations list, Feedback).
-   Event History and Participant Registrations now reuse Organizer
-   Registrations' own list structure and top+bottom .registrations-scroll-cue
-   classes above for their cue behavior - .tg-records-cue (bottom-only,
-   mirroring the Organizer Dashboard's .dashboard-scroll-cue) remains for
-   Feedback, whose cards stay the same compact presentation at every width.
-   ========================================================================== */
+
+
+
+
+
+
+
+
+
+
+
+
 
 .tg-records-scroll {
     scrollbar-width: thin;
@@ -689,17 +689,17 @@
     display: flex;
 }
 
-/* ==========================================================================
-   Participant Trail Details modal - scrollable body
-   (Views/Participant/Trails.cshtml)
 
-   Scoped by id, not the generic, ad hoc "custom-scrollbar" class several
-   other pages define locally and unscoped (with different colors/widths) -
-   see the .tg-custom-select-scrollbar note above for why that pattern is
-   unsafe. Deliberately not .tg-custom-select-scrollbar either, which is
-   reserved for custom-select.js listbox menus specifically, not modal body
-   scroll areas.
-   ========================================================================== */
+
+
+
+
+
+
+
+
+
+
 
 #viewTrailModalBody {
     scrollbar-width: thin;
@@ -716,14 +716,14 @@
     border-radius: 9999px;
 }
 
-/* ==========================================================================
-   Deactivated Trails modal - scrollable body (Views/Trail/Index.cshtml)
 
-   Same id-scoped pattern as #viewTrailModalBody above, not the page-local
-   ".custom-scrollbar" rule Trail/Index.cshtml already defines for its
-   Add/Edit/View modals, and not .tg-custom-select-scrollbar (reserved for
-   custom-select.js listbox menus).
-   ========================================================================== */
+
+
+
+
+
+
+
 
 #deactivatedTrailsModalBody {
     scrollbar-width: thin;
@@ -740,22 +740,22 @@
     border-radius: 9999px;
 }
 
-/* ==========================================================================
-   Event Details - participant list body, shared by both the Participant and
-   Organizer/Admin pages (Views/Participant/Details.cshtml's Joined
-   Participants, Views/Event/Details.cshtml's Registered Participants)
 
-   Component-scoped class, not an id-scoped rule (each page has exactly one
-   instance of its own participant list, but the class itself is intentionally
-   reused across both pages rather than duplicated) and not either page's
-   page-local unscoped ".custom-scrollbar" recipe - Event/Details.cshtml keeps
-   its own ".custom-scrollbar" for its Reschedule/Cancel modals, unrelated to
-   this list. On both pages the desktop sidebar makes this card the flexible
-   remaining-height panel (see CLAUDE.md, "Event Details Sidebar Parity"), so
-   its body - not the whole card or page - scrolls internally when the list is
-   long; on mobile both cards keep their natural height and this rule has no
-   visible effect since overflow-y-auto is lg:-only in both views.
-   ========================================================================== */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 .tg-event-participants-scroll {
     scrollbar-width: thin;
@@ -775,19 +775,19 @@
     background: rgb(139 92 246 / 0.85);
 }
 
-/* ==========================================================================
-   Add Account - dark-theme autofill override (Views/Admin/AddAccount.cshtml)
 
-   Chromium/WebKit paints its own opaque autofill fill color behind an
-   autofilled field, ignoring the field's own background-color entirely - a
-   Tailwind bg-* utility can't win against it. The only reliable override is
-   an inset box-shadow painted at the browser's own autofill layer (the
-   standard workaround), plus -webkit-text-fill-color/caret-color to keep the
-   filled-in text and caret visible against it. Scoped to .add-account-input
-   (only the five text/password fields on this one page) rather than applied
-   globally - most of the app's other forms use a light-theme native autofill
-   look that this would otherwise incorrectly darken.
-   ========================================================================== */
+
+
+
+
+
+
+
+
+
+
+
+
 .add-account-input:-webkit-autofill,
 .add-account-input:-webkit-autofill:hover,
 .add-account-input:-webkit-autofill:focus,
@@ -796,9 +796,9 @@
     caret-color: #ffffff;
     -webkit-box-shadow: 0 0 0 1000px var(--color-surface-card) inset;
     box-shadow: 0 0 0 1000px var(--color-surface-card) inset;
-    /* Delays the browser's own background-color transition long enough that
-       it never visibly flashes white before the box-shadow above paints over
-       it - a standard companion to the box-shadow trick, not a real 9999s
-       animation. */
+
+
+
+
     transition: background-color 9999s ease-in-out 0s;
 }

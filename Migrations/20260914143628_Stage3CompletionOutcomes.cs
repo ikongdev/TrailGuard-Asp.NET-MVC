@@ -1,17 +1,17 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace TrailGuard.Migrations
 {
-    /// <inheritdoc />
+
     public partial class Stage3CompletionOutcomes : Migration
     {
-        /// <inheritdoc />
+
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // The prior three-category judgments are development-only data and
-            // cannot be derived into binary completion outcomes.
+
+
             migrationBuilder.Sql("DELETE FROM \"FinalSuitabilityLabels\";");
 
             migrationBuilder.DropForeignKey(name: "FK_FinalSuitabilityLabels_EventRegistrations_RegistrationId", table: "FinalSuitabilityLabels");
@@ -44,7 +44,7 @@ namespace TrailGuard.Migrations
 
         }
 
-        /// <inheritdoc />
+
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropCheckConstraint(name: "CK_FinalSuitabilityLabels_CompletionReason", table: "FinalSuitabilityLabels");

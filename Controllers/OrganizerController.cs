@@ -34,11 +34,11 @@ namespace TrailGuard.Controllers
             var currentUser = await _userManager.GetUserAsync(User);
             var currentUserId = currentUser?.Id ?? string.Empty;
 
-            // Scoped at the query level (stable OrganizerId, never the
-            // legacy OrganizedBy display name) so this never fetches every
-            // Organizer's Events and filters afterward - a null-owned
-            // legacy Event never matches and is never attributed to
-            // whichever Organizer happens to be viewing the dashboard.
+
+
+
+
+
             var ownedEvents = await _context.Events
                 .AsNoTracking()
                 .Where(e => e.OrganizerId != null && e.OrganizerId == currentUserId)
@@ -131,13 +131,13 @@ namespace TrailGuard.Controllers
             return View(viewModel);
         }
 
-        // Event management itself lives on EventController.Index (shared by
-        // Admin and Organizer, with its own access rules) - this action only
-        // forwards there. It used to also build and immediately discard an
-        // Event query of its own (legacy OrganizedBy matching, never
-        // returned or rendered); removed rather than reworked into an
-        // OrganizerId-scoped query, since no Event data is actually needed
-        // for a redirect.
+
+
+
+
+
+
+
         public IActionResult Events(string searchString, string status, string sortOrder)
         {
             return RedirectToAction("Index", "Event", new { searchString, status, sortOrder });
@@ -154,9 +154,9 @@ namespace TrailGuard.Controllers
             var currentUser = await _userManager.GetUserAsync(User);
             var currentUserId = currentUser?.Id ?? string.Empty;
 
-            // Scoped at the query level (stable OrganizerId, never the
-            // legacy OrganizedBy display name) - see the Index dashboard
-            // action's identical reasoning.
+
+
+
             var eventIds = await _context.Events
                 .Where(e => e.OrganizerId != null && e.OrganizerId == currentUserId)
                 .Select(e => e.Id)
@@ -191,9 +191,9 @@ namespace TrailGuard.Controllers
 
             var registrationsList = await registrations.ToListAsync();
 
-            // One bulk lookup for the whole page instead of a query per row -
-            // Assessment has no SuitabilityResult navigation property, so this
-            // can't be satisfied by an Include on the query above.
+
+
+
             var assessmentIds = registrationsList
                 .Where(r => r.AssessmentId.HasValue)
                 .Select(r => r.AssessmentId!.Value)
@@ -256,11 +256,11 @@ namespace TrailGuard.Controllers
                 .Include(r => r.AlternativeEvent)
                 .FirstOrDefaultAsync(r => r.Id == id);
 
-            // Ownership checked before anything about this registration -
-            // participant identity, medical/suitability data, ML
-            // explanation, alternative-event recommendations - is exposed.
-            // A missing registration and one belonging to another
-            // Organizer's Event return the exact same generic response.
+
+
+
+
+
             if (registration == null || registration.Event == null || !OwnsEvent(registration.Event, currentUser))
             {
                 TempData["Error"] = "Registration not found";
@@ -292,11 +292,11 @@ namespace TrailGuard.Controllers
                 }
             }
 
-            // The view never resolves a document itself - it only renders the
-            // protected-endpoint URL plus these two booleans, both produced by
-            // the same DocumentStorageResolver the actual serving endpoint
-            // (DocumentsController) independently re-runs on every request. This
-            // is a display decision only; it grants no access on its own.
+
+
+
+
+
             var receiptResolved = await DocumentStorageResolver.TryResolveAsync(
                 _webHostEnvironment.WebRootPath, RegistrationDocumentKind.Receipt, registration.PaymentReceiptUrl);
             ViewBag.ReceiptAvailable = receiptResolved != null;
@@ -307,18 +307,18 @@ namespace TrailGuard.Controllers
             ViewBag.ClearanceAvailable = clearanceResolved != null;
             ViewBag.ClearanceIsImage = clearanceResolved != null && DocumentFileSignature.IsImageType(clearanceResolved.Type);
 
-            // Registration Details' "View Profile" discoverability link -
-            // ProfileAccessService is the only authority on whether this Organizer may
-            // link to this participant's Profile; nothing here re-derives the five
-            // relationship statuses, target role/active state, or ownership itself.
-            // OwnsEvent above already guarantees currentUser owns this Event, so
-            // ProfileAccessService's own Organizer-branch relationship check is what
-            // ultimately decides this - a Rejected/Cancelled/Voided-only registration,
-            // an inactive participant, or a conflicted/missing-role target all resolve
-            // to the same denial and simply produce no link, exactly as
-            // GET /Profile/{publicProfileId} itself would deny them. Only the boolean
-            // and the already-public PublicProfileId reach the view - never the
-            // participant's internal Identity Id.
+
+
+
+
+
+
+
+
+
+
+
+
             ViewBag.CanViewParticipantProfile = false;
             if (registration.User != null)
             {
@@ -333,9 +333,9 @@ namespace TrailGuard.Controllers
             return View(registration);
         }
 
-        // Alternative recommendations intentionally include suitable public Events from all Organizers.
-        // Also the authoritative candidate rule for RecommendAlternative's
-        // server-side validation - do not duplicate this predicate elsewhere.
+
+
+
         private async Task<List<Event>> GetAlternativeEvents(int eventId, string currentDifficulty, string result)
         {
             var difficultyLevels = DifficultyCalculator.Bands;
@@ -352,7 +352,7 @@ namespace TrailGuard.Controllers
 
             var targetDifficulty = difficultyLevels[targetIndex];
 
-            // Mirrors EventJoinabilityHelper.IsJoinable (inlined for EF SQL translation).
+
             return await _context.Events
                 .Where(e =>
                     e.Id != eventId &&
@@ -370,11 +370,11 @@ namespace TrailGuard.Controllers
             public string? Reason { get; set; }
         }
 
-        // No [MaxLength] exists on EventRegistration.DecisionReason (checked
-        // against every migration snapshot - it's an unconstrained text column),
-        // so there is no schema constraint to validate against. This is an
-        // application-level sanity bound only, not a stand-in for one - it does
-        // not require and must not be paired with a migration.
+
+
+
+
+
         private const int MaxDecisionReasonLength = 2000;
 
         [HttpPost]
@@ -394,8 +394,8 @@ namespace TrailGuard.Controllers
                     .Include(r => r.Assessment)
                     .FirstOrDefaultAsync(r => r.Id == request.RegistrationId);
 
-                // Ownership is checked before anything else about this
-                // registration (including its current status) is revealed.
+
+
                 if (registration == null || registration.Event == null || !OwnsEvent(registration.Event, currentUser))
                 {
                     return Json(new { success = false, message = "Registration not found" });
@@ -418,11 +418,11 @@ namespace TrailGuard.Controllers
 
                 var submittedAlternativeEventId = request.AlternativeEventIds[0];
 
-                // Re-derives the same candidate set GetAlternativeEvents already
-                // builds for this registration, so the UI's candidate list and
-                // this validation can never independently drift. A submitted ID
-                // outside that set (tampered, stale, or otherwise never offered)
-                // is rejected without distinguishing why.
+
+
+
+
+
                 var candidateEvents = await GetAlternativeEvents(
                     registration.Event.Id,
                     registration.Event.Difficulty ?? "",
@@ -433,8 +433,8 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "That event is not an available alternative for this participant." });
                 }
 
-                // All validation above must pass before any field changes or
-                // SaveChangesAsync is called.
+
+
                 registration.Status = "Alternative Recommended";
                 registration.AlternativeEventId = submittedAlternativeEventId;
 
@@ -461,12 +461,12 @@ namespace TrailGuard.Controllers
             public string? Reason { get; set; }
         }
 
-        // The only two decisions the Pending decision workspace can submit.
-        // "Accepted" is the existing approval request value that transitions to
-        // "Awaiting Payment" below - the UI never sends "Awaiting Payment"
-        // directly. Anything outside this set is rejected before any field is
-        // touched, closing the gap where this endpoint previously wrote an
-        // arbitrary client-submitted string straight to registration.Status.
+
+
+
+
+
+
         private static readonly string[] AllowedDecisionStatuses = { "Accepted", "Rejected" };
 
         [HttpPost]
@@ -486,9 +486,9 @@ namespace TrailGuard.Controllers
                     .Include(r => r.Assessment)
                     .FirstOrDefaultAsync(r => r.Id == request.Id);
 
-                // Ownership is checked before anything else about this
-                // registration (including its current status or Assessment
-                // result) is revealed.
+
+
+
                 if (registration == null || registration.Event == null || !OwnsEvent(registration.Event, currentUser))
                 {
                     return Json(new { success = false, message = "Registration not found" });
@@ -509,17 +509,17 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "Decision reason is too long." });
                 }
 
-                // Approving a Not Recommended result is allowed - the organizer
-                // keeps final authority - but requires an explicit, non-blank
-                // reason, enforced independently of the client-side check.
+
+
+
                 if (request.Status == "Accepted" && registration.Assessment?.Result == "Not Recommended"
                     && string.IsNullOrWhiteSpace(request.Reason))
                 {
                     return Json(new { success = false, message = "A decision reason is required to approve a Not Recommended registration." });
                 }
 
-                // All validation above must pass before any field changes or
-                // SaveChangesAsync is called.
+
+
                 if (request.Status == "Accepted")
                 {
                     var approvedAt = DateTime.Now;
@@ -588,7 +588,7 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "This registration is not awaiting payment verification." });
                 }
 
-                // Validation above is complete before any field changes.
+
                 if (request.Approved)
                 {
                     registration.IsPaid = true;
@@ -653,29 +653,29 @@ namespace TrailGuard.Controllers
             return View(eventItem);
         }
 
-        // Single ownership rule for every Organizer-facing Event/Registration
-        // action in this controller (dashboard, registration list/details,
-        // event details, comparison, and the registration-mutation actions
-        // below): the whole controller is already gated to the Organizer
-        // role by the class-level [Authorize], and unlike EventController
-        // (which grants an Admin full access regardless of ownership),
-        // nobody gets a free pass here - a dual-role Admin+Organizer account
-        // reaching one of these routes is still just "an Organizer here" and
-        // may only act on an Event whose stable OrganizerId matches their own
-        // account. A null OrganizerId (an unresolved legacy Event - see
-        // CLAUDE.md) or a different Organizer's ID are both denied
-        // identically - ownership is never inferred from OrganizedBy, email,
-        // or display name.
+
+
+
+
+
+
+
+
+
+
+
+
+
         private static bool OwnsEvent(Event eventItem, ApplicationUser currentUser)
         {
             return eventItem.OrganizerId != null && eventItem.OrganizerId == currentUser.Id;
         }
 
-        // Assess Participants carries one further, stricter rule on top of
-        // OwnsEvent: it is explicitly unavailable to Admin (and therefore to
-        // a dual-role Admin+Organizer account, which always also holds the
-        // Admin role and follows the Admin branch everywhere else in this
-        // app), even for an Event that account otherwise owns.
+
+
+
+
+
         private async Task<bool> CanAssessEventAsync(Event eventItem, ApplicationUser currentUser)
         {
             if (await _userManager.IsInRoleAsync(currentUser, "Admin")) return false;
@@ -712,7 +712,7 @@ namespace TrailGuard.Controllers
                 .Where(r => r.EventId == eventId && r.Status == "Accepted")
                 .ToListAsync();
 
-            // 🔥 I-normalize ang UserId sa C# side
+
             foreach (var reg in registrations)
             {
                 reg.UserId = reg.UserId?.Trim() ?? "";
@@ -740,10 +740,10 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "Unable to verify your account. Please sign in again." });
                 }
 
-                // Assess Participants is Organizer-only - a dual-role
-                // Admin+Organizer account is denied the same as an
-                // Admin-only account, before any registration/event data is
-                // looked up or revealed.
+
+
+
+
                 if (await _userManager.IsInRoleAsync(currentUser, "Admin"))
                 {
                     return Json(new { success = false, message = "Registration not found." });
@@ -759,21 +759,21 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "Registration not found." });
                 }
 
-                // OwnsEvent is the same shared ownership check every other
-                // Organizer-facing action in this controller uses, checked
-                // before anything else about this registration/event is
-                // revealed - a null OrganizerId (an unresolved legacy Event)
-                // or a different Organizer's ID are both denied the same way
-                // as a registration that doesn't exist at all.
+
+
+
+
+
+
                 if (!OwnsEvent(registration.Event, currentUser))
                 {
                     return Json(new { success = false, message = "Registration not found." });
                 }
 
-                // The registration's own, server-loaded EventId is what's actually
-                // used below - this only confirms the client's submitted EventId
-                // (and therefore the participant it thinks it's saving) actually
-                // belongs to it, rather than trusting request.EventId on its own.
+
+
+
+
                 if (registration.EventId != request.EventId)
                 {
                     return Json(new { success = false, message = "This registration does not belong to the specified event." });
@@ -789,10 +789,10 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "This participant is not an accepted registrant for this event." });
                 }
 
-                // FinalLabelService.IsKnownOutcome is the existing canonical
-                // exact-membership check for this value - it is false for
-                // anything outside the seven outcome strings the form can
-                // submit (unknown, blank, differently cased, or fabricated).
+
+
+
+
                 if (!FinalLabelService.IsValidCompletion(request.Completed, request.NonCompletionReason) ||
                     !FinalLabelService.IsKnownOutcome(request.DifficultyExperience))
                 {
@@ -843,7 +843,7 @@ namespace TrailGuard.Controllers
             }
         }
 
-        // 🔥 I-add itong class sa loob ng OrganizerController
+
         public class SubmitAssessmentRequest
         {
             public int EventId { get; set; }
@@ -866,12 +866,12 @@ namespace TrailGuard.Controllers
             var eventItem = await _context.Events
                 .FirstOrDefaultAsync(e => e.Id == eventId);
 
-            // A pure Organizer and a dual-role Admin+Organizer account are
-            // treated identically here - OwnsEvent grants no Admin bypass,
-            // so entering this controller never yields cross-Organizer
-            // comparison data regardless of what other roles the account
-            // also holds. An Admin-only account never reaches this action at
-            // all, per the controller's own [Authorize(Roles = "Organizer")].
+
+
+
+
+
+
             if (eventItem == null || !OwnsEvent(eventItem, currentUser))
             {
                 TempData["Error"] = "Event not found";

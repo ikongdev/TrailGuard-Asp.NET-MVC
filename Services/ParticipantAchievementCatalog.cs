@@ -8,10 +8,10 @@ namespace TrailGuard.Services
         Variety
     }
 
-    // Stable, code-defined achievement codes - these are never database rows, so a
-    // released code must never be renamed or reused for a different criterion. Every
-    // reference elsewhere in the app (evaluator, future Profile UI) must go through
-    // these constants rather than a hand-typed string literal.
+
+
+
+
     public static class AchievementCodes
     {
         public const string FirstAdventure = "first_adventure";
@@ -34,38 +34,38 @@ namespace TrailGuard.Services
         public required int TargetValue { get; init; }
         public required int DisplayOrder { get; init; }
 
-        // Stable badge-image key, assigned here per-achievement (never derived from
-        // Name by lowercasing/replacing spaces at render time) - the only legal
-        // source for `/images/achievements/achievement-{key}.webp`. Fixed at exactly
-        // one of the nine approved values for the life of this catalog entry; a
-        // released Code must never change which AssetKey it maps to.
+
+
+
+
+
         public required string AssetKey { get; init; }
 
-        // Fixed, trusted Font Awesome class from this catalog only - never a user- or
-        // database-supplied string, so a future view can render it directly.
-        //
-        // Deliberately no per-achievement tone/colour key: DESIGN.md's Color section
-        // is explicit that several metrics of the same kind shouldn't be given
-        // different colours just for variety (that's why the existing Progress &
-        // Achievements progress bars are all accent, not three different hues). All
-        // nine of these are "an achievement" - the same kind of thing - so a future
-        // Profile view should style every card the same way and vary only by
-        // locked/unlocked state, not by reading a tone key out of this catalog.
+
+
+
+
+
+
+
+
+
+
         public string IconClass { get; init; } = "fa-solid fa-award";
     }
 
-    // Single source of truth for the v1 achievement catalog - nine fixed,
-    // code-defined achievements, never database rows (see CLAUDE.md, Participant
-    // Progress / Achievements). Evaluated dynamically by
-    // ParticipantAchievementEvaluator against a Participant's own qualifying
-    // history; nothing here is ever written, unlocked, or persisted anywhere, and
-    // no achievement UI reads this catalog yet.
-    //
-    // Every criterion here is built only from TrailGuard's own recognized
-    // completed-participation record (Completed Event + Accepted Registration) -
-    // never payment, medical, assessment, feedback, or ML/SHAP data, and never a
-    // specific Trail Class, Event difficulty, speed, distance, or elevation
-    // threshold. See CLAUDE.md for the full list of inputs deliberately excluded.
+
+
+
+
+
+
+
+
+
+
+
+
     public static class ParticipantAchievementCatalog
     {
         public static readonly IReadOnlyList<AchievementDefinition> Definitions = new List<AchievementDefinition>

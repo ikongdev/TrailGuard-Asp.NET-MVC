@@ -4,10 +4,10 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace TrailGuard.Migrations
 {
-    /// <inheritdoc />
+
     public partial class AddTrailDuration : Migration
     {
-        /// <inheritdoc />
+
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AddColumn<decimal>(
@@ -22,10 +22,10 @@ namespace TrailGuard.Migrations
                 type: "numeric",
                 nullable: true);
 
-            // Stage 1 only supplies recorded durations for these named routes (PLAN.md).
-            // Never synthesize a duration for an unknown trail. The user-run catalog
-            // cleanup must precede this migration when unmatched development rows exist.
-            // Null columns first ensure no fabricated zero default survives the backfill.
+
+
+
+
             migrationBuilder.Sql("""
                 UPDATE "Trails" AS t
                 SET "TypicalDurationHours" = reference.duration
@@ -108,7 +108,7 @@ namespace TrailGuard.Migrations
                 sql: "\"TrailDurationHoursSnapshot\" > 0");
         }
 
-        /// <inheritdoc />
+
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropCheckConstraint(

@@ -32,9 +32,9 @@ namespace TrailGuard.Models
         [Required]
         public string Terrain { get; set; } = string.Empty;
 
-        // PinoyMountaineer Trail Class (1-4): 1 Walking, 2 Hiking, 3 Scrambling,
-        // 4 Simple Climbing. Classes 5/6 (technical rock/aid climbing) are excluded -
-        // no organized hiking event runs those for general participants.
+
+
+
         [Required]
         public int TrailClass { get; set; }
 
@@ -50,7 +50,7 @@ namespace TrailGuard.Models
         public List<IFormFile>? AdditionalImages { get; set; }
 
         public bool IsActive { get; set; } = true;
-        
+
         public DateTime DateAdded { get; set; } = DateTime.Now;
 
         public virtual ICollection<TrailPhoto>? TrailPhotos { get; set; }

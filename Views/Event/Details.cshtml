@@ -75,8 +75,7 @@
 
 <div class="pt-24 px-4 max-w-6xl mx-auto min-h-screen text-white pb-12">
 
-    @* Success/Error feedback now goes through the canonical global toast host
-       in _Layout.cshtml instead of a page-local banner. *@
+
 
     <div class="mb-6">
         <a asp-action="Index" class="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors group">
@@ -506,7 +505,7 @@
         </div>
     </div>
 
-    <!-- Lifecycle Actions Section -->
+
     <div class="mt-8 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
 
@@ -562,13 +561,7 @@
                 }
                 else if (isCompleted)
                 {
-                    @* Organizer-only feature - hidden from Admin-only and dual-role
-                       Admin+Organizer users, matching CanAssessEventAsync in
-                       OrganizerController (a dual-role account holds the Admin role
-                       too and follows the Admin branch everywhere else in this app).
-                       Computed server-side from the authenticated user's roles and
-                       the Event's own stable OrganizerId - see EventController.Details'
-                       ViewBag.CanAssessParticipants. *@
+
                     @if ((bool)(ViewBag.CanAssessParticipants ?? false))
                     {
                         <a asp-controller="Organizer" asp-action="PostEventAssessment" asp-route-eventId="@Model.Id"
@@ -576,12 +569,7 @@
                             <i class="fa-solid fa-clipboard-check" aria-hidden="true"></i> Assess Participants
                         </a>
                     }
-                    @* Comparison's destination (OrganizerController.EventComparison)
-                       is Organizer-only but, unlike assessment, does not exclude a
-                       dual-role Admin+Organizer account - only ownership is
-                       required. So a dual-role user may see this link for an
-                       Event they own; an Admin-only account (no Organizer role)
-                       never does. See EventController.Details' ViewBag.CanViewComparison. *@
+
                     @if ((bool)(ViewBag.CanViewComparison ?? false))
                     {
                         <a asp-controller="Organizer" asp-action="EventComparison" asp-route-eventId="@Model.Id"
@@ -606,11 +594,7 @@
 @section Modals {
     @if (isUpcoming)
     {
-        <!-- Reschedule Modal - repaired to the established @@section Modals /
-             z-60 pattern (see DESIGN.md > Modals) instead of the broken z-100
-             class + inline z-index that let it render underneath the navbar
-             and footer. Mirrors AddEventModal's shell and lifecycle
-             (Views/Event/Index.cshtml) as a small single-purpose instance. -->
+
         <div id="rescheduleModal" class="fixed inset-0 z-60 hidden items-center justify-center p-4">
             <div data-reschedule-backdrop class="fixed inset-0 bg-black/70 backdrop-blur-sm z-60" aria-hidden="true"></div>
             <div role="dialog" aria-modal="true" aria-labelledby="rescheduleModalTitle"
@@ -661,13 +645,7 @@
             </div>
         </div>
 
-        <!-- Cancel Event Modal - repaired to the same @@section Modals / z-60
-             pattern as Reschedule above, replacing the broken z-100 class +
-             inline z-index that let it render underneath the navbar and
-             footer with no focus trap or background inert handling. Its own
-             separate lifecycle instance (CancelEventModal), structurally
-             identical to RescheduleModal, so the two can never be confused
-             and one repair can't regress the other. -->
+
         <div id="cancelEventModal" class="fixed inset-0 z-60 hidden items-center justify-center p-4">
             <div data-cancel-event-backdrop class="fixed inset-0 bg-black/70 backdrop-blur-sm z-60" aria-hidden="true"></div>
             <div role="dialog" aria-modal="true" aria-labelledby="cancelEventModalTitle"

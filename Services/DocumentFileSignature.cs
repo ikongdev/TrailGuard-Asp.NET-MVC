@@ -9,21 +9,21 @@ namespace TrailGuard.Services
         Pdf
     }
 
-    // Single shared "what kind of file is this, really" check - used both when a
-    // receipt/medical-clearance upload is accepted (RegistrationController) and
-    // when a previously-stored document is served back (DocumentsController).
-    // Extension alone is never trusted: a stored/declared extension is only ever
-    // accepted after the actual bytes are sniffed and found to match. This is
-    // deliberately the same check on both paths so a file that was somehow saved
-    // with a mismatched extension before this validation existed can never be
-    // served just because its stored name looks safe.
+
+
+
+
+
+
+
+
     public static class DocumentFileSignature
     {
-        // Both payment receipts and medical clearances are uploaded through forms
-        // that declare accept="image/*,.pdf" (Views/Registration/MyRegistrations.cshtml
-        // and Views/Registration/Register.cshtml) - so both document kinds share the
-        // same allowed set. SVG is deliberately excluded (it can carry script) even
-        // though it's technically an image format.
+
+
+
+
+
         public static bool IsAllowedType(VerifiedFileType type) =>
             type is VerifiedFileType.Jpeg or VerifiedFileType.Png or VerifiedFileType.Webp or VerifiedFileType.Pdf;
 
@@ -48,9 +48,9 @@ namespace TrailGuard.Services
             _ => ""
         };
 
-        // The declared extension is checked first (cheap, rejects .svg/.html/.js/etc.
-        // before any file content is even read) - this only says which family of
-        // magic bytes the actual content must then match.
+
+
+
         public static bool TryGetExpectedTypeForExtension(string? extension, out VerifiedFileType expected)
         {
             switch ((extension ?? "").ToLowerInvariant())
@@ -58,10 +58,10 @@ namespace TrailGuard.Services
                 case ".jpg":
                 case ".jpeg":
                 case ".jfif":
-                    // .jfif is a JPEG variant extension (same FF D8 FF signature) -
-                    // some browsers/cameras produce it when saving a JPEG. Still
-                    // requires the real JPEG magic bytes below; a .jfif file with
-                    // non-JPEG content is rejected exactly like a mislabeled .jpg.
+
+
+
+
                     expected = VerifiedFileType.Jpeg;
                     return true;
                 case ".png":
@@ -79,10 +79,10 @@ namespace TrailGuard.Services
             }
         }
 
-        // Reads only the leading bytes actually needed to identify these four
-        // formats (WEBP's RIFF/WEBP markers are the longest, at 12 bytes) - never
-        // the whole file, so this is cheap to run on every document-availability
-        // check as well as on every upload and every serve.
+
+
+
+
         public static async Task<VerifiedFileType> SniffAsync(Stream stream)
         {
             var header = new byte[12];

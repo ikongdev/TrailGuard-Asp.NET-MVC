@@ -19,8 +19,7 @@
         <p class="text-gray-400 mt-1 text-sm">Track your event registration requests and review each request status.</p>
     </div>
 
-    @* Success/Error feedback now goes through the canonical global toast host
-       in _Layout.cshtml instead of a page-local banner. *@
+
 
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-4 text-center">
@@ -240,7 +239,7 @@
 <div id="detailsModal" class="fixed inset-0 z-60 hidden items-center justify-center p-4">
     <div class="fixed inset-0 bg-black/70 backdrop-blur-sm z-60" onclick="closeDetails()"></div>
     <div class="relative bg-surface-card border border-white/10 rounded-xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-hidden flex flex-col z-60">
-        
+
         <div class="flex justify-between items-center px-5 py-3 border-b border-white/10 shrink-0">
             <h2 class="text-base font-semibold text-white flex items-center gap-2">
                 <i class="fa-regular fa-file-lines text-accent"></i>

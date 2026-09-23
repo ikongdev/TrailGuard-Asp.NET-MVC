@@ -1,46 +1,46 @@
 namespace TrailGuard.Services
 {
-    // One deduplicated qualifying Event, in the exact shape both
-    // ParticipantProgressService's own stats and ParticipantAchievementEvaluator need -
-    // nothing else. EventDate is the Event's own scheduled date, never the
-    // administrative CompletedAt timestamp - see CLAUDE.md, Participant Progress /
-    // Achievements: earned dates and calendar-month membership both use this field
-    // only, so a Steady Steps/Seasoned Explorer "month" and a completion milestone's
-    // earned date can never disagree about which date defines an Event.
-    // Difficulty is the raw Event.Difficulty string, exactly as stored - always
-    // one of DifficultyCalculator.Bands in practice (Event.Difficulty is only ever
-    // set via DifficultyCalculator.ComputeDifficulty, never free-typed), but the
-    // column itself carries no database-level constraint, so this stays a plain,
-    // unvalidated string here. NormalizeDifficulty (below) is what turns it into a
-    // trusted, canonical value - the same "validate at evaluation time" split
-    // TrailClass/IsValidTrailClass already uses.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     public sealed record QualifyingEventRecord(int EventId, int TrailId, DateTime EventDate, int? TrailClass, string? Difficulty);
 
-    // Pure, dynamic evaluator - no database access, no persistence, no side effects,
-    // and no notion of "already unlocked" carried between calls. Every call
-    // recomputes the full result from scratch against whatever qualifying history is
-    // passed in, so a corrected Registration or Event status is reflected the very
-    // next time this runs, and an achievement can just as easily re-lock if the
-    // history that satisfied it no longer does. See CLAUDE.md, Participant Progress /
-    // Achievements.
+
+
+
+
+
+
+
     public static class ParticipantAchievementEvaluator
     {
-        // Trail.TrailClass is documented as PinoyMountaineer Trail Class 1-4
-        // (Walking/Hiking/Scrambling/Simple Climbing) - see Trail.cs and
-        // DifficultyCalculator's TerrainMultiplier keys, the same valid range. A null
-        // or out-of-range value (an unclassified Trail) must never advance Technical
-        // Explorer.
+
+
+
+
+
         private static bool IsValidTrailClass(int? trailClass) => trailClass is >= 1 and <= 4;
 
-        // Matches DifficultyCalculator.Bands - the single canonical Event Difficulty
-        // source (see Services/DifficultyCalculator.cs) - after trimming and
-        // case-insensitive comparison, returning the canonical Bands casing so two
-        // differently-cased matches for the same band collapse to one HashSet entry
-        // below. Null, empty, whitespace-only, and anything not matching one of the
-        // four Bands values (a stray/legacy row) returns null and must never advance
-        // Versatile Hiker - this is deliberately not the same trust level as
-        // TrailClass's already-validated int, since Difficulty is a free string
-        // column with no database constraint.
+
+
+
+
+
+
+
+
+
         private static string? NormalizeDifficulty(string? rawDifficulty)
         {
             if (string.IsNullOrWhiteSpace(rawDifficulty)) return null;
@@ -52,11 +52,11 @@ namespace TrailGuard.Services
             return null;
         }
 
-        // chronologicalHistory must already be deduplicated to one entry per
-        // qualifying EventId and ordered by EventDate ascending, then EventId
-        // ascending as a deterministic tie-breaker for same-day Events - see
-        // ParticipantProgressService.GetProgressAsync, the only caller. This method
-        // does not re-sort or re-deduplicate its input.
+
+
+
+
+
         public static IReadOnlyList<ParticipantAchievementResult> Evaluate(IReadOnlyList<QualifyingEventRecord> chronologicalHistory)
         {
             DateTime? firstAdventureDate = null;
@@ -69,11 +69,11 @@ namespace TrailGuard.Services
             DateTime? technicalExplorerDate = null;
             DateTime? versatileHikerDate = null;
 
-            // "First appearance" trackers - a Trail/month/Trail Class only ever
-            // contributes to its milestone the first time it's seen while walking the
-            // history in chronological order, exactly as the earned-date rules require
-            // (repeating a Trail advances the completed-Event count but never
-            // New Ground/Trail Collector's distinct-Trail progress).
+
+
+
+
+
             var seenTrails = new HashSet<int>();
             var seenMonths = new HashSet<(int Year, int Month)>();
             var seenTrailClasses = new HashSet<int>();

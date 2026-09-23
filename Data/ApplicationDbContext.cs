@@ -49,48 +49,48 @@ namespace TrailGuard.Data
                 .HasIndex(f => f.AssessmentId)
                 .IsUnique();
 
-            // Participant feedback is a single, unrevisable submission per Event.
-            // The controller's duplicate check is a UX guard; this is the database
-            // backstop for concurrent posts.
+
+
+
             builder.Entity<EventFeedback>()
                 .HasIndex(f => new { f.EventId, f.UserId })
                 .IsUnique();
 
-            // Public Profile lookup key (GET /Profile/{publicProfileId:guid}, not yet
-            // routed) - unique so a collision can never resolve to the wrong account.
-            // No database-level default: every code path constructs ApplicationUser via
-            // `new ApplicationUser { ... }`, so the C# property initializer
-            // (Guid.NewGuid()) already supplies a value before SaveChanges for every new
-            // row. Existing rows are backfilled explicitly by the migration that adds
-            // this column, in three separate steps precisely so this index is never
-            // created while more than one existing row still shares the CLR default
-            // Guid.Empty.
+
+
+
+
+
+
+
+
+
             builder.Entity<ApplicationUser>()
                 .HasIndex(u => u.PublicProfileId)
                 .IsUnique();
 
-            // Trail is a shared catalog entity, not owned by any single event - deleting
-            // an event must never take a trail's other events down with it, and (more to
-            // the point here) deleting a trail must never cascade into the events still
-            // referencing it. TrailId is a required int, so EF's convention default would
-            // otherwise be Cascade. The controller blocks the deletion first; this is the
-            // database-level backstop for a race or any other deletion path.
+
+
+
+
+
+
             builder.Entity<Event>()
                 .HasOne(e => e.Trail)
                 .WithMany()
                 .HasForeignKey(e => e.TrailId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // Stable Organizer ownership (Event.OrganizerId) - a scalar FK to
-            // the Identity users table with deliberately no navigation
-            // property on either side (HasOne<ApplicationUser>() takes no
-            // navigation expression), so an Event can never accidentally pull
-            // an ApplicationUser - and its PasswordHash/SecurityStamp/etc. -
-            // into the change tracker or a careless Include(). Restrict, not
-            // Cascade: deleting an Organizer account must never take their
-            // past Events down with it; a null OrganizerId Event is simply
-            // "unresolved ownership," handled explicitly everywhere
-            // Organizer-only authorization is checked.
+
+
+
+
+
+
+
+
+
+
             builder.Entity<Event>()
                 .HasOne<ApplicationUser>()
                 .WithMany()

@@ -7,9 +7,9 @@ namespace TrailGuard.Data
 {
     public static class DbSeeder
     {
-        // Seeds only the three operational roles and the initial Admin
-        // account (admin@trailguard.com). No Organizer/Participant sample
-        // accounts, Trails, Events, or registrations are seeded.
+
+
+
         public static async Task SeedRolesAndAdminAsync(IServiceProvider serviceProvider)
         {
             var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
@@ -21,13 +21,13 @@ namespace TrailGuard.Data
             Console.WriteLine("=========================================");
             Console.WriteLine("STARTING DATABASE SEEDING");
             Console.WriteLine("=========================================");
-            // Non-sensitive: target name plus host/database only, never the
-            // connection string itself.
+
+
             Console.WriteLine($"Database target: {databaseTarget.SafeEndpointDescription}");
 
-            // ============================================
-            // 1. SEED OPERATIONAL ROLES
-            // ============================================
+
+
+
             Console.WriteLine("Seeding roles...");
             foreach (var roleName in OperationalRolePolicy.AllowedRoles)
             {
@@ -40,8 +40,8 @@ namespace TrailGuard.Data
                     }
                     else
                     {
-                        // IdentityResult descriptions are already safe, user-facing
-                        // text - never a raw exception or credential.
+
+
                         Console.WriteLine($"Failed to create role '{roleName}': " +
                             string.Join("; ", roleResult.Errors.Select(e => e.Description)));
                         Console.WriteLine("Stopping this seeding attempt before Admin creation - required roles are incomplete.");
@@ -54,27 +54,27 @@ namespace TrailGuard.Data
                 }
             }
 
-            // ============================================
-            // 2. SEED INITIAL ADMIN ACCOUNT
-            // ============================================
+
+
+
             Console.WriteLine("Seeding initial Admin account...");
             const string adminEmail = "admin@trailguard.com";
             var existingAdmin = await userManager.FindByEmailAsync(adminEmail);
             if (existingAdmin != null)
             {
-                // Existing account: never touched. Its password, roles, and
-                // active status are left exactly as they are - this seeder
-                // only ever creates the account once.
+
+
+
                 Console.WriteLine("Admin account already exists - skipping (no changes made).");
             }
             else
             {
-                // Required only for this creation path - an already-existing
-                // Admin account never needs it, so a missing setting on a
-                // later, already-seeded startup is not an error. Which key is
-                // read depends on the resolved Database:Target - Local and
-                // Supabase never share a password, so a Local seed password can
-                // never be reused as a cloud fallback.
+
+
+
+
+
+
                 var passwordKey = databaseTarget.SeedAdminPasswordKey;
                 var adminPassword = configuration[passwordKey];
                 if (string.IsNullOrEmpty(adminPassword))
@@ -104,9 +104,9 @@ namespace TrailGuard.Data
                     }
                     else if (result.IdentityErrors.Count > 0)
                     {
-                        // IdentityResult descriptions are already safe, user-facing
-                        // text (e.g. password policy violations) - never the
-                        // submitted password itself.
+
+
+
                         Console.WriteLine("Failed to create Admin account: " + string.Join("; ", result.IdentityErrors));
                     }
                     else

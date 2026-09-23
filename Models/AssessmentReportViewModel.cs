@@ -18,12 +18,12 @@ namespace TrailGuard.Models
         public string ModelVersion { get; set; } = string.Empty;
         public List<ShapDisplayItem> ShapFactors { get; set; } = new List<ShapDisplayItem>();
 
-        // Raw stored screening, used only to explain the reason for clearance.
+
         public bool AcsmMedicalClearanceRequired { get; set; }
 
-        // What registration will actually ask for - computed the same way
-        // RegistrationController computes it (via RegistrationRulesHelper), so the
-        // report and the registration form can never show a different answer.
+
+
+
         public bool RequiresMedicalClearance { get; set; }
         public bool RequiresPreparationPlan { get; set; }
     }

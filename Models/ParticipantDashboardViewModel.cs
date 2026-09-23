@@ -2,31 +2,31 @@ namespace TrailGuard.Models
 {
     public class ParticipantDashboardViewModel
     {
-        // Summary Cards
+
         public int UpcomingEventsCount { get; set; }
         public int CompletedHikes { get; set; }
         public int PendingRegistrations { get; set; }
         public int TotalRegistrations { get; set; }
 
-        // Upcoming Events
+
         public List<Event> UpcomingEvents { get; set; } = new();
 
-        // Latest Assessment
+
         public LatestAssessmentResult? LatestAssessment { get; set; }
 
-        // Recommended Events
+
         public List<Event> RecommendedEvents { get; set; } = new();
 
-        // Progress & Achievements — personal bests from completed hikes
+
         public string? PersonalBestDifficulty { get; set; }
         public double? PersonalBestDistanceKm { get; set; }
         public int? PersonalBestElevationMeters { get; set; }
 
-        // Progress & Achievements — Trail Points and rank, both sourced from
-        // ParticipantProgressService. TotalHikers is the ranked-Participant
-        // denominator (eligible, active, single-role Participant, >= 1 qualifying
-        // completion) - not every account in the system. See
-        // ParticipantProgressPolicy/ParticipantProgressService.
+
+
+
+
+
         public int TrailPoints { get; set; }
         public int Rank { get; set; }
         public int TotalHikers { get; set; }
@@ -35,7 +35,7 @@ namespace TrailGuard.Models
 
     public class LatestAssessmentResult
     {
-        public string Result { get; set; } = string.Empty; // Good-Match, Borderline, Not Recommended
+        public string Result { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public DateTime SubmittedAt { get; set; }
 

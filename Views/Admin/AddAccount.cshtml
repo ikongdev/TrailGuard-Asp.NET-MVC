@@ -52,35 +52,11 @@
                     <span asp-validation-for="Email" class="text-red-400 text-xs mt-1 block"></span>
                 </div>
 
-                <!-- items-start: both columns are natural-height (not
-                     stretched to match each other's tallest content), so the
-                     Role trigger and Password field render at their own
-                     equal, independently-correct heights instead of one
-                     being force-stretched to fill extra grid-row space. -->
+
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8 items-start">
                     <div>
                         <label asp-for="Role" class="block text-sm font-medium text-gray-300 mb-2">Assign Role <span class="text-red-400">*</span></label>
-                        <!-- data-custom-select-portal: this form card is
-                             backdrop-blur-xl + position:relative, which per
-                             the CSS containing-block spec becomes the
-                             containing block for any position:fixed
-                             descendant (the enhanced menu). Without portal
-                             mode the menu's viewport-relative coordinates
-                             from getBoundingClientRect() were being applied
-                             relative to this card instead, landing over the
-                             Password column rather than under the Role
-                             trigger. Portal mode appends the menu straight to
-                             document.body, escaping the card's containing
-                             block entirely - the same fix already used by
-                             every filter select on Accounts.cshtml/Records/
-                             Registrations. No coordinate math changed; this
-                             is the shared component's own designed opt-in.
-                             The trigger-class override intentionally omits
-                             text-sm (used by other pages' filter triggers)
-                             so its line-height matches this page's plain
-                             text inputs, which don't set text-sm either -
-                             that mismatch was the actual cause of the
-                             Role/Password height difference. -->
+
                         <select asp-for="Role" data-custom-select data-custom-select-portal
                                 data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-5 py-3 rounded-full bg-black/20 border border-white/10 text-white text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer"
                                 class="w-full bg-black/20 border border-white/10 text-white rounded-full px-5 py-3 focus:border-accent focus:outline-none cursor-pointer appearance-none transition-colors">

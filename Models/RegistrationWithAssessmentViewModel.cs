@@ -21,13 +21,13 @@ namespace TrailGuard.Models
         public int? AssessmentId { get; set; }
         public string? AssessmentResult { get; set; }
 
-        // 0-1 calibrated estimate that the participant completes the trail.
+
         public double? CompletionProbability { get; set; }
         public string? MedicalConditions { get; set; }
         public string? FitnessLevel { get; set; }
         public string? HikingExperience { get; set; }
         public string? GearItems { get; set; }
-        // Combined agency policy and stored ACSM screening from RegistrationRulesHelper.
+
         public bool RequiresMedicalClearance { get; set; }
         public string? MedicalClearanceUrl { get; set; }
     }

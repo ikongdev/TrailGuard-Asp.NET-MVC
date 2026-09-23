@@ -18,8 +18,8 @@ namespace TrailGuard.Models
         [Required]
         public string NonCompletionReason { get; set; } = string.Empty;
 
-        // Both witnesses remain available for the conservative difficulty
-        // resolution and for later outcome analysis.
+
+
         public string? ParticipantFeedback { get; set; }
         public string? OrganizerAssessment { get; set; }
         public string? DifficultyExperience { get; set; }

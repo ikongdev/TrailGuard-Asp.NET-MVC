@@ -3,16 +3,16 @@ using Npgsql;
 
 namespace TrailGuard.Services
 {
-    // Which physical database TrailGuard is configured to use for this run.
+
     public enum DatabaseTarget
     {
         Local,
         Supabase
     }
 
-    // The outcome of resolving Database:Target: which target was selected, the
-    // connection string to use, which SeedAdmin password key applies, and a
-    // credential-free description of the endpoint safe to log.
+
+
+
     public sealed class ResolvedDatabaseTarget
     {
         public required DatabaseTarget Target { get; init; }
@@ -21,11 +21,11 @@ namespace TrailGuard.Services
         public required string SafeEndpointDescription { get; init; }
     }
 
-    // Single shared place that decides Local vs. Supabase from configuration.
-    // Program.cs calls this before building the DbContext - the same top-level
-    // statements EF Core design-time tooling (dotnet ef) executes - and DbSeeder
-    // reads the resolved target via DI, so runtime, EF tooling, and the seeder
-    // can never resolve the target two different ways.
+
+
+
+
+
     public static class DatabaseTargetResolver
     {
         private const string TargetConfigKey = "Database:Target";
@@ -41,8 +41,8 @@ namespace TrailGuard.Services
             DatabaseTarget target;
             if (rawTarget is null)
             {
-                // Key entirely absent (as opposed to present-but-blank below):
-                // preserve current behavior by defaulting to Local.
+
+
                 target = DatabaseTarget.Local;
             }
             else if (string.Equals(rawTarget, nameof(DatabaseTarget.Local), StringComparison.OrdinalIgnoreCase))
@@ -55,8 +55,8 @@ namespace TrailGuard.Services
             }
             else
             {
-                // An explicitly blank value ("" or whitespace) falls through to
-                // here too - it is not null, so it does not default to Local.
+
+
                 throw new InvalidOperationException(
                     $"Configuration key '{TargetConfigKey}' must be 'Local' or 'Supabase' " +
                     $"(found: {(string.IsNullOrWhiteSpace(rawTarget) ? "blank" : "an unrecognized value")}). " +
@@ -68,8 +68,8 @@ namespace TrailGuard.Services
 
             if (string.IsNullOrWhiteSpace(connectionString))
             {
-                // Never fall back to the other target's connection string here -
-                // a missing Supabase setting must fail, not silently run against Local.
+
+
                 throw new InvalidOperationException(
                     $"Database:Target is '{target}', which requires ConnectionStrings:{connectionStringKey}, " +
                     "but it is not configured. Set it via " +
@@ -78,14 +78,14 @@ namespace TrailGuard.Services
                     "then restart the application.");
             }
 
-            // Parsed eagerly, here, so a malformed value fails fast with our own
-            // sanitized message - never later from an unwrapped Npgsql exception
-            // at first connection use, which could echo the raw input. The
-            // original connectionString (not a value rebuilt from this builder)
-            // is still what's returned/used for the real connection, so every
-            // setting the caller supplied - SSL Mode included - is preserved
-            // exactly as configured; this builder exists only to validate and
-            // to source the safe log description below.
+
+
+
+
+
+
+
+
             var safeEndpointDescription = ParseAndDescribeSafely(connectionString, target, connectionStringKey);
 
             var seedAdminPasswordKey = target == DatabaseTarget.Local ? LocalSeedAdminPasswordKey : SupabaseSeedAdminPasswordKey;
@@ -99,11 +99,11 @@ namespace TrailGuard.Services
             };
         }
 
-        // Fixed, credential-free error text: only ever names the target and the
-        // configuration key, never the underlying parser exception's message,
-        // the raw connection string, or any single offending token - all of
-        // which can contain or reveal a password. Host/Port/Database are the
-        // only fields ever read back out of the parsed builder.
+
+
+
+
+
         private static string ParseAndDescribeSafely(string connectionString, DatabaseTarget target, string connectionStringKey)
         {
             NpgsqlConnectionStringBuilder builder;
@@ -113,9 +113,9 @@ namespace TrailGuard.Services
             }
             catch
             {
-                // Deliberately not passed as innerException, and the caught
-                // exception's Message/Data is never read - either could
-                // contain or echo the offending value.
+
+
+
                 throw new InvalidOperationException(
                     $"ConnectionStrings:{connectionStringKey} (for Database:Target '{target}') is not a valid " +
                     "PostgreSQL connection string.");

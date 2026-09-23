@@ -2,34 +2,34 @@ using TrailGuard.Models;
 
 namespace TrailGuard.Services
 {
-    // NPS Shenandoah hiking difficulty rating used only for Event Difficulty display.
-    // v3 does not consume this formula; its trail inputs are the captured distance,
-    // elevation, class, and recorded duration. ComputeRating is the plain,
-    // un-terrain-adjusted value derived from the trail geometry.
-    // Ordering and display must use ComputeAdjustedRating - the
-    // same value the difficulty band is derived from - or a short Class 4 trail sorts
-    // as though it were an easy walk. Band labelling multiplies this by the trail's own
-    // TrailClass multiplier before applying the
-    // PinoyMountaineer-derived boundaries below - that's still a trail-level number
-    // (TrailClass doesn't vary per participant, only Trail does), it's just a more
-    // realistic one for Philippine trails, most of which sit at or above the top of
-    // the published NPS bands.
-    //
-    // SOURCE (rating formula): National Park Service, Shenandoah National Park.
-    //         "How to Determine Hiking Difficulty."
-    //         Rating = sqrt(elevation_gain_ft * 2 * distance_mi)
-    //
-    // SOURCE (difficulty bands): boundaries fitted against 28 Philippine mountains
-    //         with published PinoyMountaineer difficulty ratings (1-9 scale), applied
-    //         to the NPS rating x TrailClass multiplier. Spearman rho 0.859 between
-    //         the adjusted rating and the published PM rating; 82% exact-tier
-    //         agreement, 100% agreement within one tier. This is NOT the
-    //         PinoyMountaineer scale itself - applying PM's own written rule
-    //         (duration + trail class) reproduced its published ratings only 50% of
-    //         the time, because multi-day status in the Philippines often reflects
-    //         logistics (e.g. camping for sunrise) rather than difficulty. The
-    //         boundaries were fitted and validated on the same 28-mountain sample -
-    //         see MODEL.md for the calibration caveat.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     public static class DifficultyCalculator
     {
         public static readonly string[] Bands =
@@ -37,25 +37,25 @@ namespace TrailGuard.Services
             "Easy", "Minor Climb", "Major Climb", "Major Climb — Difficult"
         };
 
-        // PinoyMountaineer's own published level range for each band, shown
-        // alongside the name since that's the scale Filipino hikers actually
-        // recognise. Index-aligned with Bands.
+
+
+
         public static readonly string[] PinoyMountaineerRanges =
         {
             "PM 1–2/9", "PM 3–4/9", "PM 5–6/9", "PM 7–9/9"
         };
 
-        // PinoyMountaineer Trail Class 1-4 only - classes 5/6 (technical rock
-        // climbing, aid climbing) are excluded; no organized hiking event runs
-        // those for general participants.
-        // SOURCE: fitted against 28 Philippine mountains with published
-        // PinoyMountaineer difficulty ratings, Spearman rho 0.859.
+
+
+
+
+
         private static readonly Dictionary<int, double> TerrainMultiplier = new()
         {
-            { 1, 1.00 }, // Walking
-            { 2, 1.15 }, // Hiking
-            { 3, 1.35 }, // Scrambling
-            { 4, 1.60 }, // Simple Climbing
+            { 1, 1.00 },
+            { 2, 1.15 },
+            { 3, 1.35 },
+            { 4, 1.60 },
         };
 
         public static double ComputeRating(Trail trail)
@@ -65,17 +65,17 @@ namespace TrailGuard.Services
             return Math.Sqrt(elevationFt * 2.0 * distanceMi);
         }
 
-        // 1.0 for an unclassified trail (TrailClass outside 1-4) - not a real
-        // classification, just enough to keep the difficulty label from throwing
-        // before an organizer assigns one.
+
+
+
         public static double GetTerrainMultiplier(int trailClass) =>
             TerrainMultiplier.TryGetValue(trailClass, out var m) ? m : 1.0;
 
         public static double ComputeAdjustedRating(Trail trail) =>
             ComputeRating(trail) * GetTerrainMultiplier(trail.TrailClass);
 
-        // Boundaries fitted on the adjusted rating (NPS rating x TrailClass
-        // multiplier) - see the SOURCE note above.
+
+
         public static string LabelFor(double adjustedRating)
         {
             if (adjustedRating < 81) return "Easy";
@@ -89,9 +89,9 @@ namespace TrailGuard.Services
             return LabelFor(ComputeAdjustedRating(trail));
         }
 
-        // Single source for band -> badge CSS class. Every view must call this rather
-        // than re-deriving its own difficulty->color mapping - the same hardcoded
-        // vocabulary has been found duplicated across views three times now.
+
+
+
         public static string BadgeClass(string? difficultyLabel) => difficultyLabel switch
         {
             "Easy" => "badge-easy",

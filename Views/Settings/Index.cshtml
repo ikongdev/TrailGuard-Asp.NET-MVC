@@ -3,8 +3,7 @@
     ViewData["Title"] = "Settings";
 }
 
-@* Success/Error feedback goes through the canonical global toast host
-   in _Layout.cshtml instead of a page-local banner. *@
+
 
 <div class="pt-24 px-4 max-w-6xl mx-auto min-h-screen text-white pb-12">
     <div class="mb-8">
@@ -12,12 +11,48 @@
         <p class="text-gray-400 mt-1 text-sm">Manage your profile and account security.</p>
     </div>
 
-    @* Profile Information, Account Information, Security - three full-width
-       stacked sections, in this exact DOM order on every breakpoint. No
-       side-by-side/sticky arrangement, no CSS reordering. *@
+
     <div class="space-y-6">
 
-        @* ----------------------------- Profile Information ----------------------------- *@
+
+        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 sm:p-8">
+            <div class="flex items-center gap-3 mb-6">
+                <span class="w-10 h-10 rounded-full bg-accent/15 text-accent flex items-center justify-center shrink-0" aria-hidden="true">
+                    <i class="fa-solid fa-circle-info"></i>
+                </span>
+                <h2 class="text-lg font-semibold text-white">Account Information</h2>
+            </div>
+
+            <dl class="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-white/10 text-sm">
+                <div class="py-3 first:pt-0 sm:py-0 sm:px-6 sm:first:pl-0">
+                    <dt class="text-gray-400 text-xs">Role</dt>
+                    <dd class="text-white font-semibold mt-1">@ViewBag.Role</dd>
+                    @if (ViewBag.RoleNeedsAttention != null && (bool)ViewBag.RoleNeedsAttention)
+                    {
+                        <p class="text-amber-400 text-xs mt-1">Contact an Administrator to resolve this.</p>
+                    }
+                </div>
+                <div class="py-3 sm:py-0 sm:px-6">
+                    <dt class="text-gray-400 text-xs">Date Joined</dt>
+                    <dd class="text-white font-semibold mt-1">@ViewBag.DateJoined</dd>
+                </div>
+                <div class="py-3 last:pb-0 sm:py-0 sm:px-6 sm:last:pr-0">
+                    <dt class="text-gray-400 text-xs">Account Status</dt>
+                    <dd class="mt-1 font-semibold">
+                        @if (ViewBag.IsActive != null && (bool)ViewBag.IsActive)
+                        {
+                            <span class="text-green-400"><i class="fa-solid fa-circle-check mr-1.5" aria-hidden="true"></i>Active</span>
+                        }
+                        else
+                        {
+                            <span class="text-red-400"><i class="fa-solid fa-circle-xmark mr-1.5" aria-hidden="true"></i>Disabled</span>
+                        }
+                    </dd>
+                </div>
+            </dl>
+        </div>
+
+
         <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 sm:p-8">
             <div class="flex items-center gap-3 mb-6">
                 <span class="w-10 h-10 rounded-full bg-accent/15 text-accent flex items-center justify-center shrink-0" aria-hidden="true">
@@ -33,14 +68,9 @@
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="confirmPassword" id="profileConfirmPassword" value="" />
 
-                @* Compact profile-photo identity row - avatar + camera trigger on
-                   the left, label/helper text on the right, one horizontal row on
-                   every breakpoint (there's comfortably enough width even on a
-                   narrow phone for an 80px avatar plus two short lines of text).
-                   No permanent side column - this row sits above the fields, not
-                   beside them, so it can never leave dead space under itself. *@
+
                 <div class="flex items-center gap-4 pb-6 mb-6 border-b border-white/10">
-                    <div class="relative shrink-0">
+                    <div class="relative shrink-0 w-20 h-20">
                         @if (!string.IsNullOrEmpty(Model.CurrentProfilePictureUrl))
                         {
                             <img id="currentAvatar" src="@Model.CurrentProfilePictureUrl" alt="" class="w-20 h-20 rounded-full object-cover border border-white/10">
@@ -56,28 +86,24 @@
                             </div>
                         }
                         <div id="previewContainer" class="hidden absolute inset-0">
-                            <img id="previewImage" class="w-20 h-20 rounded-full object-cover border border-white/10" alt="" />
+                            <img id="previewImage" class="w-full h-full rounded-full object-cover border border-white/10" alt="" />
                         </div>
 
-                        @* The one real upload trigger: a focusable, labeled
-                           button - not a decorative span or a mouse-only label.
-                           type="button" so it can never submit this form. Sized
-                           to a ~40x40px touch target and positioned at the
-                           avatar's lower-right corner without covering most of
-                           the photo. *@
+
                         <button type="button" id="changePhotoBtn" aria-label="Change profile photo"
                                 class="absolute -bottom-1 -right-1 w-10 h-10 rounded-full bg-accent hover:brightness-110 flex items-center justify-center text-white transition-colors border-2 border-surface-card focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-card">
                             <i class="fa-solid fa-camera" aria-hidden="true"></i>
+                        </button>
+                        <button type="button" id="removePreviewBtn" aria-label="Cancel pending profile photo selection"
+                                class="hidden absolute -top-1 -right-1 w-10 h-10 rounded-full bg-surface-card hover:bg-white/10 items-center justify-center text-white transition-colors border border-white/20 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-card">
+                            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
                         </button>
                     </div>
 
                     <div class="min-w-0">
                         <p class="text-white text-sm font-medium">Profile Photo</p>
                         <p class="text-gray-400 text-xs mt-0.5">JPG or PNG, up to 5MB.</p>
-                        <button type="button" id="removePreviewBtn"
-                                class="hidden mt-1 text-xs text-gray-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded">
-                            Cancel
-                        </button>
+                        <p id="profileImageClientError" class="hidden text-red-400 text-xs mt-1" role="alert"></p>
                         <span asp-validation-for="ProfileImage" class="text-red-400 text-xs mt-1 block"></span>
                     </div>
 
@@ -85,9 +111,7 @@
                            class="sr-only" tabindex="-1" aria-hidden="true" />
                 </div>
 
-                @* Fields - full card width now that there's no permanent side
-                   column competing for space. min-w-0 so a long email/Facebook
-                   value can wrap instead of forcing horizontal overflow. *@
+
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 min-w-0">
                     <div>
                         <label asp-for="FirstName" class="block text-sm font-medium text-gray-300 mb-2">First Name</label>
@@ -134,47 +158,8 @@
             </form>
         </div>
 
-        @* ----------------------------- Account Information ----------------------------- *@
-        @* Compact, full-width, read-only summary - no sticky positioning, no
-           side column, no nested mini-cards. *@
-        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 sm:p-8">
-            <div class="flex items-center gap-3 mb-6">
-                <span class="w-10 h-10 rounded-full bg-accent/15 text-accent flex items-center justify-center shrink-0" aria-hidden="true">
-                    <i class="fa-solid fa-circle-info"></i>
-                </span>
-                <h2 class="text-lg font-semibold text-white">Account Information</h2>
-            </div>
 
-            <dl class="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-white/10 text-sm">
-                <div class="py-3 first:pt-0 sm:py-0 sm:px-6 sm:first:pl-0">
-                    <dt class="text-gray-400 text-xs">Role</dt>
-                    <dd class="text-white font-semibold mt-1">@ViewBag.Role</dd>
-                    @if (ViewBag.RoleNeedsAttention != null && (bool)ViewBag.RoleNeedsAttention)
-                    {
-                        <p class="text-amber-400 text-xs mt-1">Contact an Administrator to resolve this.</p>
-                    }
-                </div>
-                <div class="py-3 sm:py-0 sm:px-6">
-                    <dt class="text-gray-400 text-xs">Date Joined</dt>
-                    <dd class="text-white font-semibold mt-1">@ViewBag.DateJoined</dd>
-                </div>
-                <div class="py-3 last:pb-0 sm:py-0 sm:px-6 sm:last:pr-0">
-                    <dt class="text-gray-400 text-xs">Account Status</dt>
-                    <dd class="mt-1 font-semibold">
-                        @if (ViewBag.IsActive != null && (bool)ViewBag.IsActive)
-                        {
-                            <span class="text-green-400"><i class="fa-solid fa-circle-check mr-1.5" aria-hidden="true"></i>Active</span>
-                        }
-                        else
-                        {
-                            <span class="text-red-400"><i class="fa-solid fa-circle-xmark mr-1.5" aria-hidden="true"></i>Disabled</span>
-                        }
-                    </dd>
-                </div>
-            </dl>
-        </div>
 
-        @* ----------------------------- Security ----------------------------- *@
         <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 sm:p-8">
             <div class="flex items-center gap-3 mb-6">
                 <span class="w-10 h-10 rounded-full bg-accent/15 text-accent flex items-center justify-center shrink-0" aria-hidden="true">
@@ -298,69 +283,120 @@
         }
     }
 
-    // Profile photo preview
-    function previewProfileImage(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = function (e) {
-            const previewContainer = document.getElementById('previewContainer');
-            const previewImage = document.getElementById('previewImage');
-            const defaultAvatar = document.getElementById('defaultAvatar');
-            const currentAvatar = document.getElementById('currentAvatar');
-            const removeBtn = document.getElementById('removePreviewBtn');
-
-            previewImage.src = e.target.result;
-            previewContainer.classList.remove('hidden');
-            if (defaultAvatar) defaultAvatar.classList.add('hidden');
-            if (currentAvatar) currentAvatar.classList.add('hidden');
-            if (removeBtn) removeBtn.classList.remove('hidden');
-        };
-        reader.readAsDataURL(file);
-    }
-
-    function removePreview() {
-        const previewContainer = document.getElementById('previewContainer');
-        const defaultAvatar = document.getElementById('defaultAvatar');
-        const currentAvatar = document.getElementById('currentAvatar');
-        const removeBtn = document.getElementById('removePreviewBtn');
-        const fileInput = document.getElementById('profileImageInput');
-
-        previewContainer.classList.add('hidden');
-        if (fileInput) fileInput.value = '';
-        if (removeBtn) removeBtn.classList.add('hidden');
-
-        if (currentAvatar) {
-            currentAvatar.classList.remove('hidden');
-        } else if (defaultAvatar) {
-            defaultAvatar.classList.remove('hidden');
-        }
-    }
-
-    // Wires the avatar's camera button as the single upload trigger, and the
-    // file input's own change event to the existing preview logic above.
-    // Registered by ID/element reference (no inline onclick/onchange) and
-    // guarded so a missing element is a no-op rather than a script error;
-    // this block only ever runs once per page load, so there's no risk of
-    // double-binding.
+    // The selected file is not persisted until the password-confirmed form submit.
+    // A request counter makes late image callbacks harmless after cancellation or
+    // replacement, while object URLs avoid keeping a second base64 copy in memory.
     (function initProfilePhotoControls() {
         const cameraBtn = document.getElementById('changePhotoBtn');
         const fileInput = document.getElementById('profileImageInput');
         const removeBtn = document.getElementById('removePreviewBtn');
+        const previewContainer = document.getElementById('previewContainer');
+        const previewImage = document.getElementById('previewImage');
+        const defaultAvatar = document.getElementById('defaultAvatar');
+        const currentAvatar = document.getElementById('currentAvatar');
+        const clientError = document.getElementById('profileImageClientError');
+        let previewRequest = 0;
+        let previewUrl = null;
 
-        if (cameraBtn && fileInput) {
-            cameraBtn.addEventListener('click', function () {
-                fileInput.click();
-            });
+        if (!cameraBtn || !fileInput || !removeBtn || !previewContainer || !previewImage) return;
+
+        function showError(message) {
+            clientError.textContent = message;
+            clientError.classList.remove('hidden');
         }
 
-        if (fileInput) {
-            fileInput.addEventListener('change', previewProfileImage);
+        function clearError() {
+            clientError.textContent = '';
+            clientError.classList.add('hidden');
         }
 
-        if (removeBtn) {
-            removeBtn.addEventListener('click', removePreview);
+        function restoreSavedAvatar() {
+            previewContainer.classList.add('hidden');
+            previewImage.removeAttribute('src');
+            if (currentAvatar) {
+                currentAvatar.classList.remove('hidden');
+            } else if (defaultAvatar) {
+                defaultAvatar.classList.remove('hidden');
+            }
+            cameraBtn.classList.remove('hidden');
+            cameraBtn.classList.add('flex');
+            removeBtn.classList.remove('flex');
+            removeBtn.classList.add('hidden');
         }
+
+        function discardPendingSelection(clearInput) {
+            previewRequest++;
+            if (previewUrl) {
+                URL.revokeObjectURL(previewUrl);
+                previewUrl = null;
+            }
+            if (clearInput) fileInput.value = '';
+            restoreSavedAvatar();
+        }
+
+        function validateAndPreview() {
+            const file = fileInput.files && fileInput.files[0];
+            if (!file) return; // File-picker cancellation leaves an existing state untouched.
+
+            discardPendingSelection(false);
+            clearError();
+
+            if ((file.type !== 'image/jpeg' && file.type !== 'image/png') ||
+                file.size > 5 * 1024 * 1024) {
+                fileInput.value = '';
+                restoreSavedAvatar();
+                showError(file.size > 5 * 1024 * 1024
+                    ? 'Profile picture must be 5MB or smaller.'
+                    : 'Profile picture must be a JPG or PNG image.');
+                return;
+            }
+
+            const request = ++previewRequest;
+            const candidateUrl = URL.createObjectURL(file);
+            previewUrl = candidateUrl;
+            cameraBtn.classList.remove('flex');
+            cameraBtn.classList.add('hidden');
+            removeBtn.classList.remove('hidden');
+            removeBtn.classList.add('flex');
+
+            const image = new Image();
+            image.onload = function () {
+                if (request !== previewRequest || previewUrl !== candidateUrl) {
+                    URL.revokeObjectURL(candidateUrl);
+                    return;
+                }
+
+                previewImage.src = candidateUrl;
+                previewContainer.classList.remove('hidden');
+                if (defaultAvatar) defaultAvatar.classList.add('hidden');
+                if (currentAvatar) currentAvatar.classList.add('hidden');
+            };
+            image.onerror = function () {
+                if (request !== previewRequest || previewUrl !== candidateUrl) {
+                    URL.revokeObjectURL(candidateUrl);
+                    return;
+                }
+
+                previewUrl = null;
+                URL.revokeObjectURL(candidateUrl);
+                fileInput.value = '';
+                restoreSavedAvatar();
+                showError('The selected image could not be read. Please choose a JPG or PNG image.');
+            };
+            image.src = candidateUrl;
+        }
+
+        cameraBtn.addEventListener('click', function () {
+            fileInput.click();
+        });
+        fileInput.addEventListener('change', validateAndPreview);
+        removeBtn.addEventListener('click', function () {
+            discardPendingSelection(true);
+            clearError();
+        });
+        window.addEventListener('beforeunload', function () {
+            if (previewUrl) URL.revokeObjectURL(previewUrl);
+        });
     })();
 
     // Password confirmation modal - gates the Profile Information submit,

@@ -1,4 +1,4 @@
-﻿@using Microsoft.AspNetCore.Mvc.ViewFeatures
+@using Microsoft.AspNetCore.Mvc.ViewFeatures
 
 @{
     ViewData["Title"] = "Home";
@@ -15,7 +15,7 @@
 }
 
 
-@* Hero Section *@
+
 @section PageHero {
     <div class="relative w-full min-h-screen flex flex-col justify-center items-center text-center px-4 pt-12 pb-12">
         <div class="max-w-3xl mx-auto px-6">
@@ -49,7 +49,7 @@
                     }' />
             </div>
         </div>
-        
+
         <div class="hero-fade absolute bottom-5 left-1/2 -translate-x-1/2" style="--delay: 520ms">
             <a href="#about" id="scroll-to-about" class="text-white/60 hover:text-white transition-colors duration-300 flex justify-center">
                 <i class="fa-solid fa-arrow-down text-xl md:text-2xl animate-bounce"></i>
@@ -59,7 +59,7 @@
     </div>
 }
 
-@* About Section *@
+
 <section id="about" class="scroll-reveal opacity-0 translate-y-12 transition-all duration-1000 ease-out py-24 bg-surface-base">
 
     <div class="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 w-full">
@@ -144,7 +144,7 @@
 
 </section>
 
-@* Popular Trails *@
+
 <section id="trails" class="scroll-reveal opacity-0 translate-y-12 transition-all duration-1000 ease-out py-24 bg-surface-base">
     <div class="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
         <div class="text-center mb-16">
@@ -290,7 +290,7 @@
     </div>
 </section>
 
-@* How it Works *@
+
 <section id="how-it-works" class="scroll-reveal opacity-0 translate-y-12 transition-all duration-1000 ease-out py-24 bg-surface-base">
     <div class="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
         <div class="text-center mb-20">

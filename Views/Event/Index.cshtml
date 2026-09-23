@@ -28,10 +28,7 @@
     };
 }
 
-@* Success/Error feedback for this page now goes through the canonical global
-   toast host in _Layout.cshtml (window.showToast, fed by TempData via
-   #tg-toast-tempdata) instead of a page-local fixed banner - see the
-   notification centralization pass. *@
+
 
 @section PageHero {
     <div class="pt-24 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
@@ -189,8 +186,7 @@
                                      data-search="@eventItem.EventTitle @eventItem.Location @eventItem.TrailNameSnapshot">
 
                                     <div class="relative h-48 overflow-hidden bg-black/30">
-                                        @* Trail Snapshot thumbnail/name (Event's own frozen copy), never a
-                                           live Event.Trail read - see CLAUDE.md, "Event Trail Snapshot". *@
+
                                         @if (!string.IsNullOrEmpty(eventItem.TrailThumbnailUrlSnapshot))
                                         {
                                             <img src="@eventItem.TrailThumbnailUrlSnapshot" alt="@eventItem.TrailNameSnapshot" class="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105 motion-reduce:transform-none motion-reduce:transition-none" onerror="handleEventImageError(this)">
@@ -329,7 +325,7 @@
 
         <form id="addEventForm" class="flex flex-col flex-1 overflow-hidden">
             <div class="overflow-y-auto custom-scrollbar flex-1 p-6">
-                <!-- Step 1 -->
+
                 <div id="step1" class="step-content">
                     <h3 id="addEventStep1Heading" tabindex="-1" class="text-sm font-semibold text-white mb-4 focus:outline-none">Trail &amp; Capacity</h3>
                     <div class="mb-6">
@@ -395,7 +391,7 @@
                     </div>
                 </div>
 
-                <!-- Step 2 -->
+
                 <div id="step2" class="step-content hidden">
                     <h3 id="addEventStep2Heading" tabindex="-1" class="text-sm font-semibold text-white mb-4 focus:outline-none">Schedule &amp; Weather</h3>
                     <div class="mb-6">
@@ -440,29 +436,14 @@
                     </div>
 
                     <div class="mb-4">
-                        <!-- Not a <label for="eventWeather"> - #eventWeather is a hidden, non-
-                             focusable backing input (already excluded from the accessibility tree
-                             and in no need of a <label>). This text instead labels the visible
-                             four-state region below it via aria-labelledby. -->
+
                         <p id="eventWeatherAdvisoryLabel" class="block text-sm font-medium text-gray-300 mb-2">Weather Forecast Advisory</p>
-                        <!-- The raw multiline forecast string still exists and is still what the
-                             Add Event payload submits under WeatherForecastAdvisory - it just isn't
-                             the visible UI anymore. A hidden input keeps id="eventWeather" and
-                             name="WeatherForecastAdvisory" so the rest of the JS (and the payload
-                             builder) needs no changes, and (unlike a visually-hidden textarea) it's
-                             never keyboard-focusable. -->
+
                         <input type="hidden" id="eventWeather" name="WeatherForecastAdvisory">
                         <div id="eventWeatherRegion" role="group" aria-labelledby="eventWeatherAdvisoryLabel" aria-busy="false">
-                            <!-- Four mutually exclusive states (waiting/loading/result/unavailable).
-                                 Every state root only ever toggles its own 'hidden' class - never a
-                                 competing flex/grid/block class - so a root defaults to plain block
-                                 display the instant 'hidden' is removed. flex/grid only ever live on
-                                 an always-present inner wrapper. This is what makes
-                                 setAddEventWeatherState's "hide all four, then unhide one" safe: no
-                                 state can end up simultaneously hidden-and-shown the way the earlier
-                                 Create Event button was. -->
 
-                            <!-- State 1: waiting on trail + date -->
+
+
                             <div id="weatherWaitingPanel" class="rounded-xl border border-white/10 bg-white/5 p-4 min-h-32">
                                 <div class="flex flex-col items-center justify-center gap-2 h-full text-center">
                                     <span class="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shrink-0" aria-hidden="true">
@@ -475,7 +456,7 @@
                                 </div>
                             </div>
 
-                            <!-- State 2: loading (approved design, unchanged) -->
+
                             <div id="weatherLoadingPanel" role="status" aria-live="polite" aria-atomic="true"
                                  class="hidden rounded-xl border border-white/10 bg-surface-card/90 p-3 min-h-32 overflow-hidden">
                                 <div class="flex flex-col items-center justify-center gap-2 h-full text-center">
@@ -506,7 +487,7 @@
                                 </div>
                             </div>
 
-                            <!-- State 3: structured result card -->
+
                             <div id="weatherResultPanel" role="status" aria-live="polite" aria-atomic="true"
                                  class="hidden rounded-xl border border-white/10 bg-white/5 p-3 min-h-32">
                                 <div class="flex flex-col gap-2 h-full">
@@ -517,8 +498,7 @@
                                             </span>
                                             <p id="weatherResultCondition" class="text-sm font-semibold text-white wrap-break-word min-w-0"></p>
                                         </div>
-                                        <!-- The one eventWeatherRiskBadge element in the page - moved
-                                             here from beside the Weather Reminder label below. -->
+
                                         <span id="eventWeatherRiskBadge" class="hidden shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold"></span>
                                     </div>
                                     <div class="grid grid-cols-3 gap-2">
@@ -542,7 +522,7 @@
                                 </div>
                             </div>
 
-                            <!-- State 4: unavailable -->
+
                             <div id="weatherUnavailablePanel" role="status" aria-live="polite" aria-atomic="true"
                                  class="hidden rounded-xl border border-white/10 bg-white/5 p-4 min-h-32">
                                 <div class="flex flex-col items-center justify-center gap-2 h-full text-center">
@@ -568,7 +548,7 @@
                     </div>
                 </div>
 
-                <!-- Step 3 -->
+
                 <div id="step3" class="step-content hidden">
                     <h3 id="addEventStep3Heading" tabindex="-1" class="text-sm font-semibold text-white mb-4 focus:outline-none">Event Details</h3>
                     <div class="mb-6">
@@ -709,7 +689,7 @@
         <form id="editEventForm" class="flex flex-col flex-1 overflow-hidden">
             <input type="hidden" id="editEventId" name="Id" />
             <div class="overflow-y-auto custom-scrollbar flex-1 p-6">
-                <!-- Edit Step 1 -->
+
                 <div id="editStep1" class="edit-step-content">
                     <h3 id="editEventStep1Heading" tabindex="-1" class="text-sm font-semibold text-white mb-4 focus:outline-none">Trail &amp; Capacity</h3>
                     <div class="mb-6">
@@ -784,7 +764,7 @@
                     </div>
                 </div>
 
-                <!-- Edit Step 2 -->
+
                 <div id="editStep2" class="edit-step-content hidden">
                     <h3 id="editEventStep2Heading" tabindex="-1" class="text-sm font-semibold text-white mb-4 focus:outline-none">Schedule &amp; Weather</h3>
                     <div class="mb-6">
@@ -832,8 +812,7 @@
                         <p id="editEventWeatherAdvisoryLabel" class="block text-sm font-medium text-gray-300 mb-2">Weather Forecast Advisory</p>
                         <input type="hidden" id="editEventWeather" name="WeatherForecastAdvisory">
                         <div id="editEventWeatherRegion" role="group" aria-labelledby="editEventWeatherAdvisoryLabel" aria-busy="false">
-                            <!-- Five mutually exclusive states (saved/waiting/loading/result/unavailable) -
-                                 same "root only ever toggles hidden" safety as Add Event's four states. -->
+
 
                             <div id="editWeatherSavedPanel" class="hidden rounded-xl border border-white/10 bg-white/5 p-3 min-h-32">
                                 <div class="flex flex-col gap-2 h-full">
@@ -844,10 +823,7 @@
                                         <p id="editWeatherSavedHeading" class="text-sm font-semibold text-white">Saved weather advisory</p>
                                     </div>
                                     <p id="editWeatherSavedText" class="text-xs text-gray-300 wrap-break-word whitespace-pre-wrap"></p>
-                                    <!-- Two distinct notes, shown independently: staleContextNote applies at
-                                         hydration when a stored snapshot's own trail/date no longer matches the
-                                         event's current one; refreshFailedNote applies when a deliberate
-                                         trail/date change's forecast refresh attempt itself failed. -->
+
                                     <p id="editWeatherStaleContextNote" hidden class="text-xs text-gray-400 mt-auto">
                                         <span class="flex items-center gap-1.5">
                                             <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>
@@ -965,7 +941,7 @@
                     </div>
                 </div>
 
-                <!-- Edit Step 3 -->
+
                 <div id="editStep3" class="edit-step-content hidden">
                     <h3 id="editEventStep3Heading" tabindex="-1" class="text-sm font-semibold text-white mb-4 focus:outline-none">Event Details</h3>
                     <div class="mb-6">
@@ -3749,12 +3725,12 @@
         if (!confirm(`Are you sure you want to delete "${title}"? This action cannot be undone.`)) {
             return;
         }
-        
+
         try {
             const response = await postJson('/Event/DeleteEvent', { id: id });
-            
+
             const result = await response.json();
-            
+
             if (result.success) {
                 showToast('Event deleted successfully', 'success');
                 setTimeout(() => {

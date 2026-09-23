@@ -39,8 +39,7 @@
     var accountWord = Model?.TotalAccounts == 1 ? "account" : "accounts";
 }
 
-@* Success/Error feedback now goes through the canonical global toast host
-   in _Layout.cshtml instead of a page-local banner. *@
+
 
 @section PageHero {
     <div class="pt-24 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
@@ -166,20 +165,7 @@
         <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
             @if (Model?.Accounts != null && Model.Accounts.Any())
             {
-                <!-- Desktop: five-row bounded table with sticky header, reusing
-                     the exact .tg-records-scroll/.tg-records-cue convention from
-                     Records/Index.cshtml (scrollbar look + bottom-only fade cue).
-                     The row-count measurement itself is intentionally NOT a
-                     literal copy of that page's desktop-table wiring: there,
-                     createScrollRegion() measures the scroll div's own direct
-                     children, but for a <table> the div's only direct child is
-                     the <table> itself (rows live two levels deeper, inside
-                     <tbody>), so that measurement is always "1 child" and never
-                     actually bounds the table to five rows. Here, rows are
-                     measured from #accountsTbody's children directly while the
-                     max-height is still applied to the outer scroll div (whose
-                     rendered top already includes the sticky thead), which
-                     bounds the visible area to exactly thead + 5 rows. -->
+
                 <div class="hidden lg:block relative">
                     <div id="accountsDesktopScroll" tabindex="0" aria-label="Accounts" class="overflow-y-auto tg-records-scroll focus:outline-none focus:ring-2 focus:ring-accent focus:ring-inset">
                         <table class="w-full text-left text-sm border-collapse">
@@ -283,8 +269,7 @@
                     <div id="accountsDesktopCue" class="tg-records-cue" aria-hidden="true"><span>Scroll for more <i class="fa-solid fa-chevron-down ml-1" aria-hidden="true"></i></span></div>
                 </div>
 
-                <!-- Mobile: natural-height stacked cards, same bottom cue
-                     convention, same Role/Status/Actions markup as desktop. -->
+
                 <div class="lg:hidden relative">
                     <div id="accountsMobileScroll" tabindex="0" aria-label="Accounts" class="overflow-y-auto tg-records-scroll space-y-3 p-4 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-inset">
                         @foreach (var account in Model.Accounts)
@@ -391,11 +376,7 @@
 }
 
 @section Modals {
-    <!-- Change Role - one reusable confirmation dialog for every account row's
-         Change Role / Resolve action. Same accessible dialog lifecycle as
-         Organizer/RegistrationDetails.cshtml's actionConfirmModal (focus trap,
-         Escape/backdrop close, background inert, scroll lock, toast exemption,
-         one-request protection). -->
+
     <div id="roleChangeModal" class="fixed inset-0 z-60 hidden items-center justify-center p-4">
         <div data-role-change-backdrop class="fixed inset-0 bg-black/70 backdrop-blur-sm z-60" aria-hidden="true"></div>
         <div role="dialog" aria-modal="true" aria-labelledby="roleChangeTitle"
@@ -442,12 +423,7 @@
         </div>
     </div>
 
-    <!-- Account Status - one reusable confirmation dialog for every account
-         row's Enable/Disable action, replacing the previous native confirm().
-         Same accessible dialog lifecycle as roleChangeModal above and
-         Organizer/RegistrationDetails.cshtml's actionConfirmModal; tone
-         (positive/negative icon+button color) mirrors that same page's
-         Approve/Reject ACTION_STYLES exactly. -->
+
     <div id="statusChangeModal" class="fixed inset-0 z-60 hidden items-center justify-center p-4">
         <div data-status-change-backdrop class="fixed inset-0 bg-black/70 backdrop-blur-sm z-60" aria-hidden="true"></div>
         <div role="dialog" aria-modal="true" aria-labelledby="statusChangeTitle"
