@@ -118,18 +118,15 @@ namespace TrailGuard.Services
 
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly ApplicationDbContext _context;
-        private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly ILogger<RoleAssignmentService> _logger;
 
         public RoleAssignmentService(
             UserManager<ApplicationUser> userManager,
             ApplicationDbContext context,
-            SignInManager<ApplicationUser> signInManager,
             ILogger<RoleAssignmentService> logger)
         {
             _userManager = userManager;
             _context = context;
-            _signInManager = signInManager;
             _logger = logger;
         }
 
@@ -213,32 +210,13 @@ namespace TrailGuard.Services
 
 
 
-        public async Task<RoleAssignmentResult> ReplaceRoleAsync(string callerUserId, string targetUserId, string desiredRole)
-        {
-            if (!OperationalRolePolicy.IsAllowedRole(desiredRole))
-            {
-                return RoleAssignmentResult.Fail(GenericFailureMessage);
-            }
 
-            var isSelf = string.Equals(callerUserId, targetUserId, StringComparison.Ordinal);
-            var isolationLevel = desiredRole != "Admin" ? IsolationLevel.Serializable : IsolationLevel.Unspecified;
 
-            await using var transaction = await _context.Database.BeginTransactionAsync(isolationLevel);
-            try
-            {
 
 
-                var target = await _userManager.FindByIdAsync(targetUserId);
-                if (target == null)
-                {
 
 
-                    await transaction.RollbackAsync();
-                    return RoleAssignmentResult.Fail(GenericFailureMessage);
-                }
 
-                var currentRoles = await _userManager.GetRolesAsync(target);
-                var integrity = OperationalRolePolicy.Evaluate(currentRoles);
 
 
 
@@ -249,23 +227,7 @@ namespace TrailGuard.Services
 
 
 
-                if (isSelf)
-                {
-                    if (integrity.Status == RoleIntegrityStatus.Conflict && integrity.AssignedRoles.Contains("Admin"))
-                    {
-                        if (desiredRole != "Admin")
-                        {
-                            await transaction.RollbackAsync();
-                            return RoleAssignmentResult.Fail("A conflicted Admin account may only resolve itself to Admin. Ask another Administrator to assign a different role.");
-                        }
 
-                    }
-                    else
-                    {
-                        await transaction.RollbackAsync();
-                        return RoleAssignmentResult.Fail("You cannot change your own role. Ask another Administrator to make this change.");
-                    }
-                }
 
 
 
@@ -274,12 +236,6 @@ namespace TrailGuard.Services
 
 
 
-                var isNoOp = integrity.Status == OperationalRolePolicy.StatusFor(desiredRole) && integrity.AssignedRoles.Count == 1;
-                if (isNoOp)
-                {
-                    await transaction.CommitAsync();
-                    return RoleAssignmentResult.Ok();
-                }
 
 
 
@@ -290,28 +246,11 @@ namespace TrailGuard.Services
 
 
 
-                var removingAdminRisk = integrity.AssignedRoles.Contains("Admin") && desiredRole != "Admin";
-                if (removingAdminRisk && !await HasAnotherActiveValidAdminAsync(target.Id))
-                {
-                    await transaction.RollbackAsync();
-                    return RoleAssignmentResult.Fail("At least one Administrator account must remain.");
-                }
 
 
 
 
 
-                if (integrity.AssignedRoles.Contains("Organizer") && desiredRole != "Organizer")
-                {
-                    var hasActiveEvents = await _context.Events
-                        .AsNoTracking()
-                        .AnyAsync(e => e.OrganizerId == target.Id && e.Status == "Upcoming");
-                    if (hasActiveEvents)
-                    {
-                        await transaction.RollbackAsync();
-                        return RoleAssignmentResult.Fail("This account still owns Upcoming events as Organizer. Resolve or transfer those events before changing their role.");
-                    }
-                }
 
 
 
@@ -320,40 +259,8 @@ namespace TrailGuard.Services
 
 
 
-                if (!currentRoles.Contains(desiredRole))
-                {
-                    var addResult = await _userManager.AddToRoleAsync(target, desiredRole);
-                    if (!addResult.Succeeded)
-                    {
-                        await transaction.RollbackAsync();
-                        LogIdentityErrors("add role", target.Id, addResult);
-                        return RoleAssignmentResult.Fail(GenericFailureMessage);
-                    }
-                }
 
-                var rolesToRemove = currentRoles
-                    .Where(r => OperationalRolePolicy.IsAllowedRole(r) && r != desiredRole)
-                    .ToList();
-                if (rolesToRemove.Count > 0)
-                {
-                    var removeResult = await _userManager.RemoveFromRolesAsync(target, rolesToRemove);
-                    if (!removeResult.Succeeded)
-                    {
-                        await transaction.RollbackAsync();
-                        LogIdentityErrors("remove roles", target.Id, removeResult);
-                        return RoleAssignmentResult.Fail(GenericFailureMessage);
-                    }
-                }
 
-                var finalRoles = await _userManager.GetRolesAsync(target);
-                var finalIntegrity = OperationalRolePolicy.Evaluate(finalRoles);
-                if (finalIntegrity.Status != OperationalRolePolicy.StatusFor(desiredRole))
-                {
-                    await transaction.RollbackAsync();
-                    _logger.LogError("Role replacement for user {UserId} did not converge to exactly '{Role}' (ended with: {FinalRoles}) - rolled back.",
-                        target.Id, desiredRole, string.Join(",", finalIntegrity.AssignedRoles));
-                    return RoleAssignmentResult.Fail(GenericFailureMessage);
-                }
 
 
 
@@ -361,21 +268,8 @@ namespace TrailGuard.Services
 
 
 
-                if (removingAdminRisk && !await HasAnotherActiveValidAdminAsync(null))
-                {
-                    await transaction.RollbackAsync();
-                    return RoleAssignmentResult.Fail("At least one Administrator account must remain.");
-                }
 
-                var stampResult = await _userManager.UpdateSecurityStampAsync(target);
-                if (!stampResult.Succeeded)
-                {
-                    await transaction.RollbackAsync();
-                    LogIdentityErrors("security stamp update", target.Id, stampResult);
-                    return RoleAssignmentResult.Fail(GenericFailureMessage);
-                }
 
-                await transaction.CommitAsync();
 
 
 
@@ -387,27 +281,6 @@ namespace TrailGuard.Services
 
 
 
-
-                if (isSelf)
-                {
-                    await _signInManager.RefreshSignInAsync(target);
-                }
-
-                return RoleAssignmentResult.Ok();
-            }
-            catch (Exception ex) when (IsSerializationFailure(ex))
-            {
-                await transaction.RollbackAsync();
-                _logger.LogWarning(ex, "Role change for user {UserId} aborted by a concurrent conflict.", targetUserId);
-                return RoleAssignmentResult.Fail("This account changed concurrently. Please try again.");
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync();
-                _logger.LogError(ex, "Unexpected failure replacing role for user {UserId}.", targetUserId);
-                return RoleAssignmentResult.Fail(GenericFailureMessage);
-            }
-        }
 
 
 

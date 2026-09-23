@@ -8,12 +8,6 @@ using TrailGuard.Services;
 
 namespace TrailGuard.Controllers
 {
-    public class ChangeRoleRequest
-    {
-        public string Id { get; set; } = string.Empty;
-        public string Role { get; set; } = string.Empty;
-    }
-
     public class ToggleAccountStatusRequest
     {
         public string Id { get; set; } = string.Empty;
@@ -468,38 +462,6 @@ namespace TrailGuard.Controllers
 
 
 
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> ChangeRole([FromBody] ChangeRoleRequest request)
-        {
-            if (request == null || string.IsNullOrWhiteSpace(request.Id) || string.IsNullOrWhiteSpace(request.Role))
-            {
-                return Json(new { success = false, message = "An unexpected error occurred. Please try again." });
-            }
-
-            try
-            {
-                var callerId = _userManager.GetUserId(User);
-                if (callerId == null)
-                {
-                    return Json(new { success = false, message = "An unexpected error occurred. Please try again." });
-                }
-
-                var result = await _roleAssignmentService.ReplaceRoleAsync(callerId, request.Id, request.Role);
-                if (!result.Succeeded)
-                {
-                    return Json(new { success = false, message = result.ErrorMessage });
-                }
-
-                return Json(new { success = true, message = "Role updated successfully." });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Unexpected error changing role for account {TargetId}.", request.Id);
-                return Json(new { success = false, message = "An unexpected error occurred. Please try again." });
-            }
-        }
 
     }
 }
