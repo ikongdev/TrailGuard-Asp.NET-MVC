@@ -375,7 +375,7 @@ namespace TrailGuard.Controllers
                 var user = new ApplicationUser
                 {
                     FirstName = model.FirstName,
-                    MiddleName = model.MiddleName,
+                    MiddleName = string.IsNullOrWhiteSpace(model.MiddleName) ? null : model.MiddleName,
                     LastName = model.LastName,
                     Email = model.Email,
                     UserName = model.Email,
@@ -396,9 +396,9 @@ namespace TrailGuard.Controllers
 
                 if (creation.IdentityErrors.Count > 0)
                 {
-                    foreach (var error in creation.IdentityErrors)
+                    foreach (var error in creation.IdentityErrorDetails)
                     {
-                        ModelState.AddModelError(string.Empty, error);
+                        ModelState.AddModelError(FieldForIdentityError(error), error.Description);
                     }
                 }
                 else
@@ -407,6 +407,20 @@ namespace TrailGuard.Controllers
                 }
             }
             return View(model);
+        }
+
+        private static string FieldForIdentityError(IdentityError error)
+        {
+            if (error.Code.StartsWith("Password", StringComparison.Ordinal))
+            {
+                return nameof(AddAccountViewModel.Password);
+            }
+
+            return error.Code switch
+            {
+                "DuplicateEmail" or "DuplicateUserName" or "InvalidEmail" or "InvalidUserName" => nameof(AddAccountViewModel.Email),
+                _ => string.Empty
+            };
         }
 
 

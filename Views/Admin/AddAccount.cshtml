@@ -2,6 +2,13 @@
 
 @{
     ViewData["Title"] = "Add New Account";
+    var hasServerValidationErrors = ViewData.ModelState.Values.Any(state => state.Errors.Count > 0);
+    var modelLevelErrors = ViewData.ModelState
+        .Where(entry => string.IsNullOrEmpty(entry.Key) && entry.Value is not null)
+        .SelectMany(entry => entry.Value!.Errors)
+        .Select(error => error.ErrorMessage)
+        .Where(error => !string.IsNullOrWhiteSpace(error))
+        .ToList();
 }
 
 @section PageHero {
@@ -16,24 +23,34 @@
         </div>
 
         <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl">
-            <form asp-controller="Admin" asp-action="AddAccount" method="post">
-                <div asp-validation-summary="ModelOnly" class="text-red-400 text-sm mb-4 bg-red-500/10 p-3 rounded-xl border border-red-500/20"></div>
+            <form id="addAccountForm" asp-controller="Admin" asp-action="AddAccount" method="post" novalidate>
+                @if (modelLevelErrors.Count > 0)
+                {
+                    <div id="addAccountFormErrors" class="text-red-400 text-sm mb-4 bg-red-500/10 p-3 rounded-xl border border-red-500/20" role="alert" tabindex="-1">
+                        <ul class="list-disc pl-5 space-y-1">
+                            @foreach (var error in modelLevelErrors)
+                            {
+                                <li>@error</li>
+                            }
+                        </ul>
+                    </div>
+                }
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
                     <div>
                         <label asp-for="FirstName" class="block text-sm font-medium text-gray-300 mb-2">First Name <span class="text-red-400">*</span></label>
                         <input asp-for="FirstName" autocomplete="given-name"
                                class="add-account-input w-full bg-black/20 border border-white/10 text-white rounded-full px-5 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors placeholder-gray-500"
-                               placeholder="e.g. Juan" />
-                        <span asp-validation-for="FirstName" class="text-red-400 text-xs mt-1 block"></span>
+                               placeholder="Enter first name" aria-describedby="FirstName-error" />
+                        <span id="FirstName-error" asp-validation-for="FirstName" class="text-red-400 text-xs mt-1 block" aria-live="polite"></span>
                     </div>
 
                     <div>
                         <label asp-for="LastName" class="block text-sm font-medium text-gray-300 mb-2">Last Name <span class="text-red-400">*</span></label>
                         <input asp-for="LastName" autocomplete="family-name"
                                class="add-account-input w-full bg-black/20 border border-white/10 text-white rounded-full px-5 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors placeholder-gray-500"
-                               placeholder="e.g. Dela Cruz" />
-                        <span asp-validation-for="LastName" class="text-red-400 text-xs mt-1 block"></span>
+                               placeholder="Enter last name" aria-describedby="LastName-error" />
+                        <span id="LastName-error" asp-validation-for="LastName" class="text-red-400 text-xs mt-1 block" aria-live="polite"></span>
                     </div>
                 </div>
 
@@ -41,15 +58,16 @@
                     <label asp-for="MiddleName" class="block text-sm font-medium text-gray-300 mb-2">Middle Name <span class="text-gray-500 text-xs">(Optional)</span></label>
                     <input asp-for="MiddleName" autocomplete="additional-name"
                            class="add-account-input w-full bg-black/20 border border-white/10 text-white rounded-full px-5 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors placeholder-gray-500"
-                           placeholder="e.g. Reyes" />
+                           placeholder="Enter middle name" aria-describedby="MiddleName-error" />
+                    <span id="MiddleName-error" asp-validation-for="MiddleName" class="text-red-400 text-xs mt-1 block" aria-live="polite"></span>
                 </div>
 
                 <div class="mb-6">
                     <label asp-for="Email" class="block text-sm font-medium text-gray-300 mb-2">Email Address <span class="text-red-400">*</span></label>
                     <input asp-for="Email" autocomplete="email"
                            class="add-account-input w-full bg-black/20 border border-white/10 text-white rounded-full px-5 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors placeholder-gray-500"
-                           placeholder="e.g. juan@email.com" />
-                    <span asp-validation-for="Email" class="text-red-400 text-xs mt-1 block"></span>
+                           placeholder="you@example.com" aria-describedby="Email-error" />
+                    <span id="Email-error" asp-validation-for="Email" class="text-red-400 text-xs mt-1 block" aria-live="polite"></span>
                 </div>
 
 
@@ -58,14 +76,15 @@
                         <label asp-for="Role" class="block text-sm font-medium text-gray-300 mb-2">Assign Role <span class="text-red-400">*</span></label>
 
                         <select asp-for="Role" data-custom-select data-custom-select-portal
+                                data-cs-describedby="Role-error"
                                 data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-5 py-3 rounded-full bg-black/20 border border-white/10 text-white text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer"
                                 class="w-full bg-black/20 border border-white/10 text-white rounded-full px-5 py-3 focus:border-accent focus:outline-none cursor-pointer appearance-none transition-colors">
-                            <option value="" selected disabled class="bg-surface-card text-gray-400">Select a Role...</option>
+                            <option value="" disabled class="bg-surface-card text-gray-400">Select a Role...</option>
                             <option value="Admin" class="bg-surface-card">Admin</option>
                             <option value="Organizer" class="bg-surface-card">Organizer</option>
                             <option value="Participant" class="bg-surface-card">Participant</option>
                         </select>
-                        <span asp-validation-for="Role" class="text-red-400 text-xs mt-1 block"></span>
+                        <span id="Role-error" asp-validation-for="Role" class="text-red-400 text-xs mt-1 block" aria-live="polite"></span>
                     </div>
 
                     <div>
@@ -73,13 +92,13 @@
                         <div class="relative">
                             <input asp-for="Password" id="passwordInput" type="password" autocomplete="new-password"
                                    class="add-account-input w-full bg-black/20 border border-white/10 text-white rounded-full pl-5 pr-12 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors placeholder-gray-500"
-                                   placeholder="••••••••" />
+                                   placeholder="Create a password" aria-describedby="Password-error" />
                             <button type="button" id="passwordToggleBtn" aria-label="Show password" aria-pressed="false" aria-controls="passwordInput"
                                     class="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-white transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent rounded">
                                 <i id="eyeIcon1" class="fa-solid fa-eye" aria-hidden="true"></i>
                             </button>
                         </div>
-                        <span asp-validation-for="Password" class="text-red-400 text-xs mt-1 block"></span>
+                        <span id="Password-error" asp-validation-for="Password" class="text-red-400 text-xs mt-1 block" aria-live="polite"></span>
                     </div>
                 </div>
 
@@ -100,19 +119,157 @@
     <partial name="_ValidationScriptsPartial" />
     <script>
         document.addEventListener('DOMContentLoaded', function () {
+            var form = document.getElementById('addAccountForm');
+            var roleSelect = document.getElementById('Role');
+            var roleError = document.getElementById('Role-error');
+            var serverHasValidationErrors = @(hasServerValidationErrors ? "true" : "false");
+
+            function getRoleTrigger() {
+                return roleSelect ? document.getElementById(roleSelect.id + '-trigger') : null;
+            }
+
+            function updateInputAccessibility() {
+                if (!form) return;
+
+                form.querySelectorAll('.add-account-input').forEach(function (field) {
+                    var isInvalid = field.classList.contains('input-validation-error');
+                    field.classList.toggle('border-red-500', isInvalid);
+                    field.setAttribute('aria-invalid', isInvalid ? 'true' : 'false');
+                });
+            }
+
+            function syncRoleAccessibility() {
+                if (!roleSelect || !roleError) return;
+
+                var isInvalid = roleSelect.classList.contains('input-validation-error') || roleError.textContent.trim().length > 0;
+                var trigger = getRoleTrigger();
+                roleSelect.classList.toggle('input-validation-error', isInvalid);
+                if (trigger) {
+                    trigger.classList.toggle('border-red-500', isInvalid);
+                    trigger.setAttribute('aria-invalid', isInvalid ? 'true' : 'false');
+                }
+            }
+
+            function setRoleError(message) {
+                if (!roleSelect || !roleError) return;
+
+                roleError.textContent = message;
+                roleError.classList.remove('field-validation-valid');
+                roleError.classList.add('field-validation-error');
+                roleSelect.classList.add('input-validation-error');
+                syncRoleAccessibility();
+            }
+
+            function clearRoleError() {
+                if (!roleSelect || !roleError) return;
+
+                roleError.textContent = '';
+                roleError.classList.remove('field-validation-error');
+                roleError.classList.add('field-validation-valid');
+                roleSelect.classList.remove('input-validation-error');
+                syncRoleAccessibility();
+            }
+
+            function validateRole() {
+                if (!roleSelect) return true;
+                if (roleSelect.value) {
+                    clearRoleError();
+                    return true;
+                }
+
+                setRoleError('Please select a role.');
+                return false;
+            }
+
+            function showValidationAlert() {
+                if (typeof window.showToast === 'function') {
+                    window.showToast('Please check the highlighted fields.', 'error');
+                }
+            }
+
+            function focusFirstInvalidField() {
+                if (!form) return;
+
+                var fields = [
+                    document.getElementById('FirstName'),
+                    document.getElementById('LastName'),
+                    document.getElementById('MiddleName'),
+                    document.getElementById('Email'),
+                    roleSelect,
+                    document.getElementById('passwordInput')
+                ];
+
+                for (var index = 0; index < fields.length; index++) {
+                    var field = fields[index];
+                    if (!field || !field.classList.contains('input-validation-error')) continue;
+
+                    var focusTarget = field === roleSelect ? getRoleTrigger() : field;
+                    if (focusTarget) focusTarget.focus();
+                    return;
+                }
+
+                document.getElementById('addAccountFormErrors')?.focus();
+            }
+
+            var validator = null;
+            if (form && window.jQuery) {
+                var $form = window.jQuery(form);
+                validator = $form.data('validator');
+                if (validator) {
+                    $form.off('submit.validate');
+                    validator.settings.invalidHandler = function () { };
+                    validator.settings.highlight = function (element) {
+                        element.classList.add('input-validation-error', 'border-red-500');
+                        element.setAttribute('aria-invalid', 'true');
+                    };
+                    validator.settings.unhighlight = function (element) {
+                        element.classList.remove('input-validation-error', 'border-red-500');
+                        element.setAttribute('aria-invalid', 'false');
+                    };
+
+                }
+            }
+
+            if (form) {
+                form.addEventListener('submit', function (event) {
+                    var fieldsAreValid = validator ? validator.form() : form.checkValidity();
+                    var roleIsValid = validateRole();
+                    updateInputAccessibility();
+
+                    if (fieldsAreValid && roleIsValid) return;
+
+                    event.preventDefault();
+                    showValidationAlert();
+                    requestAnimationFrame(focusFirstInvalidField);
+                });
+            }
+
+            if (roleSelect) {
+                roleSelect.addEventListener('change', function () {
+                    if (roleSelect.value) clearRoleError();
+                });
+            }
+
             var toggleBtn = document.getElementById('passwordToggleBtn');
             var input = document.getElementById('passwordInput');
             var icon = document.getElementById('eyeIcon1');
-            if (!toggleBtn || !input || !icon) return;
+            if (toggleBtn && input && icon) {
+                toggleBtn.addEventListener('click', function () {
+                    var willShow = input.type === 'password';
+                    input.type = willShow ? 'text' : 'password';
+                    icon.classList.toggle('fa-eye', !willShow);
+                    icon.classList.toggle('fa-eye-slash', willShow);
+                    toggleBtn.setAttribute('aria-label', willShow ? 'Hide password' : 'Show password');
+                    toggleBtn.setAttribute('aria-pressed', willShow ? 'true' : 'false');
+                });
+            }
 
-            toggleBtn.addEventListener('click', function () {
-                var willShow = input.type === 'password';
-                input.type = willShow ? 'text' : 'password';
-                icon.classList.toggle('fa-eye', !willShow);
-                icon.classList.toggle('fa-eye-slash', willShow);
-                toggleBtn.setAttribute('aria-label', willShow ? 'Hide password' : 'Show password');
-                toggleBtn.setAttribute('aria-pressed', willShow ? 'true' : 'false');
-            });
+            updateInputAccessibility();
+            syncRoleAccessibility();
+            if (serverHasValidationErrors) {
+                showValidationAlert();
+                requestAnimationFrame(focusFirstInvalidField);
+            }
         });
     </script>
 }

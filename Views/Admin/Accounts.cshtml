@@ -215,7 +215,7 @@
                                         data-status="@(account.IsActive ? "active" : "inactive")"
                                         data-date="@account.DateCreatedIso">
                                         <th scope="row" headers="accounts-data-header-name" class="px-5 py-4 font-normal align-middle">
-                                            <div class="flex items-center justify-center gap-3 min-w-0">
+                                            <div class="flex items-center justify-start gap-3 min-w-0">
                                                 @if (!string.IsNullOrEmpty(account.ProfilePictureUrl))
                                                 {
                                                     <img src="@account.ProfilePictureUrl" alt="" class="w-8 h-8 rounded-full object-cover shrink-0" />
@@ -224,7 +224,7 @@
                                                 {
                                                     <div class="w-8 h-8 rounded-full bg-accent text-white flex items-center justify-center text-xs font-bold shrink-0" aria-hidden="true">@account.Initials</div>
                                                 }
-                                                <span class="min-w-0 text-white font-medium wrap-break-word">@account.FullName</span>
+                                                <span class="min-w-0 text-left text-white font-medium wrap-break-word">@account.FullName</span>
                                             </div>
                                         </th>
                                         <td headers="accounts-data-header-email" class="px-5 py-4 text-gray-300 text-center align-middle wrap-break-word">@account.Email</td>

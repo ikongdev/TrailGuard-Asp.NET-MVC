@@ -7,7 +7,8 @@ namespace TrailGuard.Models
         [Required(ErrorMessage = "First Name is required.")]
         public string FirstName { get; set; } = string.Empty;
 
-        public string MiddleName { get; set; } = string.Empty;
+        [MaxLength(50, ErrorMessage = "Middle Name cannot exceed 50 characters.")]
+        public string? MiddleName { get; set; }
 
         [Required(ErrorMessage = "Last Name is required.")]
         public string LastName { get; set; } = string.Empty;

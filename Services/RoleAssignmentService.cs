@@ -54,14 +54,24 @@ namespace TrailGuard.Services
 
         public IReadOnlyList<string> IdentityErrors { get; init; } = Array.Empty<string>();
 
+        public IReadOnlyList<IdentityError> IdentityErrorDetails { get; init; } = Array.Empty<IdentityError>();
+
 
 
 
         public string? GenericError { get; init; }
 
         public static AccountCreationResult Ok(ApplicationUser user) => new() { Succeeded = true, User = user };
-        public static AccountCreationResult IdentityFailure(IEnumerable<IdentityError> errors) =>
-            new() { Succeeded = false, IdentityErrors = errors.Select(e => e.Description).ToList() };
+        public static AccountCreationResult IdentityFailure(IEnumerable<IdentityError> errors)
+        {
+            var identityErrors = errors.ToList();
+            return new()
+            {
+                Succeeded = false,
+                IdentityErrors = identityErrors.Select(e => e.Description).ToList(),
+                IdentityErrorDetails = identityErrors
+            };
+        }
         public static AccountCreationResult Fail(string generic) => new() { Succeeded = false, GenericError = generic };
     }
 
