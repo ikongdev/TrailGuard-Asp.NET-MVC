@@ -115,17 +115,17 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 min-w-0">
                     <div>
                         <label asp-for="FirstName" class="block text-sm font-medium text-gray-300 mb-2">First Name</label>
-                        <input asp-for="FirstName" autocomplete="given-name" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" />
+                        <input asp-for="FirstName" autocomplete="given-name" placeholder="Enter first name" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" />
                         <span asp-validation-for="FirstName" class="text-red-400 text-xs mt-1 block"></span>
                     </div>
                     <div>
                         <label asp-for="LastName" class="block text-sm font-medium text-gray-300 mb-2">Last Name</label>
-                        <input asp-for="LastName" autocomplete="family-name" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" />
+                        <input asp-for="LastName" autocomplete="family-name" placeholder="Enter last name" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" />
                         <span asp-validation-for="LastName" class="text-red-400 text-xs mt-1 block"></span>
                     </div>
                     <div>
                         <label asp-for="MiddleName" class="block text-sm font-medium text-gray-300 mb-2">Middle Name <span class="text-gray-500 text-xs">(Optional)</span></label>
-                        <input asp-for="MiddleName" autocomplete="additional-name" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" />
+                        <input asp-for="MiddleName" autocomplete="additional-name" placeholder="Enter middle name" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" />
                     </div>
                     <div>
                         <label asp-for="PhoneNumber" class="block text-sm font-medium text-gray-300 mb-2">Phone Number <span class="text-gray-500 text-xs">(Optional)</span></label>
@@ -134,7 +134,7 @@
                     </div>
                     <div class="sm:col-span-2">
                         <label asp-for="Email" class="block text-sm font-medium text-gray-300 mb-2">Email Address</label>
-                        <input asp-for="Email" type="email" autocomplete="email" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors wrap-break-word" />
+                        <input asp-for="Email" type="email" autocomplete="email" placeholder="you@example.com" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors wrap-break-word" />
                         <span asp-validation-for="Email" class="text-red-400 text-xs mt-1 block"></span>
                     </div>
                     <div class="sm:col-span-2">
@@ -178,7 +178,7 @@
                     <div>
                         <label asp-for="CurrentPassword" class="block text-sm font-medium text-gray-300 mb-2">Current Password</label>
                         <div class="relative">
-                            <input asp-for="CurrentPassword" type="password" id="currentPassword" autocomplete="current-password"
+                            <input asp-for="CurrentPassword" type="password" id="currentPassword" autocomplete="current-password" placeholder="Enter current password"
                                    class="block w-full px-4 py-3 pr-12 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" />
                             <button type="button" onclick="togglePassword('currentPassword')" aria-label="Show current password"
                                     class="absolute inset-y-0 right-0 w-11 flex items-center justify-center text-gray-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded-xl">
@@ -190,7 +190,7 @@
                     <div>
                         <label asp-for="NewPassword" class="block text-sm font-medium text-gray-300 mb-2">New Password</label>
                         <div class="relative">
-                            <input asp-for="NewPassword" type="password" id="newPassword" autocomplete="new-password"
+                            <input asp-for="NewPassword" type="password" id="newPassword" autocomplete="new-password" placeholder="Create a new password"
                                    class="block w-full px-4 py-3 pr-12 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" />
                             <button type="button" onclick="togglePassword('newPassword')" aria-label="Show new password"
                                     class="absolute inset-y-0 right-0 w-11 flex items-center justify-center text-gray-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded-xl">
@@ -202,7 +202,7 @@
                     <div>
                         <label asp-for="ConfirmPassword" class="block text-sm font-medium text-gray-300 mb-2">Confirm New Password</label>
                         <div class="relative">
-                            <input asp-for="ConfirmPassword" type="password" id="confirmNewPassword" autocomplete="new-password"
+                            <input asp-for="ConfirmPassword" type="password" id="confirmNewPassword" autocomplete="new-password" placeholder="Confirm new password"
                                    class="block w-full px-4 py-3 pr-12 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" />
                             <button type="button" onclick="togglePassword('confirmNewPassword')" aria-label="Show confirm new password"
                                     class="absolute inset-y-0 right-0 w-11 flex items-center justify-center text-gray-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded-xl">
@@ -243,7 +243,7 @@
                 <p class="text-gray-400 text-sm mb-4">Please enter your current password to save profile changes.</p>
                 <label for="modalPasswordInput" class="sr-only">Current password</label>
                 <div class="relative">
-                    <input type="password" id="modalPasswordInput" autocomplete="current-password" placeholder="Enter your password"
+                    <input type="password" id="modalPasswordInput" autocomplete="current-password" placeholder="Enter current password"
                            class="block w-full px-4 py-3 pr-12 rounded-xl bg-surface-base border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" />
                     <button type="button" onclick="togglePassword('modalPasswordInput')" aria-label="Show password"
                             class="absolute inset-y-0 right-0 w-11 flex items-center justify-center text-gray-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded-xl">
