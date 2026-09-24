@@ -58,6 +58,11 @@ namespace TrailGuard.Controllers
             ViewData["CurrentFilter"] = normalizedSearch;
             ViewData["CurrentSort"] = normalizedSort;
 
+            return View(await BuildTrailManagementViewModelAsync(normalizedSort));
+        }
+
+        private async Task<TrailManagementViewModel> BuildTrailManagementViewModelAsync(string normalizedSort)
+        {
             IQueryable<Trail> activeTrailsQuery = _context.Trails.Where(t => t.IsActive);
 
 
@@ -130,7 +135,7 @@ namespace TrailGuard.Controllers
                 DeactivatedTrails = deactivatedRows
             };
 
-            return View(viewModel);
+            return viewModel;
         }
 
 
@@ -183,90 +188,129 @@ namespace TrailGuard.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> AddTrail(Trail model, List<string>? TerrainValues)
+        public async Task<IActionResult> AddTrail([Bind(Prefix = "AddTrail")] AddTrailInputModel model)
         {
+            model.Name = model.Name?.Trim() ?? string.Empty;
+            model.Location = model.Location?.Trim() ?? string.Empty;
+            model.Description = model.Description?.Trim() ?? string.Empty;
 
-
-
-
-
-
-
-
-
-            model.IsActive = true;
-
-
-
-
-
-            model.Terrain = TrailTerrainOptions.Normalize(TerrainValues);
-            ModelState.Remove(nameof(Trail.Terrain));
-            if (string.IsNullOrEmpty(model.Terrain))
+            if (model.DistanceKm is double distance && (!double.IsFinite(distance) || distance <= 0))
             {
-                ModelState.AddModelError(nameof(Trail.Terrain), "Select at least one terrain type.");
+                ModelState.AddModelError(AddTrailKey(nameof(model.DistanceKm)), "Distance must be greater than zero.");
             }
 
-            if (ModelState.IsValid)
+            var terrain = TrailTerrainOptions.Normalize(model.TerrainValues);
+            if (!TrailTerrainOptions.HasSupportedSelection(model.TerrainValues))
             {
-                string uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "images", "trails");
+                ModelState.AddModelError(AddTrailKey(nameof(model.TerrainValues)), "Select at least one terrain type.");
+            }
 
-                if (!Directory.Exists(uploadsFolder))
+            var coverResult = await TrailImageUploadValidator.ValidateAsync(model.ThumbnailImage);
+            if (coverResult.Error != null)
+            {
+                ModelState.AddModelError(AddTrailKey(nameof(model.ThumbnailImage)), coverResult.Error);
+            }
+
+            var additionalResults = new List<ValidatedTrailImage>();
+            if (model.AdditionalImages != null)
+            {
+                if (model.AdditionalImages.Count > 8)
                 {
-                    Directory.CreateDirectory(uploadsFolder);
+                    ModelState.AddModelError(AddTrailKey(nameof(model.AdditionalImages)), "You can upload up to 8 additional photos.");
                 }
-
-                if (model.ThumbnailImage != null)
+                else
                 {
-                    string uniqueFileName = Guid.NewGuid().ToString() + "_" + model.ThumbnailImage.FileName;
-                    string filePath = Path.Combine(uploadsFolder, uniqueFileName);
-
-                    using (var fileStream = new FileStream(filePath, FileMode.Create))
+                    for (var index = 0; index < model.AdditionalImages.Count; index++)
                     {
-                        await model.ThumbnailImage.CopyToAsync(fileStream);
-                    }
-
-                    model.ThumbnailUrl = "/images/trails/" + uniqueFileName;
-                }
-
-                _context.Trails.Add(model);
-                await _context.SaveChangesAsync();
-
-                if (model.AdditionalImages != null && model.AdditionalImages.Count > 0)
-                {
-                    foreach (var file in model.AdditionalImages)
-                    {
-                        if (file.Length > 0)
+                        var result = await TrailImageUploadValidator.ValidateAsync(model.AdditionalImages[index]);
+                        if (result.Error != null)
                         {
-                            string uniqueFileName = Guid.NewGuid().ToString() + "_" + file.FileName;
-                            string filePath = Path.Combine(uploadsFolder, uniqueFileName);
-
-                            using (var fileStream = new FileStream(filePath, FileMode.Create))
-                            {
-                                await file.CopyToAsync(fileStream);
-                            }
-
-                            var trailPhoto = new TrailPhoto
-                            {
-                                TrailId = model.Id,
-                                ImageUrl = "/images/trails/" + uniqueFileName,
-                                DisplayOrder = 0
-                            };
-
-                            _context.TrailPhotos.Add(trailPhoto);
+                            ModelState.AddModelError(AddTrailKey(nameof(model.AdditionalImages)), $"Additional photo {index + 1}: {result.Error}");
+                        }
+                        else
+                        {
+                            additionalResults.Add(result.Image!);
                         }
                     }
-
-                    await _context.SaveChangesAsync();
                 }
-
-                TempData["Success"] = "Trail added successfully!";
-                return RedirectToAction("Index");
             }
 
-            TempData["Error"] = "Invalid data. Please check the form.";
-            return RedirectToAction("Index");
+            if (!ModelState.IsValid)
+            {
+                TempData["Error"] = "Please check the highlighted fields.";
+                return await ReturnInvalidAddTrailAsync(model);
+            }
+
+            var createdFiles = new List<string>();
+            try
+            {
+                var uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "images", "trails");
+                Directory.CreateDirectory(uploadsFolder);
+
+                var coverFileName = Guid.NewGuid() + coverResult.Image!.Extension;
+                var coverPath = Path.Combine(uploadsFolder, coverFileName);
+                createdFiles.Add(coverPath);
+                await System.IO.File.WriteAllBytesAsync(coverPath, coverResult.Image.Bytes);
+
+                var trail = new Trail
+                {
+                    Name = model.Name,
+                    Location = model.Location,
+                    DistanceKm = model.DistanceKm!.Value,
+                    TypicalDurationHours = model.TypicalDurationHours!.Value,
+                    ElevationGainMeters = model.ElevationGainMeters!.Value,
+                    Terrain = terrain,
+                    TrailClass = model.TrailClass!.Value,
+                    Description = model.Description,
+                    ThumbnailUrl = "/images/trails/" + coverFileName,
+                    IsActive = true
+                };
+
+                _context.Trails.Add(trail);
+                foreach (var image in additionalResults)
+                {
+                    var fileName = Guid.NewGuid() + image.Extension;
+                    var filePath = Path.Combine(uploadsFolder, fileName);
+                    createdFiles.Add(filePath);
+                    await System.IO.File.WriteAllBytesAsync(filePath, image.Bytes);
+                    trail.TrailPhotos ??= new List<TrailPhoto>();
+                    trail.TrailPhotos.Add(new TrailPhoto { ImageUrl = "/images/trails/" + fileName, DisplayOrder = 0 });
+                }
+
+                await _context.SaveChangesAsync();
+                TempData["Success"] = "Trail added successfully!";
+                return RedirectToAction(nameof(Index));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unable to create trail.");
+                foreach (var filePath in createdFiles.Where(System.IO.File.Exists))
+                {
+                    try
+                    {
+                        System.IO.File.Delete(filePath);
+                    }
+                    catch (Exception cleanupException)
+                    {
+                        _logger.LogError(cleanupException, "Unable to remove failed trail upload {FilePath}.", filePath);
+                    }
+                }
+                ModelState.AddModelError(string.Empty, "Unable to save the trail. Please try again.");
+                TempData["Error"] = "Please check the highlighted fields.";
+                return await ReturnInvalidAddTrailAsync(model);
+            }
         }
+
+        private async Task<IActionResult> ReturnInvalidAddTrailAsync(AddTrailInputModel model)
+        {
+            ViewData["CurrentFilter"] = string.Empty;
+            ViewData["CurrentSort"] = DefaultSortOrder;
+            var viewModel = await BuildTrailManagementViewModelAsync(DefaultSortOrder);
+            viewModel.AddTrail = model;
+            return View("Index", viewModel);
+        }
+
+        private static string AddTrailKey(string propertyName) => $"{nameof(TrailManagementViewModel.AddTrail)}.{propertyName}";
 
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -297,7 +341,7 @@ namespace TrailGuard.Controllers
 
             model.Terrain = TrailTerrainOptions.Normalize(TerrainValues, existingTrail.Terrain);
             ModelState.Remove(nameof(Trail.Terrain));
-            if (string.IsNullOrEmpty(model.Terrain))
+            if (!TrailTerrainOptions.HasSupportedSelection(TerrainValues))
             {
                 ModelState.AddModelError(nameof(Trail.Terrain), "Select at least one terrain type.");
             }

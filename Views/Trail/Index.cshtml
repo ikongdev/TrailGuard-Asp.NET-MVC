@@ -313,78 +313,91 @@
                 </button>
             </div>
 
-            <form id="addTrailForm" asp-controller="Trail" asp-action="AddTrail" method="post" enctype="multipart/form-data" class="flex flex-col flex-1 overflow-hidden">
+            <form id="addTrailForm" asp-controller="Trail" asp-action="AddTrail" method="post" enctype="multipart/form-data" novalidate class="flex flex-col flex-1 overflow-hidden">
                 <div class="overflow-y-auto custom-scrollbar flex-1 p-6">
+                    <div id="addTrailFormErrors" asp-validation-summary="ModelOnly" class="empty:hidden text-red-400 text-sm mb-5 bg-red-500/10 p-3 rounded-xl border border-red-500/20" role="alert" tabindex="-1"></div>
+                    @if (ViewData.ModelState.Keys.Any(key => key is "AddTrail.ThumbnailImage" or "AddTrail.AdditionalImages"))
+                    {
+                        <p class="text-amber-300 text-xs mb-5 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">For security, image files are not retained after validation. Please select them again before saving.</p>
+                    }
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <div class="flex flex-col gap-5">
                             <div>
                                 <label for="addName" class="block text-sm font-medium text-gray-300 mb-2">Trail Name <span class="text-red-400">*</span></label>
-                                <input id="addName" name="Name" required class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm" placeholder="e.g., Mount Pulag" />
+                                <input asp-for="AddTrail.Name" id="addName" required aria-describedby="addNameError" class="add-trail-input block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm" placeholder="e.g., Mount Pulag – Ambangeg Trail" />
+                                <span id="addNameError" asp-validation-for="AddTrail.Name" class="text-red-400 text-xs mt-1 block" aria-live="polite"></span>
                             </div>
 
                             <div>
                                 <label for="addLocation" class="block text-sm font-medium text-gray-300 mb-2">Location <span class="text-red-400">*</span></label>
-                                <input id="addLocation" name="Location" required class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm" placeholder="e.g., Kabayan, Benguet" />
+                                <input asp-for="AddTrail.Location" id="addLocation" required aria-describedby="addLocationError" class="add-trail-input block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm" placeholder="e.g., Kabayan, Benguet" />
+                                <span id="addLocationError" asp-validation-for="AddTrail.Location" class="text-red-400 text-xs mt-1 block" aria-live="polite"></span>
                             </div>
 
                             <div>
                                 <label for="addDuration" class="block text-sm font-medium text-gray-300 mb-2">Typical Duration (hours) <span class="text-red-400">*</span></label>
-                                <input id="addDuration" name="TypicalDurationHours" type="number" step="any" min="0" required aria-describedby="addDurationHelp" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm" placeholder="e.g., 5.47" />
+                                <input asp-for="AddTrail.TypicalDurationHours" id="addDuration" type="number" step="any" min="0" required aria-describedby="addDurationHelp addDurationError" class="add-trail-input block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm" placeholder="e.g., 5.5" />
                                 <p id="addDurationHelp" class="text-xs text-gray-400 mt-2">Enter the typical recorded hiking time in hours, greater than zero.</p>
+                                <span id="addDurationError" asp-validation-for="AddTrail.TypicalDurationHours" class="text-red-400 text-xs mt-1 block" aria-live="polite"></span>
                             </div>
 
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label for="addDistance" class="block text-sm font-medium text-gray-300 mb-2">Distance (km) <span class="text-red-400">*</span></label>
-                                    <input id="addDistance" name="DistanceKm" type="number" step="0.01" min="0" required class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm" placeholder="e.g., 12" />
+                                    <input asp-for="AddTrail.DistanceKm" id="addDistance" type="number" step="0.01" min="0" required aria-describedby="addDistanceError" class="add-trail-input block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm" placeholder="e.g., 12" />
+                                    <span id="addDistanceError" asp-validation-for="AddTrail.DistanceKm" class="text-red-400 text-xs mt-1 block" aria-live="polite"></span>
                                 </div>
                                 <div>
                                     <label for="addElevation" class="block text-sm font-medium text-gray-300 mb-2">Elevation Gain (m) <span class="text-red-400">*</span></label>
-                                    <input id="addElevation" name="ElevationGainMeters" type="number" min="0" required class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm" placeholder="e.g., 850" />
+                                    <input asp-for="AddTrail.ElevationGainMeters" id="addElevation" type="number" min="0" required aria-describedby="addElevationError" class="add-trail-input block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm" placeholder="e.g., 850" />
+                                    <span id="addElevationError" asp-validation-for="AddTrail.ElevationGainMeters" class="text-red-400 text-xs mt-1 block" aria-live="polite"></span>
                                 </div>
                             </div>
 
                             <div>
                                 <p id="addTerrainLabel" class="block text-sm font-medium text-gray-300 mb-2">Terrain <span class="text-red-400">*</span></p>
-                                @await Html.PartialAsync("_TerrainChips", "add")
+                                @await Html.PartialAsync("_TerrainChips", "add", new ViewDataDictionary(ViewData) { ["SelectedTerrainValues"] = Model.AddTrail.TerrainValues })
                                 <p class="text-xs text-gray-500 mt-2">Select every terrain type that applies.</p>
                                 <p id="addTerrainError" hidden class="text-xs text-red-400 mt-1.5 flex items-center gap-1.5" role="alert">
                                     <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
                                     <span>Select at least one terrain type.</span>
                                 </p>
+                                <span id="addTerrainServerError" asp-validation-for="AddTrail.TerrainValues" class="text-red-400 text-xs mt-1 block" aria-live="polite"></span>
                             </div>
 
                             <div>
                                 <label for="addTrailClass" class="block text-sm font-medium text-gray-300 mb-2">Technical Trail Class <span class="text-red-400">*</span></label>
-                                <select id="addTrailClass" name="TrailClass" required data-custom-select data-cs-describedby="addTrailClassDescription" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm appearance-none cursor-pointer"
+                                <select asp-for="AddTrail.TrailClass" id="addTrailClass" required data-custom-select data-cs-describedby="addTrailClassDescription addTrailClassError" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm appearance-none cursor-pointer"
                                         style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;">
-                                    <option value="" disabled selected class="text-gray-500">Select Technical Trail Class</option>
+                                    <option value="" disabled class="text-gray-500">Select Technical Trail Class</option>
                                     <option value="1" class="bg-surface-card">1 — Walking</option>
                                     <option value="2" class="bg-surface-card">2 — Hiking</option>
                                     <option value="3" class="bg-surface-card">3 — Scrambling</option>
                                     <option value="4" class="bg-surface-card">4 — Simple Climbing</option>
                                 </select>
-                                <p class="text-xs text-gray-500 mt-2">Technical characteristics of the trail used when calculating difficulty for linked events. This is not the event's difficulty rating.</p>
                                 <p id="addTrailClassDescription" class="text-xs text-gray-400 mt-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2" aria-live="polite">Select a class above to see its full description.</p>
+                                <span id="addTrailClassError" asp-validation-for="AddTrail.TrailClass" class="text-red-400 text-xs mt-1 block" aria-live="polite"></span>
                             </div>
 
                             <div>
                                 <label for="addDescription" class="block text-sm font-medium text-gray-300 mb-2">Description <span class="text-red-400">*</span></label>
-                                <textarea id="addDescription" name="Description" required rows="6" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm resize-none" placeholder="Write a brief overview..."></textarea>
-                                <p class="text-xs text-gray-500 mt-2">Provide details about the trail, highlights, and what hikers can expect.</p>
+                                <textarea asp-for="AddTrail.Description" id="addDescription" required rows="6" aria-describedby="addDescriptionHelp addDescriptionError" class="add-trail-input block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm resize-none" placeholder="Describe the route, terrain, highlights, and what hikers can expect."></textarea>
+                                <p id="addDescriptionHelp" class="text-xs text-gray-500 mt-2">Provide details about the trail, highlights, and what hikers can expect.</p>
+                                <span id="addDescriptionError" asp-validation-for="AddTrail.Description" class="text-red-400 text-xs mt-1 block" aria-live="polite"></span>
                             </div>
                         </div>
 
                         <div class="flex flex-col gap-6">
                             <div>
-                                <label class="block text-sm font-medium text-gray-300 mb-1">Cover Photo <span class="text-red-400">*</span></label>
+                                <label for="thumbnailInput" class="block text-sm font-medium text-gray-300 mb-1">Cover Photo <span class="text-red-400">*</span></label>
                                 <p class="text-xs text-gray-500 mb-2">The main image shown on trail cards and listings.</p>
-                                <div id="thumbnailBox" class="relative bg-surface-card border border-dashed border-gray-600 rounded-xl flex flex-col items-center justify-center text-center hover:border-accent transition-colors cursor-pointer group h-32 px-4">
+                                <div id="thumbnailBox" class="relative bg-surface-card border border-dashed border-gray-600 rounded-xl flex flex-col items-center justify-center text-center hover:border-accent focus-within:border-accent focus-within:ring-1 focus-within:ring-accent transition-colors cursor-pointer group h-32 px-4">
                                     <i class="fa-solid fa-cloud-arrow-up text-2xl text-purple-400 mb-1.5 group-hover:text-purple-300 transition-colors" aria-hidden="true"></i>
                                     <p class="text-sm text-gray-300">Drag &amp; drop or <span class="font-semibold text-purple-400">click to browse</span></p>
                                     <p class="text-xs text-gray-500 mt-0.5">JPG or PNG, up to 5MB</p>
-                                    <input type="file" id="thumbnailInput" name="ThumbnailImage" accept="image/png, image/jpeg" required class="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" onchange="handleAddThumbnailPreview(this)" />
+                                    <input asp-for="AddTrail.ThumbnailImage" type="file" id="thumbnailInput" accept="image/png, image/jpeg" required aria-describedby="thumbnailError" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" onchange="handleAddThumbnailPreview(this)" />
                                 </div>
+                                <span id="thumbnailError" asp-validation-for="AddTrail.ThumbnailImage" class="text-red-400 text-xs mt-1 block" aria-live="polite"></span>
                                 <div id="thumbnailPreviewContainer" class="relative hidden h-32 w-full rounded-xl overflow-hidden border border-gray-700 mt-2 group">
                                     <img id="thumbnailPreviewImage" class="w-full h-full object-cover" alt="Cover photo preview" />
                                     <button type="button" onclick="removeAddThumbnail()" aria-label="Remove cover photo" class="absolute top-2 right-2 w-8 h-8 bg-gray-900/80 hover:bg-gray-700 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity shadow-lg z-20 focus:outline-none focus:ring-2 focus:ring-accent">
@@ -394,15 +407,16 @@
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-300 mb-1">Additional Photos</label>
+                                <label for="additionalInput" class="block text-sm font-medium text-gray-300 mb-1">Additional Photos</label>
                                 <p class="text-xs text-gray-500 mb-2">Optional. Up to 8 more photos to showcase the trail.</p>
-                                <div class="relative bg-surface-card border border-dashed border-gray-600 rounded-xl flex flex-col items-center justify-center text-center hover:border-accent transition-colors cursor-pointer group h-28 px-4">
+                                <div id="additionalBox" class="relative bg-surface-card border border-dashed border-gray-600 rounded-xl flex flex-col items-center justify-center text-center hover:border-accent focus-within:border-accent focus-within:ring-1 focus-within:ring-accent transition-colors cursor-pointer group h-28 px-4">
                                     <i class="fa-solid fa-images text-xl text-purple-400 mb-1.5 group-hover:text-purple-300 transition-colors" aria-hidden="true"></i>
                                     <p class="text-sm text-gray-300">Drag &amp; drop or <span class="font-semibold text-purple-400">click to browse</span></p>
                                     <p class="text-xs text-gray-500 mt-0.5">JPG or PNG, up to 5MB each</p>
-                                    <input type="file" id="additionalInput" name="AdditionalImages" accept="image/png, image/jpeg" multiple class="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" onchange="handleAdditionalPhotos(this)" />
+                                    <input asp-for="AddTrail.AdditionalImages" type="file" id="additionalInput" accept="image/png, image/jpeg" multiple aria-describedby="additionalError" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" onchange="handleAdditionalPhotos(this)" />
                                 </div>
                                 <div id="additionalPhotosGrid" class="grid grid-cols-4 gap-2 mt-3 empty:hidden"></div>
+                                <span id="additionalError" asp-validation-for="AddTrail.AdditionalImages" class="text-red-400 text-xs mt-1 block" aria-live="polite"></span>
                             </div>
                         </div>
                     </div>
@@ -477,6 +491,7 @@
                                 <p id="editTerrainLabel" class="block text-sm font-medium text-gray-300 mb-2">Terrain <span class="text-red-400">*</span></p>
                                 @await Html.PartialAsync("_TerrainChips", "edit")
                                 <p class="text-xs text-gray-500 mt-2">Select every terrain type that applies.</p>
+                                <p id="editLegacyMixedTerrainHint" hidden class="text-xs text-amber-300 mt-2">This trail uses the legacy “Mixed Terrain” value. Select specific terrain type(s) before saving.</p>
                                 <p id="editTerrainError" hidden class="text-xs text-red-400 mt-1.5 flex items-center gap-1.5" role="alert">
                                     <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
                                     <span>Select at least one terrain type.</span>
@@ -493,7 +508,6 @@
                                     <option value="3" class="bg-surface-card">3 — Scrambling</option>
                                     <option value="4" class="bg-surface-card">4 — Simple Climbing</option>
                                 </select>
-                                <p class="text-xs text-gray-500 mt-2">Technical characteristics of the trail used when calculating difficulty for linked events. This is not the event's difficulty rating.</p>
                                 <p id="editTrailClassDescription" class="text-xs text-gray-400 mt-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2" aria-live="polite">Select a class above to see its full description.</p>
                             </div>
 
@@ -1240,14 +1254,68 @@
             openEditModal(fakeButton, 'viewTrailModal');
         }
 
+        const MAX_TRAIL_IMAGE_BYTES = 5 * 1024 * 1024;
+        const LEGACY_MIXED_TERRAIN = '@TrailGuard.Services.TrailTerrainOptions.LegacyMixedTerrain';
+        let addThumbnailPreviewToken = 0;
+        let additionalPreviewToken = 0;
+
+        function addErrorElement(field) {
+            return document.getElementById(field.id + 'Error');
+        }
+
+        function setAddFieldError(field, message) {
+            const error = addErrorElement(field);
+            field.classList.add('input-validation-error', 'border-red-500');
+            field.setAttribute('aria-invalid', 'true');
+            if (error) {
+                error.textContent = message;
+                error.classList.remove('field-validation-valid');
+                error.classList.add('field-validation-error');
+            }
+        }
+
+        function clearAddFieldError(field) {
+            const error = addErrorElement(field);
+            field.classList.remove('input-validation-error', 'border-red-500');
+            field.setAttribute('aria-invalid', 'false');
+            if (error) {
+                error.textContent = '';
+                error.classList.remove('field-validation-error');
+                error.classList.add('field-validation-valid');
+            }
+        }
+
+        function validateTrailImageFiles(files, additional) {
+            const items = Array.from(files || []);
+            if (!additional && items.length !== 1) return 'Select a cover photo.';
+            if (additional && items.length > 8) return 'You can upload up to 8 additional photos.';
+            for (const file of items) {
+                if (!file || file.size === 0) return 'Image files cannot be empty.';
+                if (file.size > MAX_TRAIL_IMAGE_BYTES) return 'Image files must be 5MB or smaller.';
+                if (!['image/jpeg', 'image/png'].includes(file.type)) return 'Select a JPG or PNG image.';
+            }
+            return '';
+        }
+
         function handleAddThumbnailPreview(input) {
             const box = document.getElementById('thumbnailBox');
             const previewContainer = document.getElementById('thumbnailPreviewContainer');
             const previewImage = document.getElementById('thumbnailPreviewImage');
 
+            const error = validateTrailImageFiles(input.files, false);
+            if (error) {
+                setAddFieldError(input, error);
+                removeAddThumbnail();
+                return;
+            }
+
+            clearAddFieldError(input);
             if (input.files && input.files[0]) {
+                const file = input.files[0];
+                const previewToken = ++addThumbnailPreviewToken;
                 const reader = new FileReader();
                 reader.onload = function(e) {
+                    if (previewToken !== addThumbnailPreviewToken || input.files[0] !== file) return;
                     previewImage.src = e.target.result;
                     box.classList.add('hidden');
                     previewContainer.classList.remove('hidden');
@@ -1257,6 +1325,7 @@
         }
 
         function removeAddThumbnail() {
+            addThumbnailPreviewToken++;
             document.getElementById('thumbnailInput').value = '';
             document.getElementById('thumbnailPreviewContainer').classList.add('hidden');
             document.getElementById('thumbnailPreviewImage').src = '';
@@ -1266,9 +1335,15 @@
         let additionalFilesArray = [];
         function handleAdditionalPhotos(input) {
             if (!input.files || input.files.length === 0) return;
-            for (let i = 0; i < input.files.length; i++) {
-                additionalFilesArray.push(input.files[i]);
+            const proposedFiles = additionalFilesArray.concat(Array.from(input.files));
+            const error = validateTrailImageFiles(proposedFiles, true);
+            if (error) {
+                setAddFieldError(input, error);
+                input.value = '';
+                return;
             }
+            clearAddFieldError(input);
+            additionalFilesArray = proposedFiles;
             updateAdditionalUIAndInput();
         }
 
@@ -1280,6 +1355,7 @@
         function updateAdditionalUIAndInput() {
             const grid = document.getElementById('additionalPhotosGrid');
             const input = document.getElementById('additionalInput');
+            const previewToken = ++additionalPreviewToken;
             grid.innerHTML = '';
 
             const dataTransfer = new DataTransfer();
@@ -1287,6 +1363,7 @@
                 dataTransfer.items.add(file);
                 const reader = new FileReader();
                 reader.onload = function(e) {
+                    if (previewToken !== additionalPreviewToken) return;
                     const div = document.createElement('div');
                     div.className = 'relative aspect-square rounded-lg overflow-hidden border border-gray-600 group';
                     div.innerHTML = `
@@ -1333,6 +1410,8 @@
         function closeAddTrailModal() {
             TrailModal.close('addTrailModal');
             document.getElementById('addTrailForm').reset();
+            document.querySelectorAll('#addTrailForm .add-trail-input, #addTrailForm input[type="file"]').forEach(clearAddFieldError);
+            setAddTrailClassError('');
             resetTerrainChips('add');
             resetTerrainValidation('add');
             resetSubmitButton('addSubmitBtn', 'addSubmitBtnLabel', 'Save Trail');
@@ -1345,13 +1424,9 @@
             updateAdditionalUIAndInput();
         }
 
-        // Checks every chip whose value matches a value from the trail's stored
-        // Terrain string, and injects an extra pre-checked chip for any stored
-        // value that isn't one of the checkbox options - mirroring the same
-        // preservation the old single-select injected an <option> for, so opening
-        // Edit and saving again (without touching Terrain) doesn't silently drop
-        // a legacy value. Matching is case-insensitive but the injected chip's
-        // label and submitted value keep the original stored casing.
+        // Checks supported stored values and preserves non-Mixed legacy values as
+        // injected chips. Mixed Terrain is historical display data, not a
+        // selectable value: the Edit hint asks for specific selections instead.
         function populateTerrainChips(idPrefix, terrainString) {
             resetTerrainChips(idPrefix);
             const container = document.getElementById(idPrefix + 'TerrainChips');
@@ -1360,6 +1435,12 @@
             const values = (terrainString || '').split(',')
                 .map(function (t) { return t.trim(); })
                 .filter(function (t) { return t.length > 0; });
+            const hasLegacyMixedTerrain = values.some(function (value) {
+                return value.toLowerCase() === LEGACY_MIXED_TERRAIN.toLowerCase();
+            });
+            if (idPrefix === 'edit') {
+                document.getElementById('editLegacyMixedTerrainHint').hidden = !hasLegacyMixedTerrain;
+            }
             const checkboxes = Array.from(container.querySelectorAll('input[type="checkbox"]'));
 
             values.forEach(function (value) {
@@ -1370,31 +1451,28 @@
                     match.checked = true;
                     return;
                 }
+                if (value.toLowerCase() === LEGACY_MIXED_TERRAIN.toLowerCase()) return;
 
                 const inputId = idPrefix + 'Terrain-legacy-' + Math.random().toString(36).slice(2);
                 const label = document.createElement('label');
                 label.setAttribute('for', inputId);
                 label.setAttribute('data-injected-terrain', 'true');
                 label.title = value + ' (not in the standard list - existing stored value)';
-                label.className = 'group relative inline-flex items-center gap-1.5 cursor-pointer select-none px-3 py-1.5 rounded-full text-xs font-medium bg-surface-card border border-gray-700 text-gray-300 has-checked:bg-accent/15 has-checked:border-accent has-checked:text-white hover:border-gray-500 transition-colors focus-within:ring-2 focus-within:ring-accent';
+                label.className = 'relative inline-flex items-center cursor-pointer select-none px-3 py-1.5 rounded-full text-xs font-medium bg-surface-card border border-gray-700 text-gray-300 has-checked:bg-accent/15 has-checked:border-accent has-checked:text-white hover:border-gray-500 transition-colors focus-within:ring-2 focus-within:ring-accent';
 
                 const input = document.createElement('input');
                 input.type = 'checkbox';
                 input.id = inputId;
-                input.name = 'TerrainValues';
+                input.name = idPrefix === 'add' ? 'AddTrail.TerrainValues' : 'TerrainValues';
                 input.value = value;
                 input.checked = true;
+                input.dataset.supportedTerrain = 'false';
                 input.className = 'sr-only';
-
-                const icon = document.createElement('i');
-                icon.className = 'fa-solid fa-check text-[10px] hidden group-has-checked:inline-block';
-                icon.setAttribute('aria-hidden', 'true');
 
                 const text = document.createElement('span');
                 text.textContent = value;
 
                 label.appendChild(input);
-                label.appendChild(icon);
                 label.appendChild(text);
                 container.appendChild(label);
             });
@@ -1712,6 +1790,7 @@
             TrailModal.close('editTrailModal');
             document.getElementById('editTrailForm').reset();
             resetTerrainChips('edit');
+            document.getElementById('editLegacyMixedTerrainHint').hidden = true;
             resetTerrainValidation('edit');
             resetSubmitButton('editSubmitBtn', 'editSubmitBtnLabel', 'Save Changes');
             updateTrailClassDescription('editTrailClassDescription', '');
@@ -1808,27 +1887,31 @@
         }
 
         function validateTerrainSelection(idPrefix, form, focusOnInvalid) {
-            const checkboxes = Array.from(form.querySelectorAll('input[name="TerrainValues"]'));
-            const anyChecked = checkboxes.some(function (cb) { return cb.checked; });
-            setTerrainGroupInvalid(idPrefix, !anyChecked);
-            if (!anyChecked && focusOnInvalid && checkboxes[0]) {
-                checkboxes[0].focus();
+            const checkboxes = Array.from(document.getElementById(idPrefix + 'TerrainChips')?.querySelectorAll('input[type="checkbox"]') || []);
+            const supportedCheckboxes = checkboxes.filter(function (cb) { return cb.dataset.supportedTerrain === 'true'; });
+            const anySupportedChecked = supportedCheckboxes.some(function (cb) { return cb.checked; });
+            setTerrainGroupInvalid(idPrefix, !anySupportedChecked);
+            if (!anySupportedChecked && focusOnInvalid && (supportedCheckboxes[0] || checkboxes[0])) {
+                (supportedCheckboxes[0] || checkboxes[0]).focus();
             }
-            return anyChecked;
+            return anySupportedChecked;
         }
 
-        // Clears the error immediately once any chip (including one injected for
-        // a legacy value) is checked - delegated on the group container so it
-        // covers chips added dynamically by populateTerrainChips too.
+        // Clears the error once a supported chip is checked. Delegation covers
+        // the standard chips and any chips populateTerrainChips injects.
         function wireTerrainGroup(idPrefix) {
             const container = document.getElementById(idPrefix + 'TerrainChips');
             if (!container) return;
             container.addEventListener('change', function (event) {
-                if (!event.target || event.target.name !== 'TerrainValues') return;
-                const anyChecked = Array.from(container.querySelectorAll('input[name="TerrainValues"]'))
+                if (!event.target?.matches('input[type="checkbox"]')) return;
+                const anySupportedChecked = Array.from(container.querySelectorAll('input[data-supported-terrain="true"]'))
                     .some(function (cb) { return cb.checked; });
-                if (anyChecked) {
+                if (anySupportedChecked) {
                     setTerrainGroupInvalid(idPrefix, false);
+                    if (idPrefix === 'add') {
+                        const serverError = document.getElementById('addTerrainServerError');
+                        if (serverError) serverError.textContent = '';
+                    }
                 }
             });
         }
@@ -1843,6 +1926,90 @@
             if (label) label.textContent = defaultText;
         }
 
+        function setAddTrailClassError(message) {
+            const select = document.getElementById('addTrailClass');
+            const trigger = document.getElementById('addTrailClass-trigger');
+            if (!select) return;
+            if (message) {
+                setAddFieldError(select, message);
+            } else {
+                clearAddFieldError(select);
+            }
+            if (trigger) {
+                trigger.classList.toggle('border-red-500', !!message);
+                trigger.setAttribute('aria-invalid', message ? 'true' : 'false');
+            }
+        }
+
+        function validateAddTrailForm() {
+            let firstInvalid = null;
+            const invalidate = function (field, message) {
+                setAddFieldError(field, message);
+                firstInvalid ||= field;
+            };
+            const requiredText = [
+                [document.getElementById('addName'), 'Trail name is required.'],
+                [document.getElementById('addLocation'), 'Location is required.'],
+                [document.getElementById('addDescription'), 'Description is required.']
+            ];
+
+            requiredText.forEach(function ([field, message]) {
+                if (!field) return;
+                if (!field.value.trim()) invalidate(field, message);
+                else clearAddFieldError(field);
+            });
+
+            const duration = document.getElementById('addDuration');
+            const distance = document.getElementById('addDistance');
+            const elevation = document.getElementById('addElevation');
+            if (duration) {
+                if (!Number.isFinite(Number(duration.value)) || Number(duration.value) <= 0 || duration.value === '') invalidate(duration, 'Typical duration must be greater than zero.');
+                else clearAddFieldError(duration);
+            }
+            if (distance) {
+                if (!Number.isFinite(Number(distance.value)) || Number(distance.value) <= 0 || distance.value === '') invalidate(distance, 'Distance must be greater than zero.');
+                else clearAddFieldError(distance);
+            }
+            if (elevation) {
+                if (!Number.isInteger(Number(elevation.value)) || Number(elevation.value) < 0 || elevation.value === '') invalidate(elevation, 'Elevation gain must be zero or greater.');
+                else clearAddFieldError(elevation);
+            }
+
+            const trailClass = document.getElementById('addTrailClass');
+            if (!trailClass || !['1', '2', '3', '4'].includes(trailClass.value)) {
+                setAddTrailClassError('Select a valid technical trail class.');
+                firstInvalid ||= trailClass;
+            } else {
+                setAddTrailClassError('');
+            }
+
+            const cover = document.getElementById('thumbnailInput');
+            const coverError = validateTrailImageFiles(cover?.files, false);
+            if (coverError) invalidate(cover, coverError); else clearAddFieldError(cover);
+
+            const additional = document.getElementById('additionalInput');
+            const additionalError = validateTrailImageFiles(additionalFilesArray, true);
+            if (additionalError) invalidate(additional, additionalError); else clearAddFieldError(additional);
+
+            if (!validateTerrainSelection('add', document.getElementById('addTrailForm'), false)) {
+                firstInvalid ||= document.getElementById('addTerrainChips');
+            }
+
+            return firstInvalid;
+        }
+
+        function focusFirstAddTrailInvalid(firstInvalid) {
+            if (firstInvalid?.id === 'addTrailClass') {
+                document.getElementById('addTrailClass-trigger')?.focus();
+            } else if (firstInvalid?.id === 'addTerrainChips') {
+                firstInvalid.querySelector('input[type="checkbox"]')?.focus();
+            } else if (firstInvalid) {
+                firstInvalid.focus();
+            } else {
+                document.getElementById('addTrailFormErrors')?.focus();
+            }
+        }
+
         // Guards a Trail form against duplicate submissions: disables the submit
         // button and swaps its label only once Terrain validation has actually
         // passed and submission will proceed - never on a failed validation, so
@@ -1854,6 +2021,25 @@
             const submitBtn = document.getElementById(submitBtnId);
             const submitLabel = document.getElementById(submitLabelId);
             if (!form || !submitBtn) return;
+
+            if (idPrefix === 'add') {
+                form.addEventListener('submit', function (event) {
+                    if (submitBtn.disabled) {
+                        event.preventDefault();
+                        return;
+                    }
+                    const firstInvalid = validateAddTrailForm();
+                    if (firstInvalid) {
+                        event.preventDefault();
+                        showToast('Please check the highlighted fields.', 'error');
+                        requestAnimationFrame(function () { focusFirstAddTrailInvalid(firstInvalid); });
+                        return;
+                    }
+                    submitBtn.disabled = true;
+                    if (submitLabel) submitLabel.textContent = savingText;
+                });
+                return;
+            }
 
             const duration = document.getElementById(idPrefix + 'Duration');
             const validateDuration = () => {
@@ -1880,5 +2066,19 @@
 
         guardTrailFormSubmit('add', 'addTrailForm', 'addSubmitBtn', 'addSubmitBtnLabel', 'Saving...');
         guardTrailFormSubmit('edit', 'editTrailForm', 'editSubmitBtn', 'editSubmitBtnLabel', 'Saving...');
+
+        if (@(ViewData.ModelState.Keys.Any(key => string.IsNullOrEmpty(key) || key.StartsWith("AddTrail.")) ? "true" : "false")) {
+            openAddTrailModal();
+            requestAnimationFrame(function () {
+                const trailClass = document.getElementById('addTrailClass');
+                if (trailClass?.classList.contains('input-validation-error')) {
+                    const trigger = document.getElementById('addTrailClass-trigger');
+                    trigger?.classList.add('border-red-500');
+                    trigger?.setAttribute('aria-invalid', 'true');
+                }
+                const firstInvalid = document.querySelector('#addTrailForm .input-validation-error');
+                focusFirstAddTrailInvalid(firstInvalid);
+            });
+        }
     </script>
 }

@@ -8,12 +8,13 @@ namespace TrailGuard.Services
 
     public static class TrailTerrainOptions
     {
+        public const string LegacyMixedTerrain = "Mixed Terrain";
 
 
         public static readonly string[] AllowedValues =
         {
             "Grassland", "Mossy Forest", "Pine Forest", "River Trek",
-            "Rocky", "Rocky / Boulders", "Volcanic", "Muddy Trail", "Mixed Terrain",
+            "Rocky", "Rocky / Boulders", "Volcanic", "Muddy Trail",
         };
 
 
@@ -24,6 +25,17 @@ namespace TrailGuard.Services
                 .Split(',')
                 .Select(x => x.Trim())
                 .Where(x => x.Length > 0);
+
+        public static bool HasLegacyMixedTerrain(string? storedValue) =>
+            Parse(storedValue).Any(value => string.Equals(value, LegacyMixedTerrain, StringComparison.OrdinalIgnoreCase));
+
+        public static bool IsLegacyMixedTerrain(string? value) =>
+            string.Equals(value?.Trim(), LegacyMixedTerrain, StringComparison.OrdinalIgnoreCase);
+
+        public static bool HasSupportedSelection(IEnumerable<string>? submittedValues) =>
+            (submittedValues ?? Enumerable.Empty<string>())
+                .Select(value => (value ?? string.Empty).Trim())
+                .Any(value => AllowedValues.Contains(value, StringComparer.OrdinalIgnoreCase));
 
 
 
@@ -39,7 +51,7 @@ namespace TrailGuard.Services
             var existingValues = Parse(existingStoredValue).ToList();
 
             var trusted = new HashSet<string>(AllowedValues, StringComparer.OrdinalIgnoreCase);
-            foreach (var v in existingValues)
+            foreach (var v in existingValues.Where(value => !IsLegacyMixedTerrain(value)))
             {
                 trusted.Add(v);
             }

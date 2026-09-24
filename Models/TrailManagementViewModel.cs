@@ -17,6 +17,8 @@ namespace TrailGuard.Models
         public int DeactivatedTrailCount { get; set; }
 
         public List<DeactivatedTrailRowViewModel> DeactivatedTrails { get; set; } = new List<DeactivatedTrailRowViewModel>();
+
+        public AddTrailInputModel AddTrail { get; set; } = new();
     }
 
 
