@@ -52,5 +52,8 @@ namespace TrailGuard.Models
         public bool IsActive { get; set; } = true;
 
         public DateTime SubmittedAt { get; set; } = DateTime.Now;
+
+        // Existing relationship cardinality remains one assessment to many historical prediction records.
+        public virtual ICollection<SuitabilityResult> SuitabilityResults { get; set; } = new List<SuitabilityResult>();
     }
 }

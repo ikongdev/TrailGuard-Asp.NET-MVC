@@ -1,0 +1,45 @@
+{
+  "manifest_name": "TrailGuard v2",
+  "created_utc": "2026-09-28T17:28:26.535517+00:00",
+  "dataset_file": "TrailGuard_V2_Training_Data.xlsx",
+  "dataset_sha256": "9074ef84e09ddbcf2e1f94b62171fd1e3db0a12701e890d3677062e493f6bfcf",
+  "feature_schema_sha256": "9863f825175ac6c23061c69ede7c4fa7b260ec9530e024732c9dd3ab41c558a8",
+  "model_file": "selected_model.ubj",
+  "model_format": "XGBoost native UBJ",
+  "python_version": "3.14.6 (tags/v3.14.6:c63aec6, Jun 10 2026, 10:26:10) [MSC v.1944 64 bit (AMD64)]",
+  "platform": "Windows-11-10.0.26100-SP0",
+  "package_versions": {
+    "numpy": "2.4.4",
+    "pandas": "3.0.3",
+    "openpyxl": "3.1.5",
+    "scikit-learn": "1.9.0",
+    "xgboost": "3.4.0"
+  },
+  "dataset_validation_summary": {
+    "rows": 1200,
+    "unique_scenarios": 1200,
+    "unique_profiles": 300,
+    "literal_none_counts": {
+      "exercise_frequency": 0,
+      "cardio_duration": 344,
+      "exercise_consistency": 144,
+      "hiking_experience": 0,
+      "hiking_recency": 0,
+      "hardest_trail_completed": 300
+    },
+    "splits": {
+      "Train": {
+        "rows": 840,
+        "profiles": 210
+      },
+      "Validation": {
+        "rows": 180,
+        "profiles": 45
+      },
+      "Test": {
+        "rows": 180,
+        "profiles": 45
+      }
+    }
+  }
+}

@@ -69,15 +69,18 @@ namespace TrailGuard.Controllers
                 var latestRegistration = registrations.First(r => r.Assessment == latestAssessment);
                 var latestEvent = latestRegistration.Event;
 
-                var suitabilityResult = await _context.SuitabilityResults
-                    .FirstOrDefaultAsync(sr => sr.AssessmentId == latestAssessment.Id);
+                var resultSelection = SuitabilityResultSelector.Select(await _context.SuitabilityResults
+                    .Include(sr => sr.ShapValues)
+                    .Where(sr => sr.AssessmentId == latestAssessment.Id)
+                    .ToListAsync());
+                var suitabilityResult = resultSelection.IsInvalidOrUnsupported ? null : resultSelection.Result;
 
                 latestResult = new LatestAssessmentResult
                 {
                     Result = latestAssessment.Result ?? "Not Recommended",
                     Description = GetAssessmentDescription(latestAssessment.Result ?? ""),
                     SubmittedAt = latestAssessment.SubmittedAt,
-                    CompletionProbability = suitabilityResult?.CompletionProbability ?? 0,
+                    ModelScore = suitabilityResult?.ModelScore ?? 0,
                     HasMlPrediction = suitabilityResult != null,
                     AssessmentId = latestAssessment.Id,
                     EventId = latestEvent?.Id ?? 0,

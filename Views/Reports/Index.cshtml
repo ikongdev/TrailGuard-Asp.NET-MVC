@@ -41,6 +41,21 @@
         </div>
     </div>
 
+    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 mb-8">
+        <h2 class="text-lg font-bold text-white mb-2">Model and UI-policy provenance</h2>
+        <p class="text-gray-400 text-sm mb-4">Outcome groupings are kept separate by stored model and UI-policy version. The binary decision is reported separately from the three UI labels.</p>
+        <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="text-gray-400"><th class="p-2 text-left">Model</th><th class="p-2 text-left">UI policy</th><th>Outcomes</th><th>UI labels</th><th>Binary decision</th></tr></thead><tbody>
+        @foreach (var group in Model.ModelPolicyGroups)
+        {
+            <tr class="border-t border-white/10"><td class="p-2">@group.ModelVersion</td><td class="p-2">@group.UiPolicyVersion</td><td class="text-center">@group.RecordedOutcomes</td><td class="text-center">@group.GoodMatch / @group.Borderline / @group.NotRecommended</td><td class="text-center">Yes @group.BinaryYes · No @group.BinaryNo</td></tr>
+        }
+        </tbody></table></div>
+        @if (Model.ModelPolicyGroups.Count > 1)
+        {
+            <p class="text-amber-300 text-sm mt-4">Aggregate outcome rates below are withheld because records span multiple model or UI-policy versions.</p>
+        }
+    </div>
+
     @if (!Model.HasEnoughData)
     {
         <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-5 mb-8 flex items-start gap-3">

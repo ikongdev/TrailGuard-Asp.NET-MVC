@@ -22,7 +22,7 @@ namespace TrailGuard.Models
         public string? AssessmentResult { get; set; }
 
 
-        public double? CompletionProbability { get; set; }
+        public double? ModelScore { get; set; }
         public string? MedicalConditions { get; set; }
         public string? FitnessLevel { get; set; }
         public string? HikingExperience { get; set; }

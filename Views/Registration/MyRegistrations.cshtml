@@ -296,27 +296,34 @@
                                   : reg.assessmentResult === 'Borderline' ? 'text-amber-400'
                                   : 'text-red-400';
 
-                const factorBar = (factor) => `
+                const factorBar = (factor) => {
+                    const direction = factor.direction || (factor.isPositive ? 'raised' : 'lowered');
+                    const colorClass = direction === 'raised' ? 'text-emerald-400' : direction === 'lowered' ? 'text-red-400' : 'text-gray-400';
+                    const barClass = direction === 'raised' ? 'bg-emerald-500' : direction === 'lowered' ? 'bg-red-500' : 'bg-gray-500';
+                    const icon = direction === 'raised' ? 'fa-arrow-up' : direction === 'lowered' ? 'fa-arrow-down' : 'fa-minus';
+                    const text = direction === 'raised' ? 'Raised model score' : direction === 'lowered' ? 'Lowered model score' : 'Neutral';
+                    return `
                     <div>
                         <div class="flex justify-between items-center text-xs mb-1">
-                            <span class="text-gray-400">${factor.friendlyName} <span class="text-gray-500">(${factor.category})</span></span>
-                            <span class="${factor.isPositive ? 'text-emerald-400' : 'text-red-400'} font-semibold">
-                                <i class="fa-solid ${factor.isPositive ? 'fa-arrow-up' : 'fa-arrow-down'} mr-1"></i>${factor.isPositive ? 'Helped' : 'Reduced'}
+                                <span class="text-gray-400">${factor.friendlyName} <span class="text-gray-500">(${factor.originalInputValue || ''})</span></span>
+                            <span class="${colorClass} font-semibold">
+                                <i class="fa-solid ${icon} mr-1"></i>${text}
                             </span>
                         </div>
                         <div class="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                            <div class="h-full rounded-full ${factor.isPositive ? 'bg-emerald-500' : 'bg-red-500'}" style="width: ${factor.barWidth}%"></div>
+                            <div class="h-full rounded-full ${barClass}" style="width: ${factor.barWidth}%"></div>
                         </div>
                     </div>`;
+                };
 
                 const shapFactors = reg.shapFactors || [];
                 const assessmentSection = reg.hasMlPrediction
                     ? `<div class="flex items-center gap-3 mb-1">
                            <p class="text-gray-500 text-[10px] uppercase tracking-wider">Assessment</p>
                            <span class="text-sm font-bold ${assessColor}">${reg.assessmentResult || 'N/A'}</span>
-                           <span class="text-accent text-xs font-semibold ml-auto">${(reg.completionProbability * 100).toFixed(1)}% estimated completion chance</span>
+                           <span class="text-accent text-xs font-semibold ml-auto">${reg.modelScoreDisplay} model score</span>
                        </div>
-                       <p class="text-gray-500 text-[10px] mb-3">This is the model's estimated chance that you will complete this trail, based on outcomes from past participants. It supports the organizer's decision rather than replacing it.</p>
+                       <p class="text-gray-500 text-[10px] mb-3">Model score, not a guaranteed chance of hike completion.</p>
                        <div class="space-y-2.5">${shapFactors.map(factorBar).join('')}</div>`
                     : `<div class="flex items-center gap-3">
                            <p class="text-gray-500 text-[10px] uppercase tracking-wider">Assessment</p>

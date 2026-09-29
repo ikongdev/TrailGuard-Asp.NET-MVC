@@ -14,7 +14,10 @@ namespace TrailGuard.Models
         public Dictionary<string, string> Answers { get; set; } = new Dictionary<string, string>();
 
         public bool HasMlPrediction { get; set; }
-        public double CompletionProbability { get; set; }
+        public double ModelScore { get; set; }
+        public bool IsTrailGuardV2 { get; set; }
+        public string ScoreName { get; set; } = string.Empty;
+        public string TrailDuration { get; set; } = string.Empty;
         public string ModelVersion { get; set; } = string.Empty;
         public List<ShapDisplayItem> ShapFactors { get; set; } = new List<ShapDisplayItem>();
 

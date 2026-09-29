@@ -30,14 +30,14 @@ This document is the single shared context for anyone — human or coding agent 
 
 Three processes, two of them required.
 
-### Terminal 1 — ML service (required)
+### Terminal 1 — TrailGuard v2 adapter (required)
 
 ```bash
-cd trailguard-ml-v2
-python -m uvicorn main:app --reload --port 8000
+cd ml-services\trailguard-v2
+.venv\Scripts\python -m uvicorn app:app --host 127.0.0.1 --port 8011
 ```
 
-Must be run from inside `trailguard-ml-v2/` so `main.py` can load its v3 model and metadata files from the current directory.
+Set `TrailGuardV2Api:BaseUrl` to `http://127.0.0.1:8011` for local use. The historical `trailguard-ml-v2` service remains a baseline artifact and is not required for the active v2 assessment flow.
 
 ### Terminal 2 — Web application (required)
 
@@ -217,8 +217,8 @@ Don't state that work is ready to commit merely because implementation finished 
 ## Architecture
 
 ```
-ASP.NET Core MVC (C#)  ──HTTP/JSON──▶  Python FastAPI (XGBoost + SHAP)
-        │                                  localhost:8000/predict
+ASP.NET Core MVC (C#)  ──HTTP/JSON──▶  Python FastAPI v2 adapter (XGBoost + SHAP)
+        │                                  127.0.0.1:8011/predict
         ▼
    PostgreSQL
 ```

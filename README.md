@@ -124,10 +124,16 @@ Set it back to `"Local"` (or remove the key) to switch back. **The application m
 
 A malformed `ConnectionStrings:DefaultConnection`/`SupabaseConnection` value, or one missing a `Host` or `Database`, fails startup immediately with a clear, credential-free error — it is never passed through to a Npgsql connection attempt that could surface a less clear failure later.
 
-Apply migrations to whichever target is currently selected:
+Apply migrations only to the target you explicitly select. These commands do not copy data between targets and do not imply that Supabase has already been migrated:
 
 ```bash
-dotnet ef database update
+# Local PostgreSQL
+dotnet user-secrets set "Database:Target" "Local"
+dotnet ef database update -- --Database:Target=Local
+
+# Supabase PostgreSQL, only when intentionally authorized
+dotnet user-secrets set "Database:Target" "Supabase"
+dotnet ef database update -- --Database:Target=Supabase
 ```
 
 For a deployment environment that configures settings via environment variables instead of User Secrets, use the double-underscore form of the same keys:
@@ -167,11 +173,17 @@ Because Local and Supabase are separate databases (see "Database Setup" above), 
 
 ## Run the Application
 
-Start the ML service **first**. It must run on the same address as `MlApi:BaseUrl` in `appsettings.json` (the committed setting is `http://127.0.0.1:8000`):
+Start the active TrailGuard v2 adapter **first**. It is separate from the historical `trailguard-ml-v2` baseline and listens only on loopback port 8011:
 
 ```bash
-cd trailguard-ml-v2
-python -m uvicorn main:app --reload --port 8000
+cd ml-services\trailguard-v2
+.venv\Scripts\python -m uvicorn app:app --host 127.0.0.1 --port 8011
+```
+
+Configure the web application with the adapter address (this is not a credential):
+
+```bash
+dotnet user-secrets set "TrailGuardV2Api:BaseUrl" "http://127.0.0.1:8011"
 ```
 
 Then, in a second terminal at the repository root, start the web application:
@@ -180,7 +192,7 @@ Then, in a second terminal at the repository root, start the web application:
 dotnet run
 ```
 
-Assessments require the ML service. If it is unavailable or running at a different address, assessment submission returns an error and saves no result.
+Assessments require the v2 adapter. If it is unavailable or running at a different address, assessment submission returns an error and saves no result. Medical screening and any resulting clearance requirement remain separate C# registration rules: medical answers are not sent to the adapter, and the model result does not replace screening.
 
 > Note: If you modify Tailwind CSS files, rebuild or watch the CSS assets as required by your project configuration.
 

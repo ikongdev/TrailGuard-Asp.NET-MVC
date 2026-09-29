@@ -89,8 +89,8 @@ public static class ShapHelper
                 FeatureName = s.FeatureName,
                 FriendlyName = s.DisplayFriendlyName!,
                 Category = s.Category,
-                RawValue = s.RawValue ?? "",
-                Impact = s.ImpactValue,
+                OriginalInputValue = s.OriginalInputValue ?? "",
+                Impact = s.ShapContribution,
                 BarWidth = s.DisplaySharePct!.Value
             }).ToList();
     }
@@ -99,13 +99,13 @@ public static class ShapHelper
 
     public static List<string> BuildRecommendations(ICollection<ShapValue> shapValues)
     {
-        var totalImpact = shapValues.Sum(s => Math.Abs(s.ImpactValue));
+        var totalImpact = shapValues.Sum(s => Math.Abs(s.ShapContribution));
         if (totalImpact == 0) return new List<string>();
 
         return shapValues
-            .Where(s => s.ImpactValue < 0 && s.Category == Actionable)
-            .Where(s => 100 * Math.Abs(s.ImpactValue) / totalImpact >= 2.0)
-            .OrderBy(s => s.ImpactValue)
+            .Where(s => s.ShapContribution < 0 && s.Category == Actionable)
+            .Where(s => 100 * Math.Abs(s.ShapContribution) / totalImpact >= 2.0)
+            .OrderBy(s => s.ShapContribution)
             .ThenBy(s => Array.IndexOf(FeatureOrder, s.FeatureName))
             .Take(3)
             .Select(s => RecommendationText(s.FeatureName))

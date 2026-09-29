@@ -1,0 +1,25 @@
+{
+  "model_type": "XGBoost binary:logistic",
+  "random_seed": 20260930,
+  "selection_metric": "validation log loss (lower is better)",
+  "threshold": 0.5,
+  "positive_class": "Yes (1)",
+  "training_split": "Train only",
+  "validation_use": "early stopping and configuration selection only",
+  "test_use": "not loaded into any model array; not used for fitting, early stopping, selection, or threshold selection",
+  "automatic_refit_on_train_plus_validation": false,
+  "majority_class_from_train": 0,
+  "selected_candidate": "balanced_depth_4",
+  "selected_parameters": {
+    "name": "balanced_depth_4",
+    "max_depth": 4,
+    "learning_rate": 0.05,
+    "min_child_weight": 1,
+    "subsample": 0.9,
+    "colsample_bytree": 1.0,
+    "reg_lambda": 1.0,
+    "n_estimators": 1000,
+    "early_stopping_rounds": 50
+  },
+  "selected_tree_count": 985
+}

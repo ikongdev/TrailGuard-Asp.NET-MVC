@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using TrailGuard.Models;
+using TrailGuard.Services;
 
 namespace TrailGuard.Data
 {
@@ -48,6 +49,58 @@ namespace TrailGuard.Data
             builder.Entity<FinalSuitabilityLabel>()
                 .HasIndex(f => f.AssessmentId)
                 .IsUnique();
+
+            builder.Entity<SuitabilityResult>(entity =>
+            {
+                entity.Property(result => result.FrozenModelSha256).HasColumnType("text");
+                entity.Property(result => result.ScoreName).HasColumnType("text");
+                entity.Property(result => result.BinaryPrediction).HasColumnType("text");
+                entity.Property(result => result.BinaryThreshold).HasColumnType("double precision");
+                entity.Property(result => result.UiLabelPolicyVersion).HasColumnType("text");
+                entity.Property(result => result.GoodMatchOperator).HasColumnType("text");
+                entity.Property(result => result.GoodMatchThreshold).HasColumnType("double precision");
+                entity.Property(result => result.BorderlineMinimumOperator).HasColumnType("text");
+                entity.Property(result => result.BorderlineMinimum).HasColumnType("double precision");
+                entity.Property(result => result.BorderlineMaximumOperator).HasColumnType("text");
+                entity.Property(result => result.BorderlineMaximum).HasColumnType("double precision");
+                entity.Property(result => result.NotRecommendedOperator).HasColumnType("text");
+                entity.Property(result => result.NotRecommendedThreshold).HasColumnType("double precision");
+                entity.Property(result => result.ExerciseFrequency).HasColumnType("text");
+                entity.Property(result => result.CardioDuration).HasColumnType("text");
+                entity.Property(result => result.ExerciseConsistency).HasColumnType("text");
+                entity.Property(result => result.HikingExperience).HasColumnType("text");
+                entity.Property(result => result.HikingRecency).HasColumnType("text");
+                entity.Property(result => result.HardestTrailCompleted).HasColumnType("text");
+                entity.Property(result => result.DistanceKm).HasColumnType("double precision");
+                entity.Property(result => result.TypicalDurationHours).HasColumnType("double precision");
+                entity.Property(result => result.ShapBaseValue).HasColumnType("double precision");
+                entity.Property(result => result.ShapRawMargin).HasColumnType("double precision");
+                entity.Property(result => result.ShapScale).HasColumnType("text");
+                entity.Property(result => result.ShapContributionInterpretation).HasColumnType("text");
+                entity.Property(result => result.ShapVerificationAdditivityError).HasColumnType("double precision");
+                entity.Property(result => result.ShapVerificationProbabilityReconstructionError).HasColumnType("double precision");
+                entity.Property(result => result.ShapVerificationPredictionChangeAfterExplanation).HasColumnType("double precision");
+                entity.Property(result => result.ShapVerificationToleranceAbsolute).HasColumnType("double precision");
+            });
+
+            builder.Entity<ShapValue>()
+                .Property(value => value.FeatureOrder)
+                .HasColumnType("integer");
+
+            builder.Entity<SuitabilityResult>()
+                .HasOne(result => result.Assessment)
+                .WithMany(assessment => assessment.SuitabilityResults)
+                .HasForeignKey(result => result.AssessmentId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<Assessment>()
+                .HasIndex(assessment => assessment.EventId);
+
+            builder.Entity<Assessment>()
+                .HasIndex(assessment => new { assessment.EventId, assessment.UserId })
+                .HasDatabaseName(ParticipantEventWorkflowLock.ActiveAssessmentUniqueIndexName)
+                .IsUnique()
+                .HasFilter("\"IsActive\" = TRUE");
 
 
 

@@ -1,0 +1,73 @@
+{
+  "probability_yes": 0.9999628067016602,
+  "predicted_completion": 1,
+  "threshold": 0.5,
+  "selected_tree_count": 985,
+  "base_value": -0.3032675087451935,
+  "model_margin": 10.199163436889648,
+  "explanation_scale": "raw_margin_log_odds",
+  "contribution_interpretation": "Positive values push the model toward Yes; negative values push toward No. Contributions are log-odds changes, not percentage-point probability changes, causal effects, or medical conclusions.",
+  "features": [
+    {
+      "feature": "exercise_frequency",
+      "original_input_value": "3–4",
+      "shap_contribution": 0.8950298428535461
+    },
+    {
+      "feature": "cardio_duration",
+      "original_input_value": "15–29",
+      "shap_contribution": 0.8601807355880737
+    },
+    {
+      "feature": "exercise_consistency",
+      "original_input_value": "3+ months",
+      "shap_contribution": 1.1244648694992065
+    },
+    {
+      "feature": "hiking_experience",
+      "original_input_value": "4–10",
+      "shap_contribution": 1.5834465026855469
+    },
+    {
+      "feature": "hiking_recency",
+      "original_input_value": "Within 3 months",
+      "shap_contribution": 0.5996948480606079
+    },
+    {
+      "feature": "hardest_trail_completed",
+      "original_input_value": "Class 3",
+      "shap_contribution": 1.8587521314620972
+    },
+    {
+      "feature": "gear_score",
+      "original_input_value": 6,
+      "shap_contribution": 2.766174554824829
+    },
+    {
+      "feature": "distance_km",
+      "original_input_value": 8.0,
+      "shap_contribution": 1.1783708333969116
+    },
+    {
+      "feature": "elevation_gain_m",
+      "original_input_value": 600,
+      "shap_contribution": 0.08233198523521423
+    },
+    {
+      "feature": "trail_class",
+      "original_input_value": 3,
+      "shap_contribution": -0.31269463896751404
+    },
+    {
+      "feature": "typical_duration_hours",
+      "original_input_value": 5.0,
+      "shap_contribution": -0.13331787288188934
+    }
+  ],
+  "verification": {
+    "additivity_error": 2.8461217880249023e-06,
+    "probability_reconstruction_error": 6.74477729223355e-09,
+    "prediction_change_after_explanation": 0.0,
+    "feature_order_matches_frozen_schema": true
+  }
+}

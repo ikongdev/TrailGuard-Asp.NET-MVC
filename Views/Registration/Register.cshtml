@@ -14,7 +14,7 @@
     var resultIcon = isGoodMatch ? "fa-check-circle" : isBorderline ? "fa-triangle-exclamation" : "fa-xmark-circle";
 
     var hasMlPrediction = resultViewModel?.HasMlPrediction == true;
-    var completionProbabilityDisplay = Math.Round((resultViewModel?.CompletionProbability ?? 0) * 100, 1).ToString("0.0");
+    var modelScoreDisplay = TrailGuard.Services.TrailGuardV2Presentation.FormatModelScore(resultViewModel?.ModelScore ?? 0);
 
     var requiresClearance = ViewBag.RequiresMedicalClearance == true;
     var requiresPlan = ViewBag.RequiresPreparationPlan == true;
@@ -264,8 +264,8 @@
                         <p class="font-bold @resultColor text-sm">@resultViewModel?.Result</p>
                         @if (hasMlPrediction)
                         {
-                            <p class="text-accent text-[10px] font-semibold">@completionProbabilityDisplay% estimated completion chance</p>
-                            <p class="text-gray-500 text-[10px] mt-0.5">This is the model's estimated chance that you will complete this trail, based on outcomes from past participants. It supports the organizer's decision rather than replacing it.</p>
+                            <p class="text-accent text-[10px] font-semibold">@modelScoreDisplay model score</p>
+                            <p class="text-gray-500 text-[10px] mt-0.5">Model score, not a guaranteed chance of hike completion.</p>
                         }
                     </div>
                 </div>

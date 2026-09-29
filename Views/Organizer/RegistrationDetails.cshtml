@@ -45,7 +45,7 @@
     var receiptDownloadUrl = receiptAvailable ? Url.Action("RegistrationDownload", "Documents", new { id = Model.Id, kind = "receipt" }) : null;
     var hasReceiptOnFile = !string.IsNullOrEmpty(Model.PaymentReceiptUrl);
 
-    // Document requirements include agency policy, not just the ACSM screening flag.
+    // Medical clearance is governed only by the separate health screen.
     var clearanceRequired = Model.Assessment != null && TrailGuard.Services.RegistrationRulesHelper.RequiresMedicalClearance(Model.Assessment);
     var clearanceReason = Model.Assessment != null
         ? TrailGuard.Services.RegistrationRulesHelper.MedicalClearanceReason(Model.Assessment)
@@ -65,9 +65,10 @@
         : "grid grid-cols-1 gap-6 mt-6";
 
     var hasMlPrediction = ViewBag.HasMlPrediction == true;
+    var isTrailGuardV2 = ViewBag.IsTrailGuardV2 == true;
     var shapFactors = hasMlPrediction ? (ViewBag.ShapFactors as List<ShapDisplayItem> ?? new List<ShapDisplayItem>()) : new List<ShapDisplayItem>();
-    var supportedFactors = shapFactors.Where(f => f.IsPositive).ToList();
-    var weakenedFactors = shapFactors.Where(f => !f.IsPositive).ToList();
+    var supportedFactors = shapFactors.Where(f => isTrailGuardV2 ? f.Direction == "raised" : f.IsPositive).ToList();
+    var weakenedFactors = shapFactors.Where(f => isTrailGuardV2 ? f.Direction == "lowered" : !f.IsPositive).ToList();
     var alternativeEvents = ViewBag.AlternativeEvents as List<Event> ?? new List<Event>();
 }
 
@@ -359,14 +360,14 @@
                     <p class="text-lg font-semibold @resultTextClass(Model.Assessment.Result)">@(string.IsNullOrEmpty(Model.Assessment.Result) ? "No result available" : Model.Assessment.Result)</p>
                 </div>
                 <div>
-                    <p class="text-gray-500 text-[11px] uppercase tracking-wider">Estimated completion chance</p>
+                    <p class="text-gray-500 text-[11px] uppercase tracking-wider">Model score</p>
                     @if (hasMlPrediction)
                     {
-                        <p class="text-accent font-semibold text-lg">@(((double)ViewBag.MlCompletionProbability * 100).ToString("0.0"))%</p>
+                        <p class="text-accent font-semibold text-lg">@TrailGuard.Services.TrailGuardV2Presentation.FormatModelScore((double)ViewBag.MlModelScore)</p>
                     }
                     else
                     {
-                        <p class="text-gray-500 text-sm">Completion estimate unavailable</p>
+                        <p class="text-gray-500 text-sm">Model score unavailable</p>
                     }
                 </div>
             </div>
@@ -396,9 +397,9 @@
                                 {
                                     <div>
                                         <div class="flex justify-between items-center text-xs mb-1.5 gap-3">
-                                            <span class="text-gray-300 wrap-break-word">@factor.FriendlyName <span class="text-gray-500">(@factor.Category)</span></span>
+                                            <span class="text-gray-300 wrap-break-word">@factor.FriendlyName <span class="text-gray-500">(@factor.OriginalInputValue)</span></span>
                                             <span class="text-emerald-400 font-semibold shrink-0">
-                                                <i class="fa-solid fa-arrow-up mr-1" aria-hidden="true"></i>Supported (@factor.BarWidth.ToString("0.0")%)
+                                                <i class="fa-solid fa-arrow-up mr-1" aria-hidden="true"></i>Raised model score
                                             </span>
                                         </div>
                                         <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden" role="progressbar" aria-valuenow="@factor.BarWidth" aria-valuemin="0" aria-valuemax="100" aria-label="@($"{factor.FriendlyName} share of impact")">
@@ -422,9 +423,9 @@
                                 {
                                     <div>
                                         <div class="flex justify-between items-center text-xs mb-1.5 gap-3">
-                                            <span class="text-gray-300 wrap-break-word">@factor.FriendlyName <span class="text-gray-500">(@factor.Category)</span></span>
+                                            <span class="text-gray-300 wrap-break-word">@factor.FriendlyName <span class="text-gray-500">(@factor.OriginalInputValue)</span></span>
                                             <span class="text-red-400 font-semibold shrink-0">
-                                                <i class="fa-solid fa-arrow-down mr-1" aria-hidden="true"></i>Weakened (@factor.BarWidth.ToString("0.0")%)
+                                                <i class="fa-solid fa-arrow-down mr-1" aria-hidden="true"></i>Lowered model score
                                             </span>
                                         </div>
                                         <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden" role="progressbar" aria-valuenow="@factor.BarWidth" aria-valuemin="0" aria-valuemax="100" aria-label="@($"{factor.FriendlyName} share of impact")">
@@ -460,7 +461,15 @@
 
                 <div class="mb-4">
                     <label for="decisionReasonInput" class="block text-sm font-medium text-gray-300 mb-2">
-                        Decision Reason <span id="decisionReasonOptionalTag" class="text-gray-500 text-xs">(Optional)</span>
+                        Decision Reason
+                        @if (Model.Assessment?.Result == "Not Recommended")
+                        {
+                            <span id="decisionReasonOptionalTag" class="text-amber-400 text-xs">(Required when approving Not Recommended)</span>
+                        }
+                        else
+                        {
+                            <span id="decisionReasonOptionalTag" class="text-gray-500 text-xs">(Optional)</span>
+                        }
                     </label>
                     <textarea id="decisionReasonInput" rows="4" maxlength="2000" aria-describedby="decisionReasonError"
                               class="w-full bg-black/20 border border-gray-700 text-white rounded-xl px-4 py-3 text-sm focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors resize-none min-h-25"

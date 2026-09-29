@@ -20,14 +20,19 @@ namespace TrailGuard.Models
         [Required]
         public string Category { get; set; } = string.Empty;
 
-        public double ImpactValue { get; set; }
+        public double ShapContribution { get; set; }
 
-        public string? RawValue { get; set; }
+        // Historical rows retain their original plain text. Frozen v2 rows retain the API's
+        // original JSON scalar text; consumers parse only when the stored model is recognized.
+        public string? OriginalInputValue { get; set; }
 
         public int? DisplayOrder { get; set; }
 
         public double? DisplaySharePct { get; set; }
 
         public string? DisplayFriendlyName { get; set; }
+
+        // Frozen-model feature order; separate from v3's optional display ordering.
+        public int? FeatureOrder { get; set; }
     }
 }

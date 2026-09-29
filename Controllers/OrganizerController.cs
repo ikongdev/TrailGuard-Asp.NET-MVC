@@ -200,9 +200,12 @@ namespace TrailGuard.Controllers
                 .Distinct()
                 .ToList();
 
-            var completionProbabilityByAssessmentId = await _context.SuitabilityResults
+            var resultCandidatesByAssessmentId = (await _context.SuitabilityResults
+                .Include(sr => sr.ShapValues)
                 .Where(sr => assessmentIds.Contains(sr.AssessmentId))
-                .ToDictionaryAsync(sr => sr.AssessmentId, sr => sr.CompletionProbability);
+                .ToListAsync())
+                .GroupBy(result => result.AssessmentId)
+                .ToDictionary(group => group.Key, group => SuitabilityResultSelector.Select(group));
 
             var viewModel = registrationsList.Select(r => new RegistrationWithAssessmentViewModel
             {
@@ -224,8 +227,9 @@ namespace TrailGuard.Controllers
                 EmergencyContactNumber = r.EmergencyContactNumber,
                 AssessmentId = r.AssessmentId,
                 AssessmentResult = r.Assessment?.Result,
-                CompletionProbability = r.AssessmentId.HasValue && completionProbabilityByAssessmentId.TryGetValue(r.AssessmentId.Value, out var completionProbability)
-                    ? completionProbability
+                ModelScore = r.AssessmentId.HasValue && resultCandidatesByAssessmentId.TryGetValue(r.AssessmentId.Value, out var resultSelection)
+                    && !resultSelection.IsInvalidOrUnsupported && resultSelection.Result is not null
+                    ? resultSelection.Result.ModelScore
                     : (double?)null,
                 MedicalConditions = r.Assessment?.MedicalConditions,
                 FitnessLevel = r.Assessment?.ExerciseFrequency,
@@ -275,16 +279,26 @@ namespace TrailGuard.Controllers
                     registration.Assessment!.Result ?? ""
                 );
 
-                var suitabilityResult = await _context.SuitabilityResults
+                var resultSelection = SuitabilityResultSelector.Select(await _context.SuitabilityResults
                     .Include(s => s.ShapValues)
-                    .FirstOrDefaultAsync(s => s.AssessmentId == registration.Assessment.Id);
+                    .Where(s => s.AssessmentId == registration.Assessment.Id)
+                    .ToListAsync());
+                if (resultSelection.IsInvalidOrUnsupported)
+                {
+                    TempData["Error"] = "This registration has an invalid or unsupported prediction record.";
+                    return RedirectToAction("Registrations");
+                }
+                var suitabilityResult = resultSelection.Result;
 
                 if (suitabilityResult != null)
                 {
                     ViewBag.HasMlPrediction = true;
-                    ViewBag.MlCompletionProbability = suitabilityResult.CompletionProbability;
+                    ViewBag.MlModelScore = suitabilityResult.ModelScore;
                     ViewBag.MlModelVersion = suitabilityResult.ModelVersion;
-                    ViewBag.ShapFactors = ShapHelper.BuildDisplayItems(suitabilityResult.ShapValues);
+                    ViewBag.ShapFactors = resultSelection.IsRecognizedV2
+                        ? TrailGuardV2Presentation.BuildV2Factors(suitabilityResult.ShapValues)
+                        : ShapHelper.BuildDisplayItems(suitabilityResult.ShapValues);
+                    ViewBag.IsTrailGuardV2 = resultSelection.IsRecognizedV2;
                 }
                 else
                 {
@@ -475,16 +489,13 @@ namespace TrailGuard.Controllers
         {
             try
             {
-                var currentUser = await _userManager.GetUserAsync(User);
+                var currentUser = await GetCurrentUserForDecisionAsync();
                 if (currentUser == null)
                 {
                     return Json(new { success = false, message = "Registration not found" });
                 }
 
-                var registration = await _context.EventRegistrations
-                    .Include(r => r.Event)
-                    .Include(r => r.Assessment)
-                    .FirstOrDefaultAsync(r => r.Id == request.Id);
+                var registration = await FindRegistrationForDecisionAsync(request.Id);
 
 
 
@@ -652,6 +663,14 @@ namespace TrailGuard.Controllers
 
             return View(eventItem);
         }
+
+        // Query seams keep the status-decision path testable without a database; production behavior remains the same EF queries.
+        protected virtual Task<ApplicationUser?> GetCurrentUserForDecisionAsync() => _userManager.GetUserAsync(User);
+
+        protected virtual Task<EventRegistration?> FindRegistrationForDecisionAsync(int registrationId) => _context.EventRegistrations
+            .Include(r => r.Event)
+            .Include(r => r.Assessment)
+            .FirstOrDefaultAsync(r => r.Id == registrationId);
 
 
 
@@ -895,9 +914,12 @@ namespace TrailGuard.Controllers
             var outcomes = await _context.FinalSuitabilityLabels
                 .ToDictionaryAsync(l => l.AssessmentId, l => l);
             var assessmentIds = registrations.Where(r => r.AssessmentId.HasValue).Select(r => r.AssessmentId!.Value).ToList();
-            var predictions = await _context.SuitabilityResults
+            var predictionSelections = (await _context.SuitabilityResults
+                .Include(result => result.ShapValues)
                 .Where(r => assessmentIds.Contains(r.AssessmentId))
-                .ToDictionaryAsync(r => r.AssessmentId, r => r);
+                .ToListAsync())
+                .GroupBy(result => result.AssessmentId)
+                .ToDictionary(group => group.Key, group => SuitabilityResultSelector.Select(group));
 
             var results = new List<ComparisonResult>();
 
@@ -907,7 +929,12 @@ namespace TrailGuard.Controllers
                 participantFeedbacks.TryGetValue(userId, out var participantFeedback);
                 organizerAssessments.TryGetValue(userId, out var organizerAssessment);
                 outcomes.TryGetValue(reg.AssessmentId ?? 0, out var outcome);
-                predictions.TryGetValue(reg.AssessmentId ?? 0, out var prediction);
+                predictionSelections.TryGetValue(reg.AssessmentId ?? 0, out var predictionSelection);
+                var predictionIsInvalidOrUnsupported = predictionSelection?.IsInvalidOrUnsupported == true;
+                var prediction = predictionIsInvalidOrUnsupported ? null : predictionSelection?.Result;
+                var selectedLabel = predictionIsInvalidOrUnsupported
+                    ? "Invalid / unsupported prediction record"
+                    : prediction?.UiLabel ?? reg.Assessment?.Result ?? "Not available";
 
                 results.Add(new ComparisonResult
                 {
@@ -920,9 +947,13 @@ namespace TrailGuard.Controllers
                     ConservativeDifficultyExperience = outcome?.DifficultyExperience,
                     Completed = outcome?.Completed,
                     NonCompletionReason = outcome?.NonCompletionReason,
-                    PredictedLabel = prediction?.PredictedLabel ?? reg.Assessment?.Result ?? "Not available",
-                    CompletionProbability = prediction?.CompletionProbability,
-                    Comparison = ComparisonFor(prediction?.PredictedLabel ?? reg.Assessment?.Result, outcome?.Completed)
+                    ModelUiLabel = selectedLabel,
+                    ModelScore = prediction?.ModelScore,
+                    ModelVersion = prediction?.ModelVersion,
+                    UiPolicyVersion = prediction?.UiLabelPolicyVersion,
+                    Comparison = predictionIsInvalidOrUnsupported
+                        ? "Not available"
+                        : ComparisonFor(prediction?.UiLabel ?? reg.Assessment?.Result, outcome?.Completed)
                 });
             }
 

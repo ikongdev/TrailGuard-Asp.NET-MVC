@@ -9,7 +9,7 @@ namespace TrailGuard.Services
 
 
 
-            return assessment.Result == "Not Recommended" || assessment.MedicalClearanceRequired;
+            return assessment.MedicalClearanceRequired;
         }
 
         public static bool RequiresPreparationPlan(Assessment assessment)
@@ -23,9 +23,7 @@ namespace TrailGuard.Services
 
             if (assessment.MedicalClearanceRequired)
                 return "Required because your assessment flagged a health condition that needs medical clearance.";
-            return assessment.Result == "Not Recommended"
-                ? "Required by agency policy because your assessment result is Not Recommended."
-                : string.Empty;
+            return string.Empty;
         }
     }
 }

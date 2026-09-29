@@ -1,0 +1,44 @@
+{
+  "model_version": "trailguard-v2.0.0",
+  "frozen_model_sha256": "bdc93bff426fadbcab6d4ce16b4a457050a6875fb67c355df0da5101caeb4e35",
+  "selected_tree_count": 985,
+  "model_score": 0.9999628067016602,
+  "score_name": "probability_yes",
+  "binary_prediction": "Yes",
+  "binary_threshold": 0.5,
+  "ui_label": "Good Match",
+  "ui_label_policy_version": "inherited-0.30-0.80",
+  "ui_label_policy": {
+    "good_match": { "operator": ">=", "threshold": 0.8 },
+    "borderline": { "minimum_operator": ">=", "minimum": 0.3, "maximum_operator": "<", "maximum": 0.8 },
+    "not_recommended": { "operator": "<", "threshold": 0.3 }
+  },
+  "shap": {
+    "base_value": -0.3032675087451935,
+    "raw_margin": 10.199163436889648,
+    "scale": "raw_margin_log_odds",
+    "contribution_interpretation": "Positive values push the model toward Yes; negative values push toward No. Contributions are log-odds changes, not percentage-point probability changes, causal effects, or medical conclusions.",
+    "contributions": [
+      { "feature": "exercise_frequency", "original_input_value": "3\u20134", "shap_contribution": 0.8950298428535461 },
+      { "feature": "cardio_duration", "original_input_value": "15\u201329", "shap_contribution": 0.8601807355880737 },
+      { "feature": "exercise_consistency", "original_input_value": "3+ months", "shap_contribution": 1.1244648694992065 },
+      { "feature": "hiking_experience", "original_input_value": "4\u201310", "shap_contribution": 1.5834465026855469 },
+      { "feature": "hiking_recency", "original_input_value": "Within 3 months", "shap_contribution": 0.5996948480606079 },
+      { "feature": "hardest_trail_completed", "original_input_value": "Class 3", "shap_contribution": 1.8587521314620972 },
+      { "feature": "gear_score", "original_input_value": 6, "shap_contribution": 2.766174554824829 },
+      { "feature": "distance_km", "original_input_value": 8.0, "shap_contribution": 1.1783708333969116 },
+      { "feature": "elevation_gain_m", "original_input_value": 600, "shap_contribution": 0.08233198523521423 },
+      { "feature": "trail_class", "original_input_value": 3, "shap_contribution": -0.31269463896751404 },
+      { "feature": "typical_duration_hours", "original_input_value": 5.0, "shap_contribution": -0.13331787288188934 }
+    ],
+    "verification": {
+      "additivity_error": 2.8461217880249023e-06,
+      "probability_reconstruction_error": 6.74477729223355e-09,
+      "prediction_change_after_explanation": 0.0,
+      "tolerance_absolute": 0.0001,
+      "predictions_unchanged": true,
+      "within_tolerance": true,
+      "feature_order_matches_frozen_schema": true
+    }
+  }
+}

@@ -145,9 +145,9 @@
                     var assessmentLabel = item.AssessmentResult ?? "Not assessed";
                     string? completionProbabilityLabel = item.AssessmentResult == null
                         ? null
-                        : (item.CompletionProbability.HasValue
-                            ? $"Completion estimate: {(item.CompletionProbability.Value * 100).ToString("0.0")}%"
-                            : "Completion estimate unavailable");
+                        : (item.ModelScore.HasValue
+                            ? $"Model score: {TrailGuard.Services.TrailGuardV2Presentation.FormatModelScore(item.ModelScore.Value)}"
+                            : "Model score unavailable");
 
                     <li>
                         <a asp-controller="Organizer" asp-action="RegistrationDetails" asp-route-id="@item.RegistrationId"

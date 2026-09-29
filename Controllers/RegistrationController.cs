@@ -22,8 +22,7 @@ namespace TrailGuard.Controllers
         [HttpGet]
         public async Task<IActionResult> Register(int eventId, int assessmentId)
         {
-            var eventItem = await _context.Events
-                .FirstOrDefaultAsync(e => e.Id == eventId);
+            var eventItem = await FindEventAsync(eventId);
 
             if (eventItem == null)
             {
@@ -72,10 +71,18 @@ namespace TrailGuard.Controllers
                 return RedirectToAction("Form", "Assessment", new { eventId = eventId });
             }
 
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+            var user = await FindUserAsync(userId);
 
-            var suitabilityResult = await _context.SuitabilityResults
-                .FirstOrDefaultAsync(s => s.AssessmentId == assessmentId);
+            var resultSelection = SuitabilityResultSelector.Select(await _context.SuitabilityResults
+                .Include(s => s.ShapValues)
+                .Where(s => s.AssessmentId == assessmentId)
+                .ToListAsync());
+            if (resultSelection.IsInvalidOrUnsupported)
+            {
+                TempData["Error"] = "This assessment's prediction record is invalid or unsupported and cannot be used for registration.";
+                return RedirectToAction("Report", "Assessment", new { assessmentId });
+            }
+            var suitabilityResult = resultSelection.Result;
 
             var viewModel = new AssessmentResultViewModel
             {
@@ -85,7 +92,12 @@ namespace TrailGuard.Controllers
                 EventDifficulty = eventItem.Difficulty,
                 Result = assessment.Result ?? "Not Recommended",
                 HasMlPrediction = suitabilityResult != null,
-                CompletionProbability = suitabilityResult?.CompletionProbability ?? 0
+                ModelScore = suitabilityResult?.ModelScore ?? 0,
+                IsTrailGuardV2 = resultSelection.IsRecognizedV2,
+                ScoreName = suitabilityResult?.ScoreName ?? "",
+                TrailDuration = suitabilityResult is not null && resultSelection.IsRecognizedV2
+                    ? TrailGuardV2Presentation.FormatDuration(suitabilityResult.TypicalDurationHours ?? 0)
+                    : string.Empty
             };
 
             ViewBag.Event = eventItem;
@@ -113,8 +125,7 @@ namespace TrailGuard.Controllers
             IFormFile? medicalClearance,
             string? preparationPlan)
         {
-            var eventItem = await _context.Events
-                .FirstOrDefaultAsync(e => e.Id == eventId);
+            var eventItem = await FindEventAsync(eventId);
 
             if (eventItem == null)
             {
@@ -123,10 +134,13 @@ namespace TrailGuard.Controllers
             }
 
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return Forbid();
+            }
+            var user = await FindUserAsync(userId);
 
-            var assessment = await _context.Assessments
-                .FirstOrDefaultAsync(a => a.Id == assessmentId && a.EventId == eventId && a.UserId == userId && a.IsActive == true);
+            var assessment = await FindActiveAssessmentAsync(assessmentId, eventId, userId);
 
             if (assessment == null)
             {
@@ -140,9 +154,7 @@ namespace TrailGuard.Controllers
 
 
 
-            var activeRegistration = await _context.EventRegistrations
-                .FirstOrDefaultAsync(r => r.EventId == eventId && r.UserId == userId &&
-                    (RegistrationStatusHelper.ActiveStatuses.Contains(r.Status) || r.Status == "Alternative Recommended"));
+            var activeRegistration = await FindExistingRegistrationAsync(eventId, userId);
 
             if (activeRegistration != null)
             {
@@ -156,8 +168,7 @@ namespace TrailGuard.Controllers
                 return RedirectToAction("Events", "Participant");
             }
 
-            var activeCount = await _context.EventRegistrations
-                .CountAsync(r => r.EventId == eventId && RegistrationStatusHelper.ActiveStatuses.Contains(r.Status));
+            var activeCount = await CountActiveRegistrationsAsync(eventId);
 
             if (activeCount >= eventItem.Capacity)
             {
@@ -194,8 +205,69 @@ namespace TrailGuard.Controllers
             }
 
 
-            var cancelledRegistration = await _context.EventRegistrations
-                .FirstOrDefaultAsync(r => r.EventId == eventId && r.UserId == userId && r.Status == "Cancelled");
+            VerifiedFileType? verifiedClearanceType = null;
+            if (medicalClearance != null && medicalClearance.Length > 0)
+            {
+                verifiedClearanceType = await DocumentUploadValidator.ValidateAsync(medicalClearance);
+                if (verifiedClearanceType == null)
+                {
+                    TempData["Error"] = "Medical clearance must be a JPG, PNG, WEBP, or PDF file.";
+                    return RedirectToAction("Register", new { eventId, assessmentId });
+                }
+            }
+
+            string? createdClearancePath = null;
+            var committed = false;
+            try
+            {
+                await using var transaction = await _context.Database.BeginTransactionAsync();
+                await ParticipantEventWorkflowLock.AcquireAsync(_context, eventId, userId);
+                _context.ChangeTracker.Clear();
+
+                var lockedEvent = await FindEventAsync(eventId);
+                var lockedAssessment = await FindActiveAssessmentAsync(assessmentId, eventId, userId);
+                if (lockedEvent == null || lockedAssessment == null)
+                {
+                    TempData["Error"] = "Your assessment is no longer active. Please review the latest assessment before registering.";
+                    return RedirectToAction("Form", "Assessment", new { eventId });
+                }
+
+                if (await FindExistingRegistrationAsync(eventId, userId) != null)
+                {
+                    TempData["Success"] = "You are already registered for this event.";
+                    return RedirectToAction("Details", "Participant", new { id = eventId });
+                }
+
+                if (!EventJoinabilityHelper.IsJoinable(lockedEvent)
+                    || await CountActiveRegistrationsAsync(eventId) >= lockedEvent.Capacity)
+                {
+                    TempData["Error"] = "This event is no longer open for registration.";
+                    return RedirectToAction("Events", "Participant");
+                }
+
+                if (RegistrationRulesHelper.RequiresMedicalClearance(lockedAssessment)
+                    && (medicalClearance == null || medicalClearance.Length == 0))
+                {
+                    TempData["Error"] = "A medical clearance document is required based on your assessment.";
+                    return RedirectToAction("Register", new { eventId, assessmentId });
+                }
+
+                if (RegistrationRulesHelper.RequiresPreparationPlan(lockedAssessment)
+                    && string.IsNullOrWhiteSpace(preparationPlan))
+                {
+                    TempData["Error"] = "A preparation plan is required because your assessment result is Not Recommended.";
+                    return RedirectToAction("Register", new { eventId, assessmentId });
+                }
+
+                var lockedPickupPoint = PickupScheduleHelper.FindCanonicalMatch(lockedEvent.PickupPoints, pickupPoint);
+                if (lockedPickupPoint == null)
+                {
+                    TempData["Error"] = "Please select a valid pickup schedule for this event.";
+                    return RedirectToAction("Register", new { eventId, assessmentId });
+                }
+
+                var cancelledRegistration = await _context.EventRegistrations
+                    .FirstOrDefaultAsync(r => r.EventId == eventId && r.UserId == userId && r.Status == "Cancelled");
 
             if (cancelledRegistration != null)
             {
@@ -209,26 +281,19 @@ namespace TrailGuard.Controllers
                 }
             }
 
-            if (string.IsNullOrEmpty(participantName))
+                if (string.IsNullOrEmpty(participantName))
             {
                 participantName = user != null ? $"{user.FirstName} {user.LastName}" : "Participant";
             }
 
-            string? medicalClearanceUrl = null;
-            if (medicalClearance != null && medicalClearance.Length > 0)
+                string? medicalClearanceUrl = null;
+                if (medicalClearance != null && verifiedClearanceType.HasValue)
             {
 
 
 
 
 
-
-                var verifiedType = await DocumentUploadValidator.ValidateAsync(medicalClearance);
-                if (verifiedType == null)
-                {
-                    TempData["Error"] = "Medical clearance must be a JPG, PNG, WEBP, or PDF file.";
-                    return RedirectToAction("Register", new { eventId, assessmentId });
-                }
 
                 var uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "uploads", "medical-clearances");
                 if (!Directory.Exists(uploadsFolder))
@@ -238,8 +303,9 @@ namespace TrailGuard.Controllers
 
 
 
-                var fileName = DocumentUploadValidator.GenerateStoredFileName(uploadsFolder, verifiedType.Value);
+                var fileName = DocumentUploadValidator.GenerateStoredFileName(uploadsFolder, verifiedClearanceType.Value);
                 var filePath = Path.Combine(uploadsFolder, fileName);
+                createdClearancePath = filePath;
 
                 using (var stream = new FileStream(filePath, FileMode.CreateNew))
                 {
@@ -249,14 +315,14 @@ namespace TrailGuard.Controllers
                 medicalClearanceUrl = $"/uploads/medical-clearances/{fileName}";
             }
 
-            var registration = new EventRegistration
+                var registration = new EventRegistration
             {
                 EventId = eventId,
-                UserId = userId ?? "",
+                UserId = userId,
                 ParticipantName = participantName,
                 ContactNumber = contactNumber,
                 Email = email,
-                PickupPoint = canonicalPickupPoint,
+                PickupPoint = lockedPickupPoint,
                 Status = "Pending",
                 AssessmentId = assessmentId,
                 EmergencyContactName = emergencyContactName,
@@ -266,12 +332,51 @@ namespace TrailGuard.Controllers
                 RegisteredAt = DateTime.Now
             };
 
-            _context.EventRegistrations.Add(registration);
-            await _context.SaveChangesAsync();
+                _context.EventRegistrations.Add(registration);
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+                committed = true;
 
-            TempData["Success"] = "Registration submitted successfully! Your registration is pending approval by the organizer.";
-            return RedirectToAction("MyRegistrations");
+                TempData["Success"] = "Registration submitted successfully! Your registration is pending approval by the organizer.";
+                return RedirectToAction("MyRegistrations");
+            }
+            catch (DbUpdateException ex) when (ParticipantEventWorkflowLock.IsUniqueConstraintConflict(ex))
+            {
+                DeleteUncommittedClearance(createdClearancePath, committed);
+                TempData["Error"] = "Your registration changed while it was being submitted. Please review the latest status and try again.";
+                return RedirectToAction("Register", new { eventId, assessmentId });
+            }
+            catch
+            {
+                DeleteUncommittedClearance(createdClearancePath, committed);
+                throw;
+            }
         }
+
+        private static void DeleteUncommittedClearance(string? path, bool committed)
+        {
+            if (!committed && !string.IsNullOrWhiteSpace(path) && System.IO.File.Exists(path))
+            {
+                System.IO.File.Delete(path);
+            }
+        }
+
+        // Query seams keep the controller decision path testable without a database; production behavior remains the same EF queries.
+        protected virtual Task<Event?> FindEventAsync(int eventId) => _context.Events
+            .FirstOrDefaultAsync(e => e.Id == eventId);
+
+        protected virtual Task<ApplicationUser?> FindUserAsync(string? userId) => _context.Users
+            .FirstOrDefaultAsync(u => u.Id == userId);
+
+        protected virtual Task<Assessment?> FindActiveAssessmentAsync(int assessmentId, int eventId, string? userId) => _context.Assessments
+            .FirstOrDefaultAsync(a => a.Id == assessmentId && a.EventId == eventId && a.UserId == userId && a.IsActive == true);
+
+        protected virtual Task<EventRegistration?> FindExistingRegistrationAsync(int eventId, string? userId) => _context.EventRegistrations
+            .FirstOrDefaultAsync(r => r.EventId == eventId && r.UserId == userId &&
+                (RegistrationStatusHelper.ActiveStatuses.Contains(r.Status) || r.Status == "Alternative Recommended"));
+
+        protected virtual Task<int> CountActiveRegistrationsAsync(int eventId) => _context.EventRegistrations
+            .CountAsync(r => r.EventId == eventId && RegistrationStatusHelper.ActiveStatuses.Contains(r.Status));
 
         [HttpGet]
         public async Task<IActionResult> MyRegistrations()
@@ -433,13 +538,21 @@ namespace TrailGuard.Controllers
             SuitabilityResult? suitabilityResult = null;
             if (registration.Assessment != null)
             {
-                suitabilityResult = await _context.SuitabilityResults
+                var resultSelection = SuitabilityResultSelector.Select(await _context.SuitabilityResults
                     .Include(s => s.ShapValues)
-                    .FirstOrDefaultAsync(s => s.AssessmentId == registration.Assessment.Id);
+                    .Where(s => s.AssessmentId == registration.Assessment.Id)
+                    .ToListAsync());
+                if (resultSelection.IsInvalidOrUnsupported)
+                {
+                    return Json(new { success = false, message = "Assessment prediction record is invalid or unsupported." });
+                }
+                suitabilityResult = resultSelection.Result;
             }
 
             var shapFactors = suitabilityResult != null
-                ? ShapHelper.BuildDisplayItems(suitabilityResult.ShapValues)
+                ? suitabilityResult.ModelVersion == TrailGuardV2ResponseValidator.ExpectedModelVersion
+                    ? TrailGuardV2Presentation.BuildV2Factors(suitabilityResult.ShapValues)
+                    : ShapHelper.BuildDisplayItems(suitabilityResult.ShapValues)
                 : new List<ShapDisplayItem>();
 
             return Json(new
@@ -470,12 +583,17 @@ namespace TrailGuard.Controllers
                     emergencyContactNumber = registration.EmergencyContactNumber,
                     assessmentResult = registration.Assessment?.Result,
                     hasMlPrediction = suitabilityResult != null,
-                    completionProbability = suitabilityResult?.CompletionProbability,
+                    modelScore = suitabilityResult?.ModelScore,
+                    modelScoreDisplay = suitabilityResult is null
+                        ? null
+                        : TrailGuardV2Presentation.FormatModelScore(suitabilityResult.ModelScore),
                     shapFactors = shapFactors.Select(f => new
                     {
                         friendlyName = f.FriendlyName,
                         category = f.Category,
                         isPositive = f.IsPositive,
+                        direction = f.Direction,
+                        originalInputValue = f.OriginalInputValue,
                         barWidth = f.BarWidth
                     }),
                     status = registration.Status,

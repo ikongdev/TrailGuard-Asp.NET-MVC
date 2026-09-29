@@ -21,20 +21,15 @@
     var trailTerrain = eventItem != null ? eventItem.TrailTerrainSnapshot : null;
     var trailName = eventItem != null ? eventItem.TrailNameSnapshot : null;
 
-    var completionProbabilityPct = Math.Round((Model?.CompletionProbability ?? 0) * 100, 1);
-    var completionProbabilityDisplay = completionProbabilityPct.ToString("0.0");
+    var modelScore = Model?.ModelScore ?? 0;
+    var modelScoreDisplay = TrailGuard.Services.TrailGuardV2Presentation.FormatModelScore(modelScore);
+    var modelScorePercentForDonut = modelScore * 100;
 
     // What registration will actually ask for - same trigger RegistrationRulesHelper
     // uses, computed once in the controller so this can't drift from the form again.
     var requiresClearance = Model?.RequiresMedicalClearance == true;
     var requiresPlan = Model?.RequiresPreparationPlan == true;
-    // An ACSM-screened health condition is the more serious reason and wins the
-    // headline message even when Not Recommended would also require clearance on
-    // its own; the itemized list below still shows everything that's required
-    // either way, so nothing goes unmentioned.
-    var clearanceReasonText = Model?.AcsmMedicalClearanceRequired == true
-        ? "Your assessment flagged a health condition that needs medical clearance before you can register."
-        : "This trail is significantly beyond your current readiness. Registration will require a medical clearance and a preparation plan.";
+    var clearanceReasonText = "Your assessment flagged a health condition that needs medical clearance before you can register.";
 
     var trailClass = eventItem?.TrailClassSnapshot ?? 0;
     var terrainTypeLabel = TrailGuard.Services.DifficultyCalculator.TrailClassLabel(trailClass);
@@ -72,8 +67,8 @@
                 <div class="relative shrink-0" style="width: 120px; height: 120px;">
                     <canvas id="confidenceDonutChart" width="120" height="120"></canvas>
                     <div class="absolute inset-0 flex flex-col items-center justify-center">
-                        <span class="text-xl font-bold text-white">@completionProbabilityDisplay%</span>
-                        <span class="text-[8px] text-gray-400">completion chance</span>
+                        <span class="text-xl font-bold text-white">@modelScoreDisplay</span>
+                        <span class="text-[8px] text-gray-400">Model score</span>
                     </div>
                 </div>
             }
@@ -194,40 +189,59 @@
                             <i class="fa-solid fa-brain text-accent mr-2"></i>Why This Result?
                         </h2>
                         <div class="text-right">
-                            <div class="text-xs text-gray-400">Estimated completion chance</div>
-                            <div class="text-lg font-bold text-accent">@completionProbabilityDisplay%</div>
+                            <div class="text-xs text-gray-400">Model score</div>
+                            <div class="text-lg font-bold text-accent">@modelScoreDisplay</div>
                         </div>
                     </div>
                     <p class="text-sm text-gray-400 mb-1">
                         These are the factors that most influenced your assessment result.
                     </p>
                     <p class="text-xs text-gray-500 mb-5">
-                        This is the model's estimated chance that you will complete this trail, based on outcomes from past participants. It supports the organizer's decision rather than replacing it.
+                        Model score, not a guaranteed chance of hike completion.
                     </p>
 
-                    <div class="space-y-4">
-                        @foreach (var factor in Model.ShapFactors)
+                    <div class="space-y-4" id="topShapFactors">
+                        @foreach (var factor in Model.ShapFactors.Take(Model.IsTrailGuardV2 ? 5 : Model.ShapFactors.Count))
                         {
                             <div>
                                 <div class="flex justify-between items-center text-sm mb-1.5">
-                                    <span class="text-gray-300">@factor.FriendlyName <span class="text-gray-500 text-xs">(@factor.Category)</span></span>
-                                    <span class="@(factor.IsPositive ? "text-emerald-400" : "text-red-400") font-semibold text-xs">
-                                        <i class="fa-solid @(factor.IsPositive ? "fa-arrow-up" : "fa-arrow-down") mr-1"></i>
-                                        @(factor.IsPositive ? "Helped" : "Reduced") · @factor.BarWidth.ToString("0.#")%
+                                    <span class="text-gray-300">@factor.FriendlyName <span class="text-gray-500 text-xs">(@factor.OriginalInputValue)</span></span>
+                                    <span class="@(factor.Direction == "raised" ? "text-emerald-400" : factor.Direction == "lowered" ? "text-red-400" : "text-gray-400") font-semibold text-xs">
+                                        <i class="fa-solid @(factor.Direction == "raised" ? "fa-arrow-up" : factor.Direction == "lowered" ? "fa-arrow-down" : "fa-minus") mr-1"></i>
+                                        @(factor.Direction == "raised" ? "Raised model score" : factor.Direction == "lowered" ? "Lowered model score" : "Neutral")
                                     </span>
                                 </div>
                                 <div class="w-full h-2.5 bg-gray-700 rounded-full overflow-hidden">
-                                    <div class="h-full rounded-full transition-all duration-700 @(factor.IsPositive ? "bg-emerald-500" : "bg-red-500")"
+                                    <div class="h-full rounded-full transition-all duration-700 @(factor.Direction == "raised" ? "bg-emerald-500" : factor.Direction == "lowered" ? "bg-red-500" : "bg-gray-500")"
                                          style="width: @factor.BarWidth%"></div>
                                 </div>
                             </div>
                         }
                     </div>
 
+                    @if (Model.IsTrailGuardV2 && Model.ShapFactors.Count > 5)
+                    {
+                        <button type="button" id="showAllFactors" class="mt-4 text-sm text-accent hover:brightness-125">View all factors</button>
+                        <div class="space-y-4 mt-4 hidden" id="remainingShapFactors">
+                            @foreach (var factor in Model.ShapFactors.Skip(5))
+                            {
+                                <div>
+                                    <div class="flex justify-between items-center text-sm mb-1.5">
+                                        <span class="text-gray-300">@factor.FriendlyName <span class="text-gray-500 text-xs">(@factor.OriginalInputValue)</span></span>
+                                        <span class="@(factor.Direction == "raised" ? "text-emerald-400" : factor.Direction == "lowered" ? "text-red-400" : "text-gray-400") font-semibold text-xs">@(factor.Direction == "raised" ? "Raised model score" : factor.Direction == "lowered" ? "Lowered model score" : "Neutral")</span>
+                                    </div>
+                                    <div class="w-full h-2.5 bg-gray-700 rounded-full overflow-hidden">
+                                        <div class="h-full rounded-full transition-all duration-700 @(factor.Direction == "raised" ? "bg-emerald-500" : factor.Direction == "lowered" ? "bg-red-500" : "bg-gray-500")" style="width: @factor.BarWidth%"></div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+
                     <div class="mt-5 pt-4 border-t border-white/10">
                         <p class="text-xs text-gray-500">
                             <i class="fa-solid fa-circle-info mr-1"></i>
-                            Assessment generated by machine learning model (@Model.ModelVersion). Green factors supported your result; red factors worked against it.
+                            Assessment generated by machine learning model (@Model.ModelVersion). Green factors raised the model score; red factors lowered it.
                         </p>
                     </div>
                 </div>
@@ -309,8 +323,8 @@
                     @if (Model?.HasMlPrediction == true)
                     {
                         <div class="flex justify-between">
-                            <span class="text-gray-400">Estimated completion chance</span>
-                            <span class="text-accent font-semibold">@completionProbabilityDisplay%</span>
+                            <span class="text-gray-400">Model score</span>
+                            <span class="text-accent font-semibold">@modelScoreDisplay</span>
                         </div>
                     }
                     <div class="flex justify-between">
@@ -325,6 +339,13 @@
                         <span class="text-gray-400">Difficulty</span>
                         <span class="text-white font-semibold">@Model?.EventDifficulty</span>
                     </div>
+                    @if (Model?.IsTrailGuardV2 == true)
+                    {
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">Model trail duration</span>
+                            <span class="text-white font-semibold">@Model.TrailDuration</span>
+                        </div>
+                    }
                     <div class="flex justify-between">
                         <span class="text-gray-400">Date</span>
                         <span class="text-white font-semibold">@(eventItem?.EventDate.ToString("MMM dd, yyyy") ?? "N/A")</span>
@@ -383,7 +404,7 @@
                             <i class="fa-solid fa-triangle-exclamation mr-2"></i> Proceed with Additional Requirements
                         </a>
                         <p class="text-xs text-red-400/80 text-center">
-                            <i class="fa-solid fa-circle-info mr-1"></i> You'll need to submit a medical clearance and a preparation plan.
+                            <i class="fa-solid fa-circle-info mr-1"></i> A preparation plan is required. Medical clearance is required only when the separate health screening indicates it.
                         </p>
                     }
                     <a asp-controller="Assessment" asp-action="Form" asp-route-eventId="@Model?.EventId"
@@ -404,13 +425,14 @@
     document.addEventListener('DOMContentLoaded', function() {
         var ctx = document.getElementById('confidenceDonutChart')?.getContext('2d');
         if (ctx) {
-            var completionProbabilityPct = @completionProbabilityPct;
+            var completionProbabilityPct = @modelScorePercentForDonut;
+            var modelScoreDisplay = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(modelScoreDisplay));
             var color = '@donutColor';
 
             new Chart(ctx, {
                 type: 'doughnut',
                 data: {
-                    labels: ['Completion chance', 'Remaining'],
+                        labels: ['Model score', 'Remaining'],
                     datasets: [{
                         data: [completionProbabilityPct, 100 - completionProbabilityPct],
                         backgroundColor: [color, '#374151'],
@@ -426,7 +448,9 @@
                         tooltip: {
                             callbacks: {
                                 label: function(context) {
-                                    return (context.label || '') + ': ' + (context.parsed || 0) + '%';
+                                    return context.label === 'Model score'
+                                        ? 'Model score: ' + modelScoreDisplay
+                                        : (context.label || '') + ': ' + (context.parsed || 0).toFixed(2) + '%';
                                 }
                             }
                         }
@@ -436,6 +460,11 @@
         }
 
         var acknowledgeCheckbox = document.querySelector('input[id^="acknowledge"]');
+        var showAllFactors = document.getElementById('showAllFactors');
+        showAllFactors?.addEventListener('click', function() {
+            document.getElementById('remainingShapFactors')?.classList.remove('hidden');
+            showAllFactors.remove();
+        });
         var proceedButton = document.getElementById('proceedButton');
         var headerProceedBtn = document.getElementById('headerProceedBtn');
 

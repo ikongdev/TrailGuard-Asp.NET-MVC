@@ -1,0 +1,13 @@
+{
+  "verification_type": "single-row source-versus-bundle inference",
+  "input_file": "example_input.json",
+  "same_preprocessed_features": true,
+  "source_probability_yes": 0.9999628067016602,
+  "bundle_probability_yes": 0.9999628067016602,
+  "same_probability": true,
+  "predicted_completion": 1,
+  "selected_tree_count": 985,
+  "threshold": 0.5,
+  "test_partition_accessed": false,
+  "training_or_tuning_performed": false
+}

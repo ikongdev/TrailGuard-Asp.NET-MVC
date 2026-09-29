@@ -27,21 +27,80 @@ public class ReportsController : Controller
         };
 
 
-        var rows = await (
+        var outcomeCases = await (
             from label in _context.FinalSuitabilityLabels
             join assessment in _context.Assessments on label.AssessmentId equals assessment.Id
-            join result in _context.SuitabilityResults on assessment.Id equals result.AssessmentId
             join ev in _context.Events on assessment.EventId equals ev.Id
-            select new OutcomeReportRow
+            select new OutcomeReportCase
             {
+                AssessmentId = assessment.Id,
                 Completed = label.Completed,
                 TrailClass = ev.TrailClassSnapshot,
                 Difficulty = ev.Difficulty,
                 PreHikeLabel = assessment.Result,
-                PredictedLabel = result.PredictedLabel,
-                CompletionProbability = result.CompletionProbability,
                 NonCompletionReason = label.NonCompletionReason
             }).ToListAsync();
+
+        // Each assessment contributes only its deterministic authoritative prediction. Records
+        // declared invalid or unsupported by the selector are deliberately not relabeled or
+        // included in outcome metrics.
+        var assessmentIds = outcomeCases.Select(row => row.AssessmentId).Distinct().ToList();
+        var selectionsByAssessmentId = (await _context.SuitabilityResults
+            .Include(result => result.ShapValues)
+            .Where(result => assessmentIds.Contains(result.AssessmentId))
+            .ToListAsync())
+            .GroupBy(result => result.AssessmentId)
+            .ToDictionary(group => group.Key, group => SuitabilityResultSelector.Select(group));
+
+        var rows = outcomeCases
+            .Select(row =>
+            {
+                if (!selectionsByAssessmentId.TryGetValue(row.AssessmentId, out var selection)
+                    || selection.IsInvalidOrUnsupported || selection.Result is null)
+                {
+                    return null;
+                }
+
+                var result = selection.Result;
+                return new OutcomeReportRow
+                {
+                    Completed = row.Completed,
+                    TrailClass = row.TrailClass,
+                    Difficulty = row.Difficulty,
+                    PreHikeLabel = row.PreHikeLabel,
+                    UiLabel = result.UiLabel,
+                    ModelScore = result.ModelScore,
+                    ModelVersion = result.ModelVersion,
+                    UiLabelPolicyVersion = result.UiLabelPolicyVersion,
+                    BinaryPrediction = result.BinaryPrediction,
+                    NonCompletionReason = row.NonCompletionReason
+                };
+            })
+            .Where(row => row is not null)
+            .Select(row => row!)
+            .ToList();
+
+        // Outcome comparisons never pool versions or UI policies. Existing cards remain useful
+        // only for a single provenance group; mixed records are represented separately below.
+        model.ModelPolicyGroups = rows
+            .GroupBy(row => new { row.ModelVersion, row.UiLabelPolicyVersion })
+            .OrderBy(group => group.Key.ModelVersion).ThenBy(group => group.Key.UiLabelPolicyVersion)
+            .Select(group => new ModelPolicyOutcomeGroup
+            {
+                ModelVersion = group.Key.ModelVersion ?? "Historical / unspecified",
+                UiPolicyVersion = group.Key.UiLabelPolicyVersion ?? "Historical / unspecified",
+                RecordedOutcomes = group.Count(),
+                Completed = group.Count(row => row.Completed),
+                GoodMatch = group.Count(row => LabelIndex(row.UiLabel) == 0),
+                Borderline = group.Count(row => LabelIndex(row.UiLabel) == 1),
+                NotRecommended = group.Count(row => LabelIndex(row.UiLabel) == 2),
+                BinaryYes = group.Count(row => row.BinaryPrediction == "Yes"),
+                BinaryNo = group.Count(row => row.BinaryPrediction == "No")
+            }).ToList();
+        if (model.ModelPolicyGroups.Count > 1)
+        {
+            rows = [];
+        }
 
         model.TotalRecordedOutcomes = rows.Count;
         model.TotalResolvedLabels = rows.Count;
@@ -58,10 +117,10 @@ public class ReportsController : Controller
         model.NotRecommendedCompletedCount = notRecommended.Count(r => r.Completed);
         model.NotRecommendedNotCompletedCount = notRecommended.Count - model.NotRecommendedCompletedCount;
         model.ConfusionMatrix = new int[3, 2];
-        foreach (var row in rows) model.ConfusionMatrix[LabelIndex(row.PredictedLabel), row.Completed ? 0 : 1]++;
-        model.CalibrationBands = Enumerable.Range(0, 10).Select(i => BuildRate(rows.Where(r => r.CompletionProbability >= i / 10d && (i == 9 ? r.CompletionProbability <= 1 : r.CompletionProbability < (i + 1) / 10d)), $"{i * 10}-{(i + 1) * 10}%")).ToList();
-        model.GoodMatchSafety = BuildRate(rows.Where(r => LabelIndex(r.PredictedLabel) == 0), "Good Match");
-        model.ThresholdBands = new List<OutcomeRate> { BuildRate(rows.Where(r => r.CompletionProbability < .30), "Below 30%"), BuildRate(rows.Where(r => r.CompletionProbability >= .30 && r.CompletionProbability < .80), "30-80%"), BuildRate(rows.Where(r => r.CompletionProbability >= .80), "80%+") };
+        foreach (var row in rows) model.ConfusionMatrix[LabelIndex(row.UiLabel), row.Completed ? 0 : 1]++;
+        model.CalibrationBands = Enumerable.Range(0, 10).Select(i => BuildRate(rows.Where(r => r.ModelScore >= i / 10d && (i == 9 ? r.ModelScore <= 1 : r.ModelScore < (i + 1) / 10d)), $"{i * 10}-{(i + 1) * 10}%")).ToList();
+        model.GoodMatchSafety = BuildRate(rows.Where(r => LabelIndex(r.UiLabel) == 0), "Good Match");
+        model.ThresholdBands = new List<OutcomeRate> { BuildRate(rows.Where(r => r.ModelScore < .30), "Below 30%"), BuildRate(rows.Where(r => r.ModelScore >= .30 && r.ModelScore < .80), "30-80%"), BuildRate(rows.Where(r => r.ModelScore >= .80), "80%+") };
         model.NonCompletionReasons = rows.Where(r => !r.Completed).GroupBy(r => r.NonCompletionReason).Select(g => new ReasonCount { Reason = g.Key, Count = g.Count() }).ToList();
         var exportSummary = BuildExportRows(await ExportSource().ToListAsync());
         model.ExportIncludedCount = exportSummary.Included.Count;
@@ -106,8 +165,20 @@ public class ReportsController : Controller
         public int TrailClass { get; set; }
         public string? Difficulty { get; set; }
         public string? PreHikeLabel { get; set; }
-        public string? PredictedLabel { get; set; }
-        public double CompletionProbability { get; set; }
+        public string? UiLabel { get; set; }
+        public double ModelScore { get; set; }
+        public string? ModelVersion { get; set; }
+        public string? UiLabelPolicyVersion { get; set; }
+        public string? BinaryPrediction { get; set; }
+        public string NonCompletionReason { get; set; } = string.Empty;
+    }
+    private sealed class OutcomeReportCase
+    {
+        public int AssessmentId { get; set; }
+        public bool Completed { get; set; }
+        public int TrailClass { get; set; }
+        public string? Difficulty { get; set; }
+        public string? PreHikeLabel { get; set; }
         public string NonCompletionReason { get; set; } = string.Empty;
     }
     private sealed class ExportData { public List<string[]> Included { get; }=[]; public int NonReadinessExcludedCount { get; set; } public List<string> IncompleteCaseKeys { get; }=[]; }
@@ -148,7 +219,9 @@ public class ReportsViewModel
     public OutcomeRate GoodMatchSafety { get; set; } = new();
     public List<OutcomeRate> ThresholdBands { get; set; } = new();
     public List<ReasonCount> NonCompletionReasons { get; set; } = new();
+    public List<ModelPolicyOutcomeGroup> ModelPolicyGroups { get; set; } = new();
 }
+public class ModelPolicyOutcomeGroup { public string ModelVersion { get; set; } = string.Empty; public string UiPolicyVersion { get; set; } = string.Empty; public int RecordedOutcomes { get; set; } public int Completed { get; set; } public int GoodMatch { get; set; } public int Borderline { get; set; } public int NotRecommended { get; set; } public int BinaryYes { get; set; } public int BinaryNo { get; set; } }
 public class OutcomeRate { public string Label { get; set; } = string.Empty; public int Total { get; set; } public int Completed { get; set; } public int NotCompleted => Total - Completed; public bool HasEnoughData => Total >= ReportsController.MinSampleSize; public double CompletionRate => Total == 0 ? 0 : (double)Completed / Total * 100; }
 public class ReasonCount { public string Reason { get; set; } = string.Empty; public int Count { get; set; } }
 

@@ -29,6 +29,7 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddScoped<RoleAssignmentService>();
 builder.Services.AddScoped<ParticipantProgressService>();
 builder.Services.AddScoped<ProfileAccessService>();
+builder.Services.AddScoped<TrailGuardV2AssessmentRequestMapper>();
 
 
 
@@ -37,6 +38,17 @@ builder.Services.AddHttpClient<WeatherService>();
 builder.Services.AddHttpClient<SuitabilityApiClient>(client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["MlApi:BaseUrl"] ?? "http://127.0.0.1:8000");
+    client.Timeout = TimeSpan.FromSeconds(10);
+});
+builder.Services.AddHttpClient<TrailGuardV2ApiClient>((_, client) =>
+{
+    var configuredBaseUrl = builder.Configuration["TrailGuardV2Api:BaseUrl"];
+    if (string.IsNullOrWhiteSpace(configuredBaseUrl))
+    {
+        throw new InvalidOperationException("TrailGuardV2Api:BaseUrl must be configured before v2 assessments can be submitted.");
+    }
+
+    client.BaseAddress = new Uri(configuredBaseUrl, UriKind.Absolute);
     client.Timeout = TimeSpan.FromSeconds(10);
 });
 
@@ -133,16 +145,23 @@ using (var scope = app.Services.CreateScope())
         startupLogger.LogError(ex, "Failed to audit operational-role integrity at startup.");
     }
 
-    var suitabilityApi = services.GetRequiredService<SuitabilityApiClient>();
-    if (await suitabilityApi.CheckHealthAsync())
+    var trailGuardV2Api = services.GetRequiredService<TrailGuardV2ApiClient>();
+    var v2Health = await trailGuardV2Api.CheckHealthAsync();
+    if (v2Health.IsHealthy)
     {
-        startupLogger.LogInformation("ML suitability API is reachable.");
+        startupLogger.LogInformation("Active TrailGuard v2 adapter health and model identity were verified.");
+    }
+    else if (v2Health.Status == TrailGuardV2HealthCheckStatus.Unreachable)
+    {
+        startupLogger.LogCritical(
+            "Active TrailGuard v2 adapter is UNREACHABLE at startup. Assessment submissions will be " +
+            "rejected with a service-unavailable message until it comes back up.");
     }
     else
     {
         startupLogger.LogCritical(
-            "ML suitability API is UNREACHABLE at startup. Assessment submissions will be " +
-            "rejected with a service-unavailable message until it comes back up.");
+            "Active TrailGuard v2 adapter returned an unexpected health response or model identity at startup. " +
+            "Assessment submissions will be rejected until the configured adapter is corrected.");
     }
 }
 

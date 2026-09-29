@@ -12,32 +12,36 @@ namespace TrailGuard.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly SuitabilityApiClient _suitabilityApi;
+        private readonly TrailGuardV2ApiClient _trailGuardV2Api;
+        private readonly TrailGuardV2AssessmentRequestMapper _trailGuardV2Mapper;
         private readonly ILogger<AssessmentController> _logger;
 
-        public AssessmentController(ApplicationDbContext context, SuitabilityApiClient suitabilityApi, ILogger<AssessmentController> logger)
+        public AssessmentController(ApplicationDbContext context, SuitabilityApiClient suitabilityApi,
+            TrailGuardV2ApiClient trailGuardV2Api, TrailGuardV2AssessmentRequestMapper trailGuardV2Mapper,
+            ILogger<AssessmentController> logger)
         {
             _context = context;
             _suitabilityApi = suitabilityApi;
+            _trailGuardV2Api = trailGuardV2Api;
+            _trailGuardV2Mapper = trailGuardV2Mapper;
             _logger = logger;
         }
 
 
 
 
-        private async Task<Event?> PopulateAssessmentFormViewBagAsync(int eventId, string? userId)
+        protected virtual async Task<Event?> PopulateAssessmentFormViewBagAsync(int eventId, string? userId)
         {
 
 
-            var eventItem = await _context.Events
-                .FirstOrDefaultAsync(e => e.Id == eventId);
+            var eventItem = await FindEventAsync(eventId);
 
             if (eventItem == null)
             {
                 return null;
             }
 
-            var isRetake = await _context.Assessments
-                .AnyAsync(a => a.EventId == eventId && a.UserId == userId && a.IsActive == true);
+            var isRetake = await HasActiveAssessmentAsync(eventId, userId);
 
             ViewBag.Event = eventItem;
             ViewBag.RetakeMode = isRetake;
@@ -49,6 +53,10 @@ namespace TrailGuard.Controllers
         public async Task<IActionResult> Form(int eventId)
         {
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (!AssessmentSubmissionGuards.HasAuthenticatedUserId(userId))
+            {
+                return Forbid();
+            }
 
             var eventItem = await PopulateAssessmentFormViewBagAsync(eventId, userId);
 
@@ -60,51 +68,26 @@ namespace TrailGuard.Controllers
 
             TempData.Remove("Error");
 
-            var activeRegistration = await _context.EventRegistrations
-                .FirstOrDefaultAsync(r => r.EventId == eventId && r.UserId == userId && RegistrationStatusHelper.ActiveStatuses.Contains(r.Status));
-
-            if (activeRegistration != null)
+            if (await HasActiveRegistrationAsync(eventId, userId))
             {
                 TempData["Success"] = "You are already registered for this event.";
                 return RedirectToAction("Details", "Participant", new { id = eventId });
             }
 
-            var existingAssessment = await _context.Assessments
-                .FirstOrDefaultAsync(a => a.EventId == eventId && a.UserId == userId && a.IsActive == true);
-
-            if (existingAssessment != null)
-            {
-                existingAssessment.IsActive = false;
-                await _context.SaveChangesAsync();
-            }
-
-            return View();
+            return View(new TrailGuardV2AssessmentFormInput { EventId = eventId });
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Form(
-            int eventId,
-            int? age,
-            double? heightCm,
-            double? weightKg,
-            string? medicalConditions,
-            string? exerciseFrequency,
-            string? exerciseType,
-            string? cardioEndurance,
-            string? exerciseConsistency,
-            string? mountainsClimbed,
-            string? recencyOfHike,
-            string? trailDifficultyCompleted,
-            string[]? gearItems,
-            bool consentGiven)
+        public async Task<IActionResult> Form(TrailGuardV2AssessmentFormInput input)
         {
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (!AssessmentSubmissionGuards.HasAuthenticatedUserId(userId))
+            {
+                return Forbid();
+            }
 
-
-
-            var eventItem = await _context.Events
-                .FirstOrDefaultAsync(e => e.Id == eventId);
+            var eventItem = await FindEventAsync(input.EventId);
 
             if (eventItem == null)
             {
@@ -112,180 +95,128 @@ namespace TrailGuard.Controllers
                 return RedirectToAction("Events", "Participant");
             }
 
-            if (!consentGiven)
+            if (!input.ConsentGiven || !input.DataPrivacyConsent)
             {
-                TempData["Error"] = "You must give consent to proceed.";
-                await PopulateAssessmentFormViewBagAsync(eventId, userId);
-                return View();
+                ModelState.AddModelError(nameof(input.ConsentGiven), "Both acknowledgements are required to proceed.");
+            }
+            var medicalSelection = AssessmentSubmissionGuards.ValidateMedicalSelections(input.MedicalConditions);
+            if (!medicalSelection.IsValid)
+            {
+                ModelState.AddModelError(nameof(input.MedicalConditions), medicalSelection.Error!);
+            }
+            if (!ModelState.IsValid)
+            {
+                await PopulateAssessmentFormViewBagAsync(input.EventId, userId);
+                return View(input);
             }
 
-            if (string.IsNullOrWhiteSpace(medicalConditions))
+            if (await HasActiveRegistrationAsync(input.EventId, userId))
             {
-                TempData["Error"] = "Please answer the medical conditions question.";
-                await PopulateAssessmentFormViewBagAsync(eventId, userId);
-                return View();
+                ModelState.AddModelError(string.Empty, "You are already registered for this event.");
+                await PopulateAssessmentFormViewBagAsync(input.EventId, userId);
+                return View(input);
             }
 
-            if (gearItems == null || gearItems.Length == 0)
+            var mapping = _trailGuardV2Mapper.Map(new TrailGuardV2AssessmentAnswers
             {
-                TempData["Error"] = "Please select at least one gear item, or \"None of the above\".";
-                await PopulateAssessmentFormViewBagAsync(eventId, userId);
-                return View();
+                ExerciseFrequency = input.ExerciseFrequency, CardioDuration = input.CardioEndurance,
+                ExerciseConsistency = input.ExerciseConsistency, HikingExperience = input.MountainsClimbed,
+                HikingRecency = input.RecencyOfHike, HardestTrailCompleted = input.TrailDifficultyCompleted,
+                GearItems = input.GearItems
+            }, eventItem);
+            if (!mapping.IsValid)
+            {
+                AddMappingErrors(mapping.Errors);
+                await PopulateAssessmentFormViewBagAsync(input.EventId, userId);
+                return View(input);
             }
 
-            if (!string.IsNullOrEmpty(medicalConditions))
-            {
-                var medicalList = medicalConditions.Split(',').Select(m => m.Trim()).Where(m => !string.IsNullOrEmpty(m)).ToList();
-                medicalConditions = string.Join(",", medicalList);
-            }
-
-            var gearItemsString = "";
-            if (gearItems != null && gearItems.Length > 0)
-            {
-                gearItemsString = string.Join(",", gearItems.Select(g => g.Trim()).Where(g => !string.IsNullOrEmpty(g)));
-            }
-
-            SuitabilityPredictionRequest mlRequest;
-            try
-            {
-                mlRequest = BuildMlRequest(
-                    heightCm, weightKg, medicalConditions,
-                    exerciseFrequency, cardioEndurance, exerciseConsistency,
-                    mountainsClimbed, recencyOfHike, trailDifficultyCompleted,
-                    gearItemsString, eventItem
-                );
-            }
-            catch (InvalidOperationException ex)
-            {
-
-
-
-
-
-                _logger.LogError(ex, "Assessment submission for Event {EventId} (Trail snapshot '{TrailNameSnapshot}') could not build an ML request: invalid TrailClassSnapshot.", eventItem.Id, eventItem.TrailNameSnapshot);
-                TempData["Error"] = "This event's trail details could not be validated. Please contact the organizer.";
-                await PopulateAssessmentFormViewBagAsync(eventId, userId);
-                return View();
-            }
-
-
-
+            var selectedMedicalConditions = medicalSelection.CanonicalSelections;
+            var medicalConditions = string.Join(",", selectedMedicalConditions.Select(value => value.Trim()));
             var acsmClearanceRequired = AcsmClearanceService.RequiresMedicalClearance(
-                hasSignsSymptoms: HasCondition(medicalConditions, "Vertigo")
-                    || HasCondition(medicalConditions, "Chest pain")
-                    || HasCondition(medicalConditions, "Shortness of breath"),
-                hasCvd: HasCondition(medicalConditions, "Hypertension"));
-
-            var predictionCall = await _suitabilityApi.PredictAsync(mlRequest);
-
-
-
-
-
-
-            if (predictionCall.IsValidationFailure)
+                selectedMedicalConditions.Any(value => value.Contains("Vertigo", StringComparison.OrdinalIgnoreCase)
+                    || value.Contains("Chest pain", StringComparison.OrdinalIgnoreCase)
+                    || value.Contains("Shortness of breath", StringComparison.OrdinalIgnoreCase)),
+                selectedMedicalConditions.Any(value => value.Contains("Hypertension", StringComparison.OrdinalIgnoreCase)));
+            var predictionCall = await _trailGuardV2Api.PredictAsync(mapping.Request!);
+            if (!predictionCall.IsSuccess || predictionCall.Prediction is null)
             {
-                TempData["Error"] = "One of your assessment answers could not be recognized. Please review the form and try again.";
-                await PopulateAssessmentFormViewBagAsync(eventId, userId);
-                return View();
+                ModelState.AddModelError(string.Empty, predictionCall.Failure == TrailGuardV2PredictionFailure.InvalidInput
+                    ? "One or more assessment answers could not be recognized." : "The assessment service is temporarily unavailable.");
+                await PopulateAssessmentFormViewBagAsync(input.EventId, userId);
+                return View(input);
             }
 
-            var mlResponse = predictionCall.Prediction;
-            if (mlResponse == null)
+            if (await HasActiveRegistrationAsync(input.EventId, userId))
             {
-                TempData["Error"] = "The assessment service is temporarily unavailable. Please try again shortly.";
-                await PopulateAssessmentFormViewBagAsync(eventId, userId);
-                return View();
+                ModelState.AddModelError(string.Empty, "You are already registered for this event.");
+                await PopulateAssessmentFormViewBagAsync(input.EventId, userId);
+                return View(input);
             }
 
             try
             {
-                ShapHelper.ValidateResponseFeatures(mlResponse.ShapAll);
-                ShapHelper.ValidateDisplayBreakdown(mlResponse.ShapBreakdown, mlResponse.ShapAll);
-            }
-            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
-            {
-                _logger.LogError(ex, "ML response for Event {EventId} did not satisfy the v3 SHAP contract.", eventId);
-                TempData["Error"] = "The assessment service returned an invalid result. Please try again shortly.";
-                await PopulateAssessmentFormViewBagAsync(eventId, userId);
-                return View();
-            }
+                await using var transaction = await _context.Database.BeginTransactionAsync();
+                await ParticipantEventWorkflowLock.AcquireAsync(_context, input.EventId, userId);
+                _context.ChangeTracker.Clear();
 
-            var result = NormalizeLabel(mlResponse.SuitabilityLabel);
-
-            await using var transaction = await _context.Database.BeginTransactionAsync();
-
-            var oldAssessment = await _context.Assessments
-                .FirstOrDefaultAsync(a => a.EventId == eventId && a.UserId == userId && a.IsActive == true);
-
-            if (oldAssessment != null)
-            {
-                oldAssessment.IsActive = false;
-            }
-
-            var assessment = new Assessment
-            {
-                EventId = eventId,
-                UserId = userId ?? "",
-                Age = age,
-                HeightCm = heightCm,
-                WeightKg = weightKg,
-                MedicalConditions = medicalConditions,
-                MedicalClearanceRequired = acsmClearanceRequired,
-                ExerciseFrequency = exerciseFrequency,
-                ExerciseType = exerciseType,
-                CardioEndurance = cardioEndurance,
-                ExerciseConsistency = exerciseConsistency,
-                MountainsClimbed = mountainsClimbed,
-                RecencyOfHike = recencyOfHike,
-                TrailDifficultyCompleted = trailDifficultyCompleted,
-                GearItems = gearItemsString,
-                ConsentGiven = consentGiven,
-                Result = result,
-                IsActive = true,
-                SubmittedAt = DateTime.Now
-            };
-
-            _context.Assessments.Add(assessment);
-            await _context.SaveChangesAsync();
-
-            var suitabilityResult = new SuitabilityResult
-            {
-                AssessmentId = assessment.Id,
-                PredictedLabel = mlResponse.SuitabilityLabel,
-                CompletionProbability = mlResponse.CompletionProbability,
-                ModelVersion = mlResponse.ModelVersion,
-                PredictedAt = DateTime.Now
-            };
-
-            _context.SuitabilityResults.Add(suitabilityResult);
-            await _context.SaveChangesAsync();
-
-            var displayByFeature = mlResponse.ShapBreakdown
-                .Select((shap, index) => new { shap, index })
-                .ToDictionary(item => item.shap.Feature);
-
-            foreach (var shap in mlResponse.ShapAll)
-            {
-                displayByFeature.TryGetValue(shap.Feature, out var display);
-                _context.ShapValues.Add(new ShapValue
+                if (await HasActiveRegistrationAsync(input.EventId, userId))
                 {
-                    SuitabilityResultId = suitabilityResult.Id,
-                    FeatureName = shap.Feature,
-                    Category = shap.Category,
-                    ImpactValue = shap.ShapValue,
-                    RawValue = shap.RawValue.ToString(),
-                    DisplayOrder = display?.index,
-                    DisplaySharePct = display?.shap.SharePct,
-                    DisplayFriendlyName = display?.shap.FriendlyName
-                });
+                    ModelState.AddModelError(string.Empty, "You are already registered for this event.");
+                    await PopulateAssessmentFormViewBagAsync(input.EventId, userId);
+                    return View(input);
+                }
+
+                var oldAssessment = await _context.Assessments
+                    .FirstOrDefaultAsync(a => a.EventId == input.EventId && a.UserId == userId && a.IsActive);
+                await OnActiveAssessmentLoadedForPersistenceAsync(oldAssessment);
+
+                var assessment = new Assessment
+                {
+                    EventId = input.EventId, UserId = userId, Age = input.Age, HeightCm = input.HeightCm,
+                    WeightKg = input.WeightKg, MedicalConditions = medicalConditions, MedicalClearanceRequired = acsmClearanceRequired,
+                    ExerciseFrequency = input.ExerciseFrequency, ExerciseType = input.ExerciseType, CardioEndurance = input.CardioEndurance,
+                    ExerciseConsistency = input.ExerciseConsistency, MountainsClimbed = input.MountainsClimbed,
+                    RecencyOfHike = input.RecencyOfHike, TrailDifficultyCompleted = input.TrailDifficultyCompleted,
+                    GearItems = string.Join(",", input.GearItems!), ConsentGiven = input.ConsentGiven,
+                    Result = NormalizeLabel(predictionCall.Prediction.UiLabel!), IsActive = true, SubmittedAt = DateTime.Now
+                };
+                TrailGuardV2SuitabilityResultFactory.Create(assessment, DateTimeOffset.UtcNow, mapping.Request!, predictionCall.Prediction);
+                if (oldAssessment is not null) oldAssessment.IsActive = false;
+                _context.Assessments.Add(assessment);
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+                return RedirectToAction("Report", new { assessmentId = assessment.Id });
             }
-
-            await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
-
-            return RedirectToAction("Report", new { assessmentId = assessment.Id });
+            catch (DbUpdateException ex) when (ParticipantEventWorkflowLock.IsUniqueConstraintConflict(ex))
+            {
+                _logger.LogWarning(ex, "TrailGuard v2 assessment write conflicted for Event {EventId}.", input.EventId);
+                ModelState.AddModelError(string.Empty, "Your assessment was updated by another request. Please review the latest result and try again.");
+                await PopulateAssessmentFormViewBagAsync(input.EventId, userId);
+                return View(input);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "TrailGuard v2 assessment persistence failed for Event {EventId}.", input.EventId);
+                ModelState.AddModelError(string.Empty, "Your assessment could not be saved. Please try again.");
+                await PopulateAssessmentFormViewBagAsync(input.EventId, userId);
+                return View(input);
+            }
         }
+
+        protected virtual Task<Event?> FindEventAsync(int eventId) => _context.Events
+            .FirstOrDefaultAsync(e => e.Id == eventId);
+
+        protected virtual Task<bool> HasActiveAssessmentAsync(int eventId, string? userId) => _context.Assessments
+            .AnyAsync(a => a.EventId == eventId && a.UserId == userId && a.IsActive == true);
+
+        protected virtual Task<bool> HasActiveRegistrationAsync(int eventId, string userId) => _context.EventRegistrations
+            .AnyAsync(r => r.EventId == eventId
+                && r.UserId == userId
+                && RegistrationStatusHelper.ActiveStatuses.Contains(r.Status));
+
+        /// <summary>Test-only coordination point after the authoritative active assessment is loaded under the workflow lock.</summary>
+        protected virtual Task OnActiveAssessmentLoadedForPersistenceAsync(Assessment? oldAssessment) => Task.CompletedTask;
 
         [HttpGet]
         public async Task<IActionResult> Report(int assessmentId)
@@ -305,16 +236,28 @@ namespace TrailGuard.Controllers
 
             var difficulty = eventItem?.Difficulty ?? "Moderate";
 
-            var suitabilityResult = await _context.SuitabilityResults
+            var suitabilityResults = await _context.SuitabilityResults
                 .Include(s => s.ShapValues)
-                .FirstOrDefaultAsync(s => s.AssessmentId == assessmentId);
+                .Where(s => s.AssessmentId == assessmentId)
+                .ToListAsync();
+            var selection = SuitabilityResultSelector.Select(suitabilityResults);
+            if (selection.IsInvalidOrUnsupported)
+            {
+                TempData["Error"] = "This assessment's prediction record is invalid or unsupported and cannot be displayed.";
+                return RedirectToAction("Events", "Participant");
+            }
+            var suitabilityResult = selection.Result;
 
             var shapFactors = suitabilityResult != null
-                ? ShapHelper.BuildDisplayItems(suitabilityResult.ShapValues)
+                ? selection.IsRecognizedV2
+                    ? TrailGuardV2Presentation.BuildV2Factors(suitabilityResult.ShapValues)
+                    : ShapHelper.BuildDisplayItems(suitabilityResult.ShapValues)
                 : new List<ShapDisplayItem>();
 
             var recommendations = suitabilityResult != null
-                ? ShapHelper.BuildRecommendations(suitabilityResult.ShapValues)
+                ? selection.IsRecognizedV2
+                    ? TrailGuardV2Presentation.BuildV2Suggestions(suitabilityResult.ShapValues)
+                    : ShapHelper.BuildRecommendations(suitabilityResult.ShapValues)
                 : new List<string>();
 
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
@@ -348,8 +291,13 @@ namespace TrailGuard.Controllers
                     { "Gear Items", assessment.GearItems ?? "None" }
                 },
                 HasMlPrediction = suitabilityResult != null,
-                CompletionProbability = suitabilityResult?.CompletionProbability ?? 0,
+                ModelScore = suitabilityResult?.ModelScore ?? 0,
                 ModelVersion = suitabilityResult?.ModelVersion ?? "",
+                IsTrailGuardV2 = selection.IsRecognizedV2,
+                ScoreName = suitabilityResult?.ScoreName ?? "",
+                TrailDuration = suitabilityResult is not null && selection.IsRecognizedV2
+                    ? TrailGuardV2Presentation.FormatDuration(suitabilityResult.TypicalDurationHours ?? 0)
+                    : string.Empty,
                 ShapFactors = shapFactors,
                 AcsmMedicalClearanceRequired = assessment.MedicalClearanceRequired,
                 RequiresMedicalClearance = RegistrationRulesHelper.RequiresMedicalClearance(assessment),
@@ -368,6 +316,26 @@ namespace TrailGuard.Controllers
             "Not Recommended" => "Not Recommended",
             _ => "Not Recommended"
         };
+
+        private void AddMappingErrors(IEnumerable<TrailGuardV2MappingError> errors)
+        {
+            var formFieldByFeature = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["exercise_frequency"] = nameof(TrailGuardV2AssessmentFormInput.ExerciseFrequency),
+                ["cardio_duration"] = nameof(TrailGuardV2AssessmentFormInput.CardioEndurance),
+                ["exercise_consistency"] = nameof(TrailGuardV2AssessmentFormInput.ExerciseConsistency),
+                ["hiking_experience"] = nameof(TrailGuardV2AssessmentFormInput.MountainsClimbed),
+                ["hiking_recency"] = nameof(TrailGuardV2AssessmentFormInput.RecencyOfHike),
+                ["hardest_trail_completed"] = nameof(TrailGuardV2AssessmentFormInput.TrailDifficultyCompleted),
+                ["gear_items"] = nameof(TrailGuardV2AssessmentFormInput.GearItems)
+            };
+
+            foreach (var error in errors)
+            {
+                var field = formFieldByFeature.GetValueOrDefault(error.Field, string.Empty);
+                ModelState.AddModelError(field, error.Message);
+            }
+        }
         private bool HasCondition(string? medicalConditions, string keyword)
         {
             if (string.IsNullOrEmpty(medicalConditions)) return false;

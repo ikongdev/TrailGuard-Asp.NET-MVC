@@ -1,6 +1,11 @@
 /bin/
 /obj/
 /TestResults/
+
+# Permanent verification sources and fixtures are tracked; only their build output is local.
+/Verification/**/bin/
+/Verification/**/obj/
+/Verification/**/artifacts/
 *.user
 *.suo
 .vscode/
@@ -9,6 +14,13 @@
 *.cache
 /wwwroot/uploads/
 /wwwroot/images/profiles/
+
+# Local development trail uploads; retain tracked/sample trail assets normally.
+/wwwroot/images/trails/1f92b791-ae33-4c93-a3a0-f6404cbf2a80.jpg
+/wwwroot/images/trails/55133399-82e8-4c0c-92ed-d05fd610a1aa.jpg
+/wwwroot/images/trails/815f2c47-267d-41c9-bf8a-4590d6e07364.jpg
+/wwwroot/images/trails/88d248fb-52e9-4dd4-b3d9-c83444531010.jpg
+/wwwroot/images/trails/c5fa9e22-89e1-4e5e-912c-426b3e6f741d.jpg
 /node_modules/
 appsettings.Development.json
 
