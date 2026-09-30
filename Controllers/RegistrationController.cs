@@ -221,6 +221,7 @@ namespace TrailGuard.Controllers
             try
             {
                 await using var transaction = await _context.Database.BeginTransactionAsync();
+                await ParticipantEventWorkflowLock.AcquireEventCapacityAsync(_context, eventId);
                 await ParticipantEventWorkflowLock.AcquireAsync(_context, eventId, userId);
                 _context.ChangeTracker.Clear();
 
@@ -238,12 +239,19 @@ namespace TrailGuard.Controllers
                     return RedirectToAction("Details", "Participant", new { id = eventId });
                 }
 
-                if (!EventJoinabilityHelper.IsJoinable(lockedEvent)
-                    || await CountActiveRegistrationsAsync(eventId) >= lockedEvent.Capacity)
+                if (!EventJoinabilityHelper.IsJoinable(lockedEvent))
                 {
                     TempData["Error"] = "This event is no longer open for registration.";
                     return RedirectToAction("Events", "Participant");
                 }
+
+                if (await CountActiveRegistrationsAsync(eventId) >= lockedEvent.Capacity)
+                {
+                    TempData["Error"] = "This event is at full capacity.";
+                    return RedirectToAction("Events", "Participant");
+                }
+
+                await OnCapacityCheckedForRegistrationAsync(eventId, userId);
 
                 if (RegistrationRulesHelper.RequiresMedicalClearance(lockedAssessment)
                     && (medicalClearance == null || medicalClearance.Length == 0))
@@ -378,6 +386,11 @@ namespace TrailGuard.Controllers
         protected virtual Task<int> CountActiveRegistrationsAsync(int eventId) => _context.EventRegistrations
             .CountAsync(r => r.EventId == eventId && RegistrationStatusHelper.ActiveStatuses.Contains(r.Status));
 
+        // Test seam: production is a no-op. It runs only after the event-wide lock and
+        // authoritative capacity check, before this controller creates a registration.
+        [NonAction]
+        protected virtual Task OnCapacityCheckedForRegistrationAsync(int eventId, string userId) => Task.CompletedTask;
+
         [HttpGet]
         public async Task<IActionResult> MyRegistrations()
         {
@@ -428,25 +441,24 @@ namespace TrailGuard.Controllers
         public async Task<IActionResult> CancelRegistration([FromBody] CancelRegistrationRequest request)
         {
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-
-            var registration = await _context.EventRegistrations
-                .FirstOrDefaultAsync(r => r.Id == request.Id);
-
-
-
-            if (registration == null || registration.UserId != userId)
-            {
+            var candidate = await _context.EventRegistrations.AsNoTracking()
+                .FirstOrDefaultAsync(r => r.Id == request.Id && r.UserId == userId);
+            if (candidate == null)
                 return Json(new { success = false, message = "Registration not found" });
-            }
 
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            await ParticipantEventWorkflowLock.AcquireEventCapacityAsync(_context, candidate.EventId);
+            _context.ChangeTracker.Clear();
+            var registration = await _context.EventRegistrations
+                .FirstOrDefaultAsync(r => r.Id == request.Id && r.UserId == userId);
+            if (registration == null)
+                return Json(new { success = false, message = "Registration not found" });
             if (registration.Status != "Pending" && registration.Status != "Awaiting Payment")
-            {
                 return Json(new { success = false, message = "This registration can no longer be cancelled here. Please contact the organizer directly." });
-            }
 
             registration.Status = "Cancelled";
             await _context.SaveChangesAsync();
-
+            await transaction.CommitAsync();
             return Json(new { success = true, message = "Registration cancelled successfully." });
         }
 
@@ -463,17 +475,14 @@ namespace TrailGuard.Controllers
 
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
-            var registration = await _context.EventRegistrations
-                .FirstOrDefaultAsync(r => r.Id == id);
-
-
-
-            if (registration == null || registration.UserId != userId)
+            var candidate = await _context.EventRegistrations.AsNoTracking()
+                .FirstOrDefaultAsync(r => r.Id == id && r.UserId == userId);
+            if (candidate == null)
             {
                 return Json(new { success = false, message = "Registration not found" });
             }
 
-            if (registration.Status != "Awaiting Payment")
+            if (candidate.Status != "Awaiting Payment")
             {
                 return Json(new { success = false, message = "Payment receipt can only be uploaded while your registration is awaiting payment." });
             }
@@ -489,6 +498,14 @@ namespace TrailGuard.Controllers
                 {
                     return Json(new { success = false, message = "Payment receipt must be a JPG, PNG, WEBP, or PDF file." });
                 }
+
+                await using var transaction = await _context.Database.BeginTransactionAsync();
+                await ParticipantEventWorkflowLock.AcquireEventCapacityAsync(_context, candidate.EventId);
+                _context.ChangeTracker.Clear();
+                var registration = await _context.EventRegistrations
+                    .FirstOrDefaultAsync(r => r.Id == id && r.UserId == userId);
+                if (registration == null || registration.Status != "Awaiting Payment")
+                    return Json(new { success = false, message = "Payment receipt can only be uploaded while your registration is awaiting payment." });
 
                 var uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "uploads", "receipts");
                 if (!Directory.Exists(uploadsFolder))
@@ -510,6 +527,7 @@ namespace TrailGuard.Controllers
                 registration.PaymentReceiptUploadedAt = DateTime.Now;
                 registration.Status = "For Payment Verification";
                 await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
 
                 return Json(new { success = true, message = "Payment receipt uploaded. Waiting for organizer verification." });
             }

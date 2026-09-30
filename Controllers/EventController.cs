@@ -340,15 +340,6 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = scheduleResult.Error });
                 }
 
-
-
-
-
-
-
-
-
-
                 string? weatherSnapshotJson = null;
                 if (WeatherSnapshotHelper.TryValidateForSubmission(model.WeatherSnapshot, model.TrailId, model.EventDate, out var snapshotRejectReason))
                 {
@@ -699,6 +690,20 @@ namespace TrailGuard.Controllers
                 var organizer = await _userManager.FindByIdAsync(userId ?? "");
                 var organizerName = organizer != null ? $"{organizer.FirstName} {organizer.LastName}" : "Organizer";
 
+                await using var transaction = await _context.Database.BeginTransactionAsync();
+                await ParticipantEventWorkflowLock.AcquireEventCapacityAsync(_context, request.Id);
+                _context.ChangeTracker.Clear();
+                eventItem = await _context.Events.FirstOrDefaultAsync(e => e.Id == request.Id);
+                if (eventItem == null || !await CanManageEventAsync(eventItem, currentUser))
+                {
+                    return Json(new { success = false, message = "Event not found" });
+                }
+
+                if (eventItem.Status != "Upcoming")
+                {
+                    return Json(new { success = false, message = "Only upcoming events can be marked as completed" });
+                }
+
                 eventItem.Status = "Completed";
                 eventItem.CompletedAt = DateTime.Now;
                 eventItem.CompletedBy = organizerName;
@@ -715,6 +720,7 @@ namespace TrailGuard.Controllers
                 }
 
                 await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
 
                 return Json(new { success = true, message = "Event marked as completed" });
             }
@@ -758,12 +764,27 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "Only upcoming events can be cancelled" });
                 }
 
+                await using var transaction = await _context.Database.BeginTransactionAsync();
+                await ParticipantEventWorkflowLock.AcquireEventCapacityAsync(_context, request.Id);
+                _context.ChangeTracker.Clear();
+                eventItem = await _context.Events.FirstOrDefaultAsync(e => e.Id == request.Id);
+                if (eventItem == null || !await CanManageEventAsync(eventItem, currentUser))
+                {
+                    return Json(new { success = false, message = "Event not found" });
+                }
+
+                if (eventItem.Status != "Upcoming")
+                {
+                    return Json(new { success = false, message = "Only upcoming events can be cancelled" });
+                }
+
                 eventItem.Status = "Cancelled";
                 eventItem.CancelledAt = DateTime.Now;
                 eventItem.CancellationReason = request.Reason;
                 eventItem.DateUpdated = DateTime.Now;
 
                 await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
 
                 return Json(new { success = true, message = "Event cancelled" });
             }
@@ -934,6 +955,35 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = scheduleResult.Error });
                 }
 
+                await using var transaction = await _context.Database.BeginTransactionAsync();
+                await ParticipantEventWorkflowLock.AcquireEventCapacityAsync(_context, model.Id);
+                _context.ChangeTracker.Clear();
+
+                existingEvent = await _context.Events.FirstOrDefaultAsync(e => e.Id == model.Id);
+                if (existingEvent == null ||
+                    (!await _userManager.IsInRoleAsync(currentUser, "Admin") && existingEvent.OrganizerId != currentUser.Id))
+                {
+                    return Json(new { success = false, message = "Event not found" });
+                }
+
+                if (existingEvent.Status == "Completed")
+                {
+                    return Json(new { success = false, message = "Completed events are read-only and cannot be edited." });
+                }
+
+                var occupiedSlots = await _context.EventRegistrations
+                    .CountAsync(r => r.EventId == model.Id && RegistrationStatusHelper.ActiveStatuses.Contains(r.Status));
+                if (model.Capacity < occupiedSlots)
+                {
+                    return Json(new
+                    {
+                        success = false,
+                        message = $"Capacity cannot be set below the {occupiedSlots} currently occupied slot(s)."
+                    });
+                }
+
+                await OnCapacityStateLoadedForEditAsync(model.Id);
+
 
 
 
@@ -989,6 +1039,7 @@ namespace TrailGuard.Controllers
                 existingEvent.DateUpdated = DateTime.Now;
 
                 await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
 
                 return Json(new { success = true, message = "Event updated successfully!" });
             }
@@ -1040,5 +1091,10 @@ namespace TrailGuard.Controllers
                 return Json(new { success = false, message = "Unable to delete the event right now. Please try again." });
             }
         }
+
+        // Test seam: production is a no-op. It runs under the event-wide lock after
+        // the authoritative occupied-slot count has been read.
+        [NonAction]
+        protected virtual Task OnCapacityStateLoadedForEditAsync(int eventId) => Task.CompletedTask;
     }
 }

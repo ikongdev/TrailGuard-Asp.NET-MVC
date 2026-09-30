@@ -420,6 +420,18 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "This registration is no longer pending review." });
                 }
 
+                await using var transaction = await _context.Database.BeginTransactionAsync();
+                await ParticipantEventWorkflowLock.AcquireEventCapacityAsync(_context, registration.Event.Id);
+                _context.ChangeTracker.Clear();
+                registration = await _context.EventRegistrations
+                    .Include(r => r.Event)
+                    .Include(r => r.Assessment)
+                    .FirstOrDefaultAsync(r => r.Id == request.RegistrationId);
+                if (registration == null || registration.Event == null || !OwnsEvent(registration.Event, currentUser))
+                    return Json(new { success = false, message = "Registration not found" });
+                if (registration.Status != "Pending")
+                    return Json(new { success = false, message = "This registration is no longer pending review." });
+
                 if (request.AlternativeEventIds == null || request.AlternativeEventIds.Length != 1)
                 {
                     return Json(new { success = false, message = "Please select exactly one alternative event." });
@@ -458,6 +470,7 @@ namespace TrailGuard.Controllers
                 }
 
                 await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
 
                 return Json(new { success = true, message = "Alternative event recommended to the participant." });
             }
@@ -510,6 +523,18 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "This registration is no longer pending review." });
                 }
 
+                await using var transaction = await _context.Database.BeginTransactionAsync();
+                await ParticipantEventWorkflowLock.AcquireEventCapacityAsync(_context, registration.Event.Id);
+                _context.ChangeTracker.Clear();
+                registration = await _context.EventRegistrations
+                    .Include(r => r.Event)
+                    .Include(r => r.Assessment)
+                    .FirstOrDefaultAsync(r => r.Id == request.Id);
+                if (registration == null || registration.Event == null || !OwnsEvent(registration.Event, currentUser))
+                    return Json(new { success = false, message = "Registration not found" });
+                if (registration.Status != "Pending")
+                    return Json(new { success = false, message = "This registration is no longer pending review." });
+
                 if (!AllowedDecisionStatuses.Contains(request.Status))
                 {
                     return Json(new { success = false, message = "Invalid decision." });
@@ -557,6 +582,7 @@ namespace TrailGuard.Controllers
                 }
 
                 await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
 
                 return Json(new { success = true, message = $"Registration status updated to {registration.Status}" });
             }
@@ -599,6 +625,17 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "This registration is not awaiting payment verification." });
                 }
 
+                await using var transaction = await _context.Database.BeginTransactionAsync();
+                await ParticipantEventWorkflowLock.AcquireEventCapacityAsync(_context, registration.Event.Id);
+                _context.ChangeTracker.Clear();
+                registration = await _context.EventRegistrations
+                    .Include(r => r.Event)
+                    .FirstOrDefaultAsync(r => r.Id == request.Id);
+                if (registration == null || registration.Event == null || !OwnsEvent(registration.Event, currentUser))
+                    return Json(new { success = false, message = "Registration not found" });
+                if (registration.Status != "For Payment Verification")
+                    return Json(new { success = false, message = "This registration is not awaiting payment verification." });
+
 
                 if (request.Approved)
                 {
@@ -611,6 +648,7 @@ namespace TrailGuard.Controllers
                 }
 
                 await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
 
                 return Json(new
                 {

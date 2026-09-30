@@ -14,6 +14,24 @@ namespace TrailGuard.Services;
 public static class ParticipantEventWorkflowLock
 {
     public const string ActiveAssessmentUniqueIndexName = "IX_Assessments_EventId_UserId_Active";
+    private const long EventCapacityLockNamespace = 0x54474343L; // "TGCC"
+
+    /// <summary>
+    /// Serializes capacity-changing writes for one event. PostgreSQL's single-bigint
+    /// advisory-lock namespace is distinct from the existing two-int participant/event lock.
+    /// </summary>
+    public static async Task AcquireEventCapacityAsync(
+        ApplicationDbContext context,
+        int eventId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        if (eventId <= 0) throw new ArgumentOutOfRangeException(nameof(eventId));
+
+        await context.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT pg_advisory_xact_lock({DeriveEventCapacityKey(eventId)})",
+            cancellationToken);
+    }
 
     public static async Task AcquireAsync(
         ApplicationDbContext context,
@@ -38,6 +56,12 @@ public static class ParticipantEventWorkflowLock
         var input = Encoding.UTF8.GetBytes("TrailGuard.ParticipantEventWorkflowLock.v1\0" + userId);
         var digest = SHA256.HashData(input);
         return BinaryPrimitives.ReadInt32BigEndian(digest);
+    }
+
+    public static long DeriveEventCapacityKey(int eventId)
+    {
+        if (eventId <= 0) throw new ArgumentOutOfRangeException(nameof(eventId));
+        return (EventCapacityLockNamespace << 32) | (uint)eventId;
     }
 
     public static bool IsUniqueConstraintConflict(DbUpdateException exception) =>

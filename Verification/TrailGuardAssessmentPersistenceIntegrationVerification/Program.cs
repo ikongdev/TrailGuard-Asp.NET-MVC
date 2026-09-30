@@ -14,6 +14,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using TrailGuard.Controllers;
@@ -43,6 +44,9 @@ if (!run)
     if (ParticipantEventWorkflowLock.DeriveUserKey("participant-a") != ParticipantEventWorkflowLock.DeriveUserKey("participant-a")
         || ParticipantEventWorkflowLock.DeriveUserKey("participant-a") == ParticipantEventWorkflowLock.DeriveUserKey("participant-b"))
         throw new InvalidOperationException("The workflow lock key derivation is not deterministic.");
+    if (ParticipantEventWorkflowLock.DeriveEventCapacityKey(1) != ParticipantEventWorkflowLock.DeriveEventCapacityKey(1)
+        || ParticipantEventWorkflowLock.DeriveEventCapacityKey(1) == ParticipantEventWorkflowLock.DeriveEventCapacityKey(2))
+        throw new InvalidOperationException("The event-capacity lock key derivation is not deterministic.");
     if (modelCheck)
     {
         try
@@ -144,11 +148,15 @@ static class FixtureLoader
             throw new InvalidOperationException("The recorded adapter fixture in the build output could not be read.", exception);
         }
 
-        var canonicalPath = Path.GetFullPath(Path.Combine(
-            AppContext.BaseDirectory, "..", "..", "..", "..",
-            "TrailGuardV2AdapterVerification", "Fixtures", FixtureName));
-        if (!File.Exists(canonicalPath))
-            throw new InvalidOperationException($"The canonical recorded adapter fixture is missing at '{canonicalPath}'.");
+        var canonicalPath = new[]
+            {
+                Path.Combine(Directory.GetCurrentDirectory(), "Verification", "TrailGuardV2AdapterVerification", "Fixtures", FixtureName),
+                Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "TrailGuardV2AdapterVerification", "Fixtures", FixtureName)
+            }
+            .Select(Path.GetFullPath)
+            .FirstOrDefault(File.Exists);
+        if (canonicalPath == null)
+            throw new InvalidOperationException("The canonical recorded adapter fixture could not be located from the workspace or verification output.");
 
         byte[] canonicalBytes;
         try
@@ -247,6 +255,11 @@ sealed class IntegrationRunner(IntegrationSettings settings, string fixture)
             await ConcurrentRetakesAsync();
             await RegistrationFirstAsync();
             await RetakeFirstAsync();
+            await CapacityOneAllowsOneAsync();
+            await CapacityTwoAllowsTwoAsync();
+            await CapacityReductionPolicyAsync();
+            await RegistrationBeforeCapacityReductionAsync();
+            await CapacityReductionBeforeRegistrationAsync();
             Console.WriteLine("PASS: isolated PostgreSQL assessment persistence scenarios completed.");
         }
         catch (Exception exception)
@@ -431,6 +444,158 @@ sealed class IntegrationRunner(IntegrationSettings settings, string fixture)
         Require(!Directory.Exists(Path.Combine(_uploads, "uploads", "medical-clearances")), "Old-assessment registration left an uploaded document.");
     }
 
+    // The first request pauses only after it owns the event-wide lock and has read the
+    // current count. The competing requests therefore prove their decisions use the
+    // post-lock count rather than a stale concurrent read.
+    private async Task CapacityOneAllowsOneAsync() => await AssertCapacityLimitAsync(1, 2);
+    private async Task CapacityTwoAllowsTwoAsync() => await AssertCapacityLimitAsync(2, 3);
+
+    private async Task AssertCapacityLimitAsync(int capacity, int participantCount)
+    {
+        var seed = await SeedAsync($"capacity-{capacity}");
+        await SetCapacityAsync(seed.EventId, capacity);
+        var participants = new List<ParticipantAssessment> { new(seed.UserId, seed.PriorAssessmentId) };
+        for (var index = 2; index <= participantCount; index++)
+            participants.Add(await AddParticipantAssessmentAsync(seed.EventId, $"capacity-{capacity}-{index}"));
+
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var firstContext = NewContext();
+        var first = new CapacityGateRegistrationController(firstContext, new TestEnvironment(_uploads), entered, release);
+        ConfigureController(first, participants[0].UserId);
+        var firstTask = RegisterAsync(first, seed.EventId, participants[0].AssessmentId);
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+        var competing = participants.Skip(1).Select(async participant =>
+        {
+            await using var context = NewContext();
+            return await RegisterAsync(NewRegistrationController(context, participant.UserId), seed.EventId, participant.AssessmentId);
+        }).ToArray();
+        release.TrySetResult();
+        await Task.WhenAll(competing.Prepend(firstTask)).WaitAsync(TimeSpan.FromSeconds(30));
+
+        await using var verify = NewContext();
+        var occupied = await verify.EventRegistrations.CountAsync(r => r.EventId == seed.EventId && RegistrationStatusHelper.ActiveStatuses.Contains(r.Status));
+        Require(occupied == capacity, $"Capacity {capacity} admitted {occupied} capacity-consuming registrations.");
+    }
+
+    private async Task SetCapacityAsync(int eventId, int capacity)
+    {
+        await using var context = NewContext();
+        var evt = await context.Events.SingleAsync(e => e.Id == eventId);
+        evt.Capacity = capacity;
+        await context.SaveChangesAsync();
+    }
+
+    private async Task CapacityReductionPolicyAsync()
+    {
+        var seed = await SeedAsync("capacity-edit");
+        await SetCapacityAsync(seed.EventId, 2);
+        await using (var registrationContext = NewContext())
+            Require(await RegisterAsync(NewRegistrationController(registrationContext, seed.UserId), seed.EventId, seed.PriorAssessmentId) is RedirectToActionResult, "Capacity-edit setup registration did not persist.");
+
+        await using (var rejectContext = NewContext())
+        {
+            var rejected = await NewEventController(rejectContext, seed.UserId).EditEvent(await EditInputAsync(rejectContext, seed.EventId, 0));
+            Require(IsFailure(rejected), "Capacity reduction below occupied slots was accepted.");
+        }
+        await using (var acceptContext = NewContext())
+        {
+            var accepted = await NewEventController(acceptContext, seed.UserId).EditEvent(await EditInputAsync(acceptContext, seed.EventId, 1));
+            Require(!IsFailure(accepted), "Capacity equal to occupied slots was rejected.");
+        }
+    }
+
+    private async Task RegistrationBeforeCapacityReductionAsync()
+    {
+        var seed = await SeedAsync("registration-before-capacity-edit");
+        await SetCapacityAsync(seed.EventId, 1);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var registrationContext = NewContext();
+        var registration = new CapacityGateRegistrationController(registrationContext, new TestEnvironment(_uploads), entered, release);
+        ConfigureController(registration, seed.UserId);
+        var registrationTask = RegisterAsync(registration, seed.EventId, seed.PriorAssessmentId);
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        await using var eventContext = NewContext();
+        var editTask = NewEventController(eventContext, seed.UserId).EditEvent(await EditInputAsync(eventContext, seed.EventId, 0));
+        release.TrySetResult();
+        Require(await registrationTask.WaitAsync(TimeSpan.FromSeconds(30)) is RedirectToActionResult, "Registration did not commit before capacity edit.");
+        Require(IsFailure(await editTask.WaitAsync(TimeSpan.FromSeconds(30))), "Capacity edit below the now-occupied count was accepted.");
+        await AssertOccupiedNotAboveCapacityAsync(seed.EventId);
+    }
+
+    private async Task CapacityReductionBeforeRegistrationAsync()
+    {
+        var seed = await SeedAsync("capacity-edit-before-registration");
+        await SetCapacityAsync(seed.EventId, 1);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var eventContext = NewContext();
+        var edit = NewCapacityGateEventController(eventContext, seed.UserId, entered, release);
+        var editTask = edit.EditEvent(await EditInputAsync(eventContext, seed.EventId, 0));
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        await using var registrationContext = NewContext();
+        var registrationTask = RegisterAsync(NewRegistrationController(registrationContext, seed.UserId), seed.EventId, seed.PriorAssessmentId);
+        release.TrySetResult();
+        Require(!IsFailure(await editTask.WaitAsync(TimeSpan.FromSeconds(30))), "Capacity reduction before registration was rejected.");
+        Require(await registrationTask.WaitAsync(TimeSpan.FromSeconds(30)) is RedirectToActionResult, "Full-capacity registration did not redirect safely.");
+        await AssertOccupiedNotAboveCapacityAsync(seed.EventId);
+    }
+
+    private async Task AssertOccupiedNotAboveCapacityAsync(int eventId)
+    {
+        await using var context = NewContext();
+        var capacity = await context.Events.Where(e => e.Id == eventId).Select(e => e.Capacity).SingleAsync();
+        var occupied = await context.EventRegistrations.CountAsync(r => r.EventId == eventId && RegistrationStatusHelper.ActiveStatuses.Contains(r.Status));
+        Require(occupied <= capacity, "Final occupied count exceeds event capacity.");
+    }
+
+    private EventController NewEventController(ApplicationDbContext context, string userId)
+    {
+        var users = _services.GetRequiredService<UserManager<ApplicationUser>>();
+        var controller = new EventController(context, new TestEnvironment(_uploads), users,
+            new WeatherService(new HttpClient(), NullLogger<WeatherService>.Instance), NullLogger<EventController>.Instance,
+            new RoleAssignmentService(users, context, NullLogger<RoleAssignmentService>.Instance));
+        ConfigureController(controller, userId);
+        return controller;
+    }
+
+    private CapacityGateEventController NewCapacityGateEventController(ApplicationDbContext context, string userId, TaskCompletionSource entered, TaskCompletionSource release)
+    {
+        var users = _services.GetRequiredService<UserManager<ApplicationUser>>();
+        var controller = new CapacityGateEventController(context, new TestEnvironment(_uploads), users,
+            new WeatherService(new HttpClient(), NullLogger<WeatherService>.Instance), NullLogger<EventController>.Instance,
+            new RoleAssignmentService(users, context, NullLogger<RoleAssignmentService>.Instance), entered, release);
+        ConfigureController(controller, userId);
+        return controller;
+    }
+
+    private static bool IsFailure(JsonResult result) => JsonSerializer.Serialize(result.Value).Contains("\"success\":false", StringComparison.Ordinal);
+
+    private async Task<EventEditModel> EditInputAsync(ApplicationDbContext context, int eventId, int capacity)
+    {
+        var evt = await context.Events.SingleAsync(e => e.Id == eventId);
+        return new EventEditModel { Id = evt.Id, EventTitle = evt.EventTitle, Description = evt.Description, EventDate = evt.EventDate, EventTime = evt.EventTime, TrailId = evt.TrailId, EstimatedDuration = evt.EstimatedDuration, Capacity = capacity, OrganizerId = evt.OrganizerId, Status = evt.Status, PickupSchedules = [new PickupScheduleInputModel { Location = "Main gate", Time = "06:00" }] };
+    }
+
+    private async Task<ParticipantAssessment> AddParticipantAssessmentAsync(int eventId, string suffix)
+    {
+        var userId = "it-" + suffix;
+        await using var context = NewContext();
+        context.Users.Add(new ApplicationUser { Id = userId, UserName = userId, NormalizedUserName = userId.ToUpperInvariant(), FirstName = "Integration", LastName = "Participant", Email = userId + "@example.test", NormalizedEmail = (userId + "@example.test").ToUpperInvariant() });
+        var request = Request();
+        var response = await PredictionAsync(request);
+        var assessment = new Assessment { EventId = eventId, UserId = userId, IsActive = true, Result = "Good-Match", ConsentGiven = true };
+        TrailGuardV2SuitabilityResultFactory.Create(assessment, DateTimeOffset.UtcNow, request, response);
+        context.Assessments.Add(assessment);
+        await context.SaveChangesAsync();
+        return new(userId, assessment.Id);
+    }
+
+    private static Task<IActionResult> RegisterAsync(RegistrationController controller, int eventId, int assessmentId) =>
+        controller.Register(eventId, assessmentId, "Participant", "p@example.test", "1", "Emergency", "2", "Main gate", null, null);
+
     private async Task<Seed> SeedAsync(string suffix, bool withPriorAssessment = true)
     {
         var userId = "it-" + suffix;
@@ -438,7 +603,7 @@ sealed class IntegrationRunner(IntegrationSettings settings, string fixture)
         var user = new ApplicationUser { Id = userId, UserName = userId, NormalizedUserName = userId.ToUpperInvariant(), FirstName = "Integration", LastName = "Participant", Email = userId + "@example.test", NormalizedEmail = (userId + "@example.test").ToUpperInvariant() };
         var trail = new Trail { Name = "Integration trail " + suffix, Location = "Local", DistanceKm = 8, TypicalDurationHours = 5, ElevationGainMeters = 600, Terrain = "Trail", TrailClass = 3, Description = "Integration" };
         context.AddRange(user, trail); await context.SaveChangesAsync();
-        var evt = new Event { TrailId = trail.Id, EventTitle = "Integration event " + suffix, Description = "Integration", EventDate = DateTime.Today.AddDays(7), EventTime = TimeSpan.FromHours(6), Location = "Local", Difficulty = "Moderate", Capacity = 20, Status = "Upcoming", PickupPoints = "Main gate", TrailNameSnapshot = trail.Name, TrailDistanceKmSnapshot = 8, TrailDurationHoursSnapshot = 5, TrailElevationGainMetersSnapshot = 600, TrailTerrainSnapshot = "Trail", TrailClassSnapshot = 3, TrailAdjustedRatingSnapshot = 1, EstimatedDuration = 5 };
+        var evt = new Event { TrailId = trail.Id, EventTitle = "Integration event " + suffix, Description = "Integration", EventDate = DateTime.Today.AddDays(7), EventTime = TimeSpan.FromHours(6), Location = "Local", Difficulty = "Moderate", Capacity = 20, Status = "Upcoming", OrganizerId = userId, OrganizedBy = "Integration Participant", PickupPoints = "Main gate", TrailNameSnapshot = trail.Name, TrailDistanceKmSnapshot = 8, TrailDurationHoursSnapshot = 5, TrailElevationGainMetersSnapshot = 600, TrailTerrainSnapshot = "Trail", TrailClassSnapshot = 3, TrailAdjustedRatingSnapshot = 1, EstimatedDuration = 5 };
         context.Events.Add(evt); await context.SaveChangesAsync();
         var request = Request();
         var response = await PredictionAsync(request);
@@ -464,6 +629,7 @@ sealed class IntegrationRunner(IntegrationSettings settings, string fixture)
     private async Task AssertSingleCompleteActiveGraphAsync(Seed seed) { await using var context = NewContext(); var active = await context.Assessments.Where(a => a.EventId == seed.EventId && a.UserId == seed.UserId && a.IsActive).Include(a => a.SuitabilityResults).ThenInclude(r => r.ShapValues).ToListAsync(); Require(active.Count == 1 && active.Single().SuitabilityResults.Count == 1 && active.Single().SuitabilityResults.Single().ShapValues.Count == 11, "Expected one complete active prediction graph."); }
     private static void Require(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
     private sealed record Seed(int EventId, string UserId, int PriorAssessmentId, TrailGuardV2AssessmentFormInput Input);
+    private sealed record ParticipantAssessment(string UserId, int AssessmentId);
 }
 
 sealed class FixtureHandler(string body) : HttpMessageHandler { protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body, Encoding.UTF8, "application/json") }); }
@@ -493,6 +659,34 @@ sealed class RegistrationGateAssessmentController : AssessmentController
         var value = await base.HasActiveRegistrationAsync(eventId, userId);
         if (Interlocked.Increment(ref _checks) == 2) { _checkedSecondTime.TrySetResult(); await _release.Task.WaitAsync(TimeSpan.FromSeconds(10)); }
         return value;
+    }
+}
+
+sealed class CapacityGateRegistrationController : RegistrationController
+{
+    private readonly TaskCompletionSource _entered;
+    private readonly TaskCompletionSource _release;
+    public CapacityGateRegistrationController(ApplicationDbContext context, IWebHostEnvironment environment, TaskCompletionSource entered, TaskCompletionSource release)
+        : base(context, environment) { _entered = entered; _release = release; }
+
+    protected override async Task OnCapacityCheckedForRegistrationAsync(int eventId, string userId)
+    {
+        _entered.TrySetResult();
+        await _release.Task.WaitAsync(TimeSpan.FromSeconds(10));
+    }
+}
+
+sealed class CapacityGateEventController : EventController
+{
+    private readonly TaskCompletionSource _entered;
+    private readonly TaskCompletionSource _release;
+    public CapacityGateEventController(ApplicationDbContext context, IWebHostEnvironment environment, UserManager<ApplicationUser> users, WeatherService weather, ILogger<EventController> logger, RoleAssignmentService roles, TaskCompletionSource entered, TaskCompletionSource release)
+        : base(context, environment, users, weather, logger, roles) { _entered = entered; _release = release; }
+
+    protected override async Task OnCapacityStateLoadedForEditAsync(int eventId)
+    {
+        _entered.TrySetResult();
+        await _release.Task.WaitAsync(TimeSpan.FromSeconds(10));
     }
 }
 
