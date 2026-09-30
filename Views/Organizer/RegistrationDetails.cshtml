@@ -630,7 +630,6 @@
                 <button type="button" id="actionConfirmSubmitBtn"
                         class="flex-1 px-4 py-2.5 rounded-full text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface-card disabled:opacity-60 disabled:pointer-events-none">
                     <span id="actionConfirmSubmitLabel">Confirm</span>
-                    <i id="actionConfirmSpinner" class="fa-solid fa-circle-notch fa-spin ml-1.5 hidden" aria-hidden="true"></i>
                 </button>
             </div>
         </div>
@@ -866,6 +865,7 @@
         var ActionConfirm = (function () {
             var pending = null; // { url, payload, triggerEl, onSuccess }
             var submitting = false;
+            var configuredConfirmLabel = '';
 
             var dialog = createDialog('actionConfirmModal', {
                 initialFocus: function () { return byId('actionConfirmSubmitBtn'); },
@@ -881,7 +881,7 @@
                 els.actionSubmitBtn.disabled = value;
                 els.actionCancelBtn.disabled = value;
                 els.actionCloseBtn.disabled = value;
-                els.actionSpinner.classList.toggle('hidden', !value);
+                els.actionSubmitLabel.textContent = value ? 'Processing...' : configuredConfirmLabel;
             }
 
             function configure(options) {
@@ -891,7 +891,8 @@
                 els.actionSubmitBtn.className = style.submit;
                 els.actionTitle.textContent = options.title;
                 els.actionMessage.textContent = options.message;
-                els.actionSubmitLabel.textContent = options.confirmLabel;
+                configuredConfirmLabel = options.confirmLabel;
+                els.actionSubmitLabel.textContent = configuredConfirmLabel;
 
                 if (options.warning) {
                     els.actionWarningText.textContent = options.warning;
@@ -1057,7 +1058,6 @@
                 actionSubmitLabel: byId('actionConfirmSubmitLabel'),
                 actionCancelBtn: byId('actionConfirmCancelBtn'),
                 actionCloseBtn: byId('actionConfirmCloseBtn'),
-                actionSpinner: byId('actionConfirmSpinner'),
                 reasonInput: byId('decisionReasonInput'),
                 reasonError: byId('decisionReasonError'),
                 altError: byId('alternativeEventError')

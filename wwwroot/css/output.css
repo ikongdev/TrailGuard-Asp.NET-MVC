@@ -1439,6 +1439,9 @@
       border-color: color-mix(in oklab, var(--color-white) 10%, transparent);
     }
   }
+  .self-start {
+    align-self: flex-start;
+  }
   .truncate {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -2852,9 +2855,6 @@
   .text-slate-400 {
     color: var(--color-slate-400);
   }
-  .text-slate-500 {
-    color: var(--color-slate-500);
-  }
   .text-slate-600 {
     color: var(--color-slate-600);
   }
@@ -4044,6 +4044,9 @@
     .lg\:flex-1 {
       flex: 1;
     }
+    .lg\:grow {
+      flex-grow: 1;
+    }
     .lg\:grid-cols-2 {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -4108,6 +4111,9 @@
     }
     .lg\:gap-x-10 {
       column-gap: calc(var(--spacing) * 10);
+    }
+    .lg\:self-stretch {
+      align-self: stretch;
     }
     .lg\:overflow-y-auto {
       overflow-y: auto;

@@ -194,8 +194,8 @@
                         </div>
 
                         <p id="saveStatus" role="status" aria-live="polite" aria-atomic="true" class="mt-3 text-sm flex items-center gap-2 text-gray-500">
-                            <i class="fa-regular fa-circle text-xs" aria-hidden="true"></i>
-                            <span>No unsaved changes</span>
+                            <span id="saveStatusIconWrap" aria-hidden="true"><i class="fa-regular fa-circle text-xs"></i></span>
+                            <span id="saveStatusText">No unsaved changes</span>
                         </p>
                     </form>
                 </div>
@@ -274,11 +274,6 @@
             var eventId = 0;
             var totalCount = 0;
             var els = {};
-            // Font Awesome's fa-spin has no built-in reduced-motion behavior,
-            // so the saving-state spinner icon is chosen once at init instead
-            // of via CSS - see the CSS-source note near the top of this file.
-            var prefersReducedMotion = false;
-
             function byId(id) { return document.getElementById(id); }
             function setText(el, text) { if (el) el.textContent = text; }
 
@@ -461,17 +456,19 @@
 
             function setSaveStatus(state, message) {
                 if (!els.saveStatus) return;
+                var iconWrap = byId('saveStatusIconWrap');
                 var icon = els.saveStatus.querySelector('i');
-                var text = els.saveStatus.querySelector('span');
+                var text = byId('saveStatusText');
                 var config = {
                     idle: { icon: 'fa-regular fa-circle', color: 'text-gray-500', text: 'No unsaved changes' },
                     dirty: { icon: 'fa-solid fa-circle-exclamation', color: 'text-amber-400', text: 'Unsaved changes' },
-                    saving: { icon: prefersReducedMotion ? 'fa-solid fa-circle-notch' : 'fa-solid fa-circle-notch fa-spin', color: 'text-accent', text: 'Saving assessment…' },
+                    saving: { hideIcon: true, color: 'text-accent', text: 'Saving assessment…' },
                     saved: { icon: 'fa-solid fa-circle-check', color: 'text-emerald-400', text: 'Assessment saved' },
                     error: { icon: 'fa-solid fa-triangle-exclamation', color: 'text-red-400', text: message || 'Unable to save. Please try again.' }
                 };
                 var c = config[state] || config.idle;
-                if (icon) icon.className = c.icon + ' text-xs';
+                if (iconWrap) iconWrap.classList.toggle('hidden', c.hideIcon === true);
+                if (icon && !c.hideIcon) icon.className = c.icon + ' text-xs';
                 if (text) text.textContent = c.text;
                 els.saveStatus.className = 'mt-3 text-sm flex items-center gap-2 ' + c.color;
             }
@@ -785,8 +782,6 @@
 
             // ---------------- Init ----------------
             function init() {
-                prefersReducedMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-
                 var root = byId('postEventAssessmentRoot');
                 var parsedEventId = root ? parseInt(root.getAttribute('data-event-id'), 10) : 0;
                 eventId = Number.isFinite(parsedEventId) ? parsedEventId : 0;

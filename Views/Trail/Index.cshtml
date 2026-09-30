@@ -696,7 +696,7 @@
                                             data-trail-name="@row.Name"
                                             aria-label="Activate @row.Name"
                                             class="activate-trail-btn inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold text-white bg-accent hover:bg-accent/90 transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-card disabled:opacity-60 disabled:pointer-events-none min-h-10">
-                                        <i class="fa-solid fa-arrow-rotate-left activate-trail-btn-icon" aria-hidden="true"></i>
+                                        <span class="activate-trail-btn-icon-wrap" aria-hidden="true"><i class="fa-solid fa-arrow-rotate-left"></i></span>
                                         <span class="activate-trail-btn-label">Activate</span>
                                     </button>
                                 </div>
@@ -1720,14 +1720,14 @@
             if (button.disabled) return;
 
             const label = button.querySelector('.activate-trail-btn-label');
-            const icon = button.querySelector('.activate-trail-btn-icon');
+            const iconWrap = button.querySelector('.activate-trail-btn-icon-wrap');
             button.disabled = true;
-            if (icon) icon.className = 'fa-solid fa-spinner fa-spin motion-reduce:animate-none activate-trail-btn-icon';
+            if (iconWrap) iconWrap.classList.add('hidden');
             if (label) label.textContent = 'Activating...';
 
             function restoreButton() {
                 button.disabled = false;
-                if (icon) icon.className = 'fa-solid fa-arrow-rotate-left activate-trail-btn-icon';
+                if (iconWrap) iconWrap.classList.remove('hidden');
                 if (label) label.textContent = 'Activate';
             }
 

@@ -636,7 +636,7 @@
                         Next <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
                     </button>
                     <button type="submit" id="submitBtn" class="hidden items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold text-white bg-linear-to-r from-orange-500 via-pink-500 to-violet-500 hover:brightness-110 hover:scale-[1.02] transition duration-200 ease-out focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-base disabled:opacity-60 disabled:pointer-events-none">
-                        <i class="fa-solid fa-check" aria-hidden="true" id="submitBtnIcon"></i>
+                        <span id="submitBtnIconWrap" aria-hidden="true"><i class="fa-solid fa-check"></i></span>
                         <span id="submitBtnLabel">Create Event</span>
                     </button>
                 </div>
@@ -1050,7 +1050,7 @@
                         Next <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
                     </button>
                     <button type="submit" id="editSubmitBtn" class="hidden items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold text-white bg-linear-to-r from-orange-500 via-pink-500 to-violet-500 hover:brightness-110 hover:scale-[1.02] transition duration-200 ease-out focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-base disabled:opacity-60 disabled:pointer-events-none">
-                        <i class="fa-solid fa-check" aria-hidden="true" id="editSubmitBtnIcon"></i>
+                        <span id="editSubmitBtnIconWrap" aria-hidden="true"><i class="fa-solid fa-check"></i></span>
                         <span id="editSubmitBtnLabel">Update Event</span>
                     </button>
                 </div>
@@ -2295,17 +2295,17 @@
         }
     }
 
-    // Updates only the label/icon inside the existing submit button rather
-    // than replacing its contents wholesale, so the button's internal
-    // icon/label structure survives a save cycle intact.
+    // Updates only the label/icon wrapper inside the existing submit button
+    // rather than replacing its contents wholesale, so its structure
+    // survives a save cycle intact.
     function setAddEventSubmitting(isSubmitting) {
         const submitBtn = document.getElementById('submitBtn');
-        const icon = document.getElementById('submitBtnIcon');
+        const iconWrap = document.getElementById('submitBtnIconWrap');
         const label = document.getElementById('submitBtnLabel');
         if (!submitBtn) return;
 
         submitBtn.disabled = isSubmitting;
-        if (icon) icon.className = isSubmitting ? 'fa-solid fa-spinner fa-spin motion-reduce:animate-none' : 'fa-solid fa-check';
+        if (iconWrap) iconWrap.classList.toggle('hidden', isSubmitting);
         if (label) label.textContent = isSubmitting ? 'Creating Event...' : 'Create Event';
     }
 
@@ -3784,12 +3784,12 @@
 
     function setEditEventSubmitting(isSubmitting) {
         const submitBtn = document.getElementById('editSubmitBtn');
-        const icon = document.getElementById('editSubmitBtnIcon');
+        const iconWrap = document.getElementById('editSubmitBtnIconWrap');
         const label = document.getElementById('editSubmitBtnLabel');
         if (!submitBtn) return;
 
         submitBtn.disabled = isSubmitting;
-        if (icon) icon.className = isSubmitting ? 'fa-solid fa-spinner fa-spin motion-reduce:animate-none' : 'fa-solid fa-check';
+        if (iconWrap) iconWrap.classList.toggle('hidden', isSubmitting);
         if (label) label.textContent = isSubmitting ? 'Updating Event...' : 'Update Event';
     }
 
