@@ -44,7 +44,11 @@ namespace TrailGuard.Data
                 entity.HasIndex(point => point.NormalizedName).IsUnique();
             });
 
-            builder.Entity<ApplicationUser>().ToTable("Users");
+            builder.Entity<ApplicationUser>().ToTable("Users", table => table.HasCheckConstraint(
+                "CK_Users_Gender_Valid",
+                "\"Gender\" IS NULL OR \"Gender\" IN ('Male', 'Female', 'Prefer not to say')"));
+            builder.Entity<ApplicationUser>().Property(user => user.Birthday).HasColumnType("date");
+            builder.Entity<ApplicationUser>().Property(user => user.Gender).HasMaxLength(20);
             builder.Entity<IdentityRole>().ToTable("Roles");
             builder.Entity<IdentityUserRole<string>>().ToTable("UserRoles");
             builder.Entity<IdentityUserClaim<string>>().ToTable("UserClaims");

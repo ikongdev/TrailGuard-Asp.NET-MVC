@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace TrailGuard.Models;
 
@@ -6,7 +7,8 @@ namespace TrailGuard.Models;
 public sealed class TrailGuardV2AssessmentFormInput
 {
     public int EventId { get; set; }
-    [Range(18, 60)] public int? Age { get; set; }
+    [BindNever] public int? Age { get; set; }
+    [BindNever] public string? Gender { get; set; }
     [Range(120, 220)] public double? HeightCm { get; set; }
     [Range(25, 200)] public double? WeightKg { get; set; }
     public string[]? MedicalConditions { get; set; }

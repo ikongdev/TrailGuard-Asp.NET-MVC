@@ -6,7 +6,7 @@
     var isRetake = ViewBag.RetakeMode ?? false;
     var submittedAnswers = JsonSerializer.Serialize(new
     {
-        Model.Age, Model.HeightCm, Model.WeightKg, Model.ExerciseFrequency, Model.ExerciseType,
+        Model.HeightCm, Model.WeightKg, Model.ExerciseFrequency, Model.ExerciseType,
         Model.CardioEndurance, Model.ExerciseConsistency, Model.MountainsClimbed,
         Model.RecencyOfHike, Model.TrailDifficultyCompleted, Model.MedicalConditions,
         Model.GearItems, Model.ConsentGiven, Model.DataPrivacyConsent
@@ -123,16 +123,21 @@
                     </h2>
 
                     <div class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">1. How old are you? <span class="text-red-400">*</span></label>
-                            <input asp-for="Age" type="number" id="age" required min="18" max="60"
-                                   class="w-full bg-surface-card border border-gray-700 text-white rounded-xl px-4 py-3 focus:border-accent focus:outline-none transition-colors"
-                                   placeholder="Enter your age" />
-                            <p class="text-gray-500 text-xs mt-1">Our assessment model currently covers ages 18–60.</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <p class="block text-sm font-medium text-gray-300 mb-2">Age</p>
+                                <div class="w-full bg-surface-card border border-gray-700 text-white rounded-xl px-4 py-3" aria-label="Age from your Settings profile">@(Model.Age?.ToString() ?? "Not provided")</div>
+                                <span asp-validation-for="Age" class="text-red-300 text-xs"></span>
+                            </div>
+                            <div>
+                                <p class="block text-sm font-medium text-gray-300 mb-2">Gender</p>
+                                <div class="w-full bg-surface-card border border-gray-700 text-white rounded-xl px-4 py-3" aria-label="Gender from your Settings profile">@(Model.Gender ?? "Not provided")</div>
+                            </div>
                         </div>
+                        <p class="text-gray-500 text-xs">Age and Gender come from your <a asp-controller="Settings" asp-action="Index" class="text-accent hover:brightness-125 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded">Settings profile</a>. Our assessment currently covers ages 18–60.</p>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">2. What is your current height and weight? <span class="text-red-400">*</span></label>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">1. What is your current height and weight? <span class="text-red-400">*</span></label>
                             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <div>
                                     <input asp-for="HeightCm" type="number" id="heightCm" required step="0.1" min="120" max="220"
@@ -155,7 +160,7 @@
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">3. Do you have any of the following medical conditions? <span class="text-red-400">*</span></label>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">2. Do you have any of the following medical conditions? <span class="text-red-400">*</span></label>
                             <div class="flex flex-wrap gap-2 bg-surface-card border border-gray-700 rounded-xl p-4">
                                 <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
                                     <input type="checkbox" name="medicalConditions" value="Asthma / lung-related condition" class="medCondition w-4 h-4 accent-accent" />
@@ -202,7 +207,7 @@
 
                     <div class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">4. In the past 3 months, how often did you exercise or do physical activities in a typical week? <span class="text-red-400">*</span></label>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">3. In the past 3 months, how often did you exercise or do physical activities in a typical week? <span class="text-red-400">*</span></label>
                             <div class="flex flex-wrap gap-2">
                                 <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
                                     <input type="radio" name="exerciseFrequency" value="No regular exercise" required class="w-4 h-4 accent-accent" />
@@ -225,7 +230,7 @@
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">5. What is the main type of exercise you usually do? <span class="text-red-400">*</span></label>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">4. What is the main type of exercise you usually do? <span class="text-red-400">*</span></label>
                             <div class="flex flex-wrap gap-2">
                                 <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
                                     <input type="radio" name="exerciseType" value="None / No specific exercise" required class="w-4 h-4 accent-accent" />
@@ -247,7 +252,7 @@
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">6. If you were to run or walk briskly on a flat road, how long can you do it continuously without stopping to rest? <span class="text-red-400">*</span></label>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">5. If you were to run or walk briskly on a flat road, how long can you do it continuously without stopping to rest? <span class="text-red-400">*</span></label>
                             <div class="flex flex-wrap gap-2">
                                 <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
                                     <input type="radio" name="cardioEndurance" value="None" required class="w-4 h-4 accent-accent" />
@@ -274,7 +279,7 @@
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">7. How long have you been exercising at this frequency? <span class="text-red-400">*</span></label>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">6. How long have you been exercising at this frequency? <span class="text-red-400">*</span></label>
                             <div class="flex flex-wrap gap-2">
                                 <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
                                     <input type="radio" name="exerciseConsistency" value="None" required class="w-4 h-4 accent-accent" />
@@ -306,7 +311,7 @@
 
                     <div class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">8. How many mountains have you climbed in your lifetime? <span class="text-red-400">*</span></label>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">7. How many mountains have you climbed in your lifetime? <span class="text-red-400">*</span></label>
                             <div class="flex flex-wrap gap-2">
                                 <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
                                     <input type="radio" name="mountainsClimbed" value="0" required class="w-4 h-4 accent-accent" />
@@ -329,7 +334,7 @@
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">9. When was your most recent mountain hike? <span class="text-red-400">*</span></label>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">8. When was your most recent mountain hike? <span class="text-red-400">*</span></label>
                             <div class="flex flex-wrap gap-2">
                                 <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
                                     <input type="radio" name="recencyOfHike" value="Never" required class="w-4 h-4 accent-accent" />
@@ -352,7 +357,7 @@
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">10. What is the highest or most difficult type of trail you have completed before? <span class="text-red-400">*</span></label>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">9. What is the highest or most difficult type of trail you have completed before? <span class="text-red-400">*</span></label>
                             <div class="flex flex-wrap gap-2">
                                 <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
                                     <input type="radio" name="trailDifficultyCompleted" value="None" required class="w-4 h-4 accent-accent" />
@@ -389,7 +394,7 @@
                     </h2>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-2">11. Which of the following items will you definitely bring or have already packed for this hike? <span class="text-red-400">*</span></label>
+                        <label class="block text-sm font-medium text-gray-300 mb-2">10. Which of the following items will you definitely bring or have already packed for this hike? <span class="text-red-400">*</span></label>
                         <div class="flex flex-wrap gap-2 bg-surface-card border border-gray-700 rounded-xl p-4">
                             <label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
                                 <input type="checkbox" name="gearItems" value="Enough water" class="gearItem w-4 h-4 accent-accent" />
@@ -697,7 +702,6 @@
         });
 
         var rangeFields = [
-            { id: 'age', label: 'Age' },
             { id: 'heightCm', label: 'Height' },
             { id: 'weightKg', label: 'Weight' }
         ];

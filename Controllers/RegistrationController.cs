@@ -12,11 +12,13 @@ namespace TrailGuard.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IWebHostEnvironment _webHostEnvironment;
+        private readonly IPhilippineClock _philippineClock;
 
-        public RegistrationController(ApplicationDbContext context, IWebHostEnvironment webHostEnvironment)
+        public RegistrationController(ApplicationDbContext context, IWebHostEnvironment webHostEnvironment, IPhilippineClock? philippineClock = null)
         {
             _context = context;
             _webHostEnvironment = webHostEnvironment;
+            _philippineClock = philippineClock ?? new PhilippineClock(TimeProvider.System);
         }
 
         [HttpGet]
@@ -72,6 +74,7 @@ namespace TrailGuard.Controllers
             }
 
             var user = await FindUserAsync(userId);
+            PopulateReadOnlyDemographics(user);
 
             var resultSelection = SuitabilityResultSelector.Select(await _context.SuitabilityResults
                 .Include(s => s.ShapValues)
@@ -367,6 +370,12 @@ namespace TrailGuard.Controllers
             {
                 System.IO.File.Delete(path);
             }
+        }
+
+        private void PopulateReadOnlyDemographics(ApplicationUser? user)
+        {
+            ViewBag.RegistrationCurrentAge = ParticipantDemographics.CurrentAgeOrNull(user?.Birthday, _philippineClock.Today);
+            ViewBag.RegistrationGender = user is not null && ParticipantDemographics.IsValidGender(user.Gender) ? user.Gender : null;
         }
 
         // Query seams keep the controller decision path testable without a database; production behavior remains the same EF queries.

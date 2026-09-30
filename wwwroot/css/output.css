@@ -4120,6 +4120,9 @@
     .lg\:px-12 {
       padding-inline: calc(var(--spacing) * 12);
     }
+    .lg\:pt-5 {
+      padding-top: calc(var(--spacing) * 5);
+    }
     .lg\:pr-1 {
       padding-right: var(--spacing);
     }
@@ -4174,6 +4177,12 @@
   color-scheme: dark;
 }
 .add-event-datetime::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+}
+.participant-birthday-picker {
+  color-scheme: dark;
+}
+.participant-birthday-picker::-webkit-calendar-picker-indicator {
   cursor: pointer;
 }
 @layer base {

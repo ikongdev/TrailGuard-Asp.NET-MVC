@@ -88,7 +88,9 @@ namespace TrailGuard.Controllers
                     u.DateCreated,
                     u.Email,
                     u.PhoneNumber,
-                    u.FacebookLink
+                    u.FacebookLink,
+                    u.Birthday,
+                    u.Gender
                 })
                 .FirstOrDefaultAsync();
 
@@ -147,6 +149,8 @@ namespace TrailGuard.Controllers
                 Email = identity.Email,
                 PhoneNumber = identity.PhoneNumber,
                 SafeFacebookLink = SafeAbsoluteHttpUrl(identity.FacebookLink),
+                Birthday = identity.Birthday,
+                Gender = ParticipantDemographics.IsValidGender(identity.Gender) ? identity.Gender : null,
 
                 CompletedAdventures = progress.DistinctCompletedEventCount,
                 UniqueTrails = progress.DistinctCompletedTrailCount,

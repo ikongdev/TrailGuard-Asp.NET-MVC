@@ -583,7 +583,7 @@ sealed class IntegrationRunner(IntegrationSettings settings, string fixture)
     {
         var userId = "it-" + suffix;
         await using var context = NewContext();
-        context.Users.Add(new ApplicationUser { Id = userId, UserName = userId, NormalizedUserName = userId.ToUpperInvariant(), FirstName = "Integration", LastName = "Participant", Email = userId + "@example.test", NormalizedEmail = (userId + "@example.test").ToUpperInvariant() });
+        context.Users.Add(new ApplicationUser { Id = userId, UserName = userId, NormalizedUserName = userId.ToUpperInvariant(), FirstName = "Integration", LastName = "Participant", Email = userId + "@example.test", NormalizedEmail = (userId + "@example.test").ToUpperInvariant(), Birthday = new DateOnly(1995, 1, 1), Gender = ParticipantDemographics.PreferNotToSay });
         var request = Request();
         var response = await PredictionAsync(request);
         var assessment = new Assessment { EventId = eventId, UserId = userId, IsActive = true, Result = "Good-Match", ConsentGiven = true };
@@ -600,7 +600,7 @@ sealed class IntegrationRunner(IntegrationSettings settings, string fixture)
     {
         var userId = "it-" + suffix;
         await using var context = NewContext();
-        var user = new ApplicationUser { Id = userId, UserName = userId, NormalizedUserName = userId.ToUpperInvariant(), FirstName = "Integration", LastName = "Participant", Email = userId + "@example.test", NormalizedEmail = (userId + "@example.test").ToUpperInvariant() };
+        var user = new ApplicationUser { Id = userId, UserName = userId, NormalizedUserName = userId.ToUpperInvariant(), FirstName = "Integration", LastName = "Participant", Email = userId + "@example.test", NormalizedEmail = (userId + "@example.test").ToUpperInvariant(), Birthday = new DateOnly(1995, 1, 1), Gender = ParticipantDemographics.PreferNotToSay };
         var trail = new Trail { Name = "Integration trail " + suffix, Location = "Local", DistanceKm = 8, TypicalDurationHours = 5, ElevationGainMeters = 600, Terrain = "Trail", TrailClass = 3, Description = "Integration" };
         context.AddRange(user, trail); await context.SaveChangesAsync();
         var evt = new Event { TrailId = trail.Id, EventTitle = "Integration event " + suffix, Description = "Integration", EventDate = DateTime.Today.AddDays(7), EventTime = TimeSpan.FromHours(6), Location = "Local", Difficulty = "Moderate", Capacity = 20, Status = "Upcoming", OrganizerId = userId, OrganizedBy = "Integration Participant", PickupPoints = "Main gate", TrailNameSnapshot = trail.Name, TrailDistanceKmSnapshot = 8, TrailDurationHoursSnapshot = 5, TrailElevationGainMetersSnapshot = 600, TrailTerrainSnapshot = "Trail", TrailClassSnapshot = 3, TrailAdjustedRatingSnapshot = 1, EstimatedDuration = 5 };

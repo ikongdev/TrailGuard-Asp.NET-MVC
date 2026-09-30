@@ -19,17 +19,20 @@ namespace TrailGuard.Controllers
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly IWebHostEnvironment _webHostEnvironment;
         private readonly ILogger<SettingsController> _logger;
+        private readonly IPhilippineClock _philippineClock;
 
         public SettingsController(
             UserManager<ApplicationUser> userManager,
             SignInManager<ApplicationUser> signInManager,
             IWebHostEnvironment webHostEnvironment,
-            ILogger<SettingsController> logger)
+            ILogger<SettingsController> logger,
+            IPhilippineClock philippineClock)
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _webHostEnvironment = webHostEnvironment;
             _logger = logger;
+            _philippineClock = philippineClock;
         }
 
         [HttpGet]
@@ -54,6 +57,7 @@ namespace TrailGuard.Controllers
                 _ => integrity.SingleRole
             };
             ViewBag.RoleNeedsAttention = integrity.Status is RoleIntegrityStatus.Conflict or RoleIntegrityStatus.Missing;
+            ViewBag.IsParticipant = integrity.Status == RoleIntegrityStatus.Participant;
             ViewBag.DateJoined = user.DateCreated.ToString("MMM dd, yyyy");
             ViewBag.IsActive = user.IsActive;
 
@@ -66,7 +70,9 @@ namespace TrailGuard.Controllers
                 PhoneNumber = user.PhoneNumber ?? "",
                 FacebookLink = user.FacebookLink ?? "",
                 Bio = user.Bio ?? "",
-                CurrentProfilePictureUrl = user.ProfilePictureUrl
+                CurrentProfilePictureUrl = user.ProfilePictureUrl,
+                Birthday = integrity.Status == RoleIntegrityStatus.Participant ? user.Birthday : null,
+                Gender = integrity.Status == RoleIntegrityStatus.Participant ? user.Gender : null
             };
 
             return View(model);
@@ -91,6 +97,26 @@ namespace TrailGuard.Controllers
             ModelState.Remove(nameof(model.CurrentPassword));
             ModelState.Remove(nameof(model.NewPassword));
             ModelState.Remove(nameof(model.ConfirmPassword));
+
+            var integrity = OperationalRolePolicy.Evaluate(await _userManager.GetRolesAsync(user));
+            var isParticipant = integrity.Status == RoleIntegrityStatus.Participant;
+            if (!isParticipant)
+            {
+                ModelState.Remove(nameof(model.Birthday));
+                ModelState.Remove(nameof(model.Gender));
+            }
+            else
+            {
+                if (model.Birthday.HasValue && !ParticipantDemographics.IsValidBirthday(model.Birthday.Value, _philippineClock.Today))
+                {
+                    ModelState.AddModelError(nameof(model.Birthday), "Birthday cannot be in the future.");
+                }
+
+                if (!string.IsNullOrWhiteSpace(model.Gender) && !ParticipantDemographics.IsValidGender(model.Gender))
+                {
+                    ModelState.AddModelError(nameof(model.Gender), "Select a valid Gender.");
+                }
+            }
 
 
 
@@ -161,6 +187,11 @@ namespace TrailGuard.Controllers
             user.PhoneNumber = model.PhoneNumber;
             user.FacebookLink = model.FacebookLink;
             user.Bio = string.IsNullOrWhiteSpace(model.Bio) ? null : model.Bio;
+            if (isParticipant)
+            {
+                user.Birthday = model.Birthday;
+                user.Gender = string.IsNullOrWhiteSpace(model.Gender) ? null : model.Gender;
+            }
 
 
 
@@ -239,6 +270,8 @@ namespace TrailGuard.Controllers
             ModelState.Remove(nameof(model.Email));
             ModelState.Remove(nameof(model.PhoneNumber));
             ModelState.Remove(nameof(model.FacebookLink));
+            ModelState.Remove(nameof(model.Birthday));
+            ModelState.Remove(nameof(model.Gender));
 
             if (string.IsNullOrEmpty(model.CurrentPassword) || string.IsNullOrEmpty(model.NewPassword))
             {

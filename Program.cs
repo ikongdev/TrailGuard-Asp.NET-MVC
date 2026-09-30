@@ -30,6 +30,8 @@ builder.Services.AddScoped<RoleAssignmentService>();
 builder.Services.AddScoped<ParticipantProgressService>();
 builder.Services.AddScoped<ProfileAccessService>();
 builder.Services.AddScoped<TrailGuardV2AssessmentRequestMapper>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<IPhilippineClock, PhilippineClock>();
 
 
 

@@ -40,6 +40,13 @@ namespace TrailGuard.Models
         [MaxLength(500, ErrorMessage = "Bio cannot exceed 500 characters.")]
         public string? Bio { get; set; }
 
+        [Display(Name = "Birthday")]
+        [DataType(DataType.Date)]
+        public DateOnly? Birthday { get; set; }
+
+        [Display(Name = "Gender")]
+        public string? Gender { get; set; }
+
         [Display(Name = "Profile Picture")]
         public IFormFile? ProfileImage { get; set; }
 

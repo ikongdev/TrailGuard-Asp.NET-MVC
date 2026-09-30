@@ -132,6 +132,14 @@
                     <dd class="text-gray-100 font-medium wrap-break-word">@(!string.IsNullOrEmpty(Model.ContactNumber) ? Model.ContactNumber : (Model.User?.PhoneNumber ?? "N/A"))</dd>
                 </div>
                 <div>
+                    <dt class="text-gray-500 text-[11px] uppercase tracking-wider">Current Age</dt>
+                    <dd class="text-gray-100 font-medium">@(ViewBag.ParticipantCurrentAge?.ToString() ?? "Not provided")</dd>
+                </div>
+                <div>
+                    <dt class="text-gray-500 text-[11px] uppercase tracking-wider">Gender</dt>
+                    <dd class="text-gray-100 font-medium wrap-break-word">@(ViewBag.ParticipantGender ?? "Not provided")</dd>
+                </div>
+                <div>
                     <dt class="text-gray-500 text-[11px] uppercase tracking-wider">Pickup Point</dt>
                     <dd class="text-gray-100 font-medium wrap-break-word">@(string.IsNullOrEmpty(Model.PickupPoint) ? "N/A" : Model.PickupPoint)</dd>
                 </div>

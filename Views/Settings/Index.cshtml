@@ -132,6 +132,24 @@
                         <input asp-for="PhoneNumber" autocomplete="tel" placeholder="+63 912 345 6789" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" />
                         <span asp-validation-for="PhoneNumber" class="text-red-400 text-xs mt-1 block"></span>
                     </div>
+                    @if (ViewBag.IsParticipant == true)
+                    {
+                        <div>
+                            <label asp-for="Birthday" class="block text-sm font-medium text-gray-300 mb-2">Birthday</label>
+                            <input asp-for="Birthday" type="date" autocomplete="bday" class="participant-birthday-picker block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" />
+                            <span asp-validation-for="Birthday" class="text-red-400 text-xs mt-1 block"></span>
+                        </div>
+                        <div>
+                            <label asp-for="Gender" class="block text-sm font-medium text-gray-300 mb-2">Gender</label>
+                            <select asp-for="Gender" data-custom-select class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors appearance-none cursor-pointer">
+                                <option value="">Select Gender</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Prefer not to say">Prefer not to say</option>
+                            </select>
+                            <span asp-validation-for="Gender" class="text-red-400 text-xs mt-1 block"></span>
+                        </div>
+                    }
                     <div class="sm:col-span-2">
                         <label asp-for="Email" class="block text-sm font-medium text-gray-300 mb-2">Email Address</label>
                         <input asp-for="Email" type="email" autocomplete="email" placeholder="you@example.com" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors wrap-break-word" />

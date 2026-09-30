@@ -32,6 +32,8 @@ namespace TrailGuard.Models
 
 
         public string? SafeFacebookLink { get; set; }
+        public DateOnly? Birthday { get; set; }
+        public string? Gender { get; set; }
 
 
         public int CompletedAdventures { get; set; }

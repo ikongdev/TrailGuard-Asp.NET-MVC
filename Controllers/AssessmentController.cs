@@ -15,16 +15,18 @@ namespace TrailGuard.Controllers
         private readonly TrailGuardV2ApiClient _trailGuardV2Api;
         private readonly TrailGuardV2AssessmentRequestMapper _trailGuardV2Mapper;
         private readonly ILogger<AssessmentController> _logger;
+        private readonly IPhilippineClock _philippineClock;
 
         public AssessmentController(ApplicationDbContext context, SuitabilityApiClient suitabilityApi,
             TrailGuardV2ApiClient trailGuardV2Api, TrailGuardV2AssessmentRequestMapper trailGuardV2Mapper,
-            ILogger<AssessmentController> logger)
+            ILogger<AssessmentController> logger, IPhilippineClock? philippineClock = null)
         {
             _context = context;
             _suitabilityApi = suitabilityApi;
             _trailGuardV2Api = trailGuardV2Api;
             _trailGuardV2Mapper = trailGuardV2Mapper;
             _logger = logger;
+            _philippineClock = philippineClock ?? new PhilippineClock(TimeProvider.System);
         }
 
 
@@ -74,7 +76,21 @@ namespace TrailGuard.Controllers
                 return RedirectToAction("Details", "Participant", new { id = eventId });
             }
 
-            return View(new TrailGuardV2AssessmentFormInput { EventId = eventId });
+            var input = new TrailGuardV2AssessmentFormInput { EventId = eventId };
+            var demographics = await HydrateAuthoritativeDemographicsAsync(input, userId);
+            if (!demographics.IsComplete)
+            {
+                TempData["Error"] = $"{demographics.Error} Use Settings to provide your demographics.";
+                return RedirectToAction("Index", "Settings");
+            }
+
+            if (input.Age is < 18 or > 60)
+            {
+                TempData["Error"] = "Your current age must be between 18 and 60 to complete an assessment. You can update your Birthday in Settings.";
+                return RedirectToAction("Index", "Settings");
+            }
+
+            return View(input);
         }
 
         [HttpPost]
@@ -87,12 +103,34 @@ namespace TrailGuard.Controllers
                 return Forbid();
             }
 
+            // Demographics are profile-owned. Ignore any forged posted values before validation.
+            ModelState.Remove(nameof(input.Age));
+            ModelState.Remove(nameof(input.Gender));
+
             var eventItem = await FindEventAsync(input.EventId);
 
             if (eventItem == null)
             {
                 TempData["Error"] = "Event not found";
                 return RedirectToAction("Events", "Participant");
+            }
+
+            if (await HasActiveRegistrationAsync(input.EventId, userId))
+            {
+                ModelState.AddModelError(string.Empty, "You are already registered for this event.");
+                await HydrateAuthoritativeDemographicsAsync(input, userId);
+                await PopulateAssessmentFormViewBagAsync(input.EventId, userId);
+                return View(input);
+            }
+
+            var demographics = await HydrateAuthoritativeDemographicsAsync(input, userId);
+            if (!demographics.IsComplete)
+            {
+                ModelState.AddModelError(string.Empty, $"{demographics.Error} Use Settings to provide your demographics.");
+            }
+            else if (input.Age is < 18 or > 60)
+            {
+                ModelState.AddModelError(nameof(input.Age), "Your current age must be between 18 and 60 to complete an assessment.");
             }
 
             if (!input.ConsentGiven || !input.DataPrivacyConsent)
@@ -173,7 +211,7 @@ namespace TrailGuard.Controllers
 
                 var assessment = new Assessment
                 {
-                    EventId = input.EventId, UserId = userId, Age = input.Age, HeightCm = input.HeightCm,
+                    EventId = input.EventId, UserId = userId, Age = demographics.Age, HeightCm = input.HeightCm,
                     WeightKg = input.WeightKg, MedicalConditions = medicalConditions, MedicalClearanceRequired = acsmClearanceRequired,
                     ExerciseFrequency = input.ExerciseFrequency, ExerciseType = input.ExerciseType, CardioEndurance = input.CardioEndurance,
                     ExerciseConsistency = input.ExerciseConsistency, MountainsClimbed = input.MountainsClimbed,
@@ -214,6 +252,25 @@ namespace TrailGuard.Controllers
             .AnyAsync(r => r.EventId == eventId
                 && r.UserId == userId
                 && RegistrationStatusHelper.ActiveStatuses.Contains(r.Status));
+
+        protected virtual async Task<ParticipantDemographicsResult> HydrateAuthoritativeDemographicsAsync(
+            TrailGuardV2AssessmentFormInput input, string userId)
+        {
+            var profile = await _context.Users.AsNoTracking()
+                .Where(user => user.Id == userId)
+                .Select(user => new { user.Birthday, user.Gender })
+                .FirstOrDefaultAsync();
+
+            var demographics = profile is null
+                ? ParticipantDemographicsResult.Incomplete("Update your account details in Settings before continuing.")
+                : ParticipantDemographics.Resolve(profile.Birthday, profile.Gender, _philippineClock.Today);
+
+            input.Age = demographics.Age;
+            input.Gender = demographics.Gender;
+            ModelState.Remove(nameof(input.Age));
+            ModelState.Remove(nameof(input.Gender));
+            return demographics;
+        }
 
         /// <summary>Test-only coordination point after the authoritative active assessment is loaded under the workflow lock.</summary>
         protected virtual Task OnActiveAssessmentLoadedForPersistenceAsync(Assessment? oldAssessment) => Task.CompletedTask;

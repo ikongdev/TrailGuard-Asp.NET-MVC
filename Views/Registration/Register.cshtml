@@ -41,6 +41,8 @@
     }
 
     var contactNumberLocal = GroupLocalDigits(ExtractLocalDigits(user?.PhoneNumber));
+    int? registrationCurrentAge = ViewBag.RegistrationCurrentAge is int age ? age : null;
+    var registrationGender = ViewBag.RegistrationGender as string;
 }
 
 <div class="pt-24 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
@@ -110,6 +112,20 @@
                                                inputmode="numeric" maxlength="12" placeholder="912 345 6789"
                                                class="w-full bg-surface-card border border-gray-700 text-white rounded-xl pl-16 pr-4 py-2.5 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors text-sm" />
                                     </div>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label for="registrationCurrentAge" class="block text-xs font-medium text-gray-400 mb-1">Age</label>
+                                    <input type="text" id="registrationCurrentAge" value="@(registrationCurrentAge?.ToString() ?? "Not provided")" readonly
+                                           aria-label="Age from your Settings profile"
+                                           class="w-full bg-surface-card border border-gray-700 text-white rounded-xl px-4 py-2.5 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors text-sm" />
+                                </div>
+                                <div>
+                                    <label for="registrationGender" class="block text-xs font-medium text-gray-400 mb-1">Gender</label>
+                                    <input type="text" id="registrationGender" value="@(registrationGender ?? "Not provided")" readonly
+                                           aria-label="Gender from your Settings profile"
+                                           class="w-full bg-surface-card border border-gray-700 text-white rounded-xl px-4 py-2.5 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors text-sm" />
                                 </div>
                             </div>
                         </div>

@@ -16,14 +16,16 @@ namespace TrailGuard.Controllers
         private readonly IWebHostEnvironment _webHostEnvironment;
         private readonly ILogger<OrganizerController> _logger;
         private readonly ProfileAccessService _profileAccessService;
+        private readonly IPhilippineClock _philippineClock;
 
-        public OrganizerController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, IWebHostEnvironment webHostEnvironment, ILogger<OrganizerController> logger, ProfileAccessService profileAccessService)
+        public OrganizerController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, IWebHostEnvironment webHostEnvironment, ILogger<OrganizerController> logger, ProfileAccessService profileAccessService, IPhilippineClock? philippineClock = null)
         {
             _context = context;
             _userManager = userManager;
             _webHostEnvironment = webHostEnvironment;
             _logger = logger;
             _profileAccessService = profileAccessService;
+            _philippineClock = philippineClock ?? new PhilippineClock(TimeProvider.System);
         }
 
         public async Task<IActionResult> Index()
@@ -270,6 +272,13 @@ namespace TrailGuard.Controllers
                 TempData["Error"] = "Registration not found";
                 return RedirectToAction("Registrations");
             }
+
+            ViewBag.ParticipantCurrentAge = registration.User is null
+                ? null
+                : ParticipantDemographics.CurrentAgeOrNull(registration.User.Birthday, _philippineClock.Today);
+            ViewBag.ParticipantGender = registration.User is not null && ParticipantDemographics.IsValidGender(registration.User.Gender)
+                ? registration.User.Gender
+                : null;
 
             if (registration.Assessment != null)
             {

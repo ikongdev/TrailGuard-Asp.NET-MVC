@@ -16,6 +16,7 @@ using TrailGuard.Models;
 using TrailGuard.Services;
 
 var assertions = 0;
+var assessmentOnly = args.SequenceEqual(["--assessment"]);
 void Check(bool condition, string message)
 {
     if (!condition) throw new InvalidOperationException(message);
@@ -39,13 +40,51 @@ var futureEvent = new Event
 {
     using var context = NewContext();
     var handler = new CountingHandler();
-    var controller = NewAssessmentController(context, handler, futureEvent, hasActiveRegistration: true);
-    var result = await controller.Form(ValidAssessmentInput());
+    var controller = NewAssessmentController(context, handler, futureEvent, hasActiveRegistration: true,
+        demographics: ParticipantDemographicsResult.Complete(30, ParticipantDemographics.Female));
+    var input = ValidAssessmentInput();
+    input.Age = 18;
+    input.Gender = ParticipantDemographics.Male;
+    controller.ModelState.SetModelValue(nameof(input.Age), new Microsoft.AspNetCore.Mvc.ModelBinding.ValueProviderResult("18"));
+    controller.ModelState.SetModelValue(nameof(input.Gender), new Microsoft.AspNetCore.Mvc.ModelBinding.ValueProviderResult(ParticipantDemographics.Male));
+    var result = await controller.Form(input);
 
     Check(result is ViewResult, "An active registration must redisplay the submitted assessment form.");
     Check(controller.ModelState.ErrorCount > 0, "An active registration must add a model error.");
+    Check(input.Age == 30 && input.Gender == ParticipantDemographics.Female, "An active-registration redisplay must hydrate authoritative demographics.");
+    Check(!controller.ModelState.ContainsKey(nameof(input.Age)) && !controller.ModelState.ContainsKey(nameof(input.Gender)), "Client demographic ModelState values must be removed on an active-registration redisplay.");
     Check(handler.RequestCount == 0, "An active registration must be rejected before inference.");
     Check(context.SaveChangesAsyncCalls == 0 && !context.ChangeTracker.Entries().Any(), "An active registration must not save or attach an assessment graph.");
+}
+
+// Assessment POST: profile demographics, not client-posted values, control the redisplayed values and age policy.
+{
+    using var context = NewContext();
+    var handler = new CountingHandler();
+    var controller = NewAssessmentController(context, handler, futureEvent, hasActiveRegistration: false,
+        demographics: ParticipantDemographicsResult.Complete(30, ParticipantDemographics.Female));
+    var input = ValidAssessmentInput();
+    input.Age = 18;
+    input.Gender = ParticipantDemographics.Male;
+    var result = await controller.Form(input);
+
+    Check(result is ViewResult, "A later validation failure must redisplay the assessment form.");
+    Check(input.Age == 30 && input.Gender == ParticipantDemographics.Female, "Forged posted demographics must be overwritten from the authoritative profile.");
+    Check(handler.RequestCount == 0, "A mapping failure after demographic hydration must not call inference.");
+}
+
+{
+    using var context = NewContext();
+    var handler = new CountingHandler();
+    var controller = NewAssessmentController(context, handler, futureEvent, hasActiveRegistration: false,
+        demographics: ParticipantDemographicsResult.Complete(17, ParticipantDemographics.Female));
+    var input = ValidAssessmentInput();
+    input.Age = 30;
+    var result = await controller.Form(input);
+
+    Check(result is ViewResult && controller.ModelState.ErrorCount > 0, "An authoritative out-of-range age must reject submission.");
+    Check(input.Age == 17, "A forged in-range age must not replace the authoritative out-of-range age.");
+    Check(handler.RequestCount == 0, "An authoritative out-of-range age must reject before inference.");
 }
 
 // Assessment POST: malformed medical answers and missing consent are rejected before inference and persistence.
@@ -69,6 +108,8 @@ foreach (var input in new[]
     Check(context.SaveChangesAsyncCalls == 0 && !context.ChangeTracker.Entries().Any(), "Invalid medical selections or missing consent must not save or attach an assessment graph.");
 }
 
+if (!assessmentOnly)
+{
 // Registration POST: plan and clearance checks run through the real controller action before uploads or SaveChanges.
 {
     using var context = NewContext();
@@ -129,7 +170,9 @@ foreach (var input in new[]
     Check(context.SaveChangesAsyncCalls == 0, "An unrelated organizer must not save a decision.");
 }
 
-Console.WriteLine($"PASS: {assertions} assertions. Controller actions ran against protected query doubles and a fake HTTP handler; no MVC host, antiforgery pipeline, authorization middleware, database connection, or persistence transaction was run.");
+}
+
+Console.WriteLine($"PASS: {assertions} assertions{(assessmentOnly ? " (assessment guards only)" : string.Empty)}. Controller actions ran against protected query doubles and a fake HTTP handler; no MVC host, antiforgery pipeline, authorization middleware, database connection, or persistence transaction was run.");
 
 static TrailGuardV2AssessmentFormInput ValidAssessmentInput(
     string[]? medicalConditions = null,
@@ -150,7 +193,7 @@ static CountingDbContext NewContext()
     return new CountingDbContext(options);
 }
 
-static TestAssessmentController NewAssessmentController(CountingDbContext context, CountingHandler handler, Event eventItem, bool hasActiveRegistration)
+static TestAssessmentController NewAssessmentController(CountingDbContext context, CountingHandler handler, Event eventItem, bool hasActiveRegistration, ParticipantDemographicsResult? demographics = null)
 {
     var controller = new TestAssessmentController(
         context,
@@ -160,7 +203,8 @@ static TestAssessmentController NewAssessmentController(CountingDbContext contex
         NullLogger<AssessmentController>.Instance)
     {
         TestEvent = eventItem,
-        ActiveRegistration = hasActiveRegistration
+        ActiveRegistration = hasActiveRegistration,
+        TestDemographics = demographics ?? ParticipantDemographicsResult.Complete(30, ParticipantDemographics.Female)
     };
     ConfigureController(controller, "participant-1");
     return controller;
@@ -244,10 +288,19 @@ sealed class TestAssessmentController : AssessmentController
 
     public Event? TestEvent { get; init; }
     public bool ActiveRegistration { get; init; }
+    public ParticipantDemographicsResult TestDemographics { get; init; } = ParticipantDemographicsResult.Complete(30, ParticipantDemographics.Female);
 
     protected override Task<Event?> FindEventAsync(int eventId) => Task.FromResult(TestEvent);
     protected override Task<bool> HasActiveRegistrationAsync(int eventId, string userId) => Task.FromResult(ActiveRegistration);
     protected override Task<bool> HasActiveAssessmentAsync(int eventId, string? userId) => Task.FromResult(false);
+    protected override Task<ParticipantDemographicsResult> HydrateAuthoritativeDemographicsAsync(TrailGuardV2AssessmentFormInput input, string userId)
+    {
+        input.Age = TestDemographics.Age;
+        input.Gender = TestDemographics.Gender;
+        ModelState.Remove(nameof(input.Age));
+        ModelState.Remove(nameof(input.Gender));
+        return Task.FromResult(TestDemographics);
+    }
     protected override Task<Event?> PopulateAssessmentFormViewBagAsync(int eventId, string? userId)
     {
         ViewBag.Event = TestEvent;
