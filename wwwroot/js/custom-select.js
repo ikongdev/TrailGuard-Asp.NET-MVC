@@ -27,6 +27,7 @@
     var openInstance = null;
     var typeaheadBuffer = '';
     var typeaheadTimer = null;
+    var generatedInstanceCount = 0;
 
     function optionLabel(optionEl) {
         return (optionEl.textContent || '').trim();
@@ -97,8 +98,9 @@
             select.parentNode.insertBefore(wrapper, select);
             wrapper.appendChild(select);
 
+            var instanceKey = select.id || ('cs-' + (++generatedInstanceCount));
             var triggerId = select.id ? select.id + '-trigger' : '';
-            var menuId = (select.id || 'cs') + '-listbox';
+            var menuId = instanceKey + '-listbox';
 
             var trigger = document.createElement('button');
             trigger.type = 'button';
@@ -150,8 +152,11 @@
             var menuZClass = usePortal ? 'z-40' : 'z-70';
 
             var menu = document.createElement('div');
-            menu.id = menuId;
-            menu.setAttribute('role', 'listbox');
+            var searchable = select.hasAttribute('data-cs-searchable');
+            if (!searchable) {
+                menu.id = menuId;
+                menu.setAttribute('role', 'listbox');
+            }
 
 
 
@@ -192,6 +197,34 @@
                 menuWidthClass.split(/\s+/).filter(Boolean).forEach(function (c) { menu.classList.add(c); });
             }
 
+            var optionsContainer = menu;
+            var searchInput = null;
+            var emptyState = null;
+            if (searchable) {
+                menu.classList.add('p-2');
+                searchInput = document.createElement('input');
+                searchInput.type = 'search';
+                searchInput.setAttribute('role', 'combobox');
+                searchInput.setAttribute('aria-haspopup', 'listbox');
+                searchInput.setAttribute('aria-controls', menuId);
+                searchInput.setAttribute('aria-expanded', 'false');
+                searchInput.setAttribute('aria-autocomplete', 'list');
+                searchInput.setAttribute('aria-label', select.getAttribute('data-cs-search-label') || 'Search options');
+                searchInput.placeholder = select.getAttribute('data-cs-search-placeholder') || 'Search options';
+                searchInput.autocomplete = 'off';
+                searchInput.className = 'block w-full px-3 py-2 rounded-xl bg-white/5 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent text-sm';
+                optionsContainer = document.createElement('div');
+                optionsContainer.id = menuId;
+                optionsContainer.setAttribute('role', 'listbox');
+                optionsContainer.className = 'mt-1 max-h-60 overflow-y-auto tg-custom-select-scrollbar';
+                emptyState = document.createElement('p');
+                emptyState.className = 'px-3 py-3 text-sm text-gray-400';
+                emptyState.hidden = true;
+                menu.appendChild(searchInput);
+                menu.appendChild(emptyState);
+                menu.appendChild(optionsContainer);
+            }
+
             wrapper.insertBefore(trigger, select.nextSibling);
 
             if (usePortal) {
@@ -212,7 +245,12 @@
                 labelSpan: labelSpan,
                 chevron: chevron,
                 menu: menu,
+                optionsContainer: optionsContainer,
+                searchable: searchable,
+                searchInput: searchInput,
+                emptyState: emptyState,
                 menuWidthOverride: menuWidthOverride,
+                listboxId: menuId,
                 activeIndex: -1,
                 signal: controller ? controller.signal : undefined
             };
@@ -380,12 +418,12 @@
     }
 
     function buildOptions(instance) {
-        instance.menu.innerHTML = '';
+        instance.optionsContainer.replaceChildren();
         instance.options = [];
 
         Array.from(instance.select.options).forEach(function (optionEl, index) {
             var row = document.createElement('div');
-            row.id = instance.menu.id + '-opt-' + index;
+            row.id = instance.listboxId + '-opt-' + index;
             row.setAttribute('role', 'option');
             row.dataset.value = optionEl.value;
             row.dataset.index = String(index);
@@ -418,9 +456,34 @@
                 });
             }
 
-            instance.menu.appendChild(row);
+            instance.optionsContainer.appendChild(row);
             instance.options.push(row);
         });
+
+        filterSearchOptions(instance);
+    }
+
+    function filterSearchOptions(instance) {
+        if (!instance.searchable) return;
+        var query = (instance.searchInput.value || '').trim().toLowerCase();
+        var visible = 0;
+        var enabledVisible = 0;
+        instance.options.forEach(function (row) {
+            var matches = !query || row.textContent.trim().toLowerCase().indexOf(query) !== -1;
+            row.hidden = !matches;
+            if (matches) visible++;
+            if (matches && row.getAttribute('aria-disabled') !== 'true') enabledVisible++;
+        });
+        instance.emptyState.hidden = enabledVisible !== 0;
+        instance.emptyState.textContent = instance.options.length === 0
+            ? 'No pickup points are available.'
+            : visible === 0 ? 'No options match that search.' : 'No available options match that search.';
+        if (enabledVisible === 0) {
+            setActiveDescendant(instance, -1);
+        } else if (instance.activeIndex < 0 || !isEnabledVisibleIndex(instance, instance.activeIndex)) {
+            instance.activeIndex = instance.options.findIndex(function (row) { return !row.hidden && row.getAttribute('aria-disabled') !== 'true'; });
+            setActiveDescendant(instance, instance.activeIndex);
+        }
     }
 
 
@@ -454,6 +517,7 @@
             ? instance.options.filter(function (r) { return r.dataset.value === selectedOption.value; })[0]
             : instance.options[0];
         instance.activeIndex = activeRow ? instance.options.indexOf(activeRow) : -1;
+        filterSearchOptions(instance);
     }
 
     function countRealOptions(select) {
@@ -547,9 +611,15 @@
         CLOSED_CLASSES.forEach(function (c) { instance.menu.classList.remove(c); });
         OPEN_CLASSES.forEach(function (c) { instance.menu.classList.add(c); });
         instance.trigger.setAttribute('aria-expanded', 'true');
+        if (instance.searchable) instance.searchInput.setAttribute('aria-expanded', 'true');
         instance.chevron.classList.add('custom-select-chevron-open');
-        setActiveDescendant(instance, instance.activeIndex >= 0 ? instance.activeIndex : 0);
+        filterSearchOptions(instance);
+        setActiveDescendant(instance, isEnabledVisibleIndex(instance, instance.activeIndex) ? instance.activeIndex : firstEnabledIndex(instance));
         openInstance = instance;
+
+        if (instance.searchable) {
+            window.requestAnimationFrame(function () { instance.searchInput.focus(); });
+        }
 
         window.addEventListener('scroll', handleDismissScroll, true);
         window.addEventListener('resize', handleDismissResize);
@@ -560,7 +630,15 @@
         OPEN_CLASSES.forEach(function (c) { instance.menu.classList.remove(c); });
         CLOSED_CLASSES.forEach(function (c) { instance.menu.classList.add(c); });
         instance.trigger.setAttribute('aria-expanded', 'false');
+        if (instance.searchable) {
+            instance.searchInput.setAttribute('aria-expanded', 'false');
+            if (instance.searchInput.value) {
+                instance.searchInput.value = '';
+                filterSearchOptions(instance);
+            }
+        }
         instance.trigger.removeAttribute('aria-activedescendant');
+        if (instance.searchable) instance.searchInput.removeAttribute('aria-activedescendant');
         instance.chevron.classList.remove('custom-select-chevron-open');
         if (openInstance === instance) {
             openInstance = null;
@@ -582,13 +660,26 @@
     }
 
     function setActiveDescendant(instance, index) {
-        if (index < 0 || index >= instance.options.length) return;
+        if (!isEnabledVisibleIndex(instance, index)) {
+            instance.activeIndex = -1;
+            instance.trigger.removeAttribute('aria-activedescendant');
+            if (instance.searchable) instance.searchInput.removeAttribute('aria-activedescendant');
+            instance.options.forEach(function (r) { r.classList.remove('bg-gray-800/60'); });
+            return;
+        }
         instance.activeIndex = index;
         var row = instance.options[index];
         instance.trigger.setAttribute('aria-activedescendant', row.id);
+        if (instance.searchable) instance.searchInput.setAttribute('aria-activedescendant', row.id);
         instance.options.forEach(function (r) { r.classList.remove('bg-gray-800/60'); });
         row.classList.add('bg-gray-800/60');
         row.scrollIntoView({ block: 'nearest' });
+    }
+
+    function isEnabledVisibleIndex(instance, index) {
+        if (index < 0 || index >= instance.options.length) return false;
+        var row = instance.options[index];
+        return !row.hidden && row.getAttribute('aria-disabled') !== 'true';
     }
 
     function moveActive(instance, delta) {
@@ -597,7 +688,7 @@
         var next = instance.activeIndex;
         for (var i = 0; i < count; i++) {
             next = (next + delta + count) % count;
-            if (instance.options[next].getAttribute('aria-disabled') !== 'true') {
+            if (!instance.options[next].hidden && instance.options[next].getAttribute('aria-disabled') !== 'true') {
                 setActiveDescendant(instance, next);
                 return;
             }
@@ -606,16 +697,59 @@
 
     function firstEnabledIndex(instance) {
         for (var i = 0; i < instance.options.length; i++) {
-            if (instance.options[i].getAttribute('aria-disabled') !== 'true') return i;
+            if (!instance.options[i].hidden && instance.options[i].getAttribute('aria-disabled') !== 'true') return i;
         }
         return -1;
     }
 
     function lastEnabledIndex(instance) {
         for (var i = instance.options.length - 1; i >= 0; i--) {
-            if (instance.options[i].getAttribute('aria-disabled') !== 'true') return i;
+            if (!instance.options[i].hidden && instance.options[i].getAttribute('aria-disabled') !== 'true') return i;
         }
         return -1;
+    }
+
+    function focusAdjacentToTrigger(instance, backwards) {
+        var selector = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+        var activeModal = findActiveModal(instance.trigger);
+        var focusable = Array.prototype.filter.call((activeModal || document).querySelectorAll(selector), function (element) {
+            return isEligibleFocusTarget(element) && !instance.menu.contains(element);
+        });
+        if (activeModal && window.tgGetToastCloseButtons) {
+            focusable = focusable.concat(window.tgGetToastCloseButtons().filter(isEligibleFocusTarget));
+        }
+        var index = focusable.indexOf(instance.trigger);
+        var targetIndex = index + (backwards ? -1 : 1);
+        var target = focusable[targetIndex];
+        if (!target && activeModal && focusable.length) {
+            target = backwards ? focusable[focusable.length - 1] : focusable[0];
+        }
+        if (target && typeof target.focus === 'function') target.focus();
+        else instance.trigger.focus();
+    }
+
+    function findActiveModal(element) {
+        var modal = element.closest ? element.closest('[role="dialog"][aria-modal="true"]') : null;
+        return modal && !isHiddenOrInert(modal) ? modal : null;
+    }
+
+    function isEligibleFocusTarget(element) {
+        if (!element || element.disabled || element.getAttribute('aria-hidden') === 'true') return false;
+        var tabIndex = element.getAttribute('tabindex');
+        if (tabIndex !== null && Number(tabIndex) < 0) return false;
+        return !isHiddenOrInert(element);
+    }
+
+    function isHiddenOrInert(element) {
+        for (var current = element; current && current !== document; current = current.parentElement) {
+            if (current.hidden || current.hasAttribute('inert') || current.getAttribute('aria-hidden') === 'true' ||
+                current.classList.contains('hidden') || current.classList.contains('invisible')) return true;
+            if (window.getComputedStyle) {
+                var style = window.getComputedStyle(current);
+                if (style.display === 'none' || style.visibility === 'hidden') return true;
+            }
+        }
+        return false;
     }
 
 
@@ -713,6 +847,45 @@
             }
         }, opts);
 
+        if (instance.searchable) {
+            instance.searchInput.addEventListener('input', function () {
+                filterSearchOptions(instance);
+                setActiveDescendant(instance, firstEnabledIndex(instance));
+                positionMenu(instance);
+            }, opts);
+
+            instance.searchInput.addEventListener('keydown', function (event) {
+                switch (event.key) {
+                    case 'ArrowDown':
+                        event.preventDefault();
+                        moveActive(instance, 1);
+                        break;
+                    case 'ArrowUp':
+                        event.preventDefault();
+                        moveActive(instance, -1);
+                        break;
+                    case 'Enter':
+                        event.preventDefault();
+                        event.stopPropagation();
+                        if (isEnabledVisibleIndex(instance, instance.activeIndex)) {
+                            selectByIndex(instance, Number(instance.options[instance.activeIndex].dataset.index), true);
+                        }
+                        break;
+                    case 'Escape':
+                        event.preventDefault();
+                        event.stopPropagation();
+                        closeMenu(instance);
+                        trigger.focus();
+                        break;
+                    case 'Tab':
+                        event.preventDefault();
+                        closeMenu(instance);
+                        focusAdjacentToTrigger(instance, event.shiftKey);
+                        break;
+                }
+            }, opts);
+        }
+
         document.addEventListener('click', function (event) {
             if (openInstance !== instance) return;
             if (trigger.contains(event.target) || instance.menu.contains(event.target)) return;
@@ -754,7 +927,13 @@
 
     function refresh(select) {
         var instance = registry.get(select);
-        if (instance) syncFromSelect(instance);
+        if (instance) {
+            // Dynamic option sources can rename one option without changing the
+            // total count, so count-only synchronization would leave a stale
+            // visible list. Rebuild only on an explicit refresh request.
+            buildOptions(instance);
+            syncFromSelect(instance);
+        }
     }
 
     function closeAll() {

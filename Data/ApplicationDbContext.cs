@@ -16,6 +16,7 @@ namespace TrailGuard.Data
         public DbSet<Trail> Trails { get; set; }
         public DbSet<TrailPhoto> TrailPhotos { get; set; }
         public DbSet<Event> Events { get; set; }
+        public DbSet<PickupPoint> PickupPoints { get; set; }
         public DbSet<EventRegistration> EventRegistrations { get; set; }
         public DbSet<EventFeedback> EventFeedbacks { get; set; }
         public DbSet<Assessment> Assessments { get; set; }
@@ -33,6 +34,15 @@ namespace TrailGuard.Data
                 table.HasCheckConstraint("CK_Trails_TypicalDurationHours_Positive", "\"TypicalDurationHours\" > 0"));
             builder.Entity<Event>().ToTable("Events", table =>
                 table.HasCheckConstraint("CK_Events_TrailDurationHoursSnapshot_Positive", "\"TrailDurationHoursSnapshot\" > 0"));
+            builder.Entity<PickupPoint>(entity =>
+            {
+                entity.ToTable("PickupPoints", table => table.HasCheckConstraint(
+                    "CK_PickupPoints_Name_Valid",
+                    "length(btrim(\"Name\")) > 0 AND \"Name\" = btrim(\"Name\") AND position(E'\\n' in \"Name\") = 0 AND position(E'\\r' in \"Name\") = 0 AND position('—' in \"Name\") = 0"));
+                entity.Property(point => point.Name).HasMaxLength(PickupPointCatalogHelper.MaxNameLength).IsRequired();
+                entity.Property(point => point.NormalizedName).HasMaxLength(PickupPointCatalogHelper.MaxNameLength).IsRequired();
+                entity.HasIndex(point => point.NormalizedName).IsUnique();
+            });
 
             builder.Entity<ApplicationUser>().ToTable("Users");
             builder.Entity<IdentityRole>().ToTable("Roles");

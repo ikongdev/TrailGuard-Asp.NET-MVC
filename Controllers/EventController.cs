@@ -6,6 +6,7 @@ using TrailGuard.Data;
 using TrailGuard.Models;
 using TrailGuard.Services;
 using Microsoft.AspNetCore.Authorization;
+using Npgsql;
 
 namespace TrailGuard.Controllers
 {
@@ -63,6 +64,123 @@ namespace TrailGuard.Controllers
         {
             if (await _userManager.IsInRoleAsync(currentUser, "Admin")) return true;
             return eventItem.OrganizerId != null && eventItem.OrganizerId == currentUser.Id;
+        }
+
+        private async Task<string?> ValidatePickupLocationsAsync(
+            IEnumerable<PickupScheduleInputModel>? schedules,
+            IEnumerable<PickupScheduleHelper.EditablePickupSchedule>? originalSchedules = null)
+        {
+            var submitted = schedules?.ToList() ?? [];
+            var requestedNames = new List<string>();
+            foreach (var schedule in submitted)
+            {
+                if (!PickupPointCatalogHelper.TryNormalizeScheduleLocation(schedule.Location, out _, out var normalized))
+                {
+                    return "A submitted pickup location is invalid.";
+                }
+                requestedNames.Add(normalized);
+            }
+
+            var distinctRequestedNames = requestedNames.Distinct().ToList();
+            var activeNames = await _context.PickupPoints
+                .Where(point => distinctRequestedNames.Contains(point.NormalizedName))
+                .Select(point => point.NormalizedName)
+                .ToListAsync();
+            var activeSet = activeNames.ToHashSet(StringComparer.Ordinal);
+            return PickupPointCatalogHelper.ValidateScheduleLocations(submitted, activeSet, originalSchedules);
+        }
+
+        private static bool IsPickupPointUniqueViolation(DbUpdateException exception) =>
+            exception.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
+
+        [HttpGet]
+        public async Task<JsonResult> GetPickupPoints()
+        {
+            var pickupPoints = await _context.PickupPoints.AsNoTracking()
+                .OrderBy(point => point.Name)
+                .Select(point => new { id = point.Id, name = point.Name })
+                .ToListAsync();
+            return Json(new { success = true, pickupPoints });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<JsonResult> CreatePickupPoint([FromBody] PickupPointMutationModel model)
+        {
+            if (!PickupPointCatalogHelper.TryNormalize(model.Name, out var name, out var normalizedName, out var error))
+                return Json(new { success = false, message = error });
+
+            if (await _context.PickupPoints.AnyAsync(point => point.NormalizedName == normalizedName))
+                return Json(new { success = false, message = "That pickup point already exists." });
+
+            var pickupPoint = new PickupPoint { Name = name, NormalizedName = normalizedName };
+            _context.PickupPoints.Add(pickupPoint);
+            try
+            {
+                await _context.SaveChangesAsync();
+                return Json(new { success = true, pickupPoint = new { id = pickupPoint.Id, name } });
+            }
+            catch (DbUpdateException exception) when (IsPickupPointUniqueViolation(exception))
+            {
+                return Json(new { success = false, message = "That pickup point already exists." });
+            }
+            catch (Exception exception)
+            {
+                _logger.LogError(exception, "Failed to create a pickup point.");
+                return Json(new { success = false, message = "Unable to save the pickup point. Please try again." });
+            }
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<JsonResult> UpdatePickupPoint([FromBody] PickupPointMutationModel model)
+        {
+            if (model.Id <= 0) return Json(new { success = false, message = "Pickup point not found." });
+            if (!PickupPointCatalogHelper.TryNormalize(model.Name, out var name, out var normalizedName, out var error))
+                return Json(new { success = false, message = error });
+
+            var pickupPoint = await _context.PickupPoints.FindAsync(model.Id);
+            if (pickupPoint == null) return Json(new { success = false, message = "Pickup point not found. Refresh the list and try again." });
+            if (await _context.PickupPoints.AnyAsync(point => point.Id != model.Id && point.NormalizedName == normalizedName))
+                return Json(new { success = false, message = "That pickup point already exists." });
+
+            pickupPoint.Name = name;
+            pickupPoint.NormalizedName = normalizedName;
+            try
+            {
+                await _context.SaveChangesAsync();
+                return Json(new { success = true, pickupPoint = new { id = pickupPoint.Id, name = pickupPoint.Name } });
+            }
+            catch (DbUpdateException exception) when (IsPickupPointUniqueViolation(exception))
+            {
+                return Json(new { success = false, message = "That pickup point already exists." });
+            }
+            catch (Exception exception)
+            {
+                _logger.LogError(exception, "Failed to rename pickup point {PickupPointId}.", model.Id);
+                return Json(new { success = false, message = "Unable to save the pickup point. Please try again." });
+            }
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<JsonResult> DeletePickupPoint([FromBody] PickupPointDeleteModel model)
+        {
+            if (model.Id <= 0) return Json(new { success = false, message = "Pickup point not found." });
+            var pickupPoint = await _context.PickupPoints.FindAsync(model.Id);
+            if (pickupPoint == null) return Json(new { success = false, message = "Pickup point not found. Refresh the list and try again." });
+
+            try
+            {
+                _context.PickupPoints.Remove(pickupPoint);
+                await _context.SaveChangesAsync();
+                return Json(new { success = true, id = model.Id });
+            }
+            catch (Exception exception)
+            {
+                _logger.LogError(exception, "Failed to delete pickup point {PickupPointId}.", model.Id);
+                return Json(new { success = false, message = "Unable to delete the pickup point. Please try again." });
+            }
         }
 
         public async Task<IActionResult> Index(string searchString, string status, string trailId, string difficulty, string sortOrder)
@@ -340,6 +458,17 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = scheduleResult.Error });
                 }
 
+                await using var transaction = await _context.Database.BeginTransactionAsync();
+                // Catalog changes and an Event submission must agree on the same
+                // current choices; this shared lock prevents a delete/rename from
+                // slipping between validation and the text snapshot being saved.
+                await _context.Database.ExecuteSqlRawAsync("LOCK TABLE \"PickupPoints\" IN SHARE MODE");
+                var pickupLocationError = await ValidatePickupLocationsAsync(model.PickupSchedules);
+                if (pickupLocationError != null)
+                {
+                    return Json(new { success = false, message = pickupLocationError });
+                }
+
                 string? weatherSnapshotJson = null;
                 if (WeatherSnapshotHelper.TryValidateForSubmission(model.WeatherSnapshot, model.TrailId, model.EventDate, out var snapshotRejectReason))
                 {
@@ -378,6 +507,7 @@ namespace TrailGuard.Controllers
 
                 _context.Events.Add(newEvent);
                 await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
 
                 return Json(new { success = true, message = "Event added successfully!" });
             }
@@ -969,6 +1099,15 @@ namespace TrailGuard.Controllers
                 if (existingEvent.Status == "Completed")
                 {
                     return Json(new { success = false, message = "Completed events are read-only and cannot be edited." });
+                }
+
+                await _context.Database.ExecuteSqlRawAsync("LOCK TABLE \"PickupPoints\" IN SHARE MODE");
+                var pickupLocationError = await ValidatePickupLocationsAsync(
+                    model.PickupSchedules,
+                    PickupScheduleHelper.ParseForEditing(existingEvent.PickupPoints));
+                if (pickupLocationError != null)
+                {
+                    return Json(new { success = false, message = pickupLocationError });
                 }
 
                 var occupiedSlots = await _context.EventRegistrations
