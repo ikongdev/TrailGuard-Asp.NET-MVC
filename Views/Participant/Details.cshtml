@@ -74,17 +74,6 @@
         _ => ("", "", "")
     };
 
-    // Same switch reused for every weather risk badge, matching Organizer
-    // Event Details (Views/Event/Details.cshtml).
-    string WeatherRiskBadgeClasses(string? risk) => risk switch
-    {
-        "Low" => "bg-green-500/20 text-green-400 border-green-500/30",
-        "Moderate" => "bg-amber-500/20 text-amber-400 border-amber-500/30",
-        "Moderate to High" => "bg-orange-500/20 text-orange-400 border-orange-500/30",
-        "High (Thunderstorm)" => "bg-red-500/20 text-red-400 border-red-500/30",
-        _ => "bg-gray-500/20 text-gray-400 border-gray-500/30"
-    };
-
     // Terrain chips: safe split of the stored comma-delimited value - trimmed,
     // blanks dropped, first-occurrence order preserved, case-insensitive
     // de-duplication. Sourced from the Event's own Trail Snapshot
@@ -97,15 +86,10 @@
         .Distinct(StringComparer.OrdinalIgnoreCase)
         .ToList();
 
-    // Stored weather snapshot only - never fetched or written on this page
-    // load. Only ever treated as "current" through the same
-    // TryValidateForSubmission check Add/Edit Event uses before persisting
-    // one, matching Organizer Event Details exactly. See CLAUDE.md, "Remove
-    // Participant live-weather mutation".
-    var weatherSnapshot = TrailGuard.Services.WeatherSnapshotHelper.TryDeserialize(Model.WeatherSnapshotJson);
-    var weatherSnapshotIsCurrent = weatherSnapshot != null &&
-        TrailGuard.Services.WeatherSnapshotHelper.TryValidateForSubmission(weatherSnapshot, Model.TrailId, Model.EventDate, out _);
-    var weatherSnapshotIsStale = weatherSnapshot != null && !weatherSnapshotIsCurrent;
+    // Both participant weather displays use this saved-data-only presenter.
+    // It validates the snapshot against the Event's current TrailId/EventDate
+    // before showing structured values and never fetches or writes on view.
+    var weatherPresentation = SavedWeatherPresentation.Create(Model);
 
     var pickupScheduleEntries = TrailGuard.Services.PickupScheduleHelper.ParseStoredEntries(Model.PickupPoints);
 }
@@ -214,80 +198,7 @@
 
             <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
                 <h2 class="text-xl font-bold text-white mb-4"><i class="fa-solid fa-cloud-sun text-accent mr-2" aria-hidden="true"></i>Weather</h2>
-
-                @if (weatherSnapshotIsCurrent)
-                {
-                    var snap = weatherSnapshot!;
-                    <div class="rounded-xl border border-white/10 bg-white/5 p-4">
-                        <div class="flex items-start justify-between gap-2 mb-3">
-                            <div class="flex items-center gap-2 min-w-0">
-                                <span class="w-9 h-9 rounded-full bg-accent/15 border border-accent/30 flex items-center justify-center shrink-0" aria-hidden="true">
-                                    <i class="fa-solid @TrailGuard.Services.WeatherSnapshotHelper.GetIconClass(snap.WeatherCode) text-accent text-sm"></i>
-                                </span>
-                                <p class="text-sm font-semibold text-white wrap-break-word min-w-0">@snap.Condition</p>
-                            </div>
-                            @if (!string.IsNullOrEmpty(snap.RiskLevel))
-                            {
-                                <span class="shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold border @WeatherRiskBadgeClasses(snap.RiskLevel)">@snap.RiskLevel Risk</span>
-                            }
-                        </div>
-                        <div class="grid grid-cols-3 gap-2">
-                            <div class="rounded-lg bg-white/5 border border-white/10 px-2 py-2 text-center">
-                                <i class="fa-solid fa-temperature-half text-gray-500 text-xs" aria-hidden="true"></i>
-                                <p class="text-sm font-semibold text-white mt-1">
-                                    @(snap.TemperatureMinC.HasValue && snap.TemperatureMaxC.HasValue ? $"{snap.TemperatureMinC:F0}°–{snap.TemperatureMaxC:F0}°C" : "—")
-                                </p>
-                                <p class="text-[10px] text-gray-500 uppercase tracking-wide">Temperature</p>
-                            </div>
-                            <div class="rounded-lg bg-white/5 border border-white/10 px-2 py-2 text-center">
-                                <i class="fa-solid fa-droplet text-gray-500 text-xs" aria-hidden="true"></i>
-                                <p class="text-sm font-semibold text-white mt-1">@(snap.ExpectedRainfallMm.HasValue ? $"{snap.ExpectedRainfallMm.Value.ToString("0.#")} mm" : "—")</p>
-                                <p class="text-[10px] text-gray-500 uppercase tracking-wide">Expected rainfall</p>
-                            </div>
-                            <div class="rounded-lg bg-white/5 border border-white/10 px-2 py-2 text-center">
-                                <i class="fa-solid fa-wind text-gray-500 text-xs" aria-hidden="true"></i>
-                                <p class="text-sm font-semibold text-white mt-1">@(snap.WindSpeedKmh.HasValue ? $"{snap.WindSpeedKmh.Value:F0} km/h" : "—")</p>
-                                <p class="text-[10px] text-gray-500 uppercase tracking-wide wrap-break-word">@snap.WindDescription</p>
-                            </div>
-                        </div>
-                        @if (snap.UpdatedAt.HasValue)
-                        {
-                            <p class="text-[11px] text-gray-500 text-right mt-2">Saved forecast, updated @snap.UpdatedAt.Value.ToLocalTime().ToString("MMM dd, yyyy h:mm tt")</p>
-                        }
-                    </div>
-                }
-                else if (!string.IsNullOrEmpty(Model.WeatherForecastAdvisory))
-                {
-                    <div class="rounded-xl border border-white/10 bg-white/5 p-4">
-                        <div class="flex items-center justify-between gap-2 mb-2">
-                            <p class="text-sm font-semibold text-gray-300"><i class="fa-solid fa-cloud text-gray-500 mr-1.5" aria-hidden="true"></i>Saved forecast</p>
-                            @if (!string.IsNullOrEmpty(Model.WeatherRiskLevel))
-                            {
-                                <span class="shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold border @WeatherRiskBadgeClasses(Model.WeatherRiskLevel)">@Model.WeatherRiskLevel Risk</span>
-                            }
-                        </div>
-                        <p class="text-gray-300 text-sm whitespace-pre-wrap">@Model.WeatherForecastAdvisory</p>
-                        @if (weatherSnapshotIsStale)
-                        {
-                            <div class="mt-3 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 flex items-start gap-2">
-                                <i class="fa-solid fa-triangle-exclamation text-amber-400 mt-0.5 shrink-0" aria-hidden="true"></i>
-                                <p class="text-amber-300 text-xs">This structured forecast was saved for a previous trail or date and no longer matches this event - showing the last saved advisory instead.</p>
-                            </div>
-                        }
-                    </div>
-                }
-                else
-                {
-                    <p class="text-gray-500 italic text-sm">Weather forecast not recorded for this event.</p>
-                }
-
-                @if (!string.IsNullOrEmpty(Model.WeatherReminder))
-                {
-                    <div class="mt-4 pt-4 border-t border-white/10">
-                        <p class="text-gray-500 text-xs uppercase tracking-wider mb-1"><i class="fa-regular fa-lightbulb mr-1" aria-hidden="true"></i>Weather Reminder</p>
-                        <p class="text-gray-300 text-sm whitespace-pre-wrap">@Model.WeatherReminder</p>
-                    </div>
-                }
+                <partial name="_SavedWeather" model="weatherPresentation" />
             </div>
 
             <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">

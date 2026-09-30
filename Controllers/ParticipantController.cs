@@ -11,14 +11,12 @@ namespace TrailGuard.Controllers
     public class ParticipantController : Controller
     {
         private readonly ApplicationDbContext _context;
-        private readonly WeatherService _weatherService;
         private readonly ParticipantProgressService _participantProgressService;
 
 
-        public ParticipantController(ApplicationDbContext context, WeatherService weatherService, ParticipantProgressService participantProgressService)
+        public ParticipantController(ApplicationDbContext context, ParticipantProgressService participantProgressService)
         {
             _context = context;
-            _weatherService = weatherService;
             _participantProgressService = participantProgressService;
         }
 
@@ -78,7 +76,6 @@ namespace TrailGuard.Controllers
                 latestResult = new LatestAssessmentResult
                 {
                     Result = latestAssessment.Result ?? "Not Recommended",
-                    Description = GetAssessmentDescription(latestAssessment.Result ?? ""),
                     SubmittedAt = latestAssessment.SubmittedAt,
                     ModelScore = suitabilityResult?.ModelScore ?? 0,
                     HasMlPrediction = suitabilityResult != null,
@@ -145,65 +142,6 @@ namespace TrailGuard.Controllers
             };
 
             return View(viewModel);
-        }
-
-        [HttpGet]
-        public async Task<IActionResult> GetEventWeather(int eventId)
-        {
-            var eventItem = await _context.Events
-                .FirstOrDefaultAsync(e => e.Id == eventId);
-
-            if (eventItem == null || string.IsNullOrEmpty(eventItem.Location))
-            {
-                return Json(new { success = false, unavailableReason = "NoLocation" });
-            }
-
-
-
-
-            var forecast = await _weatherService.GetWeatherForecastAsync(eventItem.Location, eventItem.EventDate);
-
-            if (!string.IsNullOrEmpty(forecast.UnavailableReason))
-            {
-                return Json(new
-                {
-                    success = false,
-                    unavailableReason = forecast.UnavailableReason
-                });
-            }
-
-            var previousRiskLevel = eventItem.WeatherRiskLevel;
-
-            eventItem.WeatherForecastAdvisory = forecast.ForecastDetails;
-            eventItem.WeatherRiskLevel = forecast.RiskLevel;
-
-            if (string.IsNullOrEmpty(eventItem.WeatherReminder) || previousRiskLevel != forecast.RiskLevel)
-            {
-
-
-                eventItem.WeatherReminder = forecast.SuggestedReminder;
-            }
-
-            await _context.SaveChangesAsync();
-
-            return Json(new
-            {
-                success = true,
-                riskLevel = eventItem.WeatherRiskLevel,
-                details = eventItem.WeatherForecastAdvisory,
-                reminder = eventItem.WeatherReminder
-            });
-        }
-
-        private string GetAssessmentDescription(string result)
-        {
-            return result switch
-            {
-                "Good-Match" => "You're well-prepared for moderate to challenging mountain trails",
-                "Borderline" => "You're almost there! A bit more preparation will help",
-                "Not Recommended" => "Consider starting with easier trails to build experience",
-                _ => "Take the assessment to get personalized recommendations"
-            };
         }
 
         private async Task<List<Event>> GetRecommendedEvents(

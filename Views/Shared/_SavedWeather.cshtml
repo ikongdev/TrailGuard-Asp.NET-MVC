@@ -1,0 +1,83 @@
+@model TrailGuard.Models.SavedWeatherPresentation
+
+@if (Model.HasMatchingSnapshot)
+{
+    var snapshot = Model.Snapshot!;
+    <div class="rounded-xl border border-white/10 bg-white/5 p-4">
+        <div class="flex items-start justify-between gap-2 mb-3">
+            <div class="flex items-center gap-2 min-w-0">
+                <span class="w-9 h-9 rounded-full bg-accent/15 border border-accent/30 flex items-center justify-center shrink-0" aria-hidden="true">
+                    <i class="fa-solid @TrailGuard.Services.WeatherSnapshotHelper.GetIconClass(snapshot.WeatherCode) text-accent text-sm"></i>
+                </span>
+                <p class="text-sm font-semibold text-white wrap-break-word min-w-0">@snapshot.Condition</p>
+            </div>
+            @if (Model.DisplayOptions.ShowRiskBadge && !string.IsNullOrWhiteSpace(Model.RiskLevel))
+            {
+                <span class="shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold border @TrailGuard.Models.SavedWeatherPresentation.RiskBadgeClasses(Model.RiskLevel)">@Model.RiskLevel Risk</span>
+            }
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+            <div class="rounded-lg bg-white/5 border border-white/10 px-2 py-2 text-center">
+                <i class="fa-solid fa-temperature-half text-gray-500 text-xs" aria-hidden="true"></i>
+                <p class="text-sm font-semibold text-white mt-1">@(snapshot.TemperatureMinC.HasValue && snapshot.TemperatureMaxC.HasValue ? $"{snapshot.TemperatureMinC:F0}°–{snapshot.TemperatureMaxC:F0}°C" : "—")</p>
+                <p class="text-[10px] text-gray-500 uppercase tracking-wide">Temperature</p>
+            </div>
+            <div class="rounded-lg bg-white/5 border border-white/10 px-2 py-2 text-center">
+                <i class="fa-solid fa-droplet text-gray-500 text-xs" aria-hidden="true"></i>
+                <p class="text-sm font-semibold text-white mt-1">@(snapshot.ExpectedRainfallMm.HasValue ? $"{snapshot.ExpectedRainfallMm.Value:0.#} mm" : "—")</p>
+                <p class="text-[10px] text-gray-500 uppercase tracking-wide">Expected rainfall</p>
+            </div>
+            <div class="rounded-lg bg-white/5 border border-white/10 px-2 py-2 text-center">
+                <i class="fa-solid fa-wind text-gray-500 text-xs" aria-hidden="true"></i>
+                <p class="text-sm font-semibold text-white mt-1">@(snapshot.WindSpeedKmh.HasValue ? $"{snapshot.WindSpeedKmh.Value:F0} km/h" : "—")</p>
+                <p class="text-[10px] text-gray-500 uppercase tracking-wide wrap-break-word">@snapshot.WindDescription</p>
+            </div>
+        </div>
+        @if (snapshot.UpdatedAt.HasValue)
+        {
+            <p class="text-[11px] text-gray-500 text-right mt-2">Saved forecast, updated @snapshot.UpdatedAt.Value.ToLocalTime().ToString("MMM dd, yyyy h:mm tt")</p>
+        }
+    </div>
+}
+else if (Model.HasLegacyAdvisory)
+{
+    <div class="rounded-xl border border-white/10 bg-white/5 p-4">
+        <div class="flex items-center justify-between gap-2 mb-2">
+            <p class="text-sm font-semibold text-gray-300"><i class="fa-solid fa-cloud text-gray-500 mr-1.5" aria-hidden="true"></i>@Model.CollapsedLabel</p>
+            @if (Model.DisplayOptions.ShowRiskBadge && !string.IsNullOrWhiteSpace(Model.RiskLevel))
+            {
+                <span class="shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold border @TrailGuard.Models.SavedWeatherPresentation.RiskBadgeClasses(Model.RiskLevel)">@Model.RiskLevel Risk</span>
+            }
+        </div>
+        <p class="text-gray-300 text-sm whitespace-pre-wrap">@Model.Advisory</p>
+        @if (!string.IsNullOrWhiteSpace(Model.FallbackNotice))
+        {
+            <div class="mt-3 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 flex items-start gap-2">
+                <i class="fa-solid fa-triangle-exclamation text-amber-400 mt-0.5 shrink-0" aria-hidden="true"></i>
+                <p class="text-amber-300 text-xs">@Model.FallbackNotice</p>
+            </div>
+        }
+    </div>
+}
+else
+{
+    @if (!string.IsNullOrWhiteSpace(Model.FallbackNotice))
+    {
+        <div class="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 flex items-start gap-2">
+            <i class="fa-solid fa-triangle-exclamation text-amber-400 mt-0.5 shrink-0" aria-hidden="true"></i>
+            <p class="text-amber-300 text-xs">@Model.FallbackNotice.Replace(" Showing the last saved advisory instead.", string.Empty)</p>
+        </div>
+    }
+    else
+    {
+        <p class="text-gray-500 italic text-sm">Weather forecast not recorded for this event.</p>
+    }
+}
+
+@if (Model.DisplayOptions.ShowReminder && Model.HasReminder)
+{
+    <div class="mt-4 pt-4 border-t border-white/10">
+        <p class="text-gray-500 text-xs uppercase tracking-wider mb-1"><i class="fa-regular fa-lightbulb mr-1" aria-hidden="true"></i>Weather Reminder</p>
+        <p class="text-gray-300 text-sm whitespace-pre-wrap">@Model.Reminder</p>
+    </div>
+}
