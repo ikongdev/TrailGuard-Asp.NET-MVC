@@ -29,5 +29,6 @@ namespace TrailGuard.Models
 
         public bool RequiresMedicalClearance { get; set; }
         public bool RequiresPreparationPlan { get; set; }
+        public bool ShowNotRecommendedOrganizerNotice { get; set; }
     }
 }

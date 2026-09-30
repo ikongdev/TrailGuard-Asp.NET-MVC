@@ -78,11 +78,11 @@
                         <i class="fa-solid @resultIcon text-xl @resultColor"></i>
                     </div>
                     <div>
-                        <h1 class="text-3xl font-bold @resultColor">@Model?.Result</h1>
+                        <h1 id="assessmentReportResultHeading" tabindex="-1" class="text-3xl font-bold @resultColor">@Model?.Result</h1>
                         <p class="text-gray-400 text-sm">
                             <span class="font-semibold text-white">@Model?.EventTitle</span>
                             <span class="mx-2">•</span>
-                            <span class="text-gray-500">Difficulty: @Model?.EventDifficulty (@TrailGuard.Services.DifficultyCalculator.PmRangeFor(Model?.EventDifficulty))</span>
+                            <span class="text-gray-500">Difficulty: @Model?.EventDifficulty</span>
                         </p>
                     </div>
                 </div>
@@ -91,20 +91,10 @@
                 </div>
             </div>
             <div class="flex flex-col gap-2">
-                @if (isGoodMatch || isBorderline)
-                {
-                    <a asp-controller="Registration" asp-action="Register" asp-route-eventId="@Model?.EventId" asp-route-assessmentId="@Model?.AssessmentId"
-                       class="px-6 py-3 rounded-full text-white font-semibold bg-linear-to-r from-orange-500 via-pink-500 to-violet-500 hover:brightness-110 hover:scale-[1.02] transition duration-200 ease-out text-center" id="headerProceedBtn">
-                        <i class="fa-regular fa-clipboard mr-2"></i> Proceed to Registration
-                    </a>
-                }
-                @if (isBorderline || isNotRecommended)
-                {
-                    <a asp-controller="Assessment" asp-action="Form" asp-route-eventId="@Model?.EventId"
-                       class="px-6 py-2 rounded-full text-amber-400 font-medium bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 transition-colors text-center text-sm">
-                        <i class="fa-solid fa-rotate mr-2"></i> Retake Assessment
-                    </a>
-                }
+                <a asp-controller="Assessment" asp-action="Form" asp-route-eventId="@Model?.EventId"
+                   class="px-6 py-2 rounded-full text-amber-400 font-medium bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 transition-colors text-center text-sm">
+                    <i class="fa-solid fa-rotate mr-2"></i> Retake Assessment
+                </a>
             </div>
         </div>
     </div>
@@ -384,10 +374,7 @@
                     </div>
                 }
 
-                <p class="mt-2 text-xs text-gray-500">
-                    <i class="fa-regular fa-circle-check mr-1"></i>
-                    Please check the box to confirm your acknowledgement before proceeding to registration.
-                </p>
+                <p class="mt-2 text-xs text-gray-500">Please check the box to confirm your acknowledgement before proceeding to registration.</p>
 
                 <div class="mt-4 pt-4 border-t border-white/10 space-y-2">
                     @if (isGoodMatch || isBorderline)
@@ -401,16 +388,12 @@
                     {
                         <a asp-controller="Registration" asp-action="Register" asp-route-eventId="@Model?.EventId" asp-route-assessmentId="@Model?.AssessmentId"
                            class="w-full px-6 py-3 rounded-full text-white font-semibold bg-linear-to-r from-red-600 to-amber-600 hover:brightness-110 hover:scale-[1.02] transition duration-200 ease-out text-center block" id="proceedButton">
-                            <i class="fa-solid fa-triangle-exclamation mr-2"></i> Proceed with Additional Requirements
+                            Proceed with Additional Requirements
                         </a>
                         <p class="text-xs text-red-400/80 text-center">
                             <i class="fa-solid fa-circle-info mr-1"></i> A preparation plan is required. Medical clearance is required only when the separate health screening indicates it.
                         </p>
                     }
-                    <a asp-controller="Assessment" asp-action="Form" asp-route-eventId="@Model?.EventId"
-                       class="w-full px-6 py-2.5 rounded-full text-gray-300 font-medium bg-gray-800 hover:bg-gray-700 transition-colors text-center block text-sm">
-                        <i class="fa-solid fa-rotate mr-2"></i> Retake Assessment
-                    </a>
                     <a asp-controller="Participant" asp-action="Events"
                        class="w-full px-6 py-2.5 rounded-full text-gray-400 font-medium hover:text-white transition-colors text-center block text-sm">
                         <i class="fa-solid fa-arrow-left mr-2"></i> Back to Events
@@ -420,6 +403,133 @@
         </div>
     </div>
 </div>
+
+@section Modals {
+    @if (Model?.ShowNotRecommendedOrganizerNotice == true)
+    {
+        <div id="notRecommendedNoticeModal" class="fixed inset-0 z-60 hidden items-center justify-center p-4">
+            <div class="fixed inset-0 bg-black/70 backdrop-blur-sm z-60" data-not-recommended-notice-close aria-hidden="true"></div>
+            <div role="dialog" aria-modal="true" aria-labelledby="notRecommendedNoticeTitle" aria-describedby="notRecommendedNoticeMessage" class="relative z-60 w-full max-w-lg max-h-[calc(100vh-2rem)] overflow-y-auto rounded-xl border border-white/10 bg-surface-card shadow-2xl">
+                <div class="flex items-start gap-4 border-b border-white/10 px-6 py-4">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <span class="w-9 h-9 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center shrink-0" aria-hidden="true">
+                            <i class="fa-solid fa-triangle-exclamation text-red-400 text-sm"></i>
+                        </span>
+                        <h2 id="notRecommendedNoticeTitle" class="text-lg font-bold text-white wrap-break-word">Not Recommended — Important Notice</h2>
+                    </div>
+                </div>
+                <div id="notRecommendedNoticeMessage" class="px-6 py-5 space-y-4 text-sm leading-relaxed text-gray-300">
+                    <p>Your assessment result is Not Recommended for this event. TrailGuard’s prediction is a decision-support estimate and does not guarantee safety or successful hike completion.</p>
+                    <p>If you choose to apply for registration despite this result, you should carefully consider the warning and the risks involved in participating. Your application remains subject to the Event Organizer’s requirements and approval.</p>
+                </div>
+                <div class="flex justify-end border-t border-white/10 px-6 py-4">
+                    <button type="button" id="notRecommendedNoticeUnderstandButton" data-not-recommended-notice-close class="inline-flex w-full sm:w-auto items-center justify-center px-5 py-2.5 rounded-full text-sm font-semibold text-white bg-accent hover:bg-accent/90 transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-card">
+                        I understand
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@section Scripts {
+    @if (Model?.ShowNotRecommendedOrganizerNotice == true)
+    {
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const modal = document.getElementById('notRecommendedNoticeModal');
+                const returnTarget = document.getElementById('assessmentReportResultHeading');
+                if (!modal) return;
+
+                let isOpen = false;
+                let inertedElements = [];
+                let bodyOverflowBeforeModal = '';
+
+                function getFocusableElements(container) {
+                    return Array.from(container.querySelectorAll(
+                        'a[href], button:not([disabled]), textarea:not([disabled]), ' +
+                        'input:not([disabled]):not([type="hidden"]), select:not([disabled]), ' +
+                        '[tabindex]:not([tabindex="-1"])'
+                    )).filter(function (element) { return element.offsetParent !== null; });
+                }
+
+                function makeBackgroundInert(modalRoot) {
+                    inertedElements = [];
+                    let current = modalRoot;
+                    while (current && current !== document.body) {
+                        const parent = current.parentElement;
+                        if (!parent) break;
+                        Array.from(parent.children).forEach(function (sibling) {
+                            if (sibling === current || sibling.hasAttribute('inert')) return;
+                            if (window.tgToastHostExempt && window.tgToastHostExempt(sibling)) return;
+                            sibling.setAttribute('inert', '');
+                            inertedElements.push(sibling);
+                        });
+                        current = parent;
+                    }
+                }
+
+                function restoreBackgroundInert() {
+                    inertedElements.forEach(function (element) { element.removeAttribute('inert'); });
+                    inertedElements = [];
+                }
+
+                function closeNotice() {
+                    if (!isOpen) return;
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                    isOpen = false;
+                    restoreBackgroundInert();
+                    document.body.style.overflow = bodyOverflowBeforeModal;
+                    document.removeEventListener('keydown', handleKeydown);
+                    returnTarget?.focus({ preventScroll: true });
+                }
+
+                function handleKeydown(event) {
+                    if (!isOpen) return;
+                    if (event.key === 'Escape') {
+                        event.preventDefault();
+                        closeNotice();
+                        return;
+                    }
+                    if (event.key !== 'Tab') return;
+                    const focusable = getFocusableElements(modal);
+                    if (!focusable.length) {
+                        event.preventDefault();
+                        return;
+                    }
+                    const first = focusable[0];
+                    const last = focusable[focusable.length - 1];
+                    if (event.shiftKey && document.activeElement === first) {
+                        event.preventDefault();
+                        last.focus();
+                    }
+                    else if (!event.shiftKey && document.activeElement === last) {
+                        event.preventDefault();
+                        first.focus();
+                    }
+                }
+
+                function openNotice() {
+                    if (isOpen) return;
+                    isOpen = true;
+                    modal.classList.remove('hidden');
+                    modal.classList.add('flex');
+                    makeBackgroundInert(modal);
+                    bodyOverflowBeforeModal = document.body.style.overflow;
+                    document.body.style.overflow = 'hidden';
+                    document.addEventListener('keydown', handleKeydown);
+                    document.getElementById('notRecommendedNoticeUnderstandButton')?.focus();
+                }
+
+                modal.querySelectorAll('[data-not-recommended-notice-close]').forEach(function (control) {
+                    control.addEventListener('click', closeNotice);
+                });
+                openNotice();
+            });
+        </script>
+    }
+}
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -466,31 +576,18 @@
             showAllFactors.remove();
         });
         var proceedButton = document.getElementById('proceedButton');
-        var headerProceedBtn = document.getElementById('headerProceedBtn');
 
         if (acknowledgeCheckbox && proceedButton) {
             proceedButton.style.opacity = '0.5';
             proceedButton.style.pointerEvents = 'none';
-            if (headerProceedBtn) {
-                headerProceedBtn.style.opacity = '0.5';
-                headerProceedBtn.style.pointerEvents = 'none';
-            }
 
             acknowledgeCheckbox.addEventListener('change', function() {
                 if (this.checked) {
                     proceedButton.style.opacity = '1';
                     proceedButton.style.pointerEvents = 'auto';
-                    if (headerProceedBtn) {
-                        headerProceedBtn.style.opacity = '1';
-                        headerProceedBtn.style.pointerEvents = 'auto';
-                    }
                 } else {
                     proceedButton.style.opacity = '0.5';
                     proceedButton.style.pointerEvents = 'none';
-                    if (headerProceedBtn) {
-                        headerProceedBtn.style.opacity = '0.5';
-                        headerProceedBtn.style.pointerEvents = 'none';
-                    }
                 }
             });
         }

@@ -278,10 +278,15 @@ namespace TrailGuard.Controllers
         [HttpGet]
         public async Task<IActionResult> Report(int assessmentId)
         {
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (!AssessmentSubmissionGuards.HasAuthenticatedUserId(userId))
+            {
+                return Forbid();
+            }
 
             var assessment = await _context.Assessments
                 .Include(a => a.Event)
-                .FirstOrDefaultAsync(a => a.Id == assessmentId && a.IsActive == true);
+                .FirstOrDefaultAsync(a => a.Id == assessmentId && a.IsActive == true && a.UserId == userId);
 
             if (assessment == null)
             {
@@ -317,7 +322,6 @@ namespace TrailGuard.Controllers
                     : ShapHelper.BuildRecommendations(suitabilityResult.ShapValues)
                 : new List<string>();
 
-            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             var alternativeEvents = await GetAlternativeEvents(
                 eventItem?.Id ?? 0,
                 difficulty,
@@ -358,7 +362,8 @@ namespace TrailGuard.Controllers
                 ShapFactors = shapFactors,
                 AcsmMedicalClearanceRequired = assessment.MedicalClearanceRequired,
                 RequiresMedicalClearance = RegistrationRulesHelper.RequiresMedicalClearance(assessment),
-                RequiresPreparationPlan = RegistrationRulesHelper.RequiresPreparationPlan(assessment)
+                RequiresPreparationPlan = RegistrationRulesHelper.RequiresPreparationPlan(assessment),
+                ShowNotRecommendedOrganizerNotice = assessment.Result == "Not Recommended"
             };
 
             ViewBag.Assessment = assessment;
