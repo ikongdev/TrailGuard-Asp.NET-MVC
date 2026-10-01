@@ -8,6 +8,20 @@ AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
+var uploadOptions = UploadStorageOptions.Resolve(builder.Configuration, builder.Environment);
+builder.Services.AddSingleton(uploadOptions);
+builder.Services.AddSingleton<UploadReferences>();
+builder.Services.AddHttpClient<SupabaseFileStore>(client => client.Timeout = TimeSpan.FromSeconds(uploadOptions.TimeoutSeconds))
+    .ConfigurePrimaryHttpMessageHandler(SupabaseFileStore.CreateHandler)
+    .RedactLoggedHeaders(new[] { "apikey", "Authorization" });
+builder.Services.AddScoped<IUploadStorage, UploadStorage>();
+builder.Services.AddSingleton<PublicImageDisplay>();
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+    options.MultipartBodyLengthLimit = UploadStorageOptions.MaxRequestBytes);
+builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = UploadStorageOptions.MaxRequestBytes);
+builder.Services.Configure<Microsoft.AspNetCore.Builder.IISServerOptions>(options =>
+    options.MaxRequestBodySize = UploadStorageOptions.MaxRequestBytes);
+
 
 
 var databaseTarget = DatabaseTargetResolver.Resolve(builder.Configuration);

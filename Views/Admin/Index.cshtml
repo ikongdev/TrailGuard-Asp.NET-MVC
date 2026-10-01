@@ -146,9 +146,9 @@
                                         }
                                     </div>
                                     <div class="flex items-center gap-2 shrink-0">
-                                        @if (!string.IsNullOrEmpty(e.OrganizerProfilePictureUrl))
+                                        @if (!string.IsNullOrEmpty(Images.Url(e.OrganizerProfilePictureUrl)))
                                         {
-                                            <img src="@e.OrganizerProfilePictureUrl" alt="" class="w-7 h-7 rounded-full object-cover shrink-0" />
+                                            <img src="@Images.Url(e.OrganizerProfilePictureUrl)" alt="" class="w-7 h-7 rounded-full object-cover shrink-0" />
                                         }
                                         else
                                         {

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using TrailGuard.Data;
 using TrailGuard.Models;
 using TrailGuard.Services;
@@ -13,16 +14,17 @@ namespace TrailGuard.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
-        private readonly IWebHostEnvironment _webHostEnvironment;
+        private readonly IUploadStorage? _storage;
+        private IUploadStorage Storage => _storage ?? HttpContext.RequestServices.GetRequiredService<IUploadStorage>();
         private readonly ILogger<OrganizerController> _logger;
         private readonly ProfileAccessService _profileAccessService;
         private readonly IPhilippineClock _philippineClock;
 
-        public OrganizerController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, IWebHostEnvironment webHostEnvironment, ILogger<OrganizerController> logger, ProfileAccessService profileAccessService, IPhilippineClock? philippineClock = null)
+        public OrganizerController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, IWebHostEnvironment webHostEnvironment, ILogger<OrganizerController> logger, ProfileAccessService profileAccessService, IPhilippineClock? philippineClock = null, IUploadStorage? storage = null)
         {
             _context = context;
             _userManager = userManager;
-            _webHostEnvironment = webHostEnvironment;
+            _storage = storage;
             _logger = logger;
             _profileAccessService = profileAccessService;
             _philippineClock = philippineClock ?? new PhilippineClock(TimeProvider.System);
@@ -320,13 +322,11 @@ namespace TrailGuard.Controllers
 
 
 
-            var receiptResolved = await DocumentStorageResolver.TryResolveAsync(
-                _webHostEnvironment.WebRootPath, RegistrationDocumentKind.Receipt, registration.PaymentReceiptUrl);
+            var receiptResolved = await Storage.ReadDocumentAsync(RegistrationDocumentKind.Receipt, registration.PaymentReceiptUrl);
             ViewBag.ReceiptAvailable = receiptResolved != null;
             ViewBag.ReceiptIsImage = receiptResolved != null && DocumentFileSignature.IsImageType(receiptResolved.Type);
 
-            var clearanceResolved = await DocumentStorageResolver.TryResolveAsync(
-                _webHostEnvironment.WebRootPath, RegistrationDocumentKind.Clearance, registration.MedicalClearanceUrl);
+            var clearanceResolved = await Storage.ReadDocumentAsync(RegistrationDocumentKind.Clearance, registration.MedicalClearanceUrl);
             ViewBag.ClearanceAvailable = clearanceResolved != null;
             ViewBag.ClearanceIsImage = clearanceResolved != null && DocumentFileSignature.IsImageType(clearanceResolved.Type);
 
@@ -532,13 +532,10 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "This registration is no longer pending review." });
                 }
 
-                await using var transaction = await _context.Database.BeginTransactionAsync();
-                await ParticipantEventWorkflowLock.AcquireEventCapacityAsync(_context, registration.Event.Id);
+                await using var transaction = await BeginDecisionTransactionAsync();
+                await AcquireDecisionEventLockAsync(registration.Event.Id);
                 _context.ChangeTracker.Clear();
-                registration = await _context.EventRegistrations
-                    .Include(r => r.Event)
-                    .Include(r => r.Assessment)
-                    .FirstOrDefaultAsync(r => r.Id == request.Id);
+                registration = await FindRegistrationForDecisionAsync(request.Id);
                 if (registration == null || registration.Event == null || !OwnsEvent(registration.Event, currentUser))
                     return Json(new { success = false, message = "Registration not found" });
                 if (registration.Status != "Pending")
@@ -713,6 +710,11 @@ namespace TrailGuard.Controllers
 
         // Query seams keep the status-decision path testable without a database; production behavior remains the same EF queries.
         protected virtual Task<ApplicationUser?> GetCurrentUserForDecisionAsync() => _userManager.GetUserAsync(User);
+
+        // Test seams preserve transaction -> event lock -> authoritative reload ordering.
+        protected virtual Task<IDbContextTransaction> BeginDecisionTransactionAsync() => _context.Database.BeginTransactionAsync();
+
+        protected virtual Task AcquireDecisionEventLockAsync(int eventId) => ParticipantEventWorkflowLock.AcquireEventCapacityAsync(_context, eventId);
 
         protected virtual Task<EventRegistration?> FindRegistrationForDecisionAsync(int registrationId) => _context.EventRegistrations
             .Include(r => r.Event)

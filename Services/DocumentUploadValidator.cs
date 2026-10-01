@@ -18,6 +18,7 @@ namespace TrailGuard.Services
 
         public static async Task<VerifiedFileType?> ValidateAsync(IFormFile file)
         {
+            if (file.Length <= 0 || file.Length > UploadStorageOptions.MaxFileBytes) return null;
             var extension = Path.GetExtension(file.FileName);
             if (!DocumentFileSignature.TryGetExpectedTypeForExtension(extension, out var expectedType))
                 return null;
@@ -32,24 +33,6 @@ namespace TrailGuard.Services
                 return null;
 
             return sniffedType;
-        }
-
-
-
-
-
-
-        public static string GenerateStoredFileName(string uploadsFolder, VerifiedFileType type)
-        {
-            string fileName;
-            string filePath;
-            do
-            {
-                fileName = Guid.NewGuid().ToString("N") + DocumentFileSignature.SafeExtensionFor(type);
-                filePath = Path.Combine(uploadsFolder, fileName);
-            } while (File.Exists(filePath));
-
-            return fileName;
         }
     }
 }

@@ -7,6 +7,9 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Storage;
+using System.Data.Common;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -152,6 +155,10 @@ if (!assessmentOnly)
     Check(JsonProperty(result, "success") == "false", "A blank reason must reject approval of a Not Recommended registration.");
     Check(JsonProperty(result, "message").Contains("reason is required", StringComparison.OrdinalIgnoreCase), "The blank-reason rejection must identify the required reason.");
     Check(context.SaveChangesAsyncCalls == 0, "A blank Not Recommended approval reason must not save a decision.");
+    Check(controller.Calls.SequenceEqual(["lookup", "begin", "lock", "lookup", "dispose"]),
+        "The blank-reason guard must run after the locked reload and dispose its transaction without committing.");
+    Check(registration.Status == "Pending" && registration.DecisionReason == null,
+        "A blank reason must not mutate the pending decision.");
 }
 
 {
@@ -168,11 +175,28 @@ if (!assessmentOnly)
     Check(JsonProperty(result, "success") == "false", "An unrelated organizer must not approve another organizer's registration.");
     Check(JsonProperty(result, "message") == "Registration not found", "Cross-organizer denial must not disclose the registration.");
     Check(context.SaveChangesAsyncCalls == 0, "An unrelated organizer must not save a decision.");
+    Check(controller.Calls.SequenceEqual(["lookup"]), "An unrelated organizer must be denied before locking.");
 }
 
+// The authoritative reload must still reject changed ownership/status before reason validation.
+foreach (var changedOwner in new[] { false, true })
+{
+    using var context = NewContext();
+    var initial = PendingRegistration(63, "organizer-a", "Not Recommended");
+    var locked = PendingRegistration(63, changedOwner ? "organizer-b" : "organizer-a", "Not Recommended");
+    if (!changedOwner) locked.Status = "Cancelled";
+    var controller = NewOrganizerController(context, new ApplicationUser { Id = "organizer-a" }, initial);
+    controller.LockedRegistration = locked;
+    var result = await controller.UpdateRegistrationStatus(new() { Id = initial.Id, Status = "Accepted", Reason = " \t " });
+    Check(JsonProperty(result, "success") == "false", "A changed locked registration must reject the decision.");
+    Check(JsonProperty(result, "message") == (changedOwner ? "Registration not found" : "This registration is no longer pending review."),
+        "The locked ownership/status check must precede the blank-reason check.");
+    Check(context.SaveChangesAsyncCalls == 0 && controller.Calls.SequenceEqual(["lookup", "begin", "lock", "lookup", "dispose"]),
+        "A stale decision must dispose without saving or committing.");
+}
 }
 
-Console.WriteLine($"PASS: {assertions} assertions{(assessmentOnly ? " (assessment guards only)" : string.Empty)}. Controller actions ran against protected query doubles and a fake HTTP handler; no MVC host, antiforgery pipeline, authorization middleware, database connection, or persistence transaction was run.");
+Console.WriteLine($"PASS: {assertions} assertions{(assessmentOnly ? " (assessment guards only)" : string.Empty)}. Controller actions used query/transaction/lock doubles and a fake HTTP handler. A connection interceptor forbids database access; no MVC host or real persistence transaction was run.");
 
 static TrailGuardV2AssessmentFormInput ValidAssessmentInput(
     string[]? medicalConditions = null,
@@ -189,6 +213,7 @@ static CountingDbContext NewContext()
 {
     var options = new DbContextOptionsBuilder<ApplicationDbContext>()
         .UseNpgsql("Host=127.0.0.1;Port=1;Database=trailguard_submission_guard_verification;Username=unused;Password=unused;Timeout=1;Command Timeout=1")
+        .AddInterceptors(new ForbidConnectionInterceptor())
         .Options;
     return new CountingDbContext(options);
 }
@@ -331,9 +356,46 @@ sealed class TestOrganizerController : OrganizerController
 
     public ApplicationUser? TestCurrentUser { get; init; }
     public EventRegistration? TestRegistration { get; init; }
+    public EventRegistration? LockedRegistration { get; set; }
+    public List<string> Calls { get; } = [];
+    private int lookups;
 
     protected override Task<ApplicationUser?> GetCurrentUserForDecisionAsync() => Task.FromResult(TestCurrentUser);
-    protected override Task<EventRegistration?> FindRegistrationForDecisionAsync(int registrationId) => Task.FromResult(TestRegistration);
+    protected override Task<EventRegistration?> FindRegistrationForDecisionAsync(int registrationId)
+    {
+        Calls.Add("lookup");
+        return Task.FromResult(++lookups == 1 ? TestRegistration : LockedRegistration ?? TestRegistration);
+    }
+    protected override Task<IDbContextTransaction> BeginDecisionTransactionAsync()
+    {
+        Calls.Add("begin");
+        return Task.FromResult<IDbContextTransaction>(new GuardTransaction(Calls));
+    }
+    protected override Task AcquireDecisionEventLockAsync(int eventId)
+    {
+        if (eventId != TestRegistration!.Event!.Id) throw new InvalidOperationException("Wrong event lock.");
+        Calls.Add("lock");
+        return Task.CompletedTask;
+    }
+}
+
+sealed class GuardTransaction(List<string> calls) : IDbContextTransaction
+{
+    public Guid TransactionId { get; } = Guid.NewGuid();
+    public void Commit() => throw new InvalidOperationException("A denied decision must not commit.");
+    public Task CommitAsync(CancellationToken cancellationToken = default) { Commit(); return Task.CompletedTask; }
+    public void Rollback() => calls.Add("rollback");
+    public Task RollbackAsync(CancellationToken cancellationToken = default) { Rollback(); return Task.CompletedTask; }
+    public void Dispose() => calls.Add("dispose");
+    public ValueTask DisposeAsync() { Dispose(); return ValueTask.CompletedTask; }
+}
+
+sealed class ForbidConnectionInterceptor : DbConnectionInterceptor
+{
+    public override InterceptionResult ConnectionOpening(DbConnection connection, ConnectionEventData eventData, InterceptionResult result)
+        => throw new InvalidOperationException("Database access is forbidden in the guard fixture.");
+    public override ValueTask<InterceptionResult> ConnectionOpeningAsync(DbConnection connection, ConnectionEventData eventData, InterceptionResult result, CancellationToken cancellationToken = default)
+        => throw new InvalidOperationException("Database access is forbidden in the guard fixture.");
 }
 
 sealed class CountingDbContext(DbContextOptions<ApplicationDbContext> options) : ApplicationDbContext(options)

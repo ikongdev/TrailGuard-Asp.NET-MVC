@@ -30,18 +30,18 @@ namespace TrailGuard.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
-        private readonly IWebHostEnvironment _webHostEnvironment;
+        private readonly IUploadStorage _storage;
         private readonly ILogger<DocumentsController> _logger;
 
         public DocumentsController(
             ApplicationDbContext context,
             UserManager<ApplicationUser> userManager,
-            IWebHostEnvironment webHostEnvironment,
+            IUploadStorage storage,
             ILogger<DocumentsController> logger)
         {
             _context = context;
             _userManager = userManager;
-            _webHostEnvironment = webHostEnvironment;
+            _storage = storage;
             _logger = logger;
         }
 
@@ -69,15 +69,13 @@ namespace TrailGuard.Controllers
                     return NotFound();
                 }
 
-                var currentUser = await _userManager.GetUserAsync(User);
+                var currentUser = await FindCurrentUserAsync();
                 if (currentUser == null)
                 {
                     return NotFound();
                 }
 
-                var registration = await _context.EventRegistrations
-                    .Include(r => r.Event)
-                    .FirstOrDefaultAsync(r => r.Id == id);
+                var registration = await FindRegistrationAsync(id);
 
 
 
@@ -92,7 +90,7 @@ namespace TrailGuard.Controllers
                     ? registration.PaymentReceiptUrl
                     : registration.MedicalClearanceUrl;
 
-                var resolved = await DocumentStorageResolver.TryResolveAsync(_webHostEnvironment.WebRootPath, documentKind, storedUrl);
+                var resolved = await _storage.ReadDocumentAsync(documentKind, storedUrl, HttpContext.RequestAborted);
                 if (resolved == null)
                 {
                     return NotFound();
@@ -118,7 +116,7 @@ namespace TrailGuard.Controllers
                 Response.Headers[HeaderNames.ContentDisposition] =
                     new ContentDispositionHeaderValue(inline ? "inline" : "attachment") { FileName = safeFileName }.ToString();
 
-                var stream = System.IO.File.OpenRead(resolved.PhysicalPath);
+                var stream = new MemoryStream(resolved.Bytes, writable: false);
                 return File(stream, contentType, enableRangeProcessing: true);
             }
             catch (Exception ex)
@@ -132,6 +130,11 @@ namespace TrailGuard.Controllers
 
 
 
+
+        protected virtual Task<ApplicationUser?> FindCurrentUserAsync() => _userManager.GetUserAsync(User);
+
+        protected virtual Task<EventRegistration?> FindRegistrationAsync(int id) => _context.EventRegistrations
+            .Include(r => r.Event).FirstOrDefaultAsync(r => r.Id == id);
 
         private static bool CanAccess(EventRegistration registration, ApplicationUser currentUser)
         {

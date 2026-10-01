@@ -11,13 +11,16 @@ namespace TrailGuard.Controllers
     public class RegistrationController : Controller
     {
         private readonly ApplicationDbContext _context;
-        private readonly IWebHostEnvironment _webHostEnvironment;
+        private readonly IUploadStorage? _storage;
+        private IUploadStorage Storage => _storage ?? HttpContext.RequestServices.GetRequiredService<IUploadStorage>();
+        private readonly ILogger<RegistrationController> _logger;
         private readonly IPhilippineClock _philippineClock;
 
-        public RegistrationController(ApplicationDbContext context, IWebHostEnvironment webHostEnvironment, IPhilippineClock? philippineClock = null)
+        public RegistrationController(ApplicationDbContext context, IWebHostEnvironment webHostEnvironment, IPhilippineClock? philippineClock = null, IUploadStorage? storage = null, ILogger<RegistrationController>? logger = null)
         {
             _context = context;
-            _webHostEnvironment = webHostEnvironment;
+            _storage = storage;
+            _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<RegistrationController>.Instance;
             _philippineClock = philippineClock ?? new PhilippineClock(TimeProvider.System);
         }
 
@@ -214,16 +217,16 @@ namespace TrailGuard.Controllers
                 verifiedClearanceType = await DocumentUploadValidator.ValidateAsync(medicalClearance);
                 if (verifiedClearanceType == null)
                 {
-                    TempData["Error"] = "Medical clearance must be a JPG, PNG, WEBP, or PDF file.";
+                    TempData["Error"] = "Medical clearance must be a JPG, PNG, WEBP, or PDF file, up to 5 MiB.";
                     return RedirectToAction("Register", new { eventId, assessmentId });
                 }
             }
 
-            string? createdClearancePath = null;
-            var committed = false;
+            await using var uploads = new UploadAttempt(Storage, _logger);
+            var transaction = await _context.Database.BeginTransactionAsync();
+            var commitStarted = false;
             try
             {
-                await using var transaction = await _context.Database.BeginTransactionAsync();
                 await ParticipantEventWorkflowLock.AcquireEventCapacityAsync(_context, eventId);
                 await ParticipantEventWorkflowLock.AcquireAsync(_context, eventId, userId);
                 _context.ChangeTracker.Clear();
@@ -306,24 +309,10 @@ namespace TrailGuard.Controllers
 
 
 
-                var uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "uploads", "medical-clearances");
-                if (!Directory.Exists(uploadsFolder))
-                {
-                    Directory.CreateDirectory(uploadsFolder);
-                }
-
-
-
-                var fileName = DocumentUploadValidator.GenerateStoredFileName(uploadsFolder, verifiedClearanceType.Value);
-                var filePath = Path.Combine(uploadsFolder, fileName);
-                createdClearancePath = filePath;
-
-                using (var stream = new FileStream(filePath, FileMode.CreateNew))
-                {
-                    await medicalClearance.CopyToAsync(stream);
-                }
-
-                medicalClearanceUrl = $"/uploads/medical-clearances/{fileName}";
+                await using var source = medicalClearance.OpenReadStream();
+                var bytes = await UploadBytes.ReadAsync(source);
+                medicalClearanceUrl = await uploads.UploadAsync(UploadCategory.MedicalClearances, bytes,
+                    DocumentFileSignature.SafeExtensionFor(verifiedClearanceType.Value));
             }
 
                 var registration = new EventRegistration
@@ -344,31 +333,31 @@ namespace TrailGuard.Controllers
             };
 
                 _context.EventRegistrations.Add(registration);
+                uploads.PersistenceStarted();
                 await _context.SaveChangesAsync();
+                commitStarted = true;
                 await transaction.CommitAsync();
-                committed = true;
+                uploads.Committed();
 
                 TempData["Success"] = "Registration submitted successfully! Your registration is pending approval by the organizer.";
                 return RedirectToAction("MyRegistrations");
             }
             catch (DbUpdateException ex) when (ParticipantEventWorkflowLock.IsUniqueConstraintConflict(ex))
             {
-                DeleteUncommittedClearance(createdClearancePath, committed);
+                await UploadPersistence.ConfirmRollbackAsync(transaction, uploads, commitStarted);
                 TempData["Error"] = "Your registration changed while it was being submitted. Please review the latest status and try again.";
                 return RedirectToAction("Register", new { eventId, assessmentId });
             }
-            catch
+            catch (Exception ex)
             {
-                DeleteUncommittedClearance(createdClearancePath, committed);
-                throw;
+                await UploadPersistence.ConfirmRollbackAsync(transaction, uploads, commitStarted);
+                _logger.LogWarning("Registration upload/save failed ({ErrorType}).", ex.GetType().Name);
+                TempData["Error"] = "Unable to submit your registration. Please review its status before trying again.";
+                return RedirectToAction("Register", new { eventId, assessmentId });
             }
-        }
-
-        private static void DeleteUncommittedClearance(string? path, bool committed)
-        {
-            if (!committed && !string.IsNullOrWhiteSpace(path) && System.IO.File.Exists(path))
+            finally
             {
-                System.IO.File.Delete(path);
+                await uploads.DisposeTransactionAsync(transaction);
             }
         }
 
@@ -505,40 +494,46 @@ namespace TrailGuard.Controllers
                 var verifiedType = await DocumentUploadValidator.ValidateAsync(paymentReceipt);
                 if (verifiedType == null)
                 {
-                    return Json(new { success = false, message = "Payment receipt must be a JPG, PNG, WEBP, or PDF file." });
+                    return Json(new { success = false, message = "Payment receipt must be a JPG, PNG, WEBP, or PDF file, up to 5 MiB." });
                 }
 
-                await using var transaction = await _context.Database.BeginTransactionAsync();
-                await ParticipantEventWorkflowLock.AcquireEventCapacityAsync(_context, candidate.EventId);
-                _context.ChangeTracker.Clear();
-                var registration = await _context.EventRegistrations
-                    .FirstOrDefaultAsync(r => r.Id == id && r.UserId == userId);
-                if (registration == null || registration.Status != "Awaiting Payment")
-                    return Json(new { success = false, message = "Payment receipt can only be uploaded while your registration is awaiting payment." });
-
-                var uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "uploads", "receipts");
-                if (!Directory.Exists(uploadsFolder))
+                await using var uploads = new UploadAttempt(Storage, _logger);
+                var transaction = await _context.Database.BeginTransactionAsync();
+                var commitStarted = false;
+                try
                 {
-                    Directory.CreateDirectory(uploadsFolder);
+                    await ParticipantEventWorkflowLock.AcquireEventCapacityAsync(_context, candidate.EventId);
+                    _context.ChangeTracker.Clear();
+                    var registration = await _context.EventRegistrations
+                        .FirstOrDefaultAsync(r => r.Id == id && r.UserId == userId);
+                    if (registration == null || registration.Status != "Awaiting Payment")
+                        return Json(new { success = false, message = "Payment receipt can only be uploaded while your registration is awaiting payment." });
+
+                    var previousReference = registration.PaymentReceiptUrl;
+                    await using var source = paymentReceipt.OpenReadStream();
+                    var bytes = await UploadBytes.ReadAsync(source);
+                    registration.PaymentReceiptUrl = await uploads.UploadAsync(UploadCategory.Receipts, bytes,
+                        DocumentFileSignature.SafeExtensionFor(verifiedType.Value));
+                    registration.PaymentReceiptUploadedAt = DateTime.Now;
+                    registration.Status = "For Payment Verification";
+                    uploads.PersistenceStarted();
+                    await _context.SaveChangesAsync();
+                    commitStarted = true;
+                    await transaction.CommitAsync();
+                    uploads.Committed();
+                    await uploads.DeleteReplacedAsync(UploadCategory.Receipts, previousReference);
+                    return Json(new { success = true, message = "Payment receipt uploaded. Waiting for organizer verification." });
                 }
-
-
-
-                var fileName = DocumentUploadValidator.GenerateStoredFileName(uploadsFolder, verifiedType.Value);
-                var filePath = Path.Combine(uploadsFolder, fileName);
-
-                using (var stream = new FileStream(filePath, FileMode.CreateNew))
+                catch (Exception ex)
                 {
-                    await paymentReceipt.CopyToAsync(stream);
+                    await UploadPersistence.ConfirmRollbackAsync(transaction, uploads, commitStarted);
+                    _logger.LogWarning("Receipt upload/save failed ({ErrorType}).", ex.GetType().Name);
+                    return Json(new { success = false, message = "Unable to save the receipt. Please review the registration status before trying again." });
                 }
-
-                registration.PaymentReceiptUrl = $"/uploads/receipts/{fileName}";
-                registration.PaymentReceiptUploadedAt = DateTime.Now;
-                registration.Status = "For Payment Verification";
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
-
-                return Json(new { success = true, message = "Payment receipt uploaded. Waiting for organizer verification." });
+                finally
+                {
+                    await uploads.DisposeTransactionAsync(transaction);
+                }
             }
 
             return Json(new { success = false, message = "No file uploaded." });

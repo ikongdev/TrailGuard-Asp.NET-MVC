@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
@@ -41,6 +42,7 @@ catch (InvalidOperationException exception)
 
 if (!run)
 {
+    await StorageStage.VerifyDatabaseFreeAsync();
     if (ParticipantEventWorkflowLock.DeriveUserKey("participant-a") != ParticipantEventWorkflowLock.DeriveUserKey("participant-a")
         || ParticipantEventWorkflowLock.DeriveUserKey("participant-a") == ParticipantEventWorkflowLock.DeriveUserKey("participant-b"))
         throw new InvalidOperationException("The workflow lock key derivation is not deterministic.");
@@ -224,10 +226,10 @@ static class ModelAgreement
 
 static class HarnessDbContextFactory
 {
-    public static ServiceProvider CreateProvider(string connectionString)
+    public static ServiceProvider CreateProvider(string connectionString, params IInterceptor[] interceptors)
     {
         var services = new ServiceCollection();
-        services.AddDbContextFactory<ApplicationDbContext>(options => options.UseNpgsql(connectionString));
+        services.AddDbContextFactory<ApplicationDbContext>(options => options.UseNpgsql(connectionString).AddInterceptors(interceptors));
         services.AddDefaultIdentity<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = false)
             .AddRoles<IdentityRole>()
             .AddEntityFrameworkStores<ApplicationDbContext>();
@@ -240,6 +242,7 @@ sealed class IntegrationRunner(IntegrationSettings settings, string fixture)
     private readonly string _fixture = fixture;
     private readonly string _uploads = Path.Combine(Path.GetTempPath(), "TrailGuardAssessmentPersistenceIntegrationVerification", Guid.NewGuid().ToString("N"));
     private readonly ServiceProvider _services = HarnessDbContextFactory.CreateProvider(settings.AppConnectionString);
+    private readonly MemoryUploadStorage _storage = new();
     private bool _createdDatabase;
 
     public async Task<int> RunAsync()
@@ -260,7 +263,8 @@ sealed class IntegrationRunner(IntegrationSettings settings, string fixture)
             await CapacityReductionPolicyAsync();
             await RegistrationBeforeCapacityReductionAsync();
             await CapacityReductionBeforeRegistrationAsync();
-            Console.WriteLine("PASS: isolated PostgreSQL assessment persistence scenarios completed.");
+            await StorageConcurrencyScenarios.RunAsync(settings.AppConnectionString, _uploads);
+            Console.WriteLine("PASS: isolated PostgreSQL assessment and storage persistence scenarios completed.");
         }
         catch (Exception exception)
         {
@@ -461,7 +465,7 @@ sealed class IntegrationRunner(IntegrationSettings settings, string fixture)
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         await using var firstContext = NewContext();
-        var first = new CapacityGateRegistrationController(firstContext, new TestEnvironment(_uploads), entered, release);
+        var first = new CapacityGateRegistrationController(firstContext, new TestEnvironment(_uploads), entered, release, _storage);
         ConfigureController(first, participants[0].UserId);
         var firstTask = RegisterAsync(first, seed.EventId, participants[0].AssessmentId);
         await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
@@ -513,7 +517,7 @@ sealed class IntegrationRunner(IntegrationSettings settings, string fixture)
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         await using var registrationContext = NewContext();
-        var registration = new CapacityGateRegistrationController(registrationContext, new TestEnvironment(_uploads), entered, release);
+        var registration = new CapacityGateRegistrationController(registrationContext, new TestEnvironment(_uploads), entered, release, _storage);
         ConfigureController(registration, seed.UserId);
         var registrationTask = RegisterAsync(registration, seed.EventId, seed.PriorAssessmentId);
         await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
@@ -619,7 +623,7 @@ sealed class IntegrationRunner(IntegrationSettings settings, string fixture)
     }
 
     private AssessmentController NewAssessmentController(ApplicationDbContext context, string userId) { var controller = new AssessmentController(context, HistoricalClient(), V2Client(), new TrailGuardV2AssessmentRequestMapper(), NullLogger<AssessmentController>.Instance); ConfigureController(controller, userId); return controller; }
-    private RegistrationController NewRegistrationController(ApplicationDbContext context, string userId) { var controller = new RegistrationController(context, new TestEnvironment(_uploads)); ConfigureController(controller, userId); return controller; }
+    private RegistrationController NewRegistrationController(ApplicationDbContext context, string userId) { var controller = new RegistrationController(context, new TestEnvironment(_uploads), storage: _storage); ConfigureController(controller, userId); return controller; }
     private TrailGuardV2ApiClient V2Client() => new(new HttpClient(new FixtureHandler(_fixture)) { BaseAddress = new Uri("http://fixture.local") }, NullLogger<TrailGuardV2ApiClient>.Instance);
     private SuitabilityApiClient HistoricalClient() => new(new HttpClient(new FixtureHandler(_fixture)) { BaseAddress = new Uri("http://fixture.local") }, NullLogger<SuitabilityApiClient>.Instance);
     private async Task<TrailGuardV2PredictionResponse> PredictionAsync(TrailGuardV2PredictionRequest request) => (await V2Client().PredictAsync(request)).Prediction!;
@@ -666,8 +670,8 @@ sealed class CapacityGateRegistrationController : RegistrationController
 {
     private readonly TaskCompletionSource _entered;
     private readonly TaskCompletionSource _release;
-    public CapacityGateRegistrationController(ApplicationDbContext context, IWebHostEnvironment environment, TaskCompletionSource entered, TaskCompletionSource release)
-        : base(context, environment) { _entered = entered; _release = release; }
+    public CapacityGateRegistrationController(ApplicationDbContext context, IWebHostEnvironment environment, TaskCompletionSource entered, TaskCompletionSource release, IUploadStorage storage)
+        : base(context, environment, storage: storage) { _entered = entered; _release = release; }
 
     protected override async Task OnCapacityCheckedForRegistrationAsync(int eventId, string userId)
     {

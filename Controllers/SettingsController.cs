@@ -17,7 +17,8 @@ namespace TrailGuard.Controllers
 
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly SignInManager<ApplicationUser> _signInManager;
-        private readonly IWebHostEnvironment _webHostEnvironment;
+        private readonly IUploadStorage _storage;
+        private readonly TrailGuard.Data.ApplicationDbContext _context;
         private readonly ILogger<SettingsController> _logger;
         private readonly IPhilippineClock _philippineClock;
 
@@ -26,11 +27,12 @@ namespace TrailGuard.Controllers
             SignInManager<ApplicationUser> signInManager,
             IWebHostEnvironment webHostEnvironment,
             ILogger<SettingsController> logger,
-            IPhilippineClock philippineClock)
+            IPhilippineClock philippineClock, IUploadStorage storage, TrailGuard.Data.ApplicationDbContext context)
         {
             _userManager = userManager;
             _signInManager = signInManager;
-            _webHostEnvironment = webHostEnvironment;
+            _storage = storage;
+            _context = context;
             _logger = logger;
             _philippineClock = philippineClock;
         }
@@ -200,52 +202,31 @@ namespace TrailGuard.Controllers
 
 
 
-            string? newFilePath = null;
-            string? previousFilePath = null;
-            string uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "images", "profiles");
-
-            if (validatedImageBytes != null && validatedImageExtension != null)
+            var previousReference = user.ProfilePictureUrl;
+            await using var uploads = new UploadAttempt(_storage, _logger);
+            IdentityResult? result = null;
+            try
             {
-                Directory.CreateDirectory(uploadsFolder);
-
-                string uniqueFileName = Guid.NewGuid().ToString("N") + validatedImageExtension;
-                newFilePath = Path.Combine(uploadsFolder, uniqueFileName);
-                await System.IO.File.WriteAllBytesAsync(newFilePath, validatedImageBytes);
-
-
-
-
-                previousFilePath = ResolveOwnedProfileImagePath(user.ProfilePictureUrl, uploadsFolder);
-
-                user.ProfilePictureUrl = "/images/profiles/" + uniqueFileName;
-            }
-
-            var result = await _userManager.UpdateAsync(user);
-            if (!result.Succeeded)
-            {
-
-
-
-
-                if (newFilePath != null)
+                if (validatedImageBytes != null && validatedImageExtension != null)
+                    user.ProfilePictureUrl = await uploads.UploadAsync(UploadCategory.Profiles, validatedImageBytes, validatedImageExtension);
+                await UploadPersistence.CommitAsync(_context.Database, uploads, async () =>
                 {
-                    TryDeleteOwnedProfileImage(newFilePath, uploadsFolder, user.Id, "the failed profile update's own newly-written file");
-                }
-
-                TempData["Error"] = string.Join(" ", result.Errors.Select(e => e.Description));
+                    // Identity's ConcurrencyStamp makes a stale profile update fail across app instances.
+                    result = await _userManager.UpdateAsync(user);
+                    if (!result.Succeeded) throw new InvalidOperationException("Profile update rejected.");
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning("Profile update failed ({ErrorType}).", ex.GetType().Name);
+                TempData["Error"] = result is { Succeeded: false }
+                    ? string.Join(" ", result.Errors.Select(e => e.Description))
+                    : "Unable to save your profile. Please reload and try again.";
                 return RedirectToAction(nameof(Index));
             }
-
+            if (user.ProfilePictureUrl != previousReference)
+                await uploads.DeleteReplacedAsync(UploadCategory.Profiles, previousReference);
             await _signInManager.RefreshSignInAsync(user);
-
-
-
-
-
-            if (previousFilePath != null)
-            {
-                TryDeleteOwnedProfileImage(previousFilePath, uploadsFolder, user.Id, "the previous profile picture");
-            }
 
             TempData["Success"] = "Profile updated successfully!";
             return RedirectToAction(nameof(Index));
@@ -319,77 +300,10 @@ namespace TrailGuard.Controllers
 
 
 
-        private string? ResolveOwnedProfileImagePath(string? storedUrl, string uploadsFolder)
-        {
-            if (string.IsNullOrEmpty(storedUrl))
-            {
-                return null;
-            }
-
-            string relative = storedUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
-            string candidate = Path.GetFullPath(Path.Combine(_webHostEnvironment.WebRootPath, relative));
-            string normalizedUploadsFolder = Path.GetFullPath(uploadsFolder) + Path.DirectorySeparatorChar;
-
-            return candidate.StartsWith(normalizedUploadsFolder, StringComparison.OrdinalIgnoreCase) ? candidate : null;
-        }
-
-
-
-
-
-
-
-
-        private void TryDeleteOwnedProfileImage(string filePath, string uploadsFolder, string userId, string description)
-        {
-            string normalizedUploadsFolder = Path.GetFullPath(uploadsFolder) + Path.DirectorySeparatorChar;
-            if (!Path.GetFullPath(filePath).StartsWith(normalizedUploadsFolder, StringComparison.OrdinalIgnoreCase))
-            {
-                return;
-            }
-
-            try
-            {
-                if (System.IO.File.Exists(filePath))
-                {
-                    System.IO.File.Delete(filePath);
-                }
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                _logger.LogWarning(ex, "Failed to delete {Description} for user {UserId}.", description, userId);
-            }
-        }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
         private static async Task<(byte[]? Bytes, string? Extension)> ReadValidatedImageAsync(IFormFile file)
         {
-            using var buffer = new MemoryStream();
-            await file.CopyToAsync(buffer);
-            var bytes = buffer.ToArray();
+            await using var stream = file.OpenReadStream();
+            var bytes = await UploadBytes.ReadAsync(stream);
 
             if (bytes.Length >= 3 && bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF)
             {

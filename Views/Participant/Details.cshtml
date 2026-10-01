@@ -106,9 +106,9 @@
     </div>
 
     <div class="relative rounded-2xl overflow-hidden mb-8">
-        @if (!string.IsNullOrEmpty(Model.TrailThumbnailUrlSnapshot))
+        @if (!string.IsNullOrEmpty(Images.Url(Model.TrailThumbnailUrlSnapshot)))
         {
-            <img src="@Model.TrailThumbnailUrlSnapshot" alt="@Model.TrailNameSnapshot" class="w-full h-80 object-cover">
+            <img src="@Images.Url(Model.TrailThumbnailUrlSnapshot)" alt="@Model.TrailNameSnapshot" class="w-full h-80 object-cover">
         }
         else
         {
@@ -312,9 +312,9 @@
                 <h2 class="text-lg font-bold text-white mb-4"><i class="fa-solid fa-user-tie text-accent mr-2" aria-hidden="true"></i>Organizer Details</h2>
                 <div class="flex items-center gap-3 mb-4">
                     <div class="w-12 h-12 rounded-full bg-linear-to-r from-orange-500 to-purple-500 flex items-center justify-center overflow-hidden shrink-0">
-                        @if (organizer != null && !string.IsNullOrEmpty(organizer.ProfilePictureUrl))
+                        @if (organizer != null && !string.IsNullOrEmpty(Images.Url(organizer.ProfilePictureUrl)))
                         {
-                            <img src="@organizer.ProfilePictureUrl" alt="" class="w-12 h-12 rounded-full object-cover">
+                            <img src="@Images.Url(organizer.ProfilePictureUrl)" alt="" class="w-12 h-12 rounded-full object-cover">
                         }
                         else
                         {
@@ -383,9 +383,9 @@
                         {
                             <div class="flex items-center gap-3 p-2 rounded-lg">
                                 <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden shrink-0">
-                                    @if (!string.IsNullOrEmpty(row.ProfilePictureUrl))
+                                    @if (!string.IsNullOrEmpty(Images.Url(row.ProfilePictureUrl)))
                                     {
-                                        <img src="@row.ProfilePictureUrl" alt="" class="w-8 h-8 rounded-full object-cover">
+                                        <img src="@Images.Url(row.ProfilePictureUrl)" alt="" class="w-8 h-8 rounded-full object-cover">
                                     }
                                     else
                                     {

@@ -29,9 +29,9 @@
 
             <div class="flex flex-col items-center text-center gap-3 sm:flex-row sm:items-start sm:text-left sm:gap-4">
                 <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-accent flex items-center justify-center text-white text-3xl font-bold shrink-0 overflow-hidden">
-                    @if (!string.IsNullOrEmpty(Model.ProfilePictureUrl))
+                    @if (!string.IsNullOrEmpty(Images.Url(Model.ProfilePictureUrl)))
                     {
-                        <img src="@Model.ProfilePictureUrl" alt="" class="w-full h-full object-cover" />
+                        <img src="@Images.Url(Model.ProfilePictureUrl)" alt="" class="w-full h-full object-cover" />
                     }
                     else
                     {

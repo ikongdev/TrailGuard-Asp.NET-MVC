@@ -28,7 +28,7 @@
             userId = reg.UserId,
             fullName = reg.User != null ? $"{reg.User.FirstName} {reg.User.LastName}".Trim() : reg.ParticipantName,
             email = reg.User?.Email,
-            profilePictureUrl = reg.User?.ProfilePictureUrl,
+            profilePictureUrl = Images.Url(reg.User?.ProfilePictureUrl),
             preHikeResult = reg.Assessment?.Result,
             savedOutcome = assessment?.DifficultyExperience,
             savedCompleted = assessment?.Completed,

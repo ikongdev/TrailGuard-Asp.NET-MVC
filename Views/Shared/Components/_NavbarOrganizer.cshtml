@@ -7,7 +7,7 @@
     var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
     var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
     var currentUser = await UserManager.GetUserAsync(User);
-    var profilePictureUrl = currentUser?.ProfilePictureUrl;
+    var profilePictureUrl = Images.Url(currentUser?.ProfilePictureUrl);
     var firstName = currentUser?.FirstName ?? "User";
     var initials = "";
     if (!string.IsNullOrEmpty(firstName) && !string.IsNullOrEmpty(currentUser?.LastName))

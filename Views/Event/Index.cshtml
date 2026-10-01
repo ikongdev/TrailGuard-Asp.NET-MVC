@@ -190,9 +190,9 @@
 
                                     <div class="relative h-48 overflow-hidden bg-black/30">
 
-                                        @if (!string.IsNullOrEmpty(eventItem.TrailThumbnailUrlSnapshot))
+                                        @if (!string.IsNullOrEmpty(Images.Url(eventItem.TrailThumbnailUrlSnapshot)))
                                         {
-                                            <img src="@eventItem.TrailThumbnailUrlSnapshot" alt="@eventItem.TrailNameSnapshot" class="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105 motion-reduce:transform-none motion-reduce:transition-none" onerror="handleEventImageError(this)">
+                                            <img src="@Images.Url(eventItem.TrailThumbnailUrlSnapshot)" alt="@eventItem.TrailNameSnapshot" class="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105 motion-reduce:transform-none motion-reduce:transition-none" onerror="handleEventImageError(this)">
                                         }
                                         else
                                         {

@@ -104,9 +104,9 @@
             </h2>
             <div class="flex items-start gap-4 mb-4">
                 <div class="w-14 h-14 rounded-full bg-accent/20 border border-accent/30 flex items-center justify-center text-white text-xl font-bold overflow-hidden shrink-0">
-                    @if (!string.IsNullOrEmpty(Model.User?.ProfilePictureUrl))
+                    @if (!string.IsNullOrEmpty(Images.Url(Model.User?.ProfilePictureUrl)))
                     {
-                        <img src="@Model.User.ProfilePictureUrl" alt="" class="w-full h-full object-cover" />
+                        <img src="@Images.Url(Model.User?.ProfilePictureUrl)" alt="" class="w-full h-full object-cover" />
                     }
                     else
                     {

@@ -64,9 +64,9 @@
                          data-distance="@trail.DistanceKm"
                          data-elevation="@trail.ElevationGainMeters">
                         <div class="relative h-48 overflow-hidden bg-black/30">
-                            @if (!string.IsNullOrEmpty(trail.ThumbnailUrl))
+                            @if (!string.IsNullOrEmpty(Images.Url(trail.ThumbnailUrl)))
                             {
-                                <img src="@trail.ThumbnailUrl" alt="@trail.Name" class="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105 motion-reduce:transform-none motion-reduce:transition-none" onerror="handleTrailImageError(this)">
+                                <img src="@Images.Url(trail.ThumbnailUrl)" alt="@trail.Name" class="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105 motion-reduce:transform-none motion-reduce:transition-none" onerror="handleTrailImageError(this)">
                             }
                             else
                             {
@@ -117,7 +117,7 @@
                                     data-terrain="@trail.Terrain"
                                     data-terrain-type="@trail.TrailClass"
                                     data-description="@trail.Description"
-                                    data-image="@(string.IsNullOrEmpty(trail.ThumbnailUrl) ? "" : trail.ThumbnailUrl)"
+                                    data-image="@(string.IsNullOrEmpty(Images.Url(trail.ThumbnailUrl)) ? "" : Images.Url(trail.ThumbnailUrl))"
                                     data-date-added="@trail.DateAdded.ToString("MMM dd, yyyy")"
                                     aria-label="View details for @trail.Name"
                                     class="w-full mt-auto bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-2">

@@ -13,7 +13,8 @@ namespace TrailGuard.Controllers
     public class TrailController : Controller
     {
         private readonly ApplicationDbContext _context;
-        private readonly IWebHostEnvironment _webHostEnvironment;
+        private readonly IUploadStorage? _storage;
+        private IUploadStorage Storage => _storage ?? HttpContext.RequestServices.GetRequiredService<IUploadStorage>();
         private readonly ILogger<TrailController> _logger;
 
 
@@ -32,10 +33,10 @@ namespace TrailGuard.Controllers
             "distance_asc", "distance_desc", "elevation_asc", "elevation_desc",
         };
 
-        public TrailController(ApplicationDbContext context, IWebHostEnvironment webHostEnvironment, ILogger<TrailController> logger)
+        public TrailController(ApplicationDbContext context, IWebHostEnvironment webHostEnvironment, ILogger<TrailController> logger, IUploadStorage? storage = null)
         {
             _context = context;
-            _webHostEnvironment = webHostEnvironment;
+            _storage = storage;
             _logger = logger;
         }
 
@@ -241,16 +242,10 @@ namespace TrailGuard.Controllers
                 return await ReturnInvalidAddTrailAsync(model);
             }
 
-            var createdFiles = new List<string>();
+            await using var uploads = new UploadAttempt(Storage, _logger);
             try
             {
-                var uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "images", "trails");
-                Directory.CreateDirectory(uploadsFolder);
-
-                var coverFileName = Guid.NewGuid() + coverResult.Image!.Extension;
-                var coverPath = Path.Combine(uploadsFolder, coverFileName);
-                createdFiles.Add(coverPath);
-                await System.IO.File.WriteAllBytesAsync(coverPath, coverResult.Image.Bytes);
+                var coverReference = await uploads.UploadAsync(UploadCategory.Trails, coverResult.Image!.Bytes, coverResult.Image.Extension);
 
                 var trail = new Trail
                 {
@@ -262,39 +257,25 @@ namespace TrailGuard.Controllers
                     Terrain = terrain,
                     TrailClass = model.TrailClass!.Value,
                     Description = model.Description,
-                    ThumbnailUrl = "/images/trails/" + coverFileName,
+                    ThumbnailUrl = coverReference,
                     IsActive = true
                 };
 
                 _context.Trails.Add(trail);
                 foreach (var image in additionalResults)
                 {
-                    var fileName = Guid.NewGuid() + image.Extension;
-                    var filePath = Path.Combine(uploadsFolder, fileName);
-                    createdFiles.Add(filePath);
-                    await System.IO.File.WriteAllBytesAsync(filePath, image.Bytes);
+                    var reference = await uploads.UploadAsync(UploadCategory.Trails, image.Bytes, image.Extension);
                     trail.TrailPhotos ??= new List<TrailPhoto>();
-                    trail.TrailPhotos.Add(new TrailPhoto { ImageUrl = "/images/trails/" + fileName, DisplayOrder = 0 });
+                    trail.TrailPhotos.Add(new TrailPhoto { ImageUrl = reference, DisplayOrder = 0 });
                 }
 
-                await _context.SaveChangesAsync();
+                await UploadPersistence.CommitAsync(_context.Database, uploads, () => _context.SaveChangesAsync());
                 TempData["Success"] = "Trail added successfully!";
                 return RedirectToAction(nameof(Index));
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Unable to create trail.");
-                foreach (var filePath in createdFiles.Where(System.IO.File.Exists))
-                {
-                    try
-                    {
-                        System.IO.File.Delete(filePath);
-                    }
-                    catch (Exception cleanupException)
-                    {
-                        _logger.LogError(cleanupException, "Unable to remove failed trail upload {FilePath}.", filePath);
-                    }
-                }
                 ModelState.AddModelError(string.Empty, "Unable to save the trail. Please try again.");
                 TempData["Error"] = "Please check the highlighted fields.";
                 return await ReturnInvalidAddTrailAsync(model);
@@ -346,102 +327,65 @@ namespace TrailGuard.Controllers
                 ModelState.AddModelError(nameof(Trail.Terrain), "Select at least one terrain type.");
             }
 
-            if (ModelState.IsValid)
+            ValidatedTrailImage? cover = null;
+            var additional = new List<ValidatedTrailImage>();
+            if (ThumbnailImage != null)
             {
-                existingTrail.Name = model.Name;
-                existingTrail.Location = model.Location;
-                existingTrail.DistanceKm = model.DistanceKm;
-                existingTrail.TypicalDurationHours = model.TypicalDurationHours;
-                existingTrail.ElevationGainMeters = model.ElevationGainMeters;
-                existingTrail.Terrain = model.Terrain;
-                existingTrail.TrailClass = model.TrailClass;
-                existingTrail.Description = model.Description;
-
-
-
-
-
-
-
-
-                if (ThumbnailImage != null && ThumbnailImage.Length > 0)
+                var result = await TrailImageUploadValidator.ValidateAsync(ThumbnailImage);
+                cover = result.Image;
+                if (result.Error != null) ModelState.AddModelError("ThumbnailImage", result.Error);
+            }
+            if (AdditionalImages?.Count > 8) ModelState.AddModelError("AdditionalImages", "You can upload up to 8 additional photos.");
+            else if (AdditionalImages != null)
+                foreach (var file in AdditionalImages)
                 {
-                    string uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "images", "trails");
-                    if (!Directory.Exists(uploadsFolder))
-                    {
-                        Directory.CreateDirectory(uploadsFolder);
-                    }
-
-                    if (!string.IsNullOrEmpty(existingTrail.ThumbnailUrl))
-                    {
-
-
-
-
-
-
-
-
-
-                        var oldThumbnailReferenced = await EventTrailSnapshotHelper
-                            .IsThumbnailUrlReferencedByAnyEventAsync(_context, existingTrail.ThumbnailUrl);
-
-                        if (!oldThumbnailReferenced)
-                        {
-                            string oldFilePath = Path.Combine(_webHostEnvironment.WebRootPath,
-                                existingTrail.ThumbnailUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
-                            if (System.IO.File.Exists(oldFilePath))
-                            {
-                                System.IO.File.Delete(oldFilePath);
-                            }
-                        }
-                    }
-
-                    string uniqueFileName = Guid.NewGuid().ToString() + "_" + ThumbnailImage.FileName;
-                    string filePath = Path.Combine(uploadsFolder, uniqueFileName);
-
-                    using (var fileStream = new FileStream(filePath, FileMode.Create))
-                    {
-                        await ThumbnailImage.CopyToAsync(fileStream);
-                    }
-
-                    existingTrail.ThumbnailUrl = "/images/trails/" + uniqueFileName;
+                    var result = await TrailImageUploadValidator.ValidateAsync(file);
+                    if (result.Error != null) ModelState.AddModelError("AdditionalImages", result.Error);
+                    else additional.Add(result.Image!);
                 }
-
-                if (AdditionalImages != null && AdditionalImages.Count > 0)
-                {
-                    string uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "images", "trails");
-
-                    foreach (var file in AdditionalImages)
-                    {
-                        if (file.Length > 0)
-                        {
-                            string uniqueFileName = Guid.NewGuid().ToString() + "_" + file.FileName;
-                            string filePath = Path.Combine(uploadsFolder, uniqueFileName);
-
-                            using (var fileStream = new FileStream(filePath, FileMode.Create))
-                            {
-                                await file.CopyToAsync(fileStream);
-                            }
-
-                            var trailPhoto = new TrailPhoto
-                            {
-                                TrailId = existingTrail.Id,
-                                ImageUrl = "/images/trails/" + uniqueFileName,
-                                DisplayOrder = 0
-                            };
-
-                            _context.TrailPhotos.Add(trailPhoto);
-                        }
-                    }
-                }
-
-                await _context.SaveChangesAsync();
-                TempData["Success"] = "Trail updated successfully!";
+            if (!ModelState.IsValid)
+            {
+                TempData["Error"] = string.Join(" ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
                 return RedirectToAction("Index");
             }
 
-            TempData["Error"] = "Invalid data. Please check the form.";
+            var originalCover = existingTrail.ThumbnailUrl;
+            await using var uploads = new UploadAttempt(Storage, _logger);
+            try
+            {
+                var newCover = cover == null ? originalCover : await uploads.UploadAsync(UploadCategory.Trails, cover.Bytes, cover.Extension);
+                var photoReferences = new List<string>();
+                foreach (var image in additional)
+                    photoReferences.Add(await uploads.UploadAsync(UploadCategory.Trails, image.Bytes, image.Extension));
+
+                await UploadPersistence.CommitAsync(_context.Database, uploads, async () =>
+                {
+                    // Database row lock, across app instances. Uploads finish before taking this lock.
+                    var locked = await _context.Trails.FromSqlInterpolated($"SELECT * FROM \"Trails\" WHERE \"Id\" = {id} FOR UPDATE")
+                        .AsNoTracking().SingleOrDefaultAsync();
+                    if (locked == null || !locked.IsActive || locked.ThumbnailUrl != originalCover)
+                        throw new DbUpdateConcurrencyException("Trail changed during upload.");
+                    existingTrail.Name = model.Name;
+                    existingTrail.Location = model.Location;
+                    existingTrail.DistanceKm = model.DistanceKm;
+                    existingTrail.TypicalDurationHours = model.TypicalDurationHours;
+                    existingTrail.ElevationGainMeters = model.ElevationGainMeters;
+                    existingTrail.Terrain = model.Terrain;
+                    existingTrail.TrailClass = model.TrailClass;
+                    existingTrail.Description = model.Description;
+                    existingTrail.ThumbnailUrl = newCover;
+                    foreach (var reference in photoReferences)
+                        _context.TrailPhotos.Add(new TrailPhoto { TrailId = id, ImageUrl = reference, DisplayOrder = 0 });
+                    await _context.SaveChangesAsync();
+                });
+                // Covers can be shared by historical events or another legacy dataset. Retain them.
+                TempData["Success"] = "Trail updated successfully!";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning("Trail update failed ({ErrorType}).", ex.GetType().Name);
+                TempData["Error"] = "Unable to save the trail. It may have changed. Please reload and try again.";
+            }
             return RedirectToAction("Index");
         }
 
@@ -470,22 +414,17 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "Photo not found" });
                 }
 
-                string fullPath = Path.Combine(_webHostEnvironment.WebRootPath, 
-                    photo.ImageUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
-
-                if (System.IO.File.Exists(fullPath))
-                {
-                    System.IO.File.Delete(fullPath);
-                }
-
                 _context.TrailPhotos.Remove(photo);
                 await _context.SaveChangesAsync();
 
+                try { await Storage.DeleteOwnedAsync(UploadCategory.Trails, photo.ImageUrl); }
+                catch { _logger.LogWarning("Deleted photo retained for manual storage cleanup."); }
                 return Json(new { success = true, message = "Photo deleted successfully" });
             }
             catch (Exception ex)
             {
-                return Json(new { success = false, message = ex.Message });
+                _logger.LogWarning("Photo deletion failed ({ErrorType}).", ex.GetType().Name);
+                return Json(new { success = false, message = "Unable to delete the photo. Please try again." });
             }
         }
 
@@ -525,13 +464,7 @@ namespace TrailGuard.Controllers
 
 
 
-            var thumbnailReferencedByEvent = await EventTrailSnapshotHelper
-                .IsThumbnailUrlReferencedByAnyEventAsync(_context, trail.ThumbnailUrl);
-            var thumbnailPath = thumbnailReferencedByEvent ? null : ResolveUploadPath(trail.ThumbnailUrl);
-            var photoPaths = (trail.TrailPhotos ?? Enumerable.Empty<TrailPhoto>())
-                .Select(p => ResolveUploadPath(p.ImageUrl))
-                .Where(p => p != null)
-                .ToList();
+            var photoReferences = (trail.TrailPhotos ?? Enumerable.Empty<TrailPhoto>()).Select(p => p.ImageUrl).ToList();
 
             if (trail.TrailPhotos != null && trail.TrailPhotos.Count > 0)
             {
@@ -559,25 +492,11 @@ namespace TrailGuard.Controllers
 
 
 
-            foreach (var path in photoPaths.Append(thumbnailPath))
+            // Never delete a cover: existing snapshots/legacy datasets may share it.
+            foreach (var reference in photoReferences)
             {
-                if (path == null || !System.IO.File.Exists(path))
-                {
-                    continue;
-                }
-
-                try
-                {
-                    System.IO.File.Delete(path);
-                }
-                catch (IOException ex)
-                {
-                    _logger.LogWarning(ex, "Trail {TrailId} was deleted, but its image file {Path} could not be removed.", request.Id, path);
-                }
-                catch (UnauthorizedAccessException ex)
-                {
-                    _logger.LogWarning(ex, "Trail {TrailId} was deleted, but its image file {Path} could not be removed.", request.Id, path);
-                }
+                try { await Storage.DeleteOwnedAsync(UploadCategory.Trails, reference); }
+                catch { _logger.LogWarning("Deleted trail photo retained for manual storage cleanup."); }
             }
 
             return Json(new { success = true, message = "Trail deleted successfully" });
@@ -652,23 +571,6 @@ namespace TrailGuard.Controllers
 
 
 
-
-        private string? ResolveUploadPath(string? relativeUrl)
-        {
-            if (string.IsNullOrEmpty(relativeUrl))
-            {
-                return null;
-            }
-
-            var uploadsFolder = Path.GetFullPath(Path.Combine(_webHostEnvironment.WebRootPath, "images", "trails"));
-            var candidate = Path.GetFullPath(Path.Combine(_webHostEnvironment.WebRootPath,
-                relativeUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar)));
-
-            var withinUploads = candidate.StartsWith(
-                uploadsFolder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
-
-            return withinUploads ? candidate : null;
-        }
 
         public class DeleteTrailRequest
         {

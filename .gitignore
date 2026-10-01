@@ -14,6 +14,7 @@
 *.cache
 /wwwroot/uploads/
 /wwwroot/images/profiles/
+/App_Data/
 
 # Local development trail uploads; retain tracked/sample trail assets normally.
 /wwwroot/images/trails/1f92b791-ae33-4c93-a3a0-f6404cbf2a80.jpg

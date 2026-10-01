@@ -216,9 +216,9 @@
                                         data-date="@account.DateCreatedIso">
                                         <th scope="row" headers="accounts-data-header-name" class="px-5 py-4 font-normal align-middle">
                                             <div class="flex items-center justify-start gap-3 min-w-0">
-                                                @if (!string.IsNullOrEmpty(account.ProfilePictureUrl))
+                                                @if (!string.IsNullOrEmpty(Images.Url(account.ProfilePictureUrl)))
                                                 {
-                                                    <img src="@account.ProfilePictureUrl" alt="" class="w-8 h-8 rounded-full object-cover shrink-0" />
+                                                    <img src="@Images.Url(account.ProfilePictureUrl)" alt="" class="w-8 h-8 rounded-full object-cover shrink-0" />
                                                 }
                                                 else
                                                 {
@@ -295,9 +295,9 @@
                                      data-status="@(account.IsActive ? "active" : "inactive")"
                                      data-date="@account.DateCreatedIso">
                                 <div class="flex items-center gap-3 mb-3">
-                                    @if (!string.IsNullOrEmpty(account.ProfilePictureUrl))
+                                    @if (!string.IsNullOrEmpty(Images.Url(account.ProfilePictureUrl)))
                                     {
-                                        <img src="@account.ProfilePictureUrl" alt="" class="w-9 h-9 rounded-full object-cover shrink-0" />
+                                        <img src="@Images.Url(account.ProfilePictureUrl)" alt="" class="w-9 h-9 rounded-full object-cover shrink-0" />
                                     }
                                     else
                                     {
