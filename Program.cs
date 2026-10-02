@@ -9,6 +9,14 @@ AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 var builder = WebApplication.CreateBuilder(args);
 
 var uploadOptions = UploadStorageOptions.Resolve(builder.Configuration, builder.Environment);
+var dataProtectionOptions = HostedDataProtectionOptions.Resolve(builder.Configuration, builder.Environment, uploadOptions);
+if (dataProtectionOptions is not null)
+{
+    dataProtectionOptions.Configure(builder.Services);
+}
+
+var hostingOptions = TrailGuardHostingOptions.Resolve(builder.Configuration, TimeProvider.System);
+hostingOptions.ConfigureServices(builder.Services);
 builder.Services.AddSingleton(uploadOptions);
 builder.Services.AddSingleton<UploadReferences>();
 builder.Services.AddHttpClient<SupabaseFileStore>(client => client.Timeout = TimeSpan.FromSeconds(uploadOptions.TimeoutSeconds))
@@ -70,13 +78,7 @@ builder.Services.AddHttpClient<TrailGuardV2ApiClient>((_, client) =>
 
 var app = builder.Build();
 
-if (!app.Environment.IsDevelopment())
-{
-    app.UseExceptionHandler("/Home/Error");
-    app.UseHsts();
-}
-
-app.UseHttpsRedirection();
+TrailGuardHostingPipeline.Configure(app, app.Environment, hostingOptions, app.Logger, TimeProvider.System);
 
 
 

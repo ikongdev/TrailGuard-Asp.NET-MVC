@@ -1,0 +1,2 @@
+/ml-services/trailguard-v2/frozen-bundle/** -text
+/deployment/certificates/supabase-prod-ca-2021.crt -text

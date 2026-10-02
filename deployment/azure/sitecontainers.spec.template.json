@@ -1,0 +1,42 @@
+[
+  {
+    "name": "trailguard-mvc",
+    "properties": {
+      "image": "<ACR_NAME>.azurecr.io/trailguard-mvc@sha256:<MVC_REGISTRY_MANIFEST_DIGEST>",
+      "isMain": true,
+      "targetPort": "8080",
+      "authType": "UserAssigned",
+      "userManagedIdentityClientId": "<HOSTING_MANAGED_IDENTITY_CLIENT_ID>",
+      "environmentVariables": [
+        {
+          "name": "ASPNETCORE_HTTP_PORTS",
+          "value": "8080"
+        },
+        {
+          "name": "ASPNETCORE_ENVIRONMENT",
+          "value": "Production"
+        },
+        {
+          "name": "TZ",
+          "value": "Asia/Manila"
+        }
+      ]
+    }
+  },
+  {
+    "name": "trailguard-v2",
+    "properties": {
+      "image": "<ACR_NAME>.azurecr.io/trailguard-v2@sha256:<PYTHON_REGISTRY_MANIFEST_DIGEST>",
+      "isMain": false,
+      "targetPort": "8011",
+      "authType": "UserAssigned",
+      "userManagedIdentityClientId": "<HOSTING_MANAGED_IDENTITY_CLIENT_ID>",
+      "environmentVariables": [
+        {
+          "name": "TZ",
+          "value": "Asia/Manila"
+        }
+      ]
+    }
+  }
+]

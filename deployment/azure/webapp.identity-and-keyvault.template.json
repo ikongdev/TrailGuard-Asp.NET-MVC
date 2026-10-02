@@ -1,0 +1,20 @@
+{
+  "purpose": "Web-app identity and Key Vault-reference skeleton. Replace bracketed placeholders only during an authorized deployment; this is not a complete ARM deployment template.",
+  "resourceType": "Microsoft.Web/sites",
+  "apiVersion": "2024-04-01",
+  "name": "<APP_NAME>",
+  "identity": {
+    "type": "UserAssigned",
+    "userAssignedIdentities": {
+      "<USER_ASSIGNED_IDENTITY_RESOURCE_ID>": {}
+    }
+  },
+  "properties": {
+    "keyVaultReferenceIdentity": "<USER_ASSIGNED_IDENTITY_RESOURCE_ID>"
+  },
+  "identityValueUse": {
+    "resourceId": "Use here, in userAssignedIdentities, and for keyVaultReferenceIdentity.",
+    "clientId": "Use for DataProtection__ManagedIdentityClientId and sitecontainer userManagedIdentityClientId.",
+    "principalId": "Use as the RBAC assignee object ID for AcrPull, Key Vault Crypto User, Key Vault Secrets User, and Storage Blob Data Contributor."
+  }
+}
