@@ -142,7 +142,7 @@
                                         </p>
                                         @if (!string.IsNullOrEmpty(e.Difficulty))
                                         {
-                                            <span class="inline-block mt-2 px-2 py-0.5 rounded-full text-[11px] font-medium @badgeClass">@e.Difficulty</span>
+                                            <span class="inline-block mt-2 px-2 py-0.5 rounded-full text-[11px] font-medium @badgeClass">@DifficultyCalculator.DisplayLabel(e.Difficulty)</span>
                                         }
                                     </div>
                                     <div class="flex items-center gap-2 shrink-0">

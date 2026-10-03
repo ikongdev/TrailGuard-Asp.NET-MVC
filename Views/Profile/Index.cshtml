@@ -364,7 +364,7 @@
                                     </p>
                                 </div>
                                 <span class="shrink-0 px-2.5 py-1 rounded-full text-xs font-medium @difficultyClass">
-                                    @(string.IsNullOrEmpty(adventure.Difficulty) ? "Unknown" : adventure.Difficulty)
+                                    @DifficultyCalculator.DisplayLabel(adventure.Difficulty)
                                 </span>
                             </li>
                         }

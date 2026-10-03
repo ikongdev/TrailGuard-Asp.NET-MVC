@@ -245,14 +245,6 @@ namespace TrailGuard.Controllers
                 query = query.Where(e => e.TrailId == trailIdValue);
             }
 
-            if (normalizedDifficulty != "All")
-            {
-                query = query.Where(e => e.Difficulty == normalizedDifficulty);
-            }
-
-
-
-
             query = normalizedSort switch
             {
                 "date_desc" => query.OrderByDescending(e => e.EventDate).ThenByDescending(e => e.EventTime).ThenByDescending(e => e.Id),
@@ -260,6 +252,12 @@ namespace TrailGuard.Controllers
             };
 
             var filteredEvents = await query.ToListAsync();
+            if (normalizedDifficulty != "All")
+            {
+                filteredEvents = filteredEvents
+                    .Where(e => DifficultyCalculator.MatchesLabel(e.Difficulty, normalizedDifficulty))
+                    .ToList();
+            }
 
             var eventIds = filteredEvents.Select(e => e.Id).ToList();
             var capacityCounts = await _context.EventRegistrations
@@ -328,8 +326,10 @@ namespace TrailGuard.Controllers
 
             return Json(new
             {
-                success = true,
-                difficulty = DifficultyCalculator.ComputeDifficulty(trail)
+                success = DifficultyCalculator.TryCompute(trail, out var score, out var difficulty, out var error),
+                difficulty,
+                score,
+                message = error
             });
         }
 
@@ -408,6 +408,11 @@ namespace TrailGuard.Controllers
                 if (!trail.IsActive)
                 {
                     return Json(new { success = false, message = "The selected trail is no longer active. Please choose another trail." });
+                }
+
+                if (!DifficultyCalculator.TryCompute(trail, out _, out _, out var difficultyInputError))
+                {
+                    return Json(new { success = false, message = difficultyInputError });
                 }
 
 
@@ -599,7 +604,7 @@ namespace TrailGuard.Controllers
                     trailTerrain = eventItem.TrailTerrainSnapshot,
                     trailClass = eventItem.TrailClassSnapshot,
                     trailClassLabel = DifficultyCalculator.TrailClassLabel(eventItem.TrailClassSnapshot),
-                    trailDifficulty = eventItem.Difficulty,
+                    trailDifficulty = DifficultyCalculator.DisplayLabel(eventItem.Difficulty),
                     estimatedDuration = eventItem.EstimatedDuration,
                     capacity = eventItem.Capacity,
                     organizedBy = eventItem.OrganizedBy,
@@ -1160,6 +1165,10 @@ namespace TrailGuard.Controllers
 
                 if (existingEvent.TrailId != model.TrailId)
                 {
+                    if (!DifficultyCalculator.TryCompute(trail, out _, out _, out var difficultyInputError))
+                    {
+                        return Json(new { success = false, message = difficultyInputError });
+                    }
                     EventTrailSnapshotHelper.CaptureSnapshot(existingEvent, trail);
                 }
 

@@ -335,9 +335,9 @@
                             </div>
 
                             <div>
-                                <label for="addDuration" class="block text-sm font-medium text-gray-300 mb-2">Typical Duration (hours) <span class="text-red-400">*</span></label>
+                                <label for="addDuration" class="block text-sm font-medium text-gray-300 mb-2">Duration <span class="text-red-400">*</span></label>
                                 <input asp-for="AddTrail.TypicalDurationHours" id="addDuration" type="number" step="any" min="0" required aria-describedby="addDurationHelp addDurationError" class="add-trail-input block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm" placeholder="e.g., 5.5" />
-                                <p id="addDurationHelp" class="text-xs text-gray-400 mt-2">Enter the typical recorded hiking time in hours, greater than zero.</p>
+                                <p id="addDurationHelp" class="text-xs text-gray-400 mt-2">Enter the documented ascent duration in hours, greater than zero.</p>
                                 <span id="addDurationError" asp-validation-for="AddTrail.TypicalDurationHours" class="text-red-400 text-xs mt-1 block" aria-live="polite"></span>
                             </div>
 
@@ -378,6 +378,7 @@
                                 <p id="addTrailClassDescription" class="text-xs text-gray-400 mt-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2" aria-live="polite">Select a class above to see its full description.</p>
                                 <span id="addTrailClassError" asp-validation-for="AddTrail.TrailClass" class="text-red-400 text-xs mt-1 block" aria-live="polite"></span>
                             </div>
+
 
                             <div>
                                 <label for="addDescription" class="block text-sm font-medium text-gray-300 mb-2">Description <span class="text-red-400">*</span></label>
@@ -471,9 +472,9 @@
                             </div>
 
                             <div>
-                                <label for="editDuration" class="block text-sm font-medium text-gray-300 mb-2">Typical Duration (hours) <span class="text-red-400">*</span></label>
+                                <label for="editDuration" class="block text-sm font-medium text-gray-300 mb-2">Duration <span class="text-red-400">*</span></label>
                                 <input id="editDuration" name="TypicalDurationHours" type="number" step="any" min="0" required aria-describedby="editDurationHelp" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm" placeholder="e.g., 5.47" />
-                                <p id="editDurationHelp" class="text-xs text-gray-400 mt-2">Enter the typical recorded hiking time in hours, greater than zero.</p>
+                                <p id="editDurationHelp" class="text-xs text-gray-400 mt-2">Enter the documented ascent duration in hours, greater than zero.</p>
                             </div>
 
                             <div class="grid grid-cols-2 gap-4">
@@ -510,6 +511,7 @@
                                 </select>
                                 <p id="editTrailClassDescription" class="text-xs text-gray-400 mt-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2" aria-live="polite">Select a class above to see its full description.</p>
                             </div>
+
 
                             <div>
                                 <label for="editDescription" class="block text-sm font-medium text-gray-300 mb-2">Description <span class="text-red-400">*</span></label>
@@ -1105,8 +1107,8 @@
         const TRAIL_CLASS_DESCRIPTIONS = {
             '1': 'Walking — flat, clear, often paved or packed earth. No fall risk, no need to use your hands for balance.',
             '2': 'Hiking — rugged or rocky trails with some ascent. You may hold onto roots or branches for balance, but it stays safe.',
-            '3': 'Scrambling — steep sections where you genuinely need hands and feet to climb over boulders or roots. Rope not strictly required, but real care is needed. e.g. Mt. Maculot Rockies, Mt. Pamitinan.',
-            '4': 'Simple Climbing — steeper and more dangerous, with exposure such as cliffs or drop-offs. Ropes are normally fixed for hiker safety, since a fall could be fatal. e.g. Mt. Guiting-Guiting, Mt. Mantalingajan.'
+            '3': 'Scrambling — steep sections where you genuinely need hands and feet to climb over boulders or roots. Rope not strictly required, but real care is needed.',
+            '4': 'Simple Climbing — steeper and more dangerous, with exposure such as cliffs or drop-offs. Ropes are normally fixed for hiker safety, since a fall could be fatal.'
         };
         const TRAIL_CLASS_DESCRIPTION_PLACEHOLDER = 'Select a class above to see its full description.';
 

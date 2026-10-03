@@ -283,7 +283,7 @@ static class StorageConcurrencyScenarios
             EventTime = TimeSpan.FromHours(6), Location = "Local", Difficulty = "Moderate", Capacity = 20, Status = cover == null ? "Upcoming" : "Completed",
             OrganizerId = user.Id, OrganizedBy = "Storage Fixture", PickupPoints = "Main gate", TrailNameSnapshot = trail.Name,
             TrailDistanceKmSnapshot = 8, TrailDurationHoursSnapshot = 5, TrailElevationGainMetersSnapshot = 600, TrailTerrainSnapshot = "Rocky",
-            TrailClassSnapshot = 3, TrailAdjustedRatingSnapshot = 1, EstimatedDuration = 5, TrailThumbnailUrlSnapshot = cover };
+            TrailClassSnapshot = 3, DifficultyScoreSnapshot = 1m, EstimatedDuration = 5, TrailThumbnailUrlSnapshot = cover };
         context.Events.Add(evt); await context.SaveChangesAsync();
         return new(trail.Id, evt.Id, user.Id, email);
     }

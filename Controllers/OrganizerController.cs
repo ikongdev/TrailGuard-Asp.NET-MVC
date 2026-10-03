@@ -218,7 +218,7 @@ namespace TrailGuard.Controllers
                 EventTitle = r.Event?.EventTitle ?? "Unknown Event",
                 EventDate = r.Event?.EventDate.ToString("MMM dd, yyyy") ?? "",
                 EventTime = r.Event?.FormattedEventTime ?? "",
-                EventDifficulty = r.Event?.Difficulty ?? "",
+                EventDifficulty = DifficultyCalculator.DisplayLabel(r.Event?.Difficulty),
                 ParticipantName = r.ParticipantName,
                 UserId = r.UserId,
                 Email = r.User != null ? r.User.Email ?? "" : "",
@@ -286,7 +286,7 @@ namespace TrailGuard.Controllers
             {
                 ViewBag.AlternativeEvents = await GetAlternativeEvents(
                     registration.Event!.Id,
-                    registration.Event.Difficulty ?? "",
+                    DifficultyCalculator.DisplayLabel(registration.Event.Difficulty),
                     registration.Assessment!.Result ?? ""
                 );
 
@@ -361,9 +361,8 @@ namespace TrailGuard.Controllers
 
         private async Task<List<Event>> GetAlternativeEvents(int eventId, string currentDifficulty, string result)
         {
-            var difficultyLevels = DifficultyCalculator.Bands;
-            var currentIndex = Array.IndexOf(difficultyLevels, currentDifficulty);
-            if (currentIndex < 0) currentIndex = 1;
+            var currentIndex = DifficultyCalculator.BucketRank(currentDifficulty);
+            if (currentIndex > 2) currentIndex = 1;
 
             int targetIndex;
             if (result == "Good-Match")
@@ -373,17 +372,14 @@ namespace TrailGuard.Controllers
             else
                 targetIndex = Math.Max(0, currentIndex - 2);
 
-            var targetDifficulty = difficultyLevels[targetIndex];
-
-
-            return await _context.Events
+            var candidates = await _context.Events
                 .Where(e =>
                     e.Id != eventId &&
                     e.Status == "Upcoming" &&
-                    e.Difficulty == targetDifficulty &&
                     e.EventDate >= DateTime.Today)
                 .Take(5)
                 .ToListAsync();
+            return candidates.Where(e => DifficultyCalculator.BucketRank(e.Difficulty) == targetIndex).ToList();
         }
 
         public class RecommendAlternativeRequest
@@ -460,7 +456,7 @@ namespace TrailGuard.Controllers
 
                 var candidateEvents = await GetAlternativeEvents(
                     registration.Event.Id,
-                    registration.Event.Difficulty ?? "",
+                    DifficultyCalculator.DisplayLabel(registration.Event.Difficulty),
                     registration.Assessment?.Result ?? "");
 
                 if (!candidateEvents.Any(e => e.Id == submittedAlternativeEventId))

@@ -83,7 +83,7 @@ namespace TrailGuard.Controllers
                     EventId = latestEvent?.Id ?? 0,
                     EventTitle = latestEvent?.EventTitle ?? "",
                     TrailName = latestEvent?.TrailNameSnapshot ?? "",
-                    EventDifficulty = latestEvent?.Difficulty ?? ""
+                    EventDifficulty = DifficultyCalculator.DisplayLabel(latestEvent?.Difficulty)
                 };
             }
 
@@ -92,8 +92,6 @@ namespace TrailGuard.Controllers
             {
                 recommendedEvents = await GetRecommendedEvents(latestResult.Result, latestResult.EventDifficulty, userId);
             }
-
-            var difficultyLevels = DifficultyCalculator.Bands;
 
             string? personalBestDifficulty = null;
             double? personalBestDistanceKm = null;
@@ -106,10 +104,12 @@ namespace TrailGuard.Controllers
 
             if (completedRegistrations.Any())
             {
-                personalBestDifficulty = completedRegistrations
-                    .Select(r => r.Event!.Difficulty)
-                    .OrderByDescending(d => Array.IndexOf(difficultyLevels, d))
-                    .FirstOrDefault();
+                var personalBest = completedRegistrations
+                    .Select(r => r.Event!)
+                    .OrderByDescending(e => DifficultyCalculator.BucketRank(e.Difficulty))
+                    .ThenByDescending(e => e.DifficultyScoreSnapshot)
+                    .First();
+                personalBestDifficulty = DifficultyCalculator.DisplayLabel(personalBest.Difficulty);
 
                 personalBestDistanceKm = completedRegistrations.Max(r => r.Event!.TrailDistanceKmSnapshot);
                 personalBestElevationMeters = completedRegistrations.Max(r => r.Event!.TrailElevationGainMetersSnapshot);
@@ -147,10 +147,8 @@ namespace TrailGuard.Controllers
         private async Task<List<Event>> GetRecommendedEvents(
             string assessmentResult, string assessedDifficulty, string userId)
         {
-            var levels = DifficultyCalculator.Bands;
-
-            var currentIndex = Array.IndexOf(levels, assessedDifficulty);
-            if (currentIndex < 0) currentIndex = 1;
+            var currentIndex = DifficultyCalculator.BucketRank(assessedDifficulty);
+            if (currentIndex > 2) currentIndex = 1;
 
             var targetIndex = assessmentResult switch
             {
@@ -169,11 +167,11 @@ namespace TrailGuard.Controllers
                 var events = await _context.Events
                     .Where(e => e.Status == "Upcoming"
                              && e.EventDate >= DateTime.Today
-                             && e.Difficulty == levels[i]
                              && !registeredEventIds.Contains(e.Id))
                     .OrderBy(e => e.EventDate)
-                    .Take(4)
                     .ToListAsync();
+
+                events = events.Where(e => DifficultyCalculator.BucketRank(e.Difficulty) == i).Take(4).ToList();
 
                 if (events.Any()) return events;
             }
@@ -214,20 +212,17 @@ namespace TrailGuard.Controllers
                 events = events.Where(e => e.EventTitle.Contains(searchString) || e.Location.Contains(searchString));
             }
 
-            if (!string.IsNullOrEmpty(difficulty) && difficulty != "All")
-            {
-                events = events.Where(e => e.Difficulty == difficulty);
-            }
-
-
-
-
 
             if (!string.IsNullOrEmpty(trailFilter) && trailFilter != "All" && int.TryParse(trailFilter, out var trailId))
             {
                 events = events.Where(e => e.TrailId == trailId);
             }
 
+            var materializedEvents = await events.ToListAsync();
+            if (!string.IsNullOrEmpty(difficulty) && difficulty != "All")
+            {
+                materializedEvents = materializedEvents.Where(e => DifficultyCalculator.MatchesLabel(e.Difficulty, difficulty)).ToList();
+            }
             List<Event> eventsList;
             if (sortOrder == "difficulty_asc" || sortOrder == "difficulty_desc")
             {
@@ -242,19 +237,22 @@ namespace TrailGuard.Controllers
 
 
                 eventsList = sortOrder == "difficulty_asc"
-                    ? await events.OrderBy(e => e.TrailAdjustedRatingSnapshot).ToListAsync()
-                    : await events.OrderByDescending(e => e.TrailAdjustedRatingSnapshot).ToListAsync();
+                    ? materializedEvents.OrderBy(e => DifficultyCalculator.BucketRank(e.Difficulty))
+                        .ThenBy(e => e.DifficultyScoreSnapshot)
+                        .ThenBy(e => e.EventDate).ThenBy(e => e.Id).ToList()
+                    : materializedEvents.OrderByDescending(e => DifficultyCalculator.BucketRank(e.Difficulty))
+                        .ThenByDescending(e => e.DifficultyScoreSnapshot)
+                        .ThenBy(e => e.EventDate).ThenBy(e => e.Id).ToList();
             }
             else
             {
-                events = sortOrder switch
+                eventsList = (sortOrder switch
                 {
-                    "date_desc" => events.OrderByDescending(e => e.EventDate),
-                    "title_asc" => events.OrderBy(e => e.EventTitle),
-                    "title_desc" => events.OrderByDescending(e => e.EventTitle),
-                    _ => events.OrderBy(e => e.EventDate),
-                };
-                eventsList = await events.ToListAsync();
+                    "date_desc" => materializedEvents.OrderByDescending(e => e.EventDate),
+                    "title_asc" => materializedEvents.OrderBy(e => e.EventTitle),
+                    "title_desc" => materializedEvents.OrderByDescending(e => e.EventTitle),
+                    _ => materializedEvents.OrderBy(e => e.EventDate),
+                }).ToList();
             }
 
             var eventIds = eventsList.Select(e => e.Id).ToList();
@@ -309,17 +307,19 @@ namespace TrailGuard.Controllers
             var events = await _context.Events
                 .Where(e => e.TrailId == trailId && e.Status == "Upcoming" && e.EventDate >= DateTime.Today)
                 .OrderBy(e => e.EventDate)
+                .ToListAsync();
+            var payload = events
                 .Select(e => new
                 {
                     id = e.Id,
                     eventTitle = e.EventTitle,
                     eventDate = e.EventDate.ToString("MMM dd, yyyy"),
                     eventTime = e.FormattedEventTime,
-                    difficulty = e.Difficulty
+                    difficulty = DifficultyCalculator.DisplayLabel(e.Difficulty)
                 })
-                .ToListAsync();
+                .ToList();
 
-            return Json(events);
+            return Json(payload);
         }
 
 

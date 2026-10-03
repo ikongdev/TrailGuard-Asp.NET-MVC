@@ -160,7 +160,7 @@ These are the highest-risk rules in this document, gathered here for visibility.
 - `AssessmentController.BuildMlRequest` and the Python `FEATURE_COLUMNS` are a cross-language contract; check both sides before changing any input, mapping, type, or feature order — see "Feature Mapping."
 - An unrecognized categorical answer or SHAP feature name must fail explicitly, never silently default — see "Feature Mapping" and "Explainability."
 - Weather stays a separate event advisory, never an ML feature — see "Weather and ML."
-- Difficulty ordering/display use the terrain-adjusted rating, never the plain NPS value — see "Difficulty Bands."
+- Difficulty ordering/display use the canonical route-effort score snapshot — see "Difficulty Bands."
 - Preserve antiforgery protection, authorization, role boundaries, and ownership checks on every changed endpoint — see "Security."
 - Reuse an established `DESIGN.md` pattern before introducing a new one; don't add a second modal-visibility mechanism, card hover-scaling, or undocumented radius.
 
@@ -380,28 +380,13 @@ visibility proposal without changing the "ML Failure — No Fallback" rule.
 
 ## Difficulty Bands
 
-The **Event Difficulty** band shown to users is a separate deterministic display calculation. It uses the NPS rating multiplied by the trail's `TrailClass` multiplier to get an *adjusted rating*, which is then mapped onto one of four PinoyMountaineer-derived tiers. It is no longer a v3 ML input or API/result field.
+The display-only Event Difficulty system is one **provisional TrailGuard policy**, not PinoyMountaineer’s scale and not a validated accuracy claim. It is not a v3 ML input.
 
-| Adjusted rating | Band | PinoyMountaineer level |
-|---|---|---|
-| < 81 | Easy | 1–2/9 |
-| 81–354 | Minor Climb | 3–4/9 |
-| 354–411 | Major Climb | 5–6/9 |
-| ≥ 411 | Major Climb — Difficult | 7–9/9 |
+The route-effort policy uses the existing Trail distance, elevation gain, technical class, and typical duration. Typical duration is confirmed documented ascent duration, with no assumption that rests are excluded. It computes `T0 = distance/5 + gain/600`, then `score = 5 × multiplier × (T0 + .25 × max(0, hours − T0))`, with multipliers 1.00/1.15/1.35/1.60 and a class-4 floor of 35. The score is rounded once to two decimal places, away from zero, before persistence and classification: `<35` Minor Hike; `35–<75` Major Hike; `≥75` Major Hike - Difficult. Every weight, floor, threshold, and precision is provisional TrailGuard policy.
 
-These replace the published NPS bands (50/100/150/200), which are calibrated for Shenandoah National Park — 68% of the 28 Philippine mountains used to fit the boundaries above exceed the NPS bands' top threshold.
+Difficulty sort order is bucket, canonical score, then stable event ties. Unknown labels display explicitly as unknown.
 
-**This is not the PinoyMountaineer scale itself.** The system computes the NPS Shenandoah rating and maps it onto PinoyMountaineer difficulty tiers using boundaries calibrated on 28 Philippine mountains (82% exact-tier agreement, 100% agreement within one tier, Spearman rho 0.859). Applying PM's own written rule (duration + trail class) directly reproduced the same mountains' published ratings only 50% of the time — multi-day status in the Philippines often reflects logistics (e.g. camping for sunrise) rather than difficulty. **The 82%/100%/0.859 figures were measured on the same 28-mountain sample the boundaries were fitted to** — independent validation on mountains outside that sample hasn't been done; this is documented as a limitation in `MODEL.md`.
-
-`Services/DifficultyCalculator.cs` computes this display-only Event Difficulty in C#.
-v3 does not consume the NPS rating or band, so there is no Python counterpart to
-keep synchronized after the v2 service is retired.
-
-Sort and compare by the **adjusted** rating, not the plain one — ordering by the plain NPS score would rank a short Class 4 trail as easier than a long Class 1 walk.
-
-`Trail.Terrain` (a free-text string) and `Trail.TrailClass` (int, 1–4) are both still fields on `Trail` — `TrailClass` is the one that feeds difficulty and the ML request; `Terrain` predates it.
-
-**A bare Trail does not display or own an authoritative Event Difficulty band.** `Trail.Distance`/`ElevationGainMeters`/`TrailClass` are the *inputs* a future Event Difficulty calculation will use once the Trail is attached to a scheduled Event — they are not a difficulty themselves. `DifficultyCalculator.TrailClassLabel(trailClass)` maps the Technical Trail Class (1–4) to a Trail-metadata label (`Walking`/`Hiking`/`Scrambling`/`Simple Climbing`) only, and this is exactly what Trail Management and the View Trail modal show (`Views/Trail/Index.cshtml` — there is no separate Trail Details page; a Trail's "details" render inside this same file's modal) alongside Distance and Elevation Gain, with an explicit caption that this is not the event's difficulty rating. Neither page computes or shows an Easy/Minor Climb/Major Climb/Major Climb — Difficult band for a bare Trail. `DifficultyCalculator.ComputeAdjustedRating`/`LabelFor`/`BadgeClass` own the Event Difficulty calculation and its display mapping — a value only becomes an Event Difficulty once a Trail is attached to a scheduled `Event` and that Event's snapshot is captured (see "Event Trail Snapshot," below). Add/Edit Event's Trail picker (`EventController.GetTrailDetails`/`GetCalculatedDifficulty`) is the one place a difficulty is computed for a Trail before that capture happens — a live preview of what the *prospective* Event's difficulty would be, not a property the Trail owns afterward. The Popular Trails landing-page cards deliberately show neither the Technical Trail Class nor an Event Difficulty band at all — see "Landing Page — Popular Trails Carousel," below.
+`Services/DifficultyCalculator.cs` is the sole calculator. The same distance/gain/duration/class fields retain their frozen ML meanings and also feed this display-only calculation. A bare Trail does not own an event band; the Add/Edit Event preview is only a prospective event calculation.
 
 ---
 
@@ -427,14 +412,14 @@ Event Trail Snapshot
 | `TrailElevationGainMetersSnapshot` | Trail elevation gain at capture time |
 | `TrailTerrainSnapshot` | Trail terrain string at capture time |
 | `TrailClassSnapshot` | Trail Class (1–4) at capture time |
-| `TrailAdjustedRatingSnapshot` | The exact terrain-adjusted NPS rating used to compute `Difficulty` — sorting must read this, never a live recalculation |
+| `DifficultyScoreSnapshot` | The canonical two-decimal route-effort score used for classification and sorting |
 | `TrailThumbnailUrlSnapshot` | Trail thumbnail URL at capture time |
 
 There is deliberately no JSON blob and no second Trail navigation object — every field is a plain scalar column on `Event`.
 
 ### Central capture
 
-`Services/EventTrailSnapshotHelper.CaptureSnapshot(Event, Trail)` is the single place that writes `TrailId`, `Location`, `Difficulty`, and every `Trail*Snapshot` field together, from a Trail already loaded fresh from the database — never from browser-posted values. It uses `DifficultyCalculator.ComputeAdjustedRating`/`LabelFor` rather than duplicating the difficulty formula. Every write site calls this rather than assigning the fields individually, so a captured snapshot can never be partial.
+`Services/EventTrailSnapshotHelper.CaptureSnapshot(Event, Trail)` is the single place that writes `TrailId`, `Location`, `Difficulty`, its score, and all snapshots together, from a Trail already loaded fresh from the database — never from browser-posted values. It computes difficulty from the Event's freshly captured generic distance, gain, duration, and class snapshots. Every write site calls this rather than assigning the fields individually, so a captured snapshot can never be partial.
 
 - **Add Event** (`EventController.AddEvent`) always calls it against the newly selected Trail.
 - **Edit Event** (`EventController.EditEvent`): if the submitted `TrailId` equals the persisted `Event.TrailId`, the snapshot is left completely untouched — no live Trail read happens at all, even to "refresh" it. If the organizer deliberately submits a different `TrailId`, the full snapshot is recaptured atomically from the newly selected Trail. Editing any other Event field (title, date, capacity, weather, payment, pickup, etc.) never touches the snapshot.
@@ -464,9 +449,9 @@ The C# NPS pace/default-duration helpers have been removed; difficulty ratings a
 
 ### Display, sorting, and progress all read the snapshot
 
-Every Event-history display (Event Management and Participant Details/cards, the assessment form and report, the registration flow, My Registrations, the Organizer Registration Details panel, Records, and the Reports aggregate breakdowns) reads `Event.Trail*Snapshot`, never a live `Event.Trail.*` navigation. Browse Events' difficulty sort (`EventController.Index`, `ParticipantController.Events`) orders by the stored `TrailAdjustedRatingSnapshot`, never a live `DifficultyCalculator.ComputeAdjustedRating(event.Trail)` recalculation — this applies even to Upcoming events, since an Event's own display must not shift just because its Trail was edited after creation.
+Every Event-history display (Event Management and Participant Details/cards, the assessment form and report, the registration flow, My Registrations, the Organizer Registration Details panel, Records, and the Reports aggregate breakdowns) reads `Event.Trail*Snapshot`, never a live `Event.Trail.*` navigation. Browse Events' difficulty sort (`EventController.Index`, `ParticipantController.Events`) orders by the stored `DifficultyScoreSnapshot`, never a live recalculation — this applies even to Upcoming events, since an Event's own display must not shift just because its Trail was edited after creation.
 
-`ParticipantProgressService`/`ParticipantAchievementEvaluator` read `Event.TrailClassSnapshot` (via `QualifyingEventRecord`) for Technical Explorer and personal-best distance/elevation, never a live `Event.Trail.TrailClass`/`.DistanceKm`/`.ElevationGainMeters` — a Trail reclassified after the fact must never retroactively grant, revoke, or resize a participant's already-earned progress. `Event.Difficulty` (already-canonical) continues to drive Versatile Hiker exactly as before.
+`ParticipantProgressService`/`ParticipantAchievementEvaluator` read `Event.TrailClassSnapshot` (via `QualifyingEventRecord`) for Technical Explorer and personal-best distance/elevation, never a live `Event.Trail.TrailClass`/`.DistanceKm`/`.ElevationGainMeters` — a Trail reclassified after the fact must never retroactively grant, revoke, or resize a participant's already-earned progress. Versatile Hiker counts the three canonical `Difficulty` labels.
 
 ### Assessment ML requests read the snapshot too
 
@@ -938,7 +923,7 @@ Nine fixed, code-defined achievements (`ParticipantAchievementCatalog.Definition
 
 Distinct months need not be consecutive — this is never described as a streak. Trail Class is described accurately as technical trail metadata (`Trail.TrailClass`), never as "Event Difficulty." None of the nine touch payment state, medical data, assessment/suitability/ML/SHAP results, organizer approval rate, cancellation behavior, self-entered profile fields, or a specific Trail Class/Event Difficulty/speed/distance/elevation **threshold** — the achievement system must never pressure a Participant toward a harder or less suitable Event just to earn a badge. Technical Explorer and Versatile Hiker are the two exceptions to "never touches Trail Class/Event Difficulty at all": both count *distinct values reached*, never a minimum difficulty/class a Participant must clear, so neither can be satisfied by seeking out harder Events — a Participant who only ever completes Easy-rated Events is never nudged toward a Major Climb to progress either one.
 
-**Versatile Hiker's difficulty source.** `Event.Difficulty` is a plain string column with no database-level constraint, but it is only ever written by `DifficultyCalculator.ComputeDifficulty` (see Difficulty Bands, above) — so in practice every qualifying completion's difficulty is already one of `DifficultyCalculator.Bands`' four canonical values (`Easy`, `Minor Climb`, `Major Climb`, `Major Climb — Difficult`). `ParticipantAchievementEvaluator.NormalizeDifficulty` is what turns the raw stored string into a trusted value for this achievement: it trims whitespace and matches case-insensitively against `DifficultyCalculator.Bands` (the same single canonical source every other Difficulty consumer in the app already reuses — see Difficulty Bands), returning `Bands`' own canonical casing so two differently-cased matches for the same band collapse into one distinct-difficulty count. Null, empty, whitespace-only, and any value that doesn't match one of the four Bands (a stray/legacy row) are excluded outright and can never advance or unlock Versatile Hiker — there is no fifth, invented difficulty level.
+**Versatile Hiker's difficulty source.** `ParticipantAchievementEvaluator` accepts only the three canonical `DifficultyCalculator.Bands` labels. It counts distinct labels in one set and unlocks on the third category; unknown labels do not advance progress.
 
 Each of the nine also has a fixed, original **512×512 transparent WebP badge** (`wwwroot/images/achievements/achievement-{key}.webp`) and a stable `AssetKey` (`AchievementDefinition.AssetKey`, e.g. `first-adventure`) assigned per-entry in `ParticipantAchievementCatalog`, never derived from `Name`/`Code` at render time. `ParticipantAchievementEvaluator` copies `AssetKey` straight through onto `ParticipantAchievementResult`, so the Profile view (the only current renderer) builds the image path from that field alone — no title-to-filename transformation in Razor, and no database/route/query/user-controlled value ever reaches an asset path. At the Profile owner's `xl:grid-cols-3` breakpoint, nine cards form a complete 3×3 grid with no empty final slot.
 

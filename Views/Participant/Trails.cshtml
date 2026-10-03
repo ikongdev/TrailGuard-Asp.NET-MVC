@@ -474,15 +474,12 @@
             return wrapper;
         }
 
-        // Mirrors DifficultyCalculator.BadgeClass() in C# - this event data comes
-        // back as JSON from an AJAX endpoint, so it can't call that helper
-        // directly. Keep these two mappings in sync with DifficultyCalculator.Bands.
+        // JSON already carries the calculator's version-aware display label.
         function difficultyBadgeClass(difficulty) {
             switch (difficulty) {
-                case 'Easy': return 'badge-easy';
-                case 'Minor Climb': return 'badge-lime';
-                case 'Major Climb': return 'badge-orange';
-                case 'Major Climb — Difficult': return 'badge-hard';
+                case 'Minor Hike': return 'badge-lime';
+                case 'Major Hike': return 'badge-orange';
+                case 'Major Hike - Difficult': return 'badge-hard';
                 default: return 'text-slate-400 bg-slate-500/15';
             }
         }

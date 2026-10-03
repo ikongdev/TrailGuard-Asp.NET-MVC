@@ -98,12 +98,11 @@
             {
                 var eventItem = card.Event;
                 var diffBadge = DifficultyCalculator.BadgeClass(eventItem.Difficulty);
+                var displayDifficulty = DifficultyCalculator.DisplayLabel(eventItem.Difficulty);
                 var slotsLeft = eventItem.Capacity - eventItem.RegisteredCount;
                 var displaySlots = Math.Max(0, slotsLeft);
-                // The Event's own frozen adjusted-rating snapshot, never a live
-                // recalculation from Event.Trail - see CLAUDE.md, "Event Trail
-                // Snapshot" and "Difficulty sorting".
-                var adjustedRating = eventItem.TrailAdjustedRatingSnapshot;
+                var difficultyBucket = DifficultyCalculator.BucketRank(eventItem.Difficulty);
+                var difficultyScore = eventItem.DifficultyScoreSnapshot;
                 var isAlternativeRecommended = card.RegistrationStatus == "Alternative Recommended";
                 var buttonState = RegistrationButtonHelper.GetState(card.RegistrationStatus, slotsLeft <= 0);
 
@@ -117,8 +116,9 @@
                 <div class="event-card group bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden hover:border-white/20 transition-colors flex flex-col"
                      data-title="@eventItem.EventTitle.ToLower()"
                      data-location="@eventItem.Location.ToLower()"
-                     data-difficulty="@eventItem.Difficulty"
-                     data-adjusted-rating="@adjustedRating.ToString("0.0")"
+                     data-difficulty="@displayDifficulty"
+                     data-difficulty-bucket="@difficultyBucket"
+                     data-difficulty-score="@difficultyScore.ToString(System.Globalization.CultureInfo.InvariantCulture)"
                      data-date="@eventItem.EventDate.ToString("yyyy-MM-dd")"
                      data-trail-id="@eventItem.TrailId">
 
@@ -137,7 +137,7 @@
                         <div class="absolute inset-0 bg-linear-to-t from-surface-card to-transparent opacity-90"></div>
 
                         <span class="absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-medium @diffBadge">
-                            @eventItem.Difficulty
+                            @displayDifficulty
                         </span>
                         <div class="absolute bottom-3 left-3">
                             <span class="text-xs text-white/90 bg-black/50 px-2.5 py-1 rounded-full flex items-center gap-1.5">
@@ -171,7 +171,7 @@
                         </div>
 
                         <div class="flex flex-wrap gap-1.5 mb-6">
-                            <span class="px-2.5 py-1 rounded-full text-xs font-medium @diffBadge">@eventItem.Difficulty</span>
+                            <span class="px-2.5 py-1 rounded-full text-xs font-medium @diffBadge">@displayDifficulty</span>
                             <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-white/5 border border-white/10 text-gray-300">@eventItem.EstimatedDuration hrs</span>
                         </div>
 
@@ -279,19 +279,20 @@
                 case 'title_desc':
                     return (b.dataset.title || '').localeCompare(a.dataset.title || '');
                 case 'difficulty_asc':
-                    // Sort on the precise adjusted rating (NPS rating x Trail Class
-                    // multiplier) - the same value the difficulty badge is derived from, not
-                    // the plain NPS rating, which ignores Trail Class entirely and would sort
-                    // a short Class 4 trail as though it were an easy walk. Two trails in the
-                    // same band (e.g. both "Minor Climb") still have different adjusted
-                    // ratings, and ranking by band alone left same-band pairs in arbitrary
-                    // order.
-                    return (parseFloat(a.dataset.adjustedRating) || 0) - (parseFloat(b.dataset.adjustedRating) || 0);
+                    return compareDifficulty(a, b, false);
                 case 'difficulty_desc':
-                    return (parseFloat(b.dataset.adjustedRating) || 0) - (parseFloat(a.dataset.adjustedRating) || 0);
+                    return compareDifficulty(a, b, true);
                 default:
                     return new Date(a.dataset.date) - new Date(b.dataset.date);
             }
+        }
+
+        function compareDifficulty(a, b, descending) {
+            const bucket = (parseInt(a.dataset.difficultyBucket || '3', 10) - parseInt(b.dataset.difficultyBucket || '3', 10)) * (descending ? -1 : 1);
+            if (bucket) return bucket;
+            const score = (parseFloat(a.dataset.difficultyScore || '0') - parseFloat(b.dataset.difficultyScore || '0')) * (descending ? -1 : 1);
+            if (score) return score;
+            return new Date(a.dataset.date) - new Date(b.dataset.date) || (a.dataset.title || '').localeCompare(b.dataset.title || '');
         }
 
         function filterAndSort() {

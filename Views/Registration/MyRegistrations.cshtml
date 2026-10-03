@@ -171,7 +171,7 @@
                                 <div class="bg-black/20 rounded-lg p-3 flex items-center justify-between gap-3 flex-wrap">
                                     <div class="min-w-0">
                                         <p class="text-white text-sm font-medium truncate">@altEvent.EventTitle</p>
-                                        <p class="text-gray-500 text-xs">@altEvent.EventDate.ToString("MMM dd, yyyy") &middot; @altEvent.Difficulty</p>
+                                        <p class="text-gray-500 text-xs">@altEvent.EventDate.ToString("MMM dd, yyyy") &middot; @TrailGuard.Services.DifficultyCalculator.DisplayLabel(altEvent.Difficulty)</p>
                                     </div>
                                     <a asp-controller="Assessment" asp-action="Form" asp-route-eventId="@reg.AlternativeEventId"
                                        class="px-4 py-2 rounded-full text-sm font-semibold text-white bg-linear-to-r from-orange-500 via-pink-500 to-violet-500 hover:brightness-110 transition shrink-0">

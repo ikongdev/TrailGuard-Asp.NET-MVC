@@ -51,14 +51,6 @@ namespace TrailGuard.Models
 
 
 
-
-
-
-
-
-
-
-
         [MaxLength(200)]
         [Display(Name = "Trail Name (Snapshot)")]
         public string TrailNameSnapshot { get; set; } = string.Empty;
@@ -85,8 +77,8 @@ namespace TrailGuard.Models
 
 
 
-        [Display(Name = "Trail Adjusted Rating (Snapshot)")]
-        public double TrailAdjustedRatingSnapshot { get; set; }
+        [Display(Name = "Difficulty Score (Snapshot)")]
+        public decimal DifficultyScoreSnapshot { get; set; }
 
         [MaxLength(300)]
         [Display(Name = "Trail Thumbnail URL (Snapshot)")]

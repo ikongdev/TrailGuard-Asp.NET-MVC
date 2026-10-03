@@ -174,7 +174,7 @@
                     </div>
                     <div class="flex justify-between gap-3">
                         <dt class="text-gray-500 shrink-0">Difficulty</dt>
-                        <dd class="text-gray-100 font-medium text-right wrap-break-word">@(string.IsNullOrEmpty(Model.Event?.Difficulty) ? "N/A" : Model.Event.Difficulty)</dd>
+                        <dd class="text-gray-100 font-medium text-right wrap-break-word">@TrailGuard.Services.DifficultyCalculator.DisplayLabel(Model.Event?.Difficulty)</dd>
                     </div>
                     <div class="flex justify-between gap-3">
                         <dt class="text-gray-500 shrink-0">Location</dt>
@@ -518,7 +518,7 @@
                                     <input type="radio" name="alternativeEvent" value="@altEvent.Id" class="mt-0.5 w-4 h-4 accent-accent shrink-0" />
                                     <span class="min-w-0">
                                         <span class="block text-white text-sm font-medium wrap-break-word">@altEvent.EventTitle</span>
-                                        <span class="block text-gray-500 text-xs">@altEvent.EventDate.ToString("MMM dd, yyyy") &bull; @altEvent.Difficulty</span>
+                                        <span class="block text-gray-500 text-xs">@altEvent.EventDate.ToString("MMM dd, yyyy") &bull; @TrailGuard.Services.DifficultyCalculator.DisplayLabel(altEvent.Difficulty)</span>
                                     </span>
                                 </label>
                             }

@@ -234,7 +234,7 @@
                                         </div>
 
                                         <div class="flex flex-wrap gap-1.5 mb-6">
-                                            <span class="px-2.5 py-1 rounded-full text-xs font-medium @TrailGuard.Services.DifficultyCalculator.BadgeClass(eventItem.Difficulty)">@eventItem.Difficulty</span>
+                                            <span class="px-2.5 py-1 rounded-full text-xs font-medium @TrailGuard.Services.DifficultyCalculator.BadgeClass(eventItem.Difficulty)">@TrailGuard.Services.DifficultyCalculator.DisplayLabel(eventItem.Difficulty)</span>
                                             <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-white/5 border border-white/10 text-gray-300">@eventItem.EstimatedDuration hrs</span>
                                         </div>
 
@@ -354,7 +354,7 @@
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                         <div class="bg-white/5 border border-white/10 rounded-xl p-3">
-                            <p class="text-gray-500 text-xs uppercase tracking-wider">Difficulty</p>
+                            <p class="text-gray-500 text-xs uppercase tracking-wider">Estimated difficulty</p>
                             <p id="previewDifficulty" class="text-white font-semibold">-</p>
                         </div>
                         <div class="bg-white/5 border border-white/10 rounded-xl p-3">
@@ -731,7 +731,7 @@
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                         <div class="bg-white/5 border border-white/10 rounded-xl p-3">
-                            <p class="text-gray-500 text-xs uppercase tracking-wider">Difficulty</p>
+                            <p class="text-gray-500 text-xs uppercase tracking-wider">Estimated difficulty</p>
                             <p id="editPreviewDifficulty" class="text-white font-semibold">-</p>
                         </div>
                         <div class="bg-white/5 border border-white/10 rounded-xl p-3">
@@ -2271,7 +2271,7 @@
                 document.getElementById('previewDifficulty').textContent = diffData.difficulty;
             } else {
                 document.getElementById('previewDifficulty').textContent = '-';
-                showToast('Unable to calculate difficulty for this trail. You can still continue.', 'error');
+                showToast(diffData.message || 'This trail needs complete dedicated difficulty ascent inputs. Edit the selected Trail before creating an event.', 'error');
             }
 
             const eventDate = document.getElementById('eventDate')?.value;
@@ -3332,6 +3332,7 @@
                 document.getElementById('editPreviewDifficulty').textContent = diffData.difficulty;
             } else {
                 document.getElementById('editPreviewDifficulty').textContent = '-';
+                showToast(diffData.message || 'This trail needs complete dedicated difficulty ascent inputs. Edit the selected Trail before selecting it for this event.', 'error');
             }
 
             const eventDate = document.getElementById('editEventDate')?.value;

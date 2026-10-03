@@ -296,7 +296,7 @@ namespace TrailGuard.Controllers
 
             var eventItem = assessment.Event;
 
-            var difficulty = eventItem?.Difficulty ?? "Moderate";
+            var difficulty = DifficultyCalculator.DisplayLabel(eventItem?.Difficulty);
 
             var suitabilityResults = await _context.SuitabilityResults
                 .Include(s => s.ShapValues)
@@ -468,13 +468,8 @@ namespace TrailGuard.Controllers
 
         private async Task<List<Event>> GetAlternativeEvents(int eventId, string currentDifficulty, string result, string? userId)
         {
-            var difficultyLevels = DifficultyCalculator.Bands;
-            var currentIndex = Array.IndexOf(difficultyLevels, currentDifficulty);
-
-            if (currentIndex < 0)
-            {
-                currentIndex = 1;
-            }
+            var currentIndex = DifficultyCalculator.BucketRank(currentDifficulty);
+            if (currentIndex > 2) currentIndex = 1;
 
             var targetIndex = result switch
             {
@@ -496,12 +491,12 @@ namespace TrailGuard.Controllers
                     .Where(e =>
                         e.Id != eventId &&
                         e.Status == "Upcoming" &&
-                        e.Difficulty == difficultyLevels[i] &&
                         e.EventDate >= DateTime.Today &&
                         !registeredEventIds.Contains(e.Id))
                     .OrderBy(e => e.EventDate)
-                    .Take(5)
                     .ToListAsync();
+
+                events = events.Where(e => DifficultyCalculator.BucketRank(e.Difficulty) == i).Take(5).ToList();
 
                 if (events.Any()) return events;
             }

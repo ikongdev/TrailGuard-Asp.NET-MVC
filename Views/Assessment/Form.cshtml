@@ -88,7 +88,7 @@
             </p>
             <div class="flex flex-wrap gap-4 text-accent/70 text-sm mt-1">
                 <span><i class="fa-regular fa-calendar mr-2"></i>@eventItem?.EventDate.ToString("MMMM dd, yyyy")</span>
-                <span><i class="fa-solid fa-mountain mr-2"></i>@eventItem?.Difficulty</span>
+                <span><i class="fa-solid fa-mountain mr-2"></i>@TrailGuard.Services.DifficultyCalculator.DisplayLabel(eventItem?.Difficulty)</span>
                 <span><i class="fa-regular fa-clock mr-2"></i>@(TrailGuard.Services.TrailGuardV2Presentation.FormatDuration((double?)eventItem?.TrailDurationHoursSnapshot))</span>
                 <span><i class="fa-solid fa-route mr-2"></i>@eventItem?.TrailDistanceKmSnapshot km</span>
                 <span><i class="fa-solid fa-arrow-trend-up mr-2"></i>@eventItem?.TrailElevationGainMetersSnapshot m</span>

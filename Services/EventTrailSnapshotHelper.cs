@@ -28,8 +28,10 @@ namespace TrailGuard.Services
             eventItem.TrailThumbnailUrlSnapshot = trail.ThumbnailUrl;
 
             eventItem.Location = trail.Location;
-            eventItem.TrailAdjustedRatingSnapshot = DifficultyCalculator.ComputeAdjustedRating(trail);
-            eventItem.Difficulty = DifficultyCalculator.LabelFor(eventItem.TrailAdjustedRatingSnapshot);
+            if (!DifficultyCalculator.TryCompute(eventItem, out var score, out var label, out var error))
+                throw new InvalidOperationException(error);
+            eventItem.DifficultyScoreSnapshot = score;
+            eventItem.Difficulty = label;
         }
 
 

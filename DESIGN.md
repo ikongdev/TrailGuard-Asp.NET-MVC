@@ -127,25 +127,23 @@ bg-white/5 border border-white/5 rounded-xl
 
 ## Difficulty
 
-Trails no longer carry a raw mountaineering number on their own — the badge shows a PinoyMountaineer-derived band name plus the PM level range it corresponds to, computed by `DifficultyCalculator` from the NPS-based adjusted rating. Four bands, not three:
+Event badges show the provisional TrailGuard labels, never a published 1–9 range. The one route-effort score snapshot uses three bands:
 
-| Band (`DifficultyCalculator.Bands`) | PM level | Badge class |
-|---|---|---|
-| Easy | 1–2/9 | `badge-easy` |
-| Minor Climb | 3–4/9 | `badge-lime` |
-| Major Climb | 5–6/9 | `badge-orange` |
-| Major Climb — Difficult | 7–9/9 | `badge-hard` |
+| Display band (`DifficultyCalculator.Bands`) | Badge class |
+|---|---|
+| Minor Hike | `badge-lime` |
+| Major Hike | `badge-orange` |
+| Major Hike - Difficult | `badge-hard` |
 
 Badge colours — dark and near-solid, because an 18%-opacity badge disappears against a bright sky:
 
 | Class | Background | Text | Border |
 |---|---|---|---|
-| `badge-easy` | `rgb(6 78 59 / 0.85)` | `rgb(110 231 183)` | `rgb(52 211 153 / 0.35)` |
 | `badge-lime` | `rgb(26 46 5 / 0.85)` | `rgb(190 242 100)` | `rgb(163 230 53 / 0.35)` |
 | `badge-orange` | `rgb(67 20 7 / 0.85)` | `rgb(253 186 116)` | `rgb(251 146 60 / 0.35)` |
 | `badge-hard` | `rgb(69 10 10 / 0.85)` | `rgb(252 165 165)` | `rgb(248 113 113 / 0.35)` |
 
-Where Event Difficulty is displayed, its badge styling must use `DifficultyCalculator.BadgeClass` so Event pages share the canonical label-to-color mapping. **Don't introduce a fifth band** without changing the calculator and this document together.
+Where estimated difficulty is displayed, its badge styling must use `DifficultyCalculator.BadgeClass(label)` so Event pages share the canonical mapping. **Don't introduce a fourth band** without changing the calculator and this document together.
 
 **Correction:** this section previously said `.badge-moderate` was kept in `input.css` for the landing page's static trail showcase (`Home/Index.cshtml`), which hand-wrote difficulty text like "Moderate 4/9" independent of `DifficultyCalculator`. `.badge-moderate` has since been removed from `input.css` (confirmed no remaining consumer repository-wide) — the showcase's Popular Trails cards don't show a difficulty badge at all now, canonical or otherwise. See Landing Page — Popular Trails Carousel, below, for why: those cards describe Trails, and Event Difficulty is a property of a scheduled Event, not a Trail on its own.
 

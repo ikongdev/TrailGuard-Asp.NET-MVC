@@ -95,7 +95,7 @@ namespace TrailGuard.Controllers
                 AssessmentId = assessment.Id,
                 EventId = eventItem.Id,
                 EventTitle = eventItem.EventTitle,
-                EventDifficulty = eventItem.Difficulty,
+                EventDifficulty = DifficultyCalculator.DisplayLabel(eventItem.Difficulty),
                 Result = assessment.Result ?? "Not Recommended",
                 HasMlPrediction = suitabilityResult != null,
                 ModelScore = suitabilityResult?.ModelScore ?? 0,
@@ -588,7 +588,7 @@ namespace TrailGuard.Controllers
                     eventDate = registration.Event?.EventDate.ToString("MMM dd, yyyy"),
                     eventTime = registration.Event?.FormattedEventTime,
                     eventLocation = registration.Event?.Location,
-                    eventDifficulty = registration.Event?.Difficulty,
+                    eventDifficulty = DifficultyCalculator.DisplayLabel(registration.Event?.Difficulty),
                     eventDuration = registration.Event?.EstimatedDuration,
 
 
@@ -623,7 +623,7 @@ namespace TrailGuard.Controllers
                     alternativeEventId = registration.AlternativeEventId,
                     alternativeEventTitle = registration.AlternativeEvent?.EventTitle,
                     alternativeEventDate = registration.AlternativeEvent?.EventDate.ToString("MMM dd, yyyy"),
-                    alternativeEventDifficulty = registration.AlternativeEvent?.Difficulty
+                    alternativeEventDifficulty = DifficultyCalculator.DisplayLabel(registration.AlternativeEvent?.Difficulty)
                 }
             });
         }

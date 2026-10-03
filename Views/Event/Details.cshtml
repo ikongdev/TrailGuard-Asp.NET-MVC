@@ -151,8 +151,8 @@
                         }
                     </div>
                     <div>
-                        <p class="text-gray-500 text-xs uppercase tracking-wider mb-1.5"><i class="fa-solid fa-signal text-accent mr-1"></i>Difficulty</p>
-                        <span class="inline-block px-2.5 py-1 rounded-full text-xs font-medium @TrailGuard.Services.DifficultyCalculator.BadgeClass(Model.Difficulty)">@(string.IsNullOrEmpty(Model.Difficulty) ? "Unknown" : Model.Difficulty)</span>
+                        <p class="text-gray-500 text-xs uppercase tracking-wider mb-1.5"><i class="fa-solid fa-signal text-accent mr-1"></i>Estimated difficulty</p>
+                        <span class="inline-block px-2.5 py-1 rounded-full text-xs font-medium @TrailGuard.Services.DifficultyCalculator.BadgeClass(Model.Difficulty)">@TrailGuard.Services.DifficultyCalculator.DisplayLabel(Model.Difficulty)</span>
                     </div>
                     <div>
                         <p class="text-gray-500 text-xs uppercase tracking-wider"><i class="fa-solid fa-arrow-trend-up text-accent mr-1"></i>Elevation Gain</p>

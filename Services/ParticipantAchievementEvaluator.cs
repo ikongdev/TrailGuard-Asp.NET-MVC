@@ -43,13 +43,7 @@ namespace TrailGuard.Services
 
         private static string? NormalizeDifficulty(string? rawDifficulty)
         {
-            if (string.IsNullOrWhiteSpace(rawDifficulty)) return null;
-            var trimmed = rawDifficulty.Trim();
-            foreach (var band in DifficultyCalculator.Bands)
-            {
-                if (string.Equals(trimmed, band, StringComparison.OrdinalIgnoreCase)) return band;
-            }
-            return null;
+            return DifficultyCalculator.IsKnownLabel(rawDifficulty) ? rawDifficulty : null;
         }
 
 
