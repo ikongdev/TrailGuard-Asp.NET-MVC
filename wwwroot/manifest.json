@@ -1,0 +1,31 @@
+{
+  "name": "TrailGuard",
+  "short_name": "TrailGuard",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#000714",
+  "theme_color": "#000714",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "/images/pwa/trailguard-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/images/pwa/trailguard-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/images/pwa/trailguard-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
