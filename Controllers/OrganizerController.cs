@@ -49,12 +49,22 @@ namespace TrailGuard.Controllers
                 .ToListAsync();
 
             var eventIds = ownedEvents.Select(e => e.Id).ToList();
+            var activeEventIds = ownedEvents
+                .Where(e => !RegistrationStatusHelper.IsEventCancelled(e))
+                .Select(e => e.Id)
+                .ToList();
             var registrationStatusCounts = await _context.EventRegistrations.AsNoTracking()
                 .Where(r => eventIds.Contains(r.EventId))
                 .GroupBy(r => r.Status)
                 .Select(g => new { Status = g.Key, Count = g.Count() })
                 .ToListAsync();
             var registrationCountsByStatus = registrationStatusCounts.ToDictionary(x => x.Status, x => x.Count);
+            var activeRegistrationStatusCounts = await _context.EventRegistrations.AsNoTracking()
+                .Where(r => activeEventIds.Contains(r.EventId))
+                .GroupBy(r => r.Status)
+                .Select(g => new { Status = g.Key, Count = g.Count() })
+                .ToListAsync();
+            var activeRegistrationCountsByStatus = activeRegistrationStatusCounts.ToDictionary(x => x.Status, x => x.Count);
 
             var joinableEvents = ownedEvents
                 .Where(EventJoinabilityHelper.IsJoinable)
@@ -105,12 +115,12 @@ namespace TrailGuard.Controllers
                     Id = e.Id
                 }).ToList();
             var paymentAttention = await _context.EventRegistrations.AsNoTracking()
-                .Where(r => eventIds.Contains(r.EventId) && r.Status == "For Payment Verification")
+                .Where(r => activeEventIds.Contains(r.EventId) && r.Status == "For Payment Verification")
                 .OrderBy(r => r.PaymentReceiptUploadedAt ?? r.RegisteredAt).ThenBy(r => r.Id)
                 .Select(r => new OrganizerAttentionItem { Title = r.ParticipantName, Detail = "Payment receipt is awaiting verification.", ActionLabel = "Verify payment", Controller = "Organizer", Action = "RegistrationDetails", Id = r.Id })
                 .ToListAsync();
             var reviewAttention = await _context.EventRegistrations.AsNoTracking()
-                .Where(r => eventIds.Contains(r.EventId) && r.Status == "Pending")
+                .Where(r => activeEventIds.Contains(r.EventId) && r.Status == "Pending")
                 .OrderBy(r => r.RegisteredAt).ThenBy(r => r.Id)
                 .Select(r => new OrganizerAttentionItem { Title = r.ParticipantName, Detail = "Registration is awaiting your review.", ActionLabel = "Review registration", Controller = "Organizer", Action = "RegistrationDetails", Id = r.Id })
                 .ToListAsync();
@@ -118,8 +128,8 @@ namespace TrailGuard.Controllers
             var viewModel = new OrganizerDashboardViewModel
             {
                 UpcomingEventsCount = joinableEvents.Count,
-                PendingReviewCount = registrationCountsByStatus.GetValueOrDefault("Pending"),
-                PaymentsToVerifyCount = registrationCountsByStatus.GetValueOrDefault("For Payment Verification"),
+                PendingReviewCount = activeRegistrationCountsByStatus.GetValueOrDefault("Pending"),
+                PaymentsToVerifyCount = activeRegistrationCountsByStatus.GetValueOrDefault("For Payment Verification"),
                 AcceptedRegistrationsCount = registrationCountsByStatus.GetValueOrDefault("Accepted"),
                 TrendData = trendData,
                 SuitabilityBreakdown = suitabilityData,
@@ -219,6 +229,9 @@ namespace TrailGuard.Controllers
                 EventDate = r.Event?.EventDate.ToString("MMM dd, yyyy") ?? "",
                 EventTime = r.Event?.FormattedEventTime ?? "",
                 EventDifficulty = DifficultyCalculator.DisplayLabel(r.Event?.Difficulty),
+                EventStatus = r.Event?.Status ?? string.Empty,
+                EventCancelledAt = r.Event?.CancelledAt,
+                EventCancellationReason = r.Event?.CancellationReason,
                 ParticipantName = r.ParticipantName,
                 UserId = r.UserId,
                 Email = r.User != null ? r.User.Email ?? "" : "",
@@ -282,7 +295,7 @@ namespace TrailGuard.Controllers
                 ? registration.User.Gender
                 : null;
 
-            if (registration.Assessment != null)
+            if (registration.Assessment != null && !RegistrationStatusHelper.IsEventCancelled(registration.Event))
             {
                 ViewBag.AlternativeEvents = await GetAlternativeEvents(
                     registration.Event!.Id,
@@ -408,16 +421,18 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "Registration not found" });
                 }
 
-                var registration = await _context.EventRegistrations
-                    .Include(r => r.Event)
-                    .Include(r => r.Assessment)
-                    .FirstOrDefaultAsync(r => r.Id == request.RegistrationId);
+                var registration = await FindRegistrationForDecisionAsync(request.RegistrationId);
 
 
 
                 if (registration == null || registration.Event == null || !OwnsEvent(registration.Event, currentUser))
                 {
                     return Json(new { success = false, message = "Registration not found" });
+                }
+
+                if (RegistrationStatusHelper.IsEventCancelled(registration.Event))
+                {
+                    return Json(new { success = false, message = "This event has been cancelled. Registration processing is closed." });
                 }
 
                 if (registration.Status != "Pending")
@@ -425,15 +440,14 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "This registration is no longer pending review." });
                 }
 
-                await using var transaction = await _context.Database.BeginTransactionAsync();
-                await ParticipantEventWorkflowLock.AcquireEventCapacityAsync(_context, registration.Event.Id);
+                await using var transaction = await BeginDecisionTransactionAsync();
+                await AcquireDecisionEventLockAsync(registration.Event.Id);
                 _context.ChangeTracker.Clear();
-                registration = await _context.EventRegistrations
-                    .Include(r => r.Event)
-                    .Include(r => r.Assessment)
-                    .FirstOrDefaultAsync(r => r.Id == request.RegistrationId);
+                registration = await FindRegistrationForDecisionAsync(request.RegistrationId);
                 if (registration == null || registration.Event == null || !OwnsEvent(registration.Event, currentUser))
                     return Json(new { success = false, message = "Registration not found" });
+                if (RegistrationStatusHelper.IsEventCancelled(registration.Event))
+                    return Json(new { success = false, message = "This event has been cancelled. Registration processing is closed." });
                 if (registration.Status != "Pending")
                     return Json(new { success = false, message = "This registration is no longer pending review." });
 
@@ -523,6 +537,11 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "Registration not found" });
                 }
 
+                if (RegistrationStatusHelper.IsEventCancelled(registration.Event))
+                {
+                    return Json(new { success = false, message = "This event has been cancelled. Registration processing is closed." });
+                }
+
                 if (registration.Status != "Pending")
                 {
                     return Json(new { success = false, message = "This registration is no longer pending review." });
@@ -534,6 +553,8 @@ namespace TrailGuard.Controllers
                 registration = await FindRegistrationForDecisionAsync(request.Id);
                 if (registration == null || registration.Event == null || !OwnsEvent(registration.Event, currentUser))
                     return Json(new { success = false, message = "Registration not found" });
+                if (RegistrationStatusHelper.IsEventCancelled(registration.Event))
+                    return Json(new { success = false, message = "This event has been cancelled. Registration processing is closed." });
                 if (registration.Status != "Pending")
                     return Json(new { success = false, message = "This registration is no longer pending review." });
 
@@ -613,13 +634,16 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "Registration not found" });
                 }
 
-                var registration = await _context.EventRegistrations
-                    .Include(r => r.Event)
-                    .FirstOrDefaultAsync(r => r.Id == request.Id);
+                var registration = await FindRegistrationForDecisionAsync(request.Id);
 
                 if (registration == null || registration.Event == null || !OwnsEvent(registration.Event, currentUser))
                 {
                     return Json(new { success = false, message = "Registration not found" });
+                }
+
+                if (RegistrationStatusHelper.IsEventCancelled(registration.Event))
+                {
+                    return Json(new { success = false, message = "This event has been cancelled. Registration processing is closed." });
                 }
 
                 if (registration.Status != "For Payment Verification")
@@ -627,14 +651,14 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "This registration is not awaiting payment verification." });
                 }
 
-                await using var transaction = await _context.Database.BeginTransactionAsync();
-                await ParticipantEventWorkflowLock.AcquireEventCapacityAsync(_context, registration.Event.Id);
+                await using var transaction = await BeginDecisionTransactionAsync();
+                await AcquireDecisionEventLockAsync(registration.Event.Id);
                 _context.ChangeTracker.Clear();
-                registration = await _context.EventRegistrations
-                    .Include(r => r.Event)
-                    .FirstOrDefaultAsync(r => r.Id == request.Id);
+                registration = await FindRegistrationForDecisionAsync(request.Id);
                 if (registration == null || registration.Event == null || !OwnsEvent(registration.Event, currentUser))
                     return Json(new { success = false, message = "Registration not found" });
+                if (RegistrationStatusHelper.IsEventCancelled(registration.Event))
+                    return Json(new { success = false, message = "This event has been cancelled. Registration processing is closed." });
                 if (registration.Status != "For Payment Verification")
                     return Json(new { success = false, message = "This registration is not awaiting payment verification." });
 

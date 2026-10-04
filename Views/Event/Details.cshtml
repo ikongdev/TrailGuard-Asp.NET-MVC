@@ -546,7 +546,7 @@
             <div class="flex flex-wrap items-center justify-center gap-3">
                 @if (isUpcoming)
                 {
-                    <button type="button" onclick="confirmCompleteEvent()"
+                    <button type="button" id="completeEventBtn" data-tg-submit-action="true" onclick="confirmCompleteEvent()"
                        class="px-5 py-2.5 rounded-xl text-white text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 transition-colors flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-surface-card">
                         <i class="fa-solid fa-flag-checkered" aria-hidden="true"></i> Mark as Complete
                     </button>
@@ -637,7 +637,7 @@
                             class="flex-1 px-4 py-2.5 rounded-full text-gray-300 hover:text-white text-sm font-medium bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-accent">
                         Cancel
                     </button>
-                    <button type="button" id="rescheduleConfirmBtn"
+                    <button type="button" id="rescheduleConfirmBtn" data-tg-submit-action="true"
                             class="flex-1 px-4 py-2.5 rounded-full text-blue-100 hover:text-white text-sm font-semibold bg-blue-950 hover:bg-blue-900 border border-blue-500/40 hover:border-blue-400/60 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:ring-offset-2 focus:ring-offset-surface-card disabled:opacity-60 disabled:pointer-events-none">
                         Confirm Reschedule
                     </button>
@@ -681,7 +681,7 @@
                             class="flex-1 px-4 py-2.5 rounded-full text-gray-300 hover:text-white text-sm font-medium bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-accent">
                         Keep Event
                     </button>
-                    <button type="button" id="cancelEventConfirmBtn"
+                    <button type="button" id="cancelEventConfirmBtn" data-tg-submit-action="true"
                             class="flex-1 px-4 py-2.5 rounded-full text-red-200 hover:text-white text-sm font-semibold bg-red-950 hover:bg-red-900 border border-red-500/40 hover:border-red-400/60 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500/60 focus:ring-offset-2 focus:ring-offset-surface-card disabled:opacity-60 disabled:pointer-events-none">
                         <i class="fa-solid fa-ban mr-1" aria-hidden="true"></i> Confirm Cancellation
                     </button>
@@ -716,6 +716,13 @@
     function confirmCompleteEvent() {
         if (!confirm('Mark this event as completed?\n\nAny Pending, Awaiting Payment, or For Payment Verification registrations will be voided. This cannot be undone.')) return;
 
+        const completeBtn = document.getElementById('completeEventBtn');
+        if (window.TrailGuardActionPending) {
+            window.TrailGuardActionPending.begin(completeBtn, 'Completing…');
+        } else if (completeBtn) {
+            completeBtn.disabled = true;
+        }
+
         postJson('/Event/CompleteEvent', { id: eventId })
         .then(response => response.json())
         .then(result => {
@@ -724,11 +731,15 @@
                 setTimeout(() => location.reload(), 1000);
             } else {
                 showToast(result.message, 'error');
+                if (window.TrailGuardActionPending) window.TrailGuardActionPending.restore(completeBtn);
+                else if (completeBtn) completeBtn.disabled = false;
             }
         })
         .catch(error => {
             console.error('Error:', error);
             showToast('Error completing event', 'error');
+            if (window.TrailGuardActionPending) window.TrailGuardActionPending.restore(completeBtn);
+            else if (completeBtn) completeBtn.disabled = false;
         });
     }
 
@@ -868,7 +879,11 @@
         }
 
         const confirmBtn = document.getElementById('rescheduleConfirmBtn');
-        if (confirmBtn) confirmBtn.disabled = true;
+        if (window.TrailGuardActionPending) {
+            window.TrailGuardActionPending.begin(confirmBtn, 'Rescheduling…');
+        } else if (confirmBtn) {
+            confirmBtn.disabled = true;
+        }
 
         postJson('/Event/RescheduleEvent', { id: eventId, newDate: date, newTime: time })
         .then(response => response.json())
@@ -879,13 +894,15 @@
                 setTimeout(() => location.reload(), 1000);
             } else {
                 showToast(result.message, 'error');
-                if (confirmBtn) confirmBtn.disabled = false;
+                if (window.TrailGuardActionPending) window.TrailGuardActionPending.restore(confirmBtn);
+                else if (confirmBtn) confirmBtn.disabled = false;
             }
         })
         .catch(error => {
             console.error('Error:', error);
             showToast('Error rescheduling event', 'error');
-            if (confirmBtn) confirmBtn.disabled = false;
+            if (window.TrailGuardActionPending) window.TrailGuardActionPending.restore(confirmBtn);
+            else if (confirmBtn) confirmBtn.disabled = false;
         });
     }
 
@@ -1043,7 +1060,11 @@
         }
 
         const confirmBtn = document.getElementById('cancelEventConfirmBtn');
-        if (confirmBtn) confirmBtn.disabled = true;
+        if (window.TrailGuardActionPending) {
+            window.TrailGuardActionPending.begin(confirmBtn, 'Cancelling…');
+        } else if (confirmBtn) {
+            confirmBtn.disabled = true;
+        }
 
         postJson('/Event/CancelEvent', { id: eventId, reason: reason })
         .then(response => response.json())
@@ -1054,13 +1075,15 @@
                 setTimeout(() => location.reload(), 1000);
             } else {
                 showToast(result.message, 'error');
-                if (confirmBtn) confirmBtn.disabled = false;
+                if (window.TrailGuardActionPending) window.TrailGuardActionPending.restore(confirmBtn);
+                else if (confirmBtn) confirmBtn.disabled = false;
             }
         })
         .catch(error => {
             console.error('Error:', error);
             showToast('Error cancelling event', 'error');
-            if (confirmBtn) confirmBtn.disabled = false;
+            if (window.TrailGuardActionPending) window.TrailGuardActionPending.restore(confirmBtn);
+            else if (confirmBtn) confirmBtn.disabled = false;
         });
     }
 

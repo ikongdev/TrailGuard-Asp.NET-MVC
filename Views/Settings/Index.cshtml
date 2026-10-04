@@ -446,10 +446,15 @@
 
         const confirmBtn = document.getElementById('modalConfirmBtn');
         const saveBtn = document.getElementById('saveProfileBtn');
+        const profileForm = document.getElementById('profileForm');
         if (confirmBtn) confirmBtn.disabled = true;
-        if (saveBtn) saveBtn.disabled = true;
+        if (saveBtn && profileForm && window.TrailGuardActionPending) {
+            window.TrailGuardActionPending.begin(saveBtn, 'Saving…', profileForm);
+        } else if (saveBtn) {
+            saveBtn.disabled = true;
+        }
 
-        document.getElementById('profileForm').submit();
+        profileForm.submit();
     }
 
     // Close modal on Escape key

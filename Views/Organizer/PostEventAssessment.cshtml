@@ -183,11 +183,11 @@
                         </div>
 
                         <div class="mt-6 flex flex-col sm:flex-row gap-3">
-                            <button type="button" id="saveAssessmentBtn"
+                            <button type="button" id="saveAssessmentBtn" data-tg-submit-action="true"
                                     class="flex-1 px-5 py-2.5 rounded-full text-sm font-semibold text-blue-300 hover:text-white bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 hover:border-blue-500/50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:ring-offset-2 focus:ring-offset-surface-card disabled:opacity-60 disabled:pointer-events-none">
                                 <i class="fa-regular fa-floppy-disk mr-1.5" aria-hidden="true"></i>Save Assessment
                             </button>
-                            <button type="button" id="saveAndNextBtn"
+                            <button type="button" id="saveAndNextBtn" data-tg-submit-action="true"
                                     class="flex-1 px-5 py-2.5 rounded-full text-sm font-semibold text-blue-100 hover:text-white bg-blue-950 hover:bg-blue-900 border border-blue-500/40 hover:border-blue-400/60 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:ring-offset-2 focus:ring-offset-surface-card disabled:opacity-60 disabled:pointer-events-none">
                                 Save &amp; Next<i class="fa-solid fa-arrow-right ml-1.5" aria-hidden="true"></i>
                             </button>
@@ -621,6 +621,10 @@
                 var mySeq = ++requestSeq;
 
                 saving = true;
+                var saveControl = nextAction === 'next' ? els.saveNextBtn : els.saveBtn;
+                if (window.TrailGuardActionPending) {
+                    window.TrailGuardActionPending.begin(saveControl, nextAction === 'next' ? 'Saving and moving…' : 'Saving…');
+                }
                 setSaveStatus('saving');
                 updateSaveButtonsEnabled();
 
@@ -636,6 +640,7 @@
                 .then(function (data) {
                     if (mySeq !== requestSeq) return;
                     saving = false;
+                    if (window.TrailGuardActionPending) window.TrailGuardActionPending.restore(saveControl);
 
                     if (data.success) {
                         assessedByUserId[p.userId] = { outcome: outcome, completed: completed, reason: completed ? 'NotApplicable' : reasonRadio.value, notes: notes };
@@ -667,6 +672,7 @@
                 .catch(function (error) {
                     if (mySeq !== requestSeq) return;
                     saving = false;
+                    if (window.TrailGuardActionPending) window.TrailGuardActionPending.restore(saveControl);
                     console.error('Error saving assessment:', error);
                     setSaveStatus('error', 'Unable to save the assessment right now.');
                     // Unexpected/network-level failure - the one case the global

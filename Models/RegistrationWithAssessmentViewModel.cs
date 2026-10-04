@@ -8,6 +8,9 @@ namespace TrailGuard.Models
         public string EventDate { get; set; } = string.Empty;
         public string EventTime { get; set; } = string.Empty;
         public string EventDifficulty { get; set; } = string.Empty;
+        public string EventStatus { get; set; } = string.Empty;
+        public DateTime? EventCancelledAt { get; set; }
+        public string? EventCancellationReason { get; set; }
         public string ParticipantName { get; set; } = string.Empty;
         public string UserId { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;

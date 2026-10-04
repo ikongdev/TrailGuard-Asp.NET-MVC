@@ -903,7 +903,11 @@
         if (exportBtn) {
             exportBtn.addEventListener('click', function () {
                 if (exportBtn.disabled) return;
-                exportBtn.disabled = true;
+                if (window.TrailGuardActionPending) {
+                    window.TrailGuardActionPending.begin(exportBtn, 'Exporting…');
+                } else {
+                    exportBtn.disabled = true;
+                }
 
                 fetch(buildExportUrl(), { credentials: 'same-origin' })
                     .then(function (res) {
@@ -932,7 +936,8 @@
                         if (window.showToast) window.showToast('Unable to generate the export. Please try again.', 'error');
                     })
                     .finally(function () {
-                        exportBtn.disabled = false;
+                        if (window.TrailGuardActionPending) window.TrailGuardActionPending.restore(exportBtn);
+                        else exportBtn.disabled = false;
                     });
             });
         }

@@ -448,9 +448,12 @@ namespace TrailGuard.Controllers
             await ParticipantEventWorkflowLock.AcquireEventCapacityAsync(_context, candidate.EventId);
             _context.ChangeTracker.Clear();
             var registration = await _context.EventRegistrations
+                .Include(r => r.Event)
                 .FirstOrDefaultAsync(r => r.Id == request.Id && r.UserId == userId);
             if (registration == null)
                 return Json(new { success = false, message = "Registration not found" });
+            if (RegistrationStatusHelper.IsEventCancelled(registration.Event))
+                return Json(new { success = false, message = "This event has been cancelled. Registration processing is closed." });
             if (registration.Status != "Pending" && registration.Status != "Awaiting Payment")
                 return Json(new { success = false, message = "This registration can no longer be cancelled here. Please contact the organizer directly." });
 
@@ -474,10 +477,16 @@ namespace TrailGuard.Controllers
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
             var candidate = await _context.EventRegistrations.AsNoTracking()
+                .Include(r => r.Event)
                 .FirstOrDefaultAsync(r => r.Id == id && r.UserId == userId);
             if (candidate == null)
             {
                 return Json(new { success = false, message = "Registration not found" });
+            }
+
+            if (RegistrationStatusHelper.IsEventCancelled(candidate.Event))
+            {
+                return Json(new { success = false, message = "This event has been cancelled. Registration processing is closed." });
             }
 
             if (candidate.Status != "Awaiting Payment")
@@ -505,8 +514,13 @@ namespace TrailGuard.Controllers
                     await ParticipantEventWorkflowLock.AcquireEventCapacityAsync(_context, candidate.EventId);
                     _context.ChangeTracker.Clear();
                     var registration = await _context.EventRegistrations
+                        .Include(r => r.Event)
                         .FirstOrDefaultAsync(r => r.Id == id && r.UserId == userId);
-                    if (registration == null || registration.Status != "Awaiting Payment")
+                    if (registration == null)
+                        return Json(new { success = false, message = "Registration not found" });
+                    if (RegistrationStatusHelper.IsEventCancelled(registration.Event))
+                        return Json(new { success = false, message = "This event has been cancelled. Registration processing is closed." });
+                    if (registration.Status != "Awaiting Payment")
                         return Json(new { success = false, message = "Payment receipt can only be uploaded while your registration is awaiting payment." });
 
                     var previousReference = registration.PaymentReceiptUrl;
@@ -590,6 +604,10 @@ namespace TrailGuard.Controllers
                     eventLocation = registration.Event?.Location,
                     eventDifficulty = DifficultyCalculator.DisplayLabel(registration.Event?.Difficulty),
                     eventDuration = registration.Event?.EstimatedDuration,
+                    eventStatus = registration.Event?.Status,
+                    eventCancelled = RegistrationStatusHelper.IsEventCancelled(registration.Event),
+                    cancellationReason = registration.Event?.CancellationReason,
+                    cancelledAt = registration.Event?.CancelledAt?.ToString("MMM dd, yyyy h:mm tt"),
 
 
                     trailName = registration.Event?.TrailNameSnapshot,

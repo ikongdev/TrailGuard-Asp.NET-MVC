@@ -1,10 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using TrailGuard.Data;
+using TrailGuard.Models;
 
 namespace TrailGuard.Services
 {
     public static class RegistrationStatusHelper
     {
+
+        public const string CancelledEventStatus = "Cancelled";
 
 
         public static readonly string[] ActiveStatuses =
@@ -12,11 +15,31 @@ namespace TrailGuard.Services
             "Pending", "Awaiting Payment", "For Payment Verification", "Accepted"
         };
 
+        // An Event cancellation closes its registration workflow without
+        // rewriting the registration's historical status or payment records.
+        public static bool IsEventCancelled(Event? eventItem) =>
+            eventItem?.Status == CancelledEventStatus;
+
+        public static bool CountsAsActiveRegistration(EventRegistration registration) =>
+            !IsEventCancelled(registration.Event) && ActiveStatuses.Contains(registration.Status);
+
+        public static bool NeedsParticipantAction(EventRegistration registration) =>
+            !IsEventCancelled(registration.Event)
+            && (registration.Status == "Pending" || registration.Status == "Awaiting Payment");
+
+        public static bool IsClosedForParticipantSummary(EventRegistration registration) =>
+            IsEventCancelled(registration.Event)
+            || registration.Status == "Rejected"
+            || registration.Status == "Voided"
+            || registration.Status == "Cancelled"
+            || registration.Status == "Alternative Recommended";
+
         public static async Task ExpireOverdueRegistrations(ApplicationDbContext context)
         {
             var now = DateTime.Now;
             var eventIds = await context.EventRegistrations
-                .Where(r => r.Status == "Awaiting Payment" && r.PaymentDeadline != null && r.PaymentDeadline < now)
+                .Where(r => r.Status == "Awaiting Payment" && r.PaymentDeadline != null && r.PaymentDeadline < now
+                    && r.Event != null && r.Event.Status != CancelledEventStatus)
                 .Select(r => r.EventId)
                 .Distinct()
                 .OrderBy(id => id)
@@ -32,7 +55,9 @@ namespace TrailGuard.Services
             context.ChangeTracker.Clear();
 
             var overdue = await context.EventRegistrations
-                .Where(r => eventIds.Contains(r.EventId) && r.Status == "Awaiting Payment" && r.PaymentDeadline != null && r.PaymentDeadline < now)
+                .Include(r => r.Event)
+                .Where(r => eventIds.Contains(r.EventId) && r.Status == "Awaiting Payment" && r.PaymentDeadline != null && r.PaymentDeadline < now
+                    && r.Event != null && r.Event.Status != CancelledEventStatus)
                 .ToListAsync();
 
             foreach (var registration in overdue)

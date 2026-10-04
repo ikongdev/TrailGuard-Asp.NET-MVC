@@ -172,6 +172,18 @@
                                     <span class="inline-flex items-center gap-1"><i class="fa-regular fa-calendar text-accent" aria-hidden="true"></i>@item.EventDate</span>
                                     <span class="inline-flex items-center gap-1"><i class="fa-regular fa-clock text-accent" aria-hidden="true"></i>@item.EventTime</span>
                                 </p>
+                                @if (item.EventStatus == "Cancelled")
+                                {
+                                    <p class="text-red-300 text-xs font-semibold mt-1"><i class="fa-solid fa-ban mr-1" aria-hidden="true"></i>Event Cancelled</p>
+                                    @if (item.EventCancelledAt != null)
+                                    {
+                                        <p class="text-red-200/80 text-xs mt-0.5">Cancelled @item.EventCancelledAt.Value.ToString("MMM dd, yyyy h:mm tt")</p>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(item.EventCancellationReason))
+                                    {
+                                        <p class="text-gray-400 text-xs mt-1 whitespace-pre-wrap wrap-break-word">Reason: @item.EventCancellationReason</p>
+                                    }
+                                }
                             </div>
 
                             <div>

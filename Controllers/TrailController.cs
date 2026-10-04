@@ -447,7 +447,7 @@ namespace TrailGuard.Controllers
                 return Json(new
                 {
                     success = false,
-                    message = "This trail can't be deleted because it's linked to existing events. Remove or reassign those events first."
+                    message = "This trail can't be deleted because it's linked to existing events. Events are retained and the trail relationship is protected."
                 });
             }
 

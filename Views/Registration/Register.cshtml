@@ -392,6 +392,42 @@
 
         var form = document.getElementById('registrationForm');
         if (form) {
+            var firstInvalidField = null;
+            var invalidToastScheduled = false;
+
+            form.addEventListener('invalid', function(event) {
+                event.preventDefault();
+
+                if (!firstInvalidField) {
+                    firstInvalidField = event.target;
+                }
+
+                if (invalidToastScheduled) return;
+                invalidToastScheduled = true;
+
+                Promise.resolve().then(function() {
+                    showToast('Please fill in all required fields before proceeding.', 'error');
+
+                    var invalidField = firstInvalidField;
+                    firstInvalidField = null;
+                    invalidToastScheduled = false;
+
+                    if (!invalidField) return;
+
+                    // custom-select.js owns pickupPoint's invalid styling and visible trigger.
+                    // Focus the trigger after all native invalid handlers have completed.
+                    if (invalidField.id === 'pickupPoint') {
+                        var pickupTrigger = document.getElementById('pickupPoint-trigger');
+                        if (pickupTrigger) {
+                            pickupTrigger.focus();
+                            return;
+                        }
+                    }
+
+                    invalidField.focus();
+                });
+            }, true);
+
             form.addEventListener('submit', function() {
                 ['contactNumber', 'emergencyContactNumber'].forEach(function(id) {
                     var input = document.getElementById(id);

@@ -334,7 +334,7 @@
         <div class="lg:col-span-1 h-full bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden flex flex-col">
             <div class="px-6 py-4 border-b border-white/10">
                 <h2 class="text-sm font-semibold text-white flex items-center gap-2">
-                    <i class="fa-regular fa-calendar-check text-accent" aria-hidden="true"></i> Recent Hikes
+                    <i class="fa-regular fa-calendar-check text-accent" aria-hidden="true"></i> Completed Hikes
                 </h2>
             </div>
 
@@ -348,25 +348,48 @@
             else
             {
                 <div class="relative">
-                    <ul id="recentAdventuresList" role="list" aria-label="Recent completed adventures"
+                    <ul id="recentAdventuresList" role="list" aria-label="Completed Hikes"
                         class="tg-records-scroll list-none m-0 p-0 divide-y divide-white/10 overflow-y-auto">
                         @foreach (var adventure in Model.RecentAdventures)
                         {
                             var difficultyClass = DifficultyCalculator.BadgeClass(adventure.Difficulty);
-                            <li class="flex items-center justify-between gap-4 px-6 py-4">
-                                <div class="min-w-0">
-                                    <p class="text-white font-medium wrap-break-word">@adventure.EventTitle</p>
-                                    <p class="text-gray-400 text-sm wrap-break-word">@adventure.TrailName</p>
-                                    <p class="text-gray-500 text-xs mt-1">
-                                        <i class="fa-regular fa-calendar mr-1" aria-hidden="true"></i>@adventure.EventDate.ToString("MMM dd, yyyy")
-                                        <span class="mx-1">&bull;</span>
-                                        <i class="fa-solid fa-user-tie mr-1" aria-hidden="true"></i>@adventure.OrganizerDisplayName
-                                    </p>
-                                </div>
-                                <span class="shrink-0 px-2.5 py-1 rounded-full text-xs font-medium @difficultyClass">
-                                    @DifficultyCalculator.DisplayLabel(adventure.Difficulty)
-                                </span>
-                            </li>
+                            @if (Model.IsOwner)
+                            {
+                                <li>
+                                    <a asp-controller="Participant" asp-action="Details" asp-route-id="@adventure.EventId"
+                                       class="flex w-full items-center justify-between gap-4 px-6 py-4 transition-colors hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent">
+                                        <div class="min-w-0">
+                                            <p class="text-white font-medium wrap-break-word">@adventure.EventTitle</p>
+                                            <p class="text-gray-400 text-sm wrap-break-word">@adventure.TrailName</p>
+                                            <p class="text-gray-500 text-xs mt-1">
+                                                <i class="fa-regular fa-calendar mr-1" aria-hidden="true"></i>@adventure.EventDate.ToString("MMM dd, yyyy")
+                                                <span class="mx-1">&bull;</span>
+                                                <i class="fa-solid fa-user-tie mr-1" aria-hidden="true"></i>@adventure.OrganizerDisplayName
+                                            </p>
+                                        </div>
+                                        <span class="shrink-0 px-2.5 py-1 rounded-full text-xs font-medium @difficultyClass">
+                                            @DifficultyCalculator.DisplayLabel(adventure.Difficulty)
+                                        </span>
+                                    </a>
+                                </li>
+                            }
+                            else
+                            {
+                                <li class="flex items-center justify-between gap-4 px-6 py-4">
+                                    <div class="min-w-0">
+                                        <p class="text-white font-medium wrap-break-word">@adventure.EventTitle</p>
+                                        <p class="text-gray-400 text-sm wrap-break-word">@adventure.TrailName</p>
+                                        <p class="text-gray-500 text-xs mt-1">
+                                            <i class="fa-regular fa-calendar mr-1" aria-hidden="true"></i>@adventure.EventDate.ToString("MMM dd, yyyy")
+                                            <span class="mx-1">&bull;</span>
+                                            <i class="fa-solid fa-user-tie mr-1" aria-hidden="true"></i>@adventure.OrganizerDisplayName
+                                        </p>
+                                    </div>
+                                    <span class="shrink-0 px-2.5 py-1 rounded-full text-xs font-medium @difficultyClass">
+                                        @DifficultyCalculator.DisplayLabel(adventure.Difficulty)
+                                    </span>
+                                </li>
+                            }
                         }
                     </ul>
                     <div id="recentAdventuresCue" class="tg-records-cue" aria-hidden="true">

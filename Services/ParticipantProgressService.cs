@@ -318,6 +318,7 @@ namespace TrailGuard.Services
 
             return newestFirst.Select(e => new RecentAdventureResult
             {
+                EventId = e.EventId,
                 EventTitle = e.EventTitle,
                 TrailName = string.IsNullOrEmpty(e.TrailName) ? "Unknown Trail" : e.TrailName,
                 EventDate = e.EventDate,

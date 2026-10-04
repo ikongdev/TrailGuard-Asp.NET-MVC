@@ -10,10 +10,6 @@ using Npgsql;
 
 namespace TrailGuard.Controllers
 {
-    public class DeleteEventRequest
-    {
-        public int Id { get; set; }
-    }
     [Authorize(Roles = "Admin,Organizer")]
     public class EventController : Controller
     {
@@ -1195,48 +1191,6 @@ namespace TrailGuard.Controllers
             {
                 _logger.LogError(ex, "Failed to update event {EventId}.", model.Id);
                 return Json(new { success = false, message = "Something went wrong while updating the event. Please try again." });
-            }
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<JsonResult> DeleteEvent([FromBody] DeleteEventRequest request)
-        {
-            try
-            {
-                var eventItem = await _context.Events.FindAsync(request.Id);
-
-                if (eventItem == null)
-                {
-                    return Json(new { success = false, message = "Event not found" });
-                }
-
-                var currentUser = await _userManager.GetUserAsync(User);
-                if (currentUser == null || !await CanManageEventAsync(eventItem, currentUser))
-                {
-                    return Json(new { success = false, message = "Event not found" });
-                }
-
-
-
-
-
-
-
-                if (eventItem.Status == "Completed")
-                {
-                    return Json(new { success = false, message = "Completed events are part of the event history and cannot be deleted." });
-                }
-
-                _context.Events.Remove(eventItem);
-                await _context.SaveChangesAsync();
-
-                return Json(new { success = true, message = "Event deleted successfully" });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to delete event {EventId}.", request.Id);
-                return Json(new { success = false, message = "Unable to delete the event right now. Please try again." });
             }
         }
 

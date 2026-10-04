@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using TrailGuard.Data;
 using TrailGuard.Models;
 using TrailGuard.Services;
@@ -68,6 +69,12 @@ namespace TrailGuard.Controllers
                 return RedirectToAction("Events", "Participant");
             }
 
+            if (RegistrationStatusHelper.IsEventCancelled(eventItem))
+            {
+                TempData["Error"] = "This event has been cancelled. Assessments and registration are closed.";
+                return RedirectToAction("Details", "Participant", new { id = eventId });
+            }
+
             TempData.Remove("Error");
 
             if (await HasActiveRegistrationAsync(eventId, userId))
@@ -113,6 +120,12 @@ namespace TrailGuard.Controllers
             {
                 TempData["Error"] = "Event not found";
                 return RedirectToAction("Events", "Participant");
+            }
+
+            if (RegistrationStatusHelper.IsEventCancelled(eventItem))
+            {
+                TempData["Error"] = "This event has been cancelled. Assessments and registration are closed.";
+                return RedirectToAction("Details", "Participant", new { id = input.EventId });
             }
 
             if (await HasActiveRegistrationAsync(input.EventId, userId))
@@ -194,9 +207,23 @@ namespace TrailGuard.Controllers
 
             try
             {
-                await using var transaction = await _context.Database.BeginTransactionAsync();
-                await ParticipantEventWorkflowLock.AcquireAsync(_context, input.EventId, userId);
+                await using var transaction = await BeginAssessmentPersistenceTransactionAsync();
+                await AcquireAssessmentEventLockAsync(input.EventId);
+                await AcquireAssessmentParticipantEventLockAsync(input.EventId, userId);
                 _context.ChangeTracker.Clear();
+
+                var lockedEvent = await FindEventAsync(input.EventId);
+                if (lockedEvent == null)
+                {
+                    TempData["Error"] = "Event not found";
+                    return RedirectToAction("Events", "Participant");
+                }
+
+                if (RegistrationStatusHelper.IsEventCancelled(lockedEvent))
+                {
+                    TempData["Error"] = "This event has been cancelled. Assessments and registration are closed.";
+                    return RedirectToAction("Details", "Participant", new { id = input.EventId });
+                }
 
                 if (await HasActiveRegistrationAsync(input.EventId, userId))
                 {
@@ -244,6 +271,19 @@ namespace TrailGuard.Controllers
 
         protected virtual Task<Event?> FindEventAsync(int eventId) => _context.Events
             .FirstOrDefaultAsync(e => e.Id == eventId);
+
+        /// <summary>
+        /// Begins the persistence transaction after inference. The event-wide lock must precede the
+        /// participant/event lock so a committed cancellation cannot be followed by a persisted assessment.
+        /// </summary>
+        protected virtual Task<IDbContextTransaction> BeginAssessmentPersistenceTransactionAsync() =>
+            _context.Database.BeginTransactionAsync();
+
+        protected virtual Task AcquireAssessmentEventLockAsync(int eventId) =>
+            ParticipantEventWorkflowLock.AcquireEventCapacityAsync(_context, eventId);
+
+        protected virtual Task AcquireAssessmentParticipantEventLockAsync(int eventId, string userId) =>
+            ParticipantEventWorkflowLock.AcquireAsync(_context, eventId, userId);
 
         protected virtual Task<bool> HasActiveAssessmentAsync(int eventId, string? userId) => _context.Assessments
             .AnyAsync(a => a.EventId == eventId && a.UserId == userId && a.IsActive == true);

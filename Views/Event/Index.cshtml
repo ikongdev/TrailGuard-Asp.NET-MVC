@@ -177,13 +177,9 @@
                             @foreach (var eventItem in group.Events)
                             {
                                 // Completed Events are immutable historical records (see
-                                // CLAUDE.md, Event Lifecycle) - Edit/Delete are never
-                                // rendered for one, not merely hidden, so there is no
-                                // markup for the delegated delete-button handler or
-                                // openEditModal's trigger to find in the first place.
-                                // The server independently enforces this regardless of
-                                // what the client renders - see EventController.GetEvent/
-                                // EditEvent/DeleteEvent.
+                                // CLAUDE.md, Event Lifecycle), so Edit is never rendered
+                                // for one. The server independently enforces this in
+                                // EventController.GetEvent/EditEvent.
                                 var isCompleted = eventItem.Status == "Completed";
                                 <div class="event-card group bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden hover:border-white/20 transition-colors flex flex-col"
                                      data-search="@eventItem.EventTitle @eventItem.Location @eventItem.TrailNameSnapshot">
@@ -205,11 +201,6 @@
                                         <span class="absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-medium @EventStatusBadgeClass(eventItem.Status)">
                                             @eventItem.Status
                                         </span>
-                                        <div class="absolute bottom-3 left-3">
-                                            <span class="text-xs text-white/90 bg-black/50 px-2.5 py-1 rounded-full flex items-center gap-1.5">
-                                                <i class="fa-regular fa-calendar" aria-hidden="true"></i> @eventItem.EventDate.ToString("MMM dd, yyyy")
-                                            </span>
-                                        </div>
                                     </div>
 
                                     <div class="p-6 flex flex-col grow relative z-10 -mt-10">
@@ -218,24 +209,35 @@
                                             <i class="fa-solid fa-location-dot text-accent" aria-hidden="true"></i> @eventItem.Location
                                         </p>
 
-                                        <div class="grid grid-cols-2 gap-4 mb-4">
-                                            <div>
+                                        <div class="grid grid-cols-2 gap-x-4 gap-y-4 mb-4">
+                                            <div class="min-w-0">
                                                 <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Start Time</p>
                                                 <p class="text-gray-200 text-sm font-medium flex items-center gap-2">
-                                                    <i class="fa-regular fa-clock text-gray-400" aria-hidden="true"></i> @eventItem.FormattedEventTime
+                                                    <i class="fa-regular fa-clock text-gray-400" aria-hidden="true"></i><span class="min-w-0 wrap-break-word">@eventItem.FormattedEventTime</span>
                                                 </p>
                                             </div>
-                                            <div>
+                                            <div class="min-w-0">
+                                                <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Date</p>
+                                                <p class="text-gray-200 text-sm font-medium flex items-center gap-2">
+                                                    <i class="fa-regular fa-calendar text-gray-400" aria-hidden="true"></i><span class="min-w-0 wrap-break-word">@eventItem.EventDate.ToString("MMM dd, yyyy")</span>
+                                                </p>
+                                            </div>
+                                            <div class="min-w-0">
+                                                <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Duration</p>
+                                                <p class="text-gray-200 text-sm font-medium flex items-center gap-2">
+                                                    <i class="fa-solid fa-hourglass-half text-gray-400" aria-hidden="true"></i><span class="min-w-0 wrap-break-word">@eventItem.EstimatedDuration hrs</span>
+                                                </p>
+                                            </div>
+                                            <div class="min-w-0">
                                                 <p class="text-gray-500 text-[11px] uppercase tracking-wider mb-0.5">Slots</p>
                                                 <p class="text-gray-200 text-sm font-medium flex items-center gap-2">
-                                                    <i class="fa-solid fa-users text-gray-400" aria-hidden="true"></i> @(eventItem.Capacity - eventItem.RegisteredCount) / @eventItem.Capacity
+                                                    <i class="fa-solid fa-users text-gray-400" aria-hidden="true"></i><span class="min-w-0 wrap-break-word">@(eventItem.Capacity - eventItem.RegisteredCount) / @eventItem.Capacity</span>
                                                 </p>
                                             </div>
                                         </div>
 
-                                        <div class="flex flex-wrap gap-1.5 mb-6">
+                                        <div class="mb-6">
                                             <span class="px-2.5 py-1 rounded-full text-xs font-medium @TrailGuard.Services.DifficultyCalculator.BadgeClass(eventItem.Difficulty)">@TrailGuard.Services.DifficultyCalculator.DisplayLabel(eventItem.Difficulty)</span>
-                                            <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-white/5 border border-white/10 text-gray-300">@eventItem.EstimatedDuration hrs</span>
                                         </div>
 
                                         <div class="flex gap-2 mt-auto">
@@ -250,13 +252,6 @@
                                                         aria-label="Edit @eventItem.EventTitle"
                                                         class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-2">
                                                     <i class="fa-solid fa-pen" aria-hidden="true"></i> Edit
-                                                </button>
-                                                <button type="button"
-                                                        data-event-id="@eventItem.Id"
-                                                        data-event-title="@eventItem.EventTitle"
-                                                        aria-label="Delete @eventItem.EventTitle"
-                                                        class="delete-event-btn bg-red-500/20 hover:bg-red-500 border border-red-500/30 hover:border-red-500 text-red-400 hover:text-white py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center w-12 focus:outline-none focus:ring-2 focus:ring-accent">
-                                                    <i class="fa-solid fa-trash" aria-hidden="true"></i>
                                                 </button>
                                             }
                                         </div>
@@ -2295,16 +2290,21 @@
         }
     }
 
-    // Updates only the label/icon wrapper inside the existing submit button
-    // rather than replacing its contents wholesale, so its structure
-    // survives a save cycle intact.
     function setAddEventSubmitting(isSubmitting) {
         const submitBtn = document.getElementById('submitBtn');
+        const form = document.getElementById('addEventForm');
         const iconWrap = document.getElementById('submitBtnIconWrap');
         const label = document.getElementById('submitBtnLabel');
         if (!submitBtn) return;
 
+        if (window.TrailGuardActionPending) {
+            if (isSubmitting) window.TrailGuardActionPending.begin(submitBtn, 'Creating event…', form);
+            else window.TrailGuardActionPending.restore(submitBtn, form);
+            return;
+        }
+
         submitBtn.disabled = isSubmitting;
+        submitBtn.setAttribute('aria-busy', isSubmitting ? 'true' : 'false');
         if (iconWrap) iconWrap.classList.toggle('hidden', isSubmitting);
         if (label) label.textContent = isSubmitting ? 'Creating Event...' : 'Create Event';
     }
@@ -3785,11 +3785,19 @@
 
     function setEditEventSubmitting(isSubmitting) {
         const submitBtn = document.getElementById('editSubmitBtn');
+        const form = document.getElementById('editEventForm');
         const iconWrap = document.getElementById('editSubmitBtnIconWrap');
         const label = document.getElementById('editSubmitBtnLabel');
         if (!submitBtn) return;
 
+        if (window.TrailGuardActionPending) {
+            if (isSubmitting) window.TrailGuardActionPending.begin(submitBtn, 'Updating event…', form);
+            else window.TrailGuardActionPending.restore(submitBtn, form);
+            return;
+        }
+
         submitBtn.disabled = isSubmitting;
+        submitBtn.setAttribute('aria-busy', isSubmitting ? 'true' : 'false');
         if (iconWrap) iconWrap.classList.toggle('hidden', isSubmitting);
         if (label) label.textContent = isSubmitting ? 'Updating Event...' : 'Update Event';
     }
@@ -4032,8 +4040,17 @@
         const deleting = pickupPointDeletingId !== null;
         const input = document.getElementById('pickupPointName');
         const save = document.getElementById('pickupPointFormSave');
+        const form = document.getElementById('pickupPointForm');
         if (input) input.disabled = isPending || deleting;
-        if (save) save.disabled = isPending;
+        if (save && window.TrailGuardActionPending) {
+            if (isPending) {
+                window.TrailGuardActionPending.begin(save, deleting ? 'Deleting…' : 'Saving…', form);
+            } else {
+                window.TrailGuardActionPending.restore(save, form);
+            }
+        } else if (save) {
+            save.disabled = isPending;
+        }
         document.querySelectorAll('#pickupPointFormCancel, #pickupPointAddButton, #pickupPointsRetry, [data-pickup-points-close], #pickupPointsList button').forEach(function (control) {
             control.disabled = isPending;
         });
@@ -4134,46 +4151,6 @@
             if (!point) return;
             showPickupPointForm(point, button.dataset.pickupPointAction === 'delete');
         });
-    });
-
-    async function deleteEvent(id, title) {
-        if (!confirm(`Are you sure you want to delete "${title}"? This action cannot be undone.`)) {
-            return;
-        }
-
-        try {
-            const response = await postJson('/Event/DeleteEvent', { id: id });
-
-            const result = await response.json();
-
-            if (result.success) {
-                showToast('Event deleted successfully', 'success');
-                setTimeout(() => {
-                    location.reload();
-                }, 1500);
-            } else {
-                showToast('Error deleting event: ' + result.message, 'error');
-            }
-        } catch (error) {
-            console.error('Error:', error);
-            showToast('Error deleting event', 'error');
-        }
-    }
-
-    // Event ID and title travel as data-* attributes (Razor-encoded on render,
-    // read back as plain text via getAttribute) rather than as literal arguments in
-    // an inline onclick - a title containing an apostrophe, backslash, or line break
-    // could otherwise break the generated JavaScript outright. Mirrors the delete
-    // binding on Views/Trail/Index.cshtml's trail cards.
-    document.addEventListener('click', function (e) {
-        const deleteEventBtn = e.target.closest('.delete-event-btn');
-        if (deleteEventBtn) {
-            const eventId = Number(deleteEventBtn.getAttribute('data-event-id'));
-            const eventTitle = deleteEventBtn.getAttribute('data-event-title') || '';
-            if (Number.isInteger(eventId) && eventId > 0) {
-                deleteEvent(eventId, eventTitle);
-            }
-        }
     });
 
     // showToast(message, type) is now the canonical implementation in

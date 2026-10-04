@@ -1,5 +1,6 @@
 using System.Net;
 using System.Security.Claims;
+using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -111,6 +112,49 @@ foreach (var input in new[]
     Check(context.SaveChangesAsyncCalls == 0 && !context.ChangeTracker.Entries().Any(), "Invalid medical selections or missing consent must not save or attach an assessment graph.");
 }
 
+// Assessment POST: a cancellation committed while inference was running must win before persistence.
+{
+    using var context = NewContext();
+    var eventBeforeInference = new Event
+    {
+        Id = 41,
+        Status = "Upcoming",
+        EventDate = DateTime.Today.AddDays(7),
+        Capacity = 20,
+        PickupPoints = "Main gate",
+        TrailDistanceKmSnapshot = 8,
+        TrailElevationGainMetersSnapshot = 600,
+        TrailClassSnapshot = 3,
+        TrailDurationHoursSnapshot = 5
+    };
+    var handler = new RecordedPredictionHandler(LoadRecordedAdapterResponse());
+    var controller = NewAssessmentController(context, handler, eventBeforeInference, hasActiveRegistration: false);
+    controller.LockedEvent = new Event
+    {
+        Id = eventBeforeInference.Id,
+        Status = RegistrationStatusHelper.CancelledEventStatus,
+        EventDate = eventBeforeInference.EventDate,
+        Capacity = eventBeforeInference.Capacity,
+        PickupPoints = eventBeforeInference.PickupPoints
+    };
+    var retainedAssessment = new Assessment { Id = 91, EventId = 41, UserId = "participant-1", IsActive = true };
+    context.Assessments.Add(retainedAssessment);
+
+    var result = await controller.Form(CompleteValidAssessmentInput());
+
+    Check(handler.RequestCount == 1, "The post-lock cancellation test must allow inference to finish before persistence is rejected.");
+    Check(result is RedirectToActionResult { ActionName: "Details", ControllerName: "Participant" },
+        "A post-lock cancellation must use the existing Event Cancelled redirect response.");
+    Check(TempDataError(controller).Contains("event has been cancelled", StringComparison.OrdinalIgnoreCase),
+        "A post-lock cancellation must explain that assessments are closed.");
+    Check(controller.PersistenceCalls.SequenceEqual(["begin", "event-lock", "participant-event-lock", "dispose"]),
+        "Assessment persistence must take the event-wide lock before the participant/event lock and leave the transaction uncommitted on cancellation.");
+    Check(!controller.PersistenceCalls.Contains("active-assessment"),
+        "A post-lock cancellation must be checked before loading or deactivating an active assessment.");
+    Check(context.SaveChangesAsyncCalls == 0 && retainedAssessment.IsActive && !context.ChangeTracker.Entries().Any(),
+        "A post-lock cancellation must leave the retained assessment history unchanged and save no prediction graph.");
+}
+
 if (!assessmentOnly)
 {
 // Registration POST: plan and clearance checks run through the real controller action before uploads or SaveChanges.
@@ -209,6 +253,37 @@ static TrailGuardV2AssessmentFormInput ValidAssessmentInput(
     DataPrivacyConsent = dataPrivacyConsent
 };
 
+static TrailGuardV2AssessmentFormInput CompleteValidAssessmentInput() => new()
+{
+    EventId = 41,
+    HeightCm = 170,
+    WeightKg = 70,
+    MedicalConditions = [AssessmentSubmissionGuards.NoneOfTheAbove],
+    ExerciseFrequency = "3–4",
+    ExerciseType = "Running",
+    CardioEndurance = "15–29",
+    ExerciseConsistency = "3+ months",
+    MountainsClimbed = "4–10",
+    RecencyOfHike = "Within 3 months",
+    TrailDifficultyCompleted = "Class 3",
+    GearItems = ["Enough water", "Trail food", "First aid kit", "Flashlight", "Whistle", "Raincoat"],
+    ConsentGiven = true,
+    DataPrivacyConsent = true
+};
+
+static string LoadRecordedAdapterResponse() => File.ReadAllText(Path.Combine(
+    FindRepositoryRoot(), "Verification", "TrailGuardV2AdapterVerification", "Fixtures", "adapter-recorded-example.json"));
+
+static string FindRepositoryRoot()
+{
+    for (var directory = new DirectoryInfo(Directory.GetCurrentDirectory()); directory is not null; directory = directory.Parent)
+    {
+        if (File.Exists(Path.Combine(directory.FullName, "TrailGuard.csproj"))) return directory.FullName;
+    }
+
+    throw new InvalidOperationException("Repository root was not found.");
+}
+
 static CountingDbContext NewContext()
 {
     var options = new DbContextOptionsBuilder<ApplicationDbContext>()
@@ -218,7 +293,7 @@ static CountingDbContext NewContext()
     return new CountingDbContext(options);
 }
 
-static TestAssessmentController NewAssessmentController(CountingDbContext context, CountingHandler handler, Event eventItem, bool hasActiveRegistration, ParticipantDemographicsResult? demographics = null)
+static TestAssessmentController NewAssessmentController(CountingDbContext context, HttpMessageHandler handler, Event eventItem, bool hasActiveRegistration, ParticipantDemographicsResult? demographics = null)
 {
     var controller = new TestAssessmentController(
         context,
@@ -312,10 +387,13 @@ sealed class TestAssessmentController : AssessmentController
         : base(context, historicalApi, v2Api, mapper, logger) { }
 
     public Event? TestEvent { get; init; }
+    public Event? LockedEvent { get; set; }
     public bool ActiveRegistration { get; init; }
     public ParticipantDemographicsResult TestDemographics { get; init; } = ParticipantDemographicsResult.Complete(30, ParticipantDemographics.Female);
+    public List<string> PersistenceCalls { get; } = [];
+    private int eventLookups;
 
-    protected override Task<Event?> FindEventAsync(int eventId) => Task.FromResult(TestEvent);
+    protected override Task<Event?> FindEventAsync(int eventId) => Task.FromResult(++eventLookups == 1 ? TestEvent : LockedEvent ?? TestEvent);
     protected override Task<bool> HasActiveRegistrationAsync(int eventId, string userId) => Task.FromResult(ActiveRegistration);
     protected override Task<bool> HasActiveAssessmentAsync(int eventId, string? userId) => Task.FromResult(false);
     protected override Task<ParticipantDemographicsResult> HydrateAuthoritativeDemographicsAsync(TrailGuardV2AssessmentFormInput input, string userId)
@@ -331,6 +409,26 @@ sealed class TestAssessmentController : AssessmentController
         ViewBag.Event = TestEvent;
         ViewBag.RetakeMode = false;
         return Task.FromResult(TestEvent);
+    }
+    protected override Task<IDbContextTransaction> BeginAssessmentPersistenceTransactionAsync()
+    {
+        PersistenceCalls.Add("begin");
+        return Task.FromResult<IDbContextTransaction>(new GuardTransaction(PersistenceCalls));
+    }
+    protected override Task AcquireAssessmentEventLockAsync(int eventId)
+    {
+        PersistenceCalls.Add("event-lock");
+        return Task.CompletedTask;
+    }
+    protected override Task AcquireAssessmentParticipantEventLockAsync(int eventId, string userId)
+    {
+        PersistenceCalls.Add("participant-event-lock");
+        return Task.CompletedTask;
+    }
+    protected override Task OnActiveAssessmentLoadedForPersistenceAsync(Assessment? oldAssessment)
+    {
+        PersistenceCalls.Add("active-assessment");
+        return Task.CompletedTask;
     }
 }
 
@@ -417,6 +515,20 @@ sealed class CountingHandler : HttpMessageHandler
     {
         RequestCount++;
         return Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError));
+    }
+}
+
+sealed class RecordedPredictionHandler(string body) : HttpMessageHandler
+{
+    public int RequestCount { get; private set; }
+
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        RequestCount++;
+        return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(body, Encoding.UTF8, "application/json")
+        });
     }
 }
 

@@ -236,7 +236,13 @@
                     var roleIsValid = validateRole();
                     updateInputAccessibility();
 
-                    if (fieldsAreValid && roleIsValid) return;
+                    if (fieldsAreValid && roleIsValid) {
+                        var submitButton = form.querySelector('[type="submit"]');
+                        if (window.TrailGuardActionPending && submitButton) {
+                            window.TrailGuardActionPending.begin(submitButton, 'Creating account…', form);
+                        }
+                        return;
+                    }
 
                     event.preventDefault();
                     showValidationAlert();

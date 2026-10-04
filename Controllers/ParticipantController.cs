@@ -50,10 +50,10 @@ namespace TrailGuard.Controllers
                 .ToList();
 
             var needsAction = registrations
-                .Count(r => r.Status == "Pending" || r.Status == "Awaiting Payment");
+                .Count(RegistrationStatusHelper.NeedsParticipantAction);
 
             var activeRegistrations = registrations
-                .Count(r => RegistrationStatusHelper.ActiveStatuses.Contains(r.Status));
+                .Count(RegistrationStatusHelper.CountsAsActiveRegistration);
 
             var latestAssessment = registrations
                 .Where(r => r.Assessment != null && r.Assessment.IsActive == true)

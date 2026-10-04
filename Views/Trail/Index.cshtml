@@ -187,7 +187,7 @@
                                         class="deactivate-trail-btn bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 hover:border-amber-500/50 text-amber-400 hover:text-amber-300 py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center w-12 min-h-10">
                                     <i class="fa-solid fa-box-archive" aria-hidden="true"></i>
                                 </button>
-                                <button type="button"
+                                <button type="button" data-tg-keep-idle-icon="true"
                                         data-trail-id="@trail.Id"
                                         data-trail-name="@trail.Name"
                                         aria-label="Delete @trail.Name"
@@ -619,7 +619,7 @@
                         class="flex-1 px-4 py-2.5 rounded-full text-gray-300 hover:text-white text-sm font-medium bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-accent">
                     Keep Active
                 </button>
-                <button type="button" id="confirmDeactivateTrailBtn" onclick="confirmDeactivateTrail()"
+                <button type="button" id="confirmDeactivateTrailBtn" data-tg-submit-action="true" onclick="confirmDeactivateTrail()"
                         class="flex-1 px-4 py-2.5 rounded-full text-amber-100 hover:text-white text-sm font-semibold bg-amber-900/60 hover:bg-amber-800/80 border border-amber-500/40 hover:border-amber-400/60 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500/60 focus:ring-offset-2 focus:ring-offset-surface-card disabled:opacity-60 disabled:pointer-events-none">
                     <span id="confirmDeactivateTrailBtnLabel">Deactivate Trail</span>
                 </button>
@@ -693,7 +693,7 @@
                                     </dl>
                                 </div>
                                 <div class="shrink-0">
-                                    <button type="button"
+                                    <button type="button" data-tg-submit-action="true"
                                             data-trail-id="@row.TrailId"
                                             data-trail-name="@row.Name"
                                             aria-label="Activate @row.Name"
@@ -1168,6 +1168,7 @@
 
                 const deleteBtn = document.createElement('button');
                 deleteBtn.type = 'button';
+                deleteBtn.dataset.tgSubmitAction = 'true';
                 deleteBtn.className = 'delete-photo-btn absolute top-1 right-1 w-6 h-6 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity z-20 focus:outline-none focus:ring-2 focus:ring-white';
                 deleteBtn.setAttribute('data-photo-id', String(deletePhotoId));
                 deleteBtn.setAttribute('aria-label', 'Remove photo');
@@ -1567,7 +1568,11 @@
             const photoId = parseInt(buttonElement.getAttribute('data-photo-id'));
             const photoDiv = buttonElement.closest('.group');
 
-            buttonElement.disabled = true;
+            if (window.TrailGuardActionPending) {
+                window.TrailGuardActionPending.begin(buttonElement, 'Removing photo…');
+            } else {
+                buttonElement.disabled = true;
+            }
             photoDiv.style.opacity = '0.5';
 
             try {
@@ -1590,22 +1595,50 @@
                         showToast('Photo deleted successfully', 'success');
                     }, removeDelay);
                 } else {
-                    buttonElement.disabled = false;
+                    if (window.TrailGuardActionPending) window.TrailGuardActionPending.restore(buttonElement);
+                    else buttonElement.disabled = false;
                     photoDiv.style.opacity = '1';
                     showToast('Error deleting photo: ' + (result.message || 'Unknown error'), 'error');
                 }
             } catch (error) {
                 console.error('Error deleting photo:', error);
-                buttonElement.disabled = false;
+                if (window.TrailGuardActionPending) window.TrailGuardActionPending.restore(buttonElement);
+                else buttonElement.disabled = false;
                 photoDiv.style.opacity = '1';
                 showToast('Error deleting photo', 'error');
             }
         }
 
-        async function deleteTrail(id, name) {
+        async function deleteTrail(id, name, trigger) {
+            if (trigger && trigger.disabled) return;
+
             if (!confirm(`Are you sure you want to delete "${name}"? This action cannot be undone.`)) {
                 return;
             }
+
+            function beginDeletePending() {
+                if (!trigger) return;
+                trigger.dataset.trailDeleteOriginalClass = trigger.className;
+                trigger.classList.remove('w-12');
+                trigger.classList.add('px-3', 'whitespace-nowrap');
+                if (window.TrailGuardActionPending) {
+                    window.TrailGuardActionPending.begin(trigger, 'Deleting…');
+                } else {
+                    trigger.disabled = true;
+                }
+            }
+
+            function restoreDeleteButton() {
+                if (!trigger) return;
+                if (window.TrailGuardActionPending) window.TrailGuardActionPending.restore(trigger);
+                else trigger.disabled = false;
+                if (trigger.dataset.trailDeleteOriginalClass) {
+                    trigger.className = trigger.dataset.trailDeleteOriginalClass;
+                    delete trigger.dataset.trailDeleteOriginalClass;
+                }
+            }
+
+            beginDeletePending();
 
             try {
                 const response = await postJson('/Trail/DeleteTrail', { id: id });
@@ -1619,10 +1652,12 @@
                     }, 1500);
                 } else {
                     showToast('Error deleting trail: ' + result.message, 'error');
+                    restoreDeleteButton();
                 }
             } catch (error) {
                 console.error('Error:', error);
                 showToast('Error deleting trail', 'error');
+                restoreDeleteButton();
             }
         }
 
@@ -1694,8 +1729,12 @@
             const btn = document.getElementById('confirmDeactivateTrailBtn');
             const label = document.getElementById('confirmDeactivateTrailBtnLabel');
             if (btn && btn.disabled) return;
-            if (btn) btn.disabled = true;
-            if (label) label.textContent = 'Deactivating...';
+            if (btn && window.TrailGuardActionPending) {
+                window.TrailGuardActionPending.begin(btn, 'Deactivating…');
+            } else {
+                if (btn) btn.disabled = true;
+                if (label) label.textContent = 'Deactivating…';
+            }
 
             try {
                 const response = await postJson('/Trail/DeactivateTrail', { id: id });
@@ -1723,14 +1762,22 @@
 
             const label = button.querySelector('.activate-trail-btn-label');
             const iconWrap = button.querySelector('.activate-trail-btn-icon-wrap');
-            button.disabled = true;
-            if (iconWrap) iconWrap.classList.add('hidden');
-            if (label) label.textContent = 'Activating...';
+            if (window.TrailGuardActionPending) {
+                window.TrailGuardActionPending.begin(button, 'Activating…');
+            } else {
+                button.disabled = true;
+                if (iconWrap) iconWrap.classList.add('hidden');
+                if (label) label.textContent = 'Activating…';
+            }
 
             function restoreButton() {
-                button.disabled = false;
-                if (iconWrap) iconWrap.classList.remove('hidden');
-                if (label) label.textContent = 'Activate';
+                if (window.TrailGuardActionPending) {
+                    window.TrailGuardActionPending.restore(button);
+                } else {
+                    button.disabled = false;
+                    if (iconWrap) iconWrap.classList.remove('hidden');
+                    if (label) label.textContent = 'Activate';
+                }
             }
 
             try {
@@ -1771,7 +1818,7 @@
             if (deleteTrailBtn) {
                 const trailId = Number(deleteTrailBtn.getAttribute('data-trail-id'));
                 const trailName = deleteTrailBtn.getAttribute('data-trail-name') || '';
-                deleteTrail(trailId, trailName);
+                deleteTrail(trailId, trailName, deleteTrailBtn);
                 return;
             }
 
@@ -1924,7 +1971,11 @@
         function resetSubmitButton(submitBtnId, submitLabelId, defaultText) {
             const btn = document.getElementById(submitBtnId);
             const label = document.getElementById(submitLabelId);
-            if (btn) btn.disabled = false;
+            if (btn && window.TrailGuardActionPending) {
+                window.TrailGuardActionPending.restore(btn, btn.form);
+            } else if (btn) {
+                btn.disabled = false;
+            }
             if (label) label.textContent = defaultText;
         }
 
@@ -2037,8 +2088,10 @@
                         requestAnimationFrame(function () { focusFirstAddTrailInvalid(firstInvalid); });
                         return;
                     }
-                    submitBtn.disabled = true;
-                    if (submitLabel) submitLabel.textContent = savingText;
+                    if (!window.TrailGuardActionPending) {
+                        submitBtn.disabled = true;
+                        if (submitLabel) submitLabel.textContent = savingText;
+                    }
                 });
                 return;
             }
@@ -2061,8 +2114,10 @@
                     event.preventDefault();
                     return;
                 }
-                submitBtn.disabled = true;
-                if (submitLabel) submitLabel.textContent = savingText;
+                if (!window.TrailGuardActionPending) {
+                    submitBtn.disabled = true;
+                    if (submitLabel) submitLabel.textContent = savingText;
+                }
             });
         }
 

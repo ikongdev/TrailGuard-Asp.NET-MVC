@@ -401,9 +401,9 @@
                         class="flex-1 px-4 py-2.5 rounded-full text-gray-300 hover:text-white text-sm font-medium bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-60 disabled:pointer-events-none">
                     Cancel
                 </button>
-                <button type="button" id="statusChangeSubmitBtn"
+                <button type="button" id="statusChangeSubmitBtn" data-tg-submit-action="true"
                         class="flex-1 px-4 py-2.5 rounded-full text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface-card disabled:opacity-60 disabled:pointer-events-none">
-                    <span id="statusChangeSubmitLabel">Confirm</span>
+                    Confirm
                 </button>
             </div>
         </div>
@@ -567,8 +567,7 @@
                 message: byId('statusChangeMessage'),
                 cancelBtn: byId('statusChangeCancelBtn'),
                 closeBtn: byId('statusChangeCloseBtn'),
-                submitBtn: byId('statusChangeSubmitBtn'),
-                submitLabel: byId('statusChangeSubmitLabel')
+                submitBtn: byId('statusChangeSubmitBtn')
             };
 
             var statusPending = null; // { id, active }
@@ -582,11 +581,18 @@
                 }
             });
 
-            // No spinner/label swap on submit by design: the disabled state
-            // prevents duplicate submissions without changing the layout.
             function setStatusSubmitting(value) {
                 statusSubmitting = value;
-                statusEls.submitBtn.disabled = value;
+                if (window.TrailGuardActionPending) {
+                    if (value) {
+                        window.TrailGuardActionPending.begin(statusEls.submitBtn,
+                            statusPending && statusPending.active ? 'Enabling…' : 'Disabling…');
+                    } else {
+                        window.TrailGuardActionPending.restore(statusEls.submitBtn);
+                    }
+                } else {
+                    statusEls.submitBtn.disabled = value;
+                }
                 statusEls.cancelBtn.disabled = value;
                 statusEls.closeBtn.disabled = value;
             }
@@ -608,7 +614,7 @@
                 statusEls.message.textContent = targetActive
                     ? 'This restores ' + name + '’s access - they will be able to sign in again.'
                     : 'This immediately blocks ' + name + ' from signing in. They will not be able to access their account until re-enabled.';
-                statusEls.submitLabel.textContent = targetActive ? 'Confirm Enable' : 'Confirm Disable';
+                statusEls.submitBtn.textContent = targetActive ? 'Confirm Enable' : 'Confirm Disable';
 
                 statusDialog.open();
             };
