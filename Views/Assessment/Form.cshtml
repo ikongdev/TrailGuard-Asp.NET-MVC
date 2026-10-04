@@ -359,27 +359,28 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">9. What is the highest or most difficult type of trail you have completed before? <span class="text-red-400">*</span></label>
                             <div class="flex flex-wrap gap-2">
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
-                                    <input type="radio" name="trailDifficultyCompleted" value="None" required class="w-4 h-4 accent-accent" />
-                                    <span class="text-gray-300 text-sm">None</span>
+                                <label class="flex items-start gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10 max-w-full">
+                                    <input type="radio" name="trailDifficultyCompleted" value="None" required aria-describedby="trailDifficultyCompletedDescription" class="w-4 h-4 accent-accent shrink-0 mt-0.5" />
+                                    <span class="text-gray-300 text-sm leading-snug min-w-0">None</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
-                                    <input type="radio" name="trailDifficultyCompleted" value="Class 1" class="w-4 h-4 accent-accent" />
-                                    <span class="text-gray-300 text-sm">Class 1</span>
+                                <label class="flex items-start gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10 max-w-full">
+                                    <input type="radio" name="trailDifficultyCompleted" value="Class 1" aria-describedby="trailDifficultyCompletedDescription" class="w-4 h-4 accent-accent shrink-0 mt-0.5" />
+                                    <span class="text-gray-300 text-sm leading-snug min-w-0">Class 1 — Walking</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
-                                    <input type="radio" name="trailDifficultyCompleted" value="Class 2" class="w-4 h-4 accent-accent" />
-                                    <span class="text-gray-300 text-sm">Class 2</span>
+                                <label class="flex items-start gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10 max-w-full">
+                                    <input type="radio" name="trailDifficultyCompleted" value="Class 2" aria-describedby="trailDifficultyCompletedDescription" class="w-4 h-4 accent-accent shrink-0 mt-0.5" />
+                                    <span class="text-gray-300 text-sm leading-snug min-w-0">Class 2 — Hiking</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
-                                    <input type="radio" name="trailDifficultyCompleted" value="Class 3" class="w-4 h-4 accent-accent" />
-                                    <span class="text-gray-300 text-sm">Class 3</span>
+                                <label class="flex items-start gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10 max-w-full">
+                                    <input type="radio" name="trailDifficultyCompleted" value="Class 3" aria-describedby="trailDifficultyCompletedDescription" class="w-4 h-4 accent-accent shrink-0 mt-0.5" />
+                                    <span class="text-gray-300 text-sm leading-snug min-w-0">Class 3 — Scrambling</span>
                                 </label>
-                                <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
-                                    <input type="radio" name="trailDifficultyCompleted" value="Class 4" class="w-4 h-4 accent-accent" />
-                                    <span class="text-gray-300 text-sm">Class 4</span>
+                                <label class="flex items-start gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10 max-w-full">
+                                    <input type="radio" name="trailDifficultyCompleted" value="Class 4" aria-describedby="trailDifficultyCompletedDescription" class="w-4 h-4 accent-accent shrink-0 mt-0.5" />
+                                    <span class="text-gray-300 text-sm leading-snug min-w-0">Class 4 — Simple Climbing</span>
                                 </label>
                             </div>
+                            <p id="trailDifficultyCompletedDescription" class="text-xs text-gray-400 mt-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2 leading-relaxed" aria-live="polite">Select an option above to see its description.</p>
                             <span asp-validation-for="TrailDifficultyCompleted" class="text-red-300 text-xs"></span>
                         </div>
                     </div>
@@ -868,6 +869,32 @@
         syncFromNone();
     }
 
+    // This wording matches the Technical Trail Class helper in Trail Management.
+    // Assessment values remain the frozen model's existing None/Class 1-4 strings.
+    var TRAIL_DIFFICULTY_COMPLETED_DESCRIPTIONS = {
+        'None': 'None — No previous hiking trail completed.',
+        'Class 1': 'Walking — flat, clear, often paved or packed earth. No fall risk, no need to use your hands for balance.',
+        'Class 2': 'Hiking — rugged or rocky trails with some ascent. You may hold onto roots or branches for balance, but it stays safe.',
+        'Class 3': 'Scrambling — steep sections where you genuinely need hands and feet to climb over boulders or roots. Rope not strictly required, but real care is needed.',
+        'Class 4': 'Simple Climbing — steeper and more dangerous, with exposure such as cliffs or drop-offs. Ropes are normally fixed for hiker safety, since a fall could be fatal.'
+    };
+
+    function updateTrailDifficultyCompletedDescription() {
+        var panel = document.getElementById('trailDifficultyCompletedDescription');
+        if (!panel) return;
+        var selected = document.querySelector('input[name="trailDifficultyCompleted"]:checked');
+        panel.textContent = selected
+            ? TRAIL_DIFFICULTY_COMPLETED_DESCRIPTIONS[selected.value]
+            : 'Select an option above to see its description.';
+    }
+
+    function setupTrailDifficultyCompletedDescription() {
+        document.querySelectorAll('input[name="trailDifficultyCompleted"]').forEach(function(radio) {
+            radio.addEventListener('change', updateTrailDifficultyCompletedDescription);
+        });
+        updateTrailDifficultyCompletedDescription();
+    }
+
     function applyHikingExperienceDependency() {
         var q8 = document.querySelector('input[name="mountainsClimbed"]:checked');
         var q9Never = document.querySelector('input[name="recencyOfHike"][value="Never"]');
@@ -882,6 +909,7 @@
             q9Others.forEach(function(r) { setOptionDisabled(r, false); });
             setOptionDisabled(q10None, false);
             q10Others.forEach(function(r) { setOptionDisabled(r, false); });
+            updateTrailDifficultyCompletedDescription();
             return;
         }
 
@@ -910,6 +938,8 @@
             setOptionDisabled(q10None, true);
             q10Others.forEach(function(r) { setOptionDisabled(r, false); });
         }
+
+        updateTrailDifficultyCompletedDescription();
     }
 
     function setupHikingExperienceDependency() {
@@ -998,6 +1028,9 @@
         calculateBMI();
         setupExclusiveNoneOption('medNone', 'medCondition');
         setupExclusiveNoneOption('gearNone', 'gearItem');
+        setupTrailDifficultyCompletedDescription();
         setupHikingExperienceDependency();
     });
+
+    window.addEventListener('pageshow', updateTrailDifficultyCompletedDescription);
 </script>

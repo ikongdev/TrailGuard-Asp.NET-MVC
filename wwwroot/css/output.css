@@ -2522,6 +2522,9 @@
   .pb-12 {
     padding-bottom: calc(var(--spacing) * 12);
   }
+  .pb-14 {
+    padding-bottom: calc(var(--spacing) * 14);
+  }
   .pb-16 {
     padding-bottom: calc(var(--spacing) * 16);
   }
@@ -2669,6 +2672,10 @@
   .tracking-\[0\.2em\] {
     --tw-tracking: 0.2em;
     letter-spacing: 0.2em;
+  }
+  .tracking-\[0\.18em\] {
+    --tw-tracking: 0.18em;
+    letter-spacing: 0.18em;
   }
   .tracking-tight {
     --tw-tracking: var(--tracking-tight);
@@ -2931,11 +2938,20 @@
   .underline {
     text-decoration-line: underline;
   }
+  .decoration-accent\/50 {
+    text-decoration-color: color-mix(in srgb, #8b5cf6 50%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      text-decoration-color: color-mix(in oklab, var(--color-accent) 50%, transparent);
+    }
+  }
   .decoration-dotted {
     text-decoration-style: dotted;
   }
   .underline-offset-2 {
     text-underline-offset: 2px;
+  }
+  .underline-offset-4 {
+    text-underline-offset: 4px;
   }
   .placeholder-gray-500::placeholder {
     color: var(--color-gray-500);
@@ -3198,6 +3214,18 @@
   }
   .group-data-\[focus-visible\=true\]\:opacity-100:is(:where(.group)[data-focus-visible="true"] *) {
     opacity: 100%;
+  }
+  .marker\:text-accent ::marker {
+    color: var(--color-accent);
+  }
+  .marker\:text-accent::marker {
+    color: var(--color-accent);
+  }
+  .marker\:text-accent ::-webkit-details-marker {
+    color: var(--color-accent);
+  }
+  .marker\:text-accent::-webkit-details-marker {
+    color: var(--color-accent);
   }
   .file\:mr-3::file-selector-button {
     margin-right: calc(var(--spacing) * 3);
@@ -3739,6 +3767,9 @@
     .sm\:mx-2 {
       margin-inline: calc(var(--spacing) * 2);
     }
+    .sm\:mb-10 {
+      margin-bottom: calc(var(--spacing) * 10);
+    }
     .sm\:block {
       display: block;
     }
@@ -3823,6 +3854,11 @@
     .sm\:gap-4 {
       gap: calc(var(--spacing) * 4);
     }
+    :where(.sm\:space-y-6 > :not(:last-child)) {
+      --tw-space-y-reverse: 0;
+      margin-block-start: calc(calc(var(--spacing) * 6) * var(--tw-space-y-reverse));
+      margin-block-end: calc(calc(var(--spacing) * 6) * calc(1 - var(--tw-space-y-reverse)));
+    }
     :where(.sm\:divide-x > :not(:last-child)) {
       --tw-divide-x-reverse: 0;
       border-inline-style: var(--tw-border-style);
@@ -3835,6 +3871,9 @@
       border-top-style: var(--tw-border-style);
       border-top-width: calc(0px * var(--tw-divide-y-reverse));
       border-bottom-width: calc(0px * calc(1 - var(--tw-divide-y-reverse)));
+    }
+    .sm\:p-6 {
+      padding: calc(var(--spacing) * 6);
     }
     .sm\:p-8 {
       padding: calc(var(--spacing) * 8);
@@ -3857,12 +3896,19 @@
     .sm\:py-6 {
       padding-block: calc(var(--spacing) * 6);
     }
+    .sm\:pb-16 {
+      padding-bottom: calc(var(--spacing) * 16);
+    }
     .sm\:text-left {
       text-align: left;
     }
     .sm\:text-3xl {
       font-size: var(--text-3xl);
       line-height: var(--tw-leading, var(--text-3xl--line-height));
+    }
+    .sm\:text-4xl {
+      font-size: var(--text-4xl);
+      line-height: var(--tw-leading, var(--text-4xl--line-height));
     }
     .sm\:text-xs {
       font-size: var(--text-xs);
@@ -4347,7 +4393,7 @@
   transform: translateX(3px);
 }
 @media (max-width: 767px) {
-  .carousel-track {
+  #trailCarousel .carousel-track {
     overflow-x: auto;
     scroll-snap-type: x mandatory;
     overscroll-behavior-inline: contain;
@@ -4355,25 +4401,10 @@
     gap: 0.5rem;
     --mobile-trail-card-width: 86%;
     padding-inline: calc((100% - var(--mobile-trail-card-width)) / 2);
-    scrollbar-width: thin;
-    scrollbar-color: rgb(139 92 246 / 0.65) transparent;
+    scrollbar-width: none;
   }
-  .carousel-track::-webkit-scrollbar {
-    height: 6px;
-  }
-  .carousel-track::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .carousel-track::-webkit-scrollbar-thumb {
-    background: rgb(139 92 246 / 0.65);
-    border-radius: 9999px;
-  }
-  .carousel-track::-webkit-scrollbar-thumb:hover {
-    background: rgb(139 92 246 / 0.85);
-  }
-  .carousel-track::-webkit-scrollbar-button {
+  #trailCarousel .carousel-track::-webkit-scrollbar {
     display: none;
-    width: 0;
     height: 0;
   }
   .trail-card, .trail-card.is-active {

@@ -2088,7 +2088,11 @@
                         requestAnimationFrame(function () { focusFirstAddTrailInvalid(firstInvalid); });
                         return;
                     }
-                    if (!window.TrailGuardActionPending) {
+                    if (window.TrailGuardActionPending) {
+                        if (!window.TrailGuardActionPending.begin(submitBtn, 'Saving…', form)) {
+                            event.preventDefault();
+                        }
+                    } else {
                         submitBtn.disabled = true;
                         if (submitLabel) submitLabel.textContent = savingText;
                     }
@@ -2121,7 +2125,7 @@
             });
         }
 
-        guardTrailFormSubmit('add', 'addTrailForm', 'addSubmitBtn', 'addSubmitBtnLabel', 'Saving...');
+        guardTrailFormSubmit('add', 'addTrailForm', 'addSubmitBtn', 'addSubmitBtnLabel', 'Saving…');
         guardTrailFormSubmit('edit', 'editTrailForm', 'editSubmitBtn', 'editSubmitBtnLabel', 'Saving...');
 
         if (@(ViewData.ModelState.Keys.Any(key => string.IsNullOrEmpty(key) || key.StartsWith("AddTrail.")) ? "true" : "false")) {

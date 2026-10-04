@@ -50,6 +50,11 @@ Check(eventIndex.Contains("TrailGuardActionPending.begin(save, deleting ? 'Delet
     "Pickup-point mutations must expose operation-specific pending text.");
 Check(trailIndex.Contains("data-tg-submit-action=\"true\"") && trailIndex.Contains("Deleting…"),
     "Trail mutations must be explicitly marked and recoverable text submit actions.");
+Check(trailIndex.Contains("TrailGuardActionPending.begin(submitBtn, 'Saving…', form)")
+      && trailIndex.Contains("if (!window.TrailGuardActionPending.begin(submitBtn, 'Saving…', form))")
+      && trailIndex.Contains("<form id=\"addTrailForm\"")
+      && trailIndex.Contains("novalidate"),
+    "The custom-validated Add Trail form must start the shared pending state only after validation passes and block a duplicate submit.");
 Check(trailIndex.Contains("data-tg-keep-idle-icon=\"true\"") && trailIndex.Contains("trailDeleteOriginalClass"),
     "The Trail-card deletion control must keep its compact trash icon when idle and restore it after a failed request.");
 Check(helper.Contains("data-tg-keep-idle-icon"),
