@@ -1,5 +1,6 @@
 @model TrailGuard.Models.Event
 @using TrailGuard.Models
+@using TrailGuard.Services
 @{
     ViewData["Title"] = Model.EventTitle;
     var registrations = ViewBag.Registrations as List<EventRegistration> ?? new List<EventRegistration>();
@@ -7,16 +8,24 @@
     var availableSlots = ViewBag.AvailableSlots ?? 0;
     var isFull = availableSlots <= 0;
     var organizer = ViewBag.Organizer as ApplicationUser;
+    var organizerDisplayName = organizer != null
+        ? $"{organizer.FirstName} {organizer.LastName}"
+        : Model.OrganizedBy;
+    var organizerInitials = ProfileInitials.FromNames(
+        organizer?.FirstName,
+        organizer?.LastName,
+        organizerDisplayName);
     var isCompleted = Model.Status == "Completed";
     var isCancelled = Model.Status == "Cancelled";
     var isUpcoming = Model.Status == "Upcoming";
 
-    // Built server-side in EventController.Details (same Accepted/Pending-only,
-    // RegisteredAt-ascending set as before) alongside each row's Profile-link
+    // Built server-side in EventController.Details from each participant's current
+    // registration row alongside each row's Profile-link
     // eligibility - see EventParticipantRowViewModel. This view never re-derives
     // that filter or calls into role/authorization logic itself.
     var participantRows = ViewBag.ParticipantRows as List<EventParticipantRowViewModel> ?? new List<EventParticipantRowViewModel>();
     var totalJoined = participantRows.Count;
+    var eventDetailsReturnUrl = Url.Action("Details", "Event", new { id = Model.Id });
 
     string statusSelectClasses = Model.Status switch
     {
@@ -356,11 +365,12 @@
                     <div class="w-12 h-12 rounded-full bg-linear-to-r from-orange-500 to-purple-500 flex items-center justify-center overflow-hidden shrink-0">
                         @if (organizer != null && !string.IsNullOrEmpty(Images.Url(organizer.ProfilePictureUrl)))
                         {
-                            <img src="@Images.Url(organizer.ProfilePictureUrl)" alt="Organizer" class="w-12 h-12 rounded-full object-cover">
+                            <img src="@Images.Url(organizer.ProfilePictureUrl)" alt="" class="w-12 h-12 rounded-full object-cover" onerror="this.classList.add('hidden'); this.nextElementSibling?.classList.remove('hidden');">
+                            <span class="hidden w-full h-full flex items-center justify-center text-white text-lg font-bold leading-none" aria-hidden="true">@organizerInitials</span>
                         }
                         else
                         {
-                            <i class="fa-solid fa-user text-white text-lg"></i>
+                            <span class="w-full h-full flex items-center justify-center text-white text-lg font-bold leading-none" aria-hidden="true">@organizerInitials</span>
                         }
                     </div>
                     <div>
@@ -425,35 +435,23 @@
                         {
                             @if (row.CanViewProfile)
                             {
-                                <a asp-controller="Profile" asp-action="Index" asp-route-publicProfileId="@row.PublicProfileId"
+                                <a asp-controller="Profile" asp-action="Index" asp-route-publicProfileId="@row.PublicProfileId" asp-route-returnUrl="@eventDetailsReturnUrl"
                                    aria-label="View @(row.ParticipantName)'s participant profile"
                                    class="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
                                     <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden shrink-0">
                                         @if (!string.IsNullOrEmpty(Images.Url(row.ProfilePictureUrl)))
                                         {
-                                            <img src="@Images.Url(row.ProfilePictureUrl)" alt="" class="w-8 h-8 rounded-full object-cover">
+                                            <img src="@Images.Url(row.ProfilePictureUrl)" alt="" class="w-8 h-8 rounded-full object-cover" onerror="this.classList.add('hidden'); this.nextElementSibling?.classList.remove('hidden');">
+                                            <span class="hidden w-full h-full flex items-center justify-center text-gray-100 text-[10px] font-bold leading-none" aria-hidden="true">@row.Initials</span>
                                         }
                                         else
                                         {
-                                            <i class="fa-solid fa-user text-gray-400 text-xs" aria-hidden="true"></i>
+                                            <span class="w-full h-full flex items-center justify-center text-gray-100 text-[10px] font-bold leading-none" aria-hidden="true">@row.Initials</span>
                                         }
                                     </div>
                                     <div class="min-w-0 flex-1">
                                         <p class="text-white text-sm font-medium truncate">@row.ParticipantName</p>
-                                        <p class="text-gray-500 text-xs">
-                                            @if (row.Status == "Accepted")
-                                            {
-                                                <span class="text-green-400"><i class="fa-solid fa-check-circle" aria-hidden="true"></i> Confirmed</span>
-                                            }
-                                            else if (row.Status == "Pending")
-                                            {
-                                                <span class="text-yellow-400"><i class="fa-solid fa-clock" aria-hidden="true"></i> Pending</span>
-                                            }
-                                            else if (row.Status == "Rejected")
-                                            {
-                                                <span class="text-red-400"><i class="fa-solid fa-xmark-circle"></i> Rejected</span>
-                                            }
-                                        </p>
+                                        <p class="text-gray-500 text-xs"><span class="@row.StatusClasses"><i class="fa-solid @row.StatusIconClass" aria-hidden="true"></i> @row.StatusLabel</span></p>
                                     </div>
                                     <i class="fa-solid fa-chevron-right text-gray-500 text-xs shrink-0" aria-hidden="true"></i>
                                 </a>
@@ -464,29 +462,17 @@
                                     <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden shrink-0">
                                         @if (!string.IsNullOrEmpty(Images.Url(row.ProfilePictureUrl)))
                                         {
-                                            <img src="@Images.Url(row.ProfilePictureUrl)" alt="" class="w-8 h-8 rounded-full object-cover">
+                                            <img src="@Images.Url(row.ProfilePictureUrl)" alt="" class="w-8 h-8 rounded-full object-cover" onerror="this.classList.add('hidden'); this.nextElementSibling?.classList.remove('hidden');">
+                                            <span class="hidden w-full h-full flex items-center justify-center text-gray-100 text-[10px] font-bold leading-none" aria-hidden="true">@row.Initials</span>
                                         }
                                         else
                                         {
-                                            <i class="fa-solid fa-user text-gray-400 text-xs" aria-hidden="true"></i>
+                                            <span class="w-full h-full flex items-center justify-center text-gray-100 text-[10px] font-bold leading-none" aria-hidden="true">@row.Initials</span>
                                         }
                                     </div>
                                     <div class="min-w-0 flex-1">
                                         <p class="text-white text-sm font-medium truncate">@row.ParticipantName</p>
-                                        <p class="text-gray-500 text-xs">
-                                            @if (row.Status == "Accepted")
-                                            {
-                                                <span class="text-green-400"><i class="fa-solid fa-check-circle" aria-hidden="true"></i> Confirmed</span>
-                                            }
-                                            else if (row.Status == "Pending")
-                                            {
-                                                <span class="text-yellow-400"><i class="fa-solid fa-clock" aria-hidden="true"></i> Pending</span>
-                                            }
-                                            else if (row.Status == "Rejected")
-                                            {
-                                                <span class="text-red-400"><i class="fa-solid fa-xmark-circle"></i> Rejected</span>
-                                            }
-                                        </p>
+                                        <p class="text-gray-500 text-xs"><span class="@row.StatusClasses"><i class="fa-solid @row.StatusIconClass" aria-hidden="true"></i> @row.StatusLabel</span></p>
                                     </div>
                                 </div>
                             }

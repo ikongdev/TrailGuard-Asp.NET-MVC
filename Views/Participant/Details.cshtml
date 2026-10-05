@@ -1,11 +1,19 @@
 @model TrailGuard.Models.Event
 @using TrailGuard.Models
+@using TrailGuard.Services
 @{
     ViewData["Title"] = Model.EventTitle;
     var registeredCount = ViewBag.RegisteredCount ?? 0;
     var availableSlots = ViewBag.AvailableSlots ?? 0;
     var isFull = availableSlots <= 0;
     var organizer = ViewBag.Organizer as ApplicationUser;
+    var organizerDisplayName = organizer != null
+        ? $"{organizer.FirstName} {organizer.LastName}"
+        : Model.OrganizedBy;
+    var organizerInitials = ProfileInitials.FromNames(
+        organizer?.FirstName,
+        organizer?.LastName,
+        organizerDisplayName);
     var isCompleted = Model.Status == "Completed";
     var isCancelled = Model.Status == "Cancelled";
     var isUpcoming = Model.Status == "Upcoming";
@@ -33,7 +41,7 @@
     var alternativeEventAvailable = alternativeEvent != null && TrailGuard.Services.EventJoinabilityHelper.IsJoinable(alternativeEvent);
 
     // Minimal safe projection built server-side in ParticipantController.Details
-    // (Accepted-only, RegisteredAt-ascending, name + avatar only) - see
+    // (current display registration per participant, name + avatar + initials only) - see
     // CLAUDE.md, "Joined Participants" / Models/ParticipantEventJoinedRowViewModel.
     // This view never re-derives that filter and never sees another
     // participant's registration/contact/payment/medical/assessment data.
@@ -331,11 +339,12 @@
                     <div class="w-12 h-12 rounded-full bg-linear-to-r from-orange-500 to-purple-500 flex items-center justify-center overflow-hidden shrink-0">
                         @if (organizer != null && !string.IsNullOrEmpty(Images.Url(organizer.ProfilePictureUrl)))
                         {
-                            <img src="@Images.Url(organizer.ProfilePictureUrl)" alt="" class="w-12 h-12 rounded-full object-cover">
+                            <img src="@Images.Url(organizer.ProfilePictureUrl)" alt="" class="w-12 h-12 rounded-full object-cover" onerror="this.classList.add('hidden'); this.nextElementSibling?.classList.remove('hidden');">
+                            <span class="hidden w-full h-full flex items-center justify-center text-white text-lg font-bold leading-none" aria-hidden="true">@organizerInitials</span>
                         }
                         else
                         {
-                            <i class="fa-solid fa-user text-white text-lg" aria-hidden="true"></i>
+                            <span class="w-full h-full flex items-center justify-center text-white text-lg font-bold leading-none" aria-hidden="true">@organizerInitials</span>
                         }
                     </div>
                     <div class="min-w-0">
@@ -390,7 +399,7 @@
 
             <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 lg:flex-1 lg:min-h-0 lg:flex lg:flex-col">
                 <h2 class="shrink-0 text-lg font-bold text-white mb-4">
-                    <i class="fa-solid fa-users text-accent mr-2" aria-hidden="true"></i>Joined Participants
+                    <i class="fa-solid fa-users text-accent mr-2" aria-hidden="true"></i>Registered Participants
                     <span class="text-sm font-normal text-gray-400 ml-2">(@totalJoined)</span>
                 </h2>
                 @if (joinedParticipants.Count > 0)
@@ -402,11 +411,12 @@
                                 <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden shrink-0">
                                     @if (!string.IsNullOrEmpty(Images.Url(row.ProfilePictureUrl)))
                                     {
-                                        <img src="@Images.Url(row.ProfilePictureUrl)" alt="" class="w-8 h-8 rounded-full object-cover">
+                                        <img src="@Images.Url(row.ProfilePictureUrl)" alt="" class="w-8 h-8 rounded-full object-cover" onerror="this.classList.add('hidden'); this.nextElementSibling?.classList.remove('hidden');">
+                                        <span class="hidden w-full h-full flex items-center justify-center text-gray-100 text-[10px] font-bold leading-none" aria-hidden="true">@row.Initials</span>
                                     }
                                     else
                                     {
-                                        <i class="fa-solid fa-user text-gray-400 text-xs" aria-hidden="true"></i>
+                                        <span class="w-full h-full flex items-center justify-center text-gray-100 text-[10px] font-bold leading-none" aria-hidden="true">@row.Initials</span>
                                     }
                                 </div>
                                 <p class="text-white text-sm font-medium truncate min-w-0">@row.ParticipantName</p>

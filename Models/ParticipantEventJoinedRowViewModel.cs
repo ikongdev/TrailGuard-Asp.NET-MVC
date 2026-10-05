@@ -15,5 +15,6 @@ namespace TrailGuard.Models
     {
         public string ParticipantName { get; set; } = string.Empty;
         public string? ProfilePictureUrl { get; set; }
+        public string Initials { get; set; } = "?";
     }
 }

@@ -402,6 +402,7 @@ namespace TrailGuard.Controllers
                 ShapFactors = shapFactors,
                 AcsmMedicalClearanceRequired = assessment.MedicalClearanceRequired,
                 RequiresMedicalClearance = RegistrationRulesHelper.RequiresMedicalClearance(assessment),
+                MedicalClearanceReason = RegistrationRulesHelper.MedicalClearanceReason(assessment),
                 RequiresPreparationPlan = RegistrationRulesHelper.RequiresPreparationPlan(assessment),
                 ShowNotRecommendedOrganizerNotice = assessment.Result == "Not Recommended"
             };

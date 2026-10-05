@@ -22,15 +22,25 @@ namespace TrailGuard.Controllers
 
         public async Task<IActionResult> Index()
         {
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return Forbid();
+            }
+
             await RegistrationStatusHelper.ExpireOverdueRegistrations(_context);
 
-            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-
-            var registrations = await _context.EventRegistrations
+            var allRegistrations = await _context.EventRegistrations
+                .AsNoTracking()
                 .Include(r => r.Event)
                 .Include(r => r.Assessment)
-                .Where(r => r.UserId == userId && r.Status != "Cancelled")
+                .Include(r => r.AlternativeEvent)
+                .Where(r => r.UserId == userId)
                 .ToListAsync();
+
+            var registrations = allRegistrations
+                .Where(registration => registration.Status != "Cancelled")
+                .ToList();
 
             var upcomingEvents = registrations
                 .Where(r => r.Status == "Accepted")
@@ -49,8 +59,47 @@ namespace TrailGuard.Controllers
                 .Where(r => r.Status == "Accepted" && r.Event != null && r.Event.Status == "Completed")
                 .ToList();
 
-            var needsAction = registrations
-                .Count(RegistrationStatusHelper.NeedsParticipantAction);
+            var activeAssessments = await _context.Assessments
+                .AsNoTracking()
+                .Include(assessment => assessment.Event)
+                .Where(assessment => assessment.UserId == userId && assessment.IsActive)
+                .ToListAsync();
+            var assessmentIds = activeAssessments.Select(assessment => assessment.Id).ToList();
+            var suitabilityResults = assessmentIds.Count == 0
+                ? new List<SuitabilityResult>()
+                : await _context.SuitabilityResults
+                    .AsNoTracking()
+                    .Include(result => result.ShapValues)
+                    .Where(result => assessmentIds.Contains(result.AssessmentId))
+                    .ToListAsync();
+            var supportedPredictions = suitabilityResults
+                .GroupBy(result => result.AssessmentId)
+                .ToDictionary(group => group.Key,
+                    group => SuitabilityResultSelector.Select(group).IsRecognizedV2);
+            var attentionEvents = activeAssessments.Select(assessment => assessment.Event)
+                .Concat(allRegistrations.Select(registration => registration.AlternativeEvent))
+                .Where(eventItem => eventItem is not null)
+                .Cast<Event>()
+                .GroupBy(eventItem => eventItem.Id)
+                .Select(group => group.First())
+                .ToList();
+            var attentionEventIds = attentionEvents.Select(eventItem => eventItem.Id).ToList();
+            var activeRegistrationCounts = attentionEventIds.Count == 0
+                ? new Dictionary<int, int>()
+                : await _context.EventRegistrations.AsNoTracking()
+                    .Where(registration => attentionEventIds.Contains(registration.EventId)
+                        && RegistrationStatusHelper.ActiveStatuses.Contains(registration.Status))
+                    .GroupBy(registration => registration.EventId)
+                    .Select(group => new { EventId = group.Key, Count = group.Count() })
+                    .ToDictionaryAsync(group => group.EventId, group => group.Count);
+            var eventHasCapacity = attentionEvents.ToDictionary(eventItem => eventItem.Id,
+                eventItem => activeRegistrationCounts.GetValueOrDefault(eventItem.Id) < eventItem.Capacity);
+            var attentionItems = ParticipantAttentionBuilder.Build(
+                allRegistrations,
+                activeAssessments,
+                eventHasCapacity,
+                supportedPredictions,
+                DateTime.Now);
 
             var activeRegistrations = registrations
                 .Count(RegistrationStatusHelper.CountsAsActiveRegistration);
@@ -59,6 +108,7 @@ namespace TrailGuard.Controllers
                 .Where(r => r.Assessment != null && r.Assessment.IsActive == true)
                 .Select(r => r.Assessment)
                 .OrderByDescending(a => a!.SubmittedAt)
+                .ThenByDescending(a => a!.Id)
                 .FirstOrDefault();
 
             LatestAssessmentResult? latestResult = null;
@@ -127,8 +177,9 @@ namespace TrailGuard.Controllers
             {
                 UpcomingEventsCount = upcomingEvents.Count,
                 CompletedHikes = progress.DistinctCompletedEventCount,
-                PendingRegistrations = needsAction,
+                PendingRegistrations = attentionItems.Count,
                 TotalRegistrations = activeRegistrations,
+                AttentionItems = attentionItems,
                 UpcomingEvents = upcomingEvents!,
                 LatestAssessment = latestResult,
                 RecommendedEvents = recommendedEvents,
@@ -388,16 +439,21 @@ namespace TrailGuard.Controllers
 
 
 
-            var joinedParticipants = await _context.EventRegistrations
+            var participantDisplayCandidates = await _context.EventRegistrations
                 .AsNoTracking()
-                .Where(r => r.EventId == id && r.Status == "Accepted")
-                .OrderBy(r => r.RegisteredAt)
+                .Include(r => r.User)
+                .Where(r => r.EventId == id)
+                .ToListAsync();
+
+            var joinedParticipants = EventParticipantDisplaySelector
+                .SelectCurrentRows(participantDisplayCandidates)
                 .Select(r => new ParticipantEventJoinedRowViewModel
                 {
                     ParticipantName = r.ParticipantName,
-                    ProfilePictureUrl = r.User != null ? r.User.ProfilePictureUrl : null
+                    ProfilePictureUrl = r.User?.ProfilePictureUrl,
+                    Initials = ProfileInitials.FromNames(r.User?.FirstName, r.User?.LastName, r.ParticipantName)
                 })
-                .ToListAsync();
+                .ToList();
 
             ViewBag.JoinedParticipants = joinedParticipants;
 

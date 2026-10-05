@@ -23,24 +23,9 @@
     // Trail-derived figures come from the Event's own frozen Trail Snapshot,
     // never a live read of Event.Trail - see CLAUDE.md, "Event Trail Snapshot".
 
-    string ExtractLocalDigits(string? phone)
-    {
-        if (string.IsNullOrWhiteSpace(phone)) return "";
-        var digits = new string(phone.Where(char.IsDigit).ToArray());
-        if (digits.StartsWith("63") && digits.Length >= 12) digits = digits.Substring(digits.Length - 10);
-        else if (digits.StartsWith("0") && digits.Length == 11) digits = digits.Substring(1);
-        else if (digits.Length > 10) digits = digits.Substring(digits.Length - 10);
-        return digits;
-    }
-
-    string GroupLocalDigits(string digits)
-    {
-        if (digits.Length > 6) return $"{digits.Substring(0, 3)} {digits.Substring(3, 3)} {digits.Substring(6)}";
-        if (digits.Length > 3) return $"{digits.Substring(0, 3)} {digits.Substring(3)}";
-        return digits;
-    }
-
-    var contactNumberLocal = GroupLocalDigits(ExtractLocalDigits(user?.PhoneNumber));
+    var contactNumberLocal = TrailGuard.Services.PhilippineMobileNumber.TryNormalize(user?.PhoneNumber, out var canonicalProfilePhone)
+        ? TrailGuard.Services.PhilippineMobileNumber.ToLocalDisplay(canonicalProfilePhone)
+        : user?.PhoneNumber ?? "";
     int? registrationCurrentAge = ViewBag.RegistrationCurrentAge is int age ? age : null;
     var registrationGender = ViewBag.RegistrationGender as string;
 }
@@ -109,9 +94,11 @@
                                     <div class="relative">
                                         <span class="absolute inset-y-0 left-0 flex items-center pl-4 pr-3 text-gray-400 text-sm border-r border-gray-700 pointer-events-none">+63</span>
                                         <input type="text" name="contactNumber" id="contactNumber" value="@contactNumberLocal" required
-                                               inputmode="numeric" maxlength="12" placeholder="912 345 6789"
+                                               inputmode="tel" placeholder="912 345 6789"
+                                               aria-describedby="contactNumberError"
                                                class="w-full bg-surface-card border border-gray-700 text-white rounded-xl pl-16 pr-4 py-2.5 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors text-sm" />
                                     </div>
+                                    <p id="contactNumberError" class="mt-1 text-xs text-red-400 hidden" aria-live="polite"></p>
                                 </div>
                             </div>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -147,9 +134,11 @@
                                     <div class="relative">
                                         <span class="absolute inset-y-0 left-0 flex items-center pl-4 pr-3 text-gray-400 text-sm border-r border-gray-700 pointer-events-none">+63</span>
                                         <input type="text" name="emergencyContactNumber" id="emergencyContactNumber" required
-                                               inputmode="numeric" maxlength="12" placeholder="912 345 6789"
+                                               inputmode="tel" placeholder="912 345 6789"
+                                               aria-describedby="emergencyContactNumberError"
                                                class="w-full bg-surface-card border border-gray-700 text-white rounded-xl pl-16 pr-4 py-2.5 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors text-sm" />
                                     </div>
+                                    <p id="emergencyContactNumberError" class="mt-1 text-xs text-red-400 hidden" aria-live="polite"></p>
                                 </div>
                             </div>
                         </div>
@@ -360,11 +349,49 @@
 </div>
 
 <script>
-    function formatLocalDigits(raw) {
-        var digits = raw.replace(/\D/g, '').slice(0, 10);
+    function formatLocalDigits(digits) {
         if (digits.length > 6) return digits.slice(0, 3) + ' ' + digits.slice(3, 6) + ' ' + digits.slice(6);
         if (digits.length > 3) return digits.slice(0, 3) + ' ' + digits.slice(3);
         return digits;
+    }
+
+    function normalizePhilippineMobileNumber(raw) {
+        var value = raw.trim();
+        if (!value) return null;
+
+        var hasPlusPrefix = value.startsWith('+');
+        var numberPart = hasPlusPrefix ? value.slice(1) : value;
+        if (!numberPart || /[^0-9 -]/.test(numberPart)) return null;
+
+        var digits = numberPart.replace(/[ -]/g, '');
+        var localDigits = null;
+        if (hasPlusPrefix) {
+            if (digits.length === 12 && digits.startsWith('63')) localDigits = digits.slice(2);
+        } else if (digits.length === 10) {
+            localDigits = digits;
+        } else if (digits.length === 11 && digits.startsWith('0')) {
+            localDigits = digits.slice(1);
+        } else if (digits.length === 12 && digits.startsWith('63')) {
+            localDigits = digits.slice(2);
+        }
+
+        return localDigits && localDigits.startsWith('9') ? localDigits : null;
+    }
+
+    function updatePhoneValidity(input, error, formatWhenComplete) {
+        var localDigits = normalizePhilippineMobileNumber(input.value);
+        var message = input.value.trim() && !localDigits
+            ? 'Enter a complete contact number: 912 345 6789.'
+            : '';
+        input.setCustomValidity(message);
+        if (error) {
+            error.textContent = message;
+            error.classList.toggle('hidden', !message);
+        }
+
+        if (formatWhenComplete && localDigits) {
+            input.value = formatLocalDigits(localDigits);
+        }
     }
 
     function toggleClearMedicalClearance() {
@@ -383,10 +410,14 @@
     document.addEventListener('DOMContentLoaded', function() {
         ['contactNumber', 'emergencyContactNumber'].forEach(function(id) {
             var input = document.getElementById(id);
+            var error = document.getElementById(id + 'Error');
             if (!input) return;
-            input.value = formatLocalDigits(input.value);
+            updatePhoneValidity(input, error, true);
             input.addEventListener('input', function() {
-                this.value = formatLocalDigits(this.value);
+                updatePhoneValidity(this, error, true);
+            });
+            input.addEventListener('blur', function() {
+                updatePhoneValidity(this, error, true);
             });
         });
 
@@ -406,13 +437,12 @@
                 invalidToastScheduled = true;
 
                 Promise.resolve().then(function() {
-                    showToast('Please fill in all required fields before proceeding.', 'error');
-
                     var invalidField = firstInvalidField;
                     firstInvalidField = null;
                     invalidToastScheduled = false;
 
                     if (!invalidField) return;
+                    showToast(invalidField.validationMessage || 'Please fill in all required fields before proceeding.', 'error');
 
                     // custom-select.js owns pickupPoint's invalid styling and visible trigger.
                     // Focus the trigger after all native invalid handlers have completed.
@@ -428,14 +458,6 @@
                 });
             }, true);
 
-            form.addEventListener('submit', function() {
-                ['contactNumber', 'emergencyContactNumber'].forEach(function(id) {
-                    var input = document.getElementById(id);
-                    if (input && input.value) {
-                        input.value = '+63 ' + input.value;
-                    }
-                });
-            });
         }
     });
 </script>

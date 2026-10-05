@@ -56,6 +56,39 @@
         </div>
     </div>
 
+    <section class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-5 mb-8" aria-labelledby="attention-heading">
+        <div class="flex items-center justify-between gap-3 mb-3">
+            <h2 id="attention-heading" class="text-sm font-semibold"><i class="fa-solid fa-bell text-amber-400 mr-2" aria-hidden="true"></i>Needs Attention</h2>
+            <span class="text-xs text-gray-500">@Model.AttentionItems.Count item@(Model.AttentionItems.Count == 1 ? "" : "s")</span>
+        </div>
+        @if (Model.AttentionItems.Any())
+        {
+            <div class="relative">
+                <div id="participantAttentionScrollRegion" data-scroll-cue="participantAttentionScrollCue" tabindex="0" aria-label="All items needing attention" class="dashboard-scroll-region max-h-64 overflow-y-auto divide-y divide-white/5 pr-2 focus:outline-none focus:ring-2 focus:ring-accent rounded">
+                    @foreach (var item in Model.AttentionItems)
+                    {
+                        <div class="py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                            <div class="min-w-0"><p class="font-medium text-sm truncate">@item.Title</p><p class="text-gray-400 text-xs mt-1">@item.Detail</p></div>
+                            @if (item.Kind == ParticipantAttentionKind.MedicalClearance)
+                            {
+                                <a asp-controller="Registration" asp-action="Register" asp-route-eventId="@item.EventId" asp-route-assessmentId="@item.AssessmentId" class="shrink-0 text-sm font-medium text-accent hover:brightness-125 focus:outline-none focus:ring-2 focus:ring-accent rounded transition-colors">@item.ActionLabel <i class="fa-solid fa-arrow-right ml-1 text-xs" aria-hidden="true"></i></a>
+                            }
+                            else
+                            {
+                                <a asp-controller="Registration" asp-action="MyRegistrations" asp-fragment="registration-@item.RegistrationId" class="shrink-0 text-sm font-medium text-accent hover:brightness-125 focus:outline-none focus:ring-2 focus:ring-accent rounded transition-colors">@item.ActionLabel <i class="fa-solid fa-arrow-right ml-1 text-xs" aria-hidden="true"></i></a>
+                            }
+                        </div>
+                    }
+                </div>
+                <div id="participantAttentionScrollCue" class="dashboard-scroll-cue" aria-hidden="true"><span>Scroll for more <i class="fa-solid fa-chevron-down ml-1"></i></span></div>
+            </div>
+        }
+        else
+        {
+            <div class="flex items-center gap-3 py-2 text-sm text-gray-300"><span class="w-9 h-9 rounded-full bg-emerald-500/15 text-emerald-400 flex items-center justify-center"><i class="fa-solid fa-check" aria-hidden="true"></i></span><span>You’re all caught up.</span></div>
+        }
+    </section>
+
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         
         <div class="lg:col-span-2 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden h-100 flex flex-col">
@@ -302,6 +335,24 @@
 </div>
 
 <script>
+    function initializeScrollCue(region) {
+        const cue = document.getElementById(region.dataset.scrollCue);
+        if (!cue) return;
+
+        const updateCue = function () {
+            const hasOverflow = region.scrollHeight > region.clientHeight + 1;
+            const isAtBottom = Math.ceil(region.scrollTop + region.clientHeight) >= region.scrollHeight - 1;
+            cue.classList.toggle('is-visible', hasOverflow && !isAtBottom);
+        };
+
+        region.addEventListener('scroll', updateCue, { passive: true });
+        window.addEventListener('resize', updateCue);
+        window.addEventListener('load', updateCue, { once: true });
+        requestAnimationFrame(updateCue);
+    }
+
+    document.querySelectorAll('[data-scroll-cue]').forEach(initializeScrollCue);
+
     document.querySelectorAll('[data-weather-toggle]').forEach(function(toggle) {
         toggle.addEventListener('click', function() {
             var panel = document.getElementById(toggle.getAttribute('aria-controls'));
@@ -329,4 +380,14 @@
     .custom-scrollbar::-webkit-scrollbar-thumb:hover {
         background: rgb(139 92 246 / 0.6);
     }
+
+    .dashboard-scroll-region {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(139, 92, 246, .65) transparent;
+    }
+    .dashboard-scroll-region::-webkit-scrollbar { width: 6px; }
+    .dashboard-scroll-region::-webkit-scrollbar-track { background: transparent; }
+    .dashboard-scroll-region::-webkit-scrollbar-thumb { background: rgba(139, 92, 246, .65); border-radius: 9999px; }
+    .dashboard-scroll-cue { position: absolute; right: 0; bottom: 0; left: 0; display: none; justify-content: center; padding: 2rem .5rem .5rem; pointer-events: none; color: #9ca3af; font-size: .75rem; background: linear-gradient(to top, rgb(15 23 42), rgb(15 23 42 / .9), transparent); }
+    .dashboard-scroll-cue.is-visible { display: flex; }
 </style>

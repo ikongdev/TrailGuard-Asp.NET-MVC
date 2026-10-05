@@ -157,18 +157,95 @@ foreach (var input in new[]
 
 if (!assessmentOnly)
 {
-// Registration POST: plan and clearance checks run through the real controller action before uploads or SaveChanges.
+// Registration contact numbers are parsed without truncation and stored in one canonical format.
+foreach (var accepted in new[]
+{
+    "9123456789",
+    "912 345 6789",
+    "09123456789",
+    "+639123456789",
+    "+63 912 345 6789",
+    "639123456789"
+})
+{
+    Check(PhilippineMobileNumber.TryNormalize(accepted, out var canonical)
+        && canonical == "+63 912 345 6789",
+        $"The complete Philippine mobile format '{accepted}' must normalize to the canonical registration value.");
+}
+
+foreach (var rejected in new[]
+{
+    "",
+    "912 345",
+    "912 345 678",
+    "91234567890",
+    "9123456789x",
+    "９１２３４５６７８９",
+    "+6391234567890",
+    "+62 9123456789",
+    "00639123456789",
+    "+63912(345)6789"
+})
+{
+    Check(!PhilippineMobileNumber.TryNormalize(rejected, out _),
+        $"The incomplete, malformed, foreign, or non-ASCII number '{rejected}' must be rejected.");
+}
+
+// Direct POSTs bypassing browser validation must stop before file validation, uploads, locks, or persistence.
+foreach (var invalidContact in new[]
+{
+    (Contact: "912 345", Emergency: "9234567890", Field: "contact number"),
+    (Contact: "9123456789", Emergency: "923 456", Field: "emergency contact number")
+})
 {
     using var context = NewContext();
     var controller = NewRegistrationController(
         context,
         futureEvent,
-        new Assessment { Id = 51, EventId = futureEvent.Id, UserId = "participant-1", IsActive = true, Result = "Not Recommended" });
-    var result = await controller.Register(futureEvent.Id, 51, "Participant", "p@example.test", "1", "Emergency", "2", "Main gate", null, "  ");
+        new Assessment { Id = 50, EventId = futureEvent.Id, UserId = "participant-1", IsActive = true, Result = "Good-Match" });
+    var result = await controller.Register(futureEvent.Id, 50, "Participant", "p@example.test", invalidContact.Contact,
+        "Emergency", invalidContact.Emergency, "Main gate", ValidPdfClearance(), "A suitable preparation plan");
 
-    Check(IsRegisterRedirect(result), "A Not Recommended registration without a preparation plan must return to Register.");
-    Check(TempDataError(controller).Contains("preparation plan", StringComparison.OrdinalIgnoreCase), "The preparation-plan rejection must explain the missing plan.");
-    Check(context.SaveChangesAsyncCalls == 0 && !context.ChangeTracker.Entries().Any(), "A missing preparation plan must not save or attach a registration.");
+    Check(IsRegisterRedirect(result) && TempDataError(controller).Contains(invalidContact.Field, StringComparison.OrdinalIgnoreCase),
+        $"An invalid {invalidContact.Field} must be rejected by the registration POST.");
+    Check(context.SaveChangesAsyncCalls == 0 && !context.ChangeTracker.Entries().Any()
+        && controller.Calls.Count == 0 && controller.UploadStorage.UploadCalls == 0,
+        "An invalid direct-post number must not validate/upload a file, open a transaction, or save a registration.");
+}
+
+// The controller persists canonical contact values, rather than accepting its displayed local format verbatim.
+{
+    using var context = NewContext();
+    var controller = NewRegistrationController(
+        context,
+        futureEvent,
+        new Assessment { Id = 55, EventId = futureEvent.Id, UserId = "participant-1", IsActive = true, Result = "Good-Match" });
+    await controller.Register(futureEvent.Id, 55, "Participant", "p@example.test", "+639123456789",
+        "Emergency", "09123456789", "Main gate", null, null);
+
+    Check(context.SavedRegistration is { ContactNumber: "+63 912 345 6789", EmergencyContactNumber: "+63 912 345 6789" },
+        "A valid registration POST must pass canonical contact values to persistence.");
+}
+
+// Registration POST: missing and empty required clearances are rejected from the server-owned assessment before uploads or SaveChanges.
+{
+    foreach (var missingClearance in new IFormFile?[]
+    {
+        null,
+        new FormFile(new MemoryStream(), 0, 0, "medicalClearance", "clearance.pdf")
+    })
+    {
+        using var context = NewContext();
+        var controller = NewRegistrationController(
+            context,
+            futureEvent,
+            new Assessment { Id = 51, EventId = futureEvent.Id, UserId = "participant-1", IsActive = true, Result = "Not Recommended" });
+        var result = await controller.Register(futureEvent.Id, 51, "Participant", "p@example.test", "9123456789", "Emergency", "9234567890", "Main gate", missingClearance, "A suitable preparation plan");
+
+        Check(IsRegisterRedirect(result), "A Not Recommended registration without a non-empty clearance document must return to Register.");
+        Check(TempDataError(controller).Contains("registration policy", StringComparison.OrdinalIgnoreCase), "The Not Recommended clearance rejection must identify its policy reason.");
+        Check(context.SaveChangesAsyncCalls == 0 && !context.ChangeTracker.Entries().Any(), "A missing or empty required clearance must not save or attach a registration.");
+    }
 }
 
 {
@@ -177,11 +254,48 @@ if (!assessmentOnly)
         context,
         futureEvent,
         new Assessment { Id = 52, EventId = futureEvent.Id, UserId = "participant-1", IsActive = true, Result = "Good-Match", MedicalClearanceRequired = true });
-    var result = await controller.Register(futureEvent.Id, 52, "Participant", "p@example.test", "1", "Emergency", "2", "Main gate", null, "A suitable preparation plan");
+    var result = await controller.Register(futureEvent.Id, 52, "Participant", "p@example.test", "9123456789", "Emergency", "9234567890", "Main gate", null, "A suitable preparation plan");
 
     Check(IsRegisterRedirect(result), "A screening-required registration without clearance must return to Register.");
     Check(TempDataError(controller).Contains("medical clearance", StringComparison.OrdinalIgnoreCase), "The clearance rejection must explain the missing document.");
     Check(context.SaveChangesAsyncCalls == 0 && !context.ChangeTracker.Entries().Any(), "A missing clearance document must not save or attach a registration.");
+}
+
+// Preparation-plan policy remains independent after a valid required clearance passes validation.
+{
+    using var context = NewContext();
+    var controller = NewRegistrationController(
+        context,
+        futureEvent,
+        new Assessment { Id = 53, EventId = futureEvent.Id, UserId = "participant-1", IsActive = true, Result = "Not Recommended" });
+    var result = await controller.Register(futureEvent.Id, 53, "Participant", "p@example.test", "9123456789", "Emergency", "9234567890", "Main gate", ValidPdfClearance(), "  ");
+
+    Check(IsRegisterRedirect(result), "A Not Recommended registration without a preparation plan must return to Register after clearance validation.");
+    Check(TempDataError(controller).Contains("preparation plan", StringComparison.OrdinalIgnoreCase), "The preparation-plan rejection must remain distinct from clearance validation.");
+    Check(context.SaveChangesAsyncCalls == 0 && !context.ChangeTracker.Entries().Any(), "A missing preparation plan must not save or attach a registration.");
+}
+
+// The locked assessment is authoritative even if the pre-lock assessment did not require clearance.
+{
+    foreach (var missingClearance in new IFormFile?[]
+    {
+        null,
+        new FormFile(new MemoryStream(), 0, 0, "medicalClearance", "clearance.pdf")
+    })
+    {
+        using var context = NewContext();
+        var controller = NewRegistrationController(
+            context,
+            futureEvent,
+            new Assessment { Id = 54, EventId = futureEvent.Id, UserId = "participant-1", IsActive = true, Result = "Good-Match" });
+        controller.LockedAssessment = new Assessment { Id = 54, EventId = futureEvent.Id, UserId = "participant-1", IsActive = true, Result = "Not Recommended" };
+        var result = await controller.Register(futureEvent.Id, 54, "Participant", "p@example.test", "9123456789", "Emergency", "9234567890", "Main gate", missingClearance, null);
+
+        Check(IsRegisterRedirect(result), "A locked Not Recommended assessment without a non-empty clearance document must return to Register.");
+        Check(TempDataError(controller).Contains("registration policy", StringComparison.OrdinalIgnoreCase), "The locked-assessment rejection must use the server-owned Not Recommended policy reason.");
+        Check(context.SaveChangesAsyncCalls == 0 && !context.ChangeTracker.Entries().Any(), "A locked assessment requiring clearance must not save or attach a registration without the document.");
+        Check(controller.Calls.SequenceEqual(["begin", "event-lock", "participant-event-lock", "capacity-checked", "dispose"]), "The locked clearance recheck must run after the established transaction and lock sequence.");
+    }
 }
 
 // Organizer decision POST: blank Not Recommended approval reasons and non-owner decisions are denied before SaveChanges.
@@ -371,6 +485,12 @@ static EventRegistration PendingRegistration(int id, string organizerId, string 
 static bool IsRegisterRedirect(IActionResult result) => result is RedirectToActionResult redirect
     && redirect.ActionName == "Register";
 
+static IFormFile ValidPdfClearance()
+{
+    var bytes = Encoding.UTF8.GetBytes("%PDF-1.4\nverification");
+    return new FormFile(new MemoryStream(bytes), 0, bytes.Length, "medicalClearance", "clearance.pdf");
+}
+
 static string TempDataError(Controller controller) => controller.TempData["Error"]?.ToString() ?? string.Empty;
 
 static string JsonProperty(IActionResult result, string name)
@@ -434,17 +554,67 @@ sealed class TestAssessmentController : AssessmentController
 
 sealed class TestRegistrationController : RegistrationController
 {
-    public TestRegistrationController(ApplicationDbContext context, IWebHostEnvironment environment) : base(context, environment) { }
+    public TestRegistrationController(ApplicationDbContext context, IWebHostEnvironment environment)
+        : this(context, environment, new TestUploadStorage()) { }
+
+    private TestRegistrationController(ApplicationDbContext context, IWebHostEnvironment environment, TestUploadStorage uploadStorage)
+        : base(context, environment, storage: uploadStorage)
+    {
+        UploadStorage = uploadStorage;
+    }
 
     public Event? TestEvent { get; init; }
     public Assessment? TestAssessment { get; init; }
+    public Assessment? LockedAssessment { get; set; }
     public ApplicationUser? TestUser { get; init; }
+    public TestUploadStorage UploadStorage { get; }
+    public List<string> Calls { get; } = [];
+    private int assessmentLookups;
 
     protected override Task<Event?> FindEventAsync(int eventId) => Task.FromResult(TestEvent);
     protected override Task<ApplicationUser?> FindUserAsync(string? userId) => Task.FromResult(TestUser);
-    protected override Task<Assessment?> FindActiveAssessmentAsync(int assessmentId, int eventId, string? userId) => Task.FromResult(TestAssessment);
+    protected override Task<Assessment?> FindActiveAssessmentAsync(int assessmentId, int eventId, string? userId) =>
+        Task.FromResult(++assessmentLookups == 1 ? TestAssessment : LockedAssessment ?? TestAssessment);
     protected override Task<EventRegistration?> FindExistingRegistrationAsync(int eventId, string? userId) => Task.FromResult<EventRegistration?>(null);
+    protected override Task<EventRegistration?> FindCancelledRegistrationAsync(int eventId, string? userId) => Task.FromResult<EventRegistration?>(null);
     protected override Task<int> CountActiveRegistrationsAsync(int eventId) => Task.FromResult(0);
+    protected override Task<IDbContextTransaction> BeginRegistrationTransactionAsync()
+    {
+        Calls.Add("begin");
+        return Task.FromResult<IDbContextTransaction>(new GuardTransaction(Calls));
+    }
+    protected override Task AcquireRegistrationEventCapacityLockAsync(int eventId)
+    {
+        Calls.Add("event-lock");
+        return Task.CompletedTask;
+    }
+    protected override Task AcquireRegistrationParticipantEventLockAsync(int eventId, string userId)
+    {
+        Calls.Add("participant-event-lock");
+        return Task.CompletedTask;
+    }
+    protected override Task OnCapacityCheckedForRegistrationAsync(int eventId, string userId)
+    {
+        Calls.Add("capacity-checked");
+        return Task.CompletedTask;
+    }
+}
+
+sealed class TestUploadStorage : IUploadStorage
+{
+    public int UploadCalls { get; private set; }
+
+    public Task<string> UploadAsync(UploadCategory category, byte[] bytes, string extension, CancellationToken cancellationToken = default)
+    {
+        UploadCalls++;
+        return Task.FromResult("verification-upload");
+    }
+    public Task<StoredDocument?> ReadDocumentAsync(RegistrationDocumentKind kind, string? reference, CancellationToken cancellationToken = default) =>
+        Task.FromResult<StoredDocument?>(null);
+    public Task<byte[]?> ReadPublicLocalAsync(string reference, CancellationToken cancellationToken = default) =>
+        Task.FromResult<byte[]?>(null);
+    public Task DeleteOwnedAsync(UploadCategory category, string reference, CancellationToken cancellationToken = default) =>
+        Task.CompletedTask;
 }
 
 sealed class TestOrganizerController : OrganizerController
@@ -499,10 +669,12 @@ sealed class ForbidConnectionInterceptor : DbConnectionInterceptor
 sealed class CountingDbContext(DbContextOptions<ApplicationDbContext> options) : ApplicationDbContext(options)
 {
     public int SaveChangesAsyncCalls { get; private set; }
+    public EventRegistration? SavedRegistration { get; private set; }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         SaveChangesAsyncCalls++;
+        SavedRegistration = ChangeTracker.Entries<EventRegistration>().SingleOrDefault()?.Entity;
         return Task.FromResult(0);
     }
 }

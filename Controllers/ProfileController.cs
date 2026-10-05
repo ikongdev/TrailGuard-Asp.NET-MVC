@@ -47,7 +47,7 @@ namespace TrailGuard.Controllers
         [HttpGet]
         [Route("Profile")]
         [Route("Profile/{publicProfileId:guid}")]
-        public async Task<IActionResult> Index(Guid? publicProfileId)
+        public async Task<IActionResult> Index(Guid? publicProfileId, string? returnUrl)
         {
             var viewer = await _userManager.GetUserAsync(User);
             if (viewer == null)
@@ -69,6 +69,12 @@ namespace TrailGuard.Controllers
             {
                 return NotFound();
             }
+
+            var backUrl = access.ViewerType == ProfileViewerType.Organizer && !access.IsOwner
+                ? Url.IsLocalUrl(returnUrl)
+                    ? returnUrl
+                    : Url.Action("Registrations", "Organizer") ?? "/Organizer/Registrations"
+                : null;
 
 
 
@@ -145,6 +151,7 @@ namespace TrailGuard.Controllers
                 IsOwner = access.IsOwner,
                 TargetIsActive = access.TargetIsActive,
                 ViewerType = access.ViewerType,
+                BackUrl = backUrl,
 
                 Email = identity.Email,
                 PhoneNumber = identity.PhoneNumber,

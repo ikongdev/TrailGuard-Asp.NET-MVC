@@ -72,11 +72,11 @@ Check(prior.IsActive && failedNewSubmission.SuitabilityResults.Count == 0,
 
 var notRecommended = new Assessment { Result = "Not Recommended", MedicalClearanceRequired = false };
 var screened = new Assessment { Result = "Good-Match", MedicalClearanceRequired = true };
-Check(!RegistrationRulesHelper.RequiresMedicalClearance(notRecommended)
+Check(RegistrationRulesHelper.RequiresMedicalClearance(notRecommended)
     && RegistrationRulesHelper.RequiresPreparationPlan(notRecommended)
     && RegistrationRulesHelper.RequiresMedicalClearance(screened)
     && !RegistrationRulesHelper.RequiresPreparationPlan(screened),
-    "Preparation plans and medical clearance must have independent server-side triggers.");
+    "Not Recommended registrations must require both the preparation plan and medical clearance, while health screening remains an independent clearance trigger.");
 
 Check(AssessmentSubmissionGuards.HasAuthenticatedUserId("participant-1")
     && !AssessmentSubmissionGuards.HasAuthenticatedUserId(null)

@@ -716,10 +716,12 @@ namespace TrailGuard.Controllers
 
 
 
-            var joinedRegistrations = allRegistrations
-                .Where(r => r.Status == "Accepted" || r.Status == "Pending")
-                .OrderBy(r => r.RegisteredAt)
-                .ToList();
+            var participantDisplayCandidates = await _context.EventRegistrations
+                .Include(r => r.User)
+                .Where(r => r.EventId == id)
+                .ToListAsync();
+
+            var joinedRegistrations = EventParticipantDisplaySelector.SelectCurrentRows(participantDisplayCandidates);
 
 
 
@@ -755,6 +757,7 @@ namespace TrailGuard.Controllers
                 return new EventParticipantRowViewModel
                 {
                     ParticipantName = r.ParticipantName,
+                    Initials = ProfileInitials.FromNames(r.User?.FirstName, r.User?.LastName, r.ParticipantName),
                     ProfilePictureUrl = r.User?.ProfilePictureUrl,
                     Status = r.Status,
                     PublicProfileId = r.User?.PublicProfileId ?? Guid.Empty,

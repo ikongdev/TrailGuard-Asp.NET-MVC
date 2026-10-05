@@ -29,7 +29,7 @@
     // uses, computed once in the controller so this can't drift from the form again.
     var requiresClearance = Model?.RequiresMedicalClearance == true;
     var requiresPlan = Model?.RequiresPreparationPlan == true;
-    var clearanceReasonText = "Your assessment flagged a health condition that needs medical clearance before you can register.";
+    var clearanceReasonText = Model?.MedicalClearanceReason ?? string.Empty;
 
     var trailClass = eventItem?.TrailClassSnapshot ?? 0;
     var terrainTypeLabel = TrailGuard.Services.DifficultyCalculator.TrailClassLabel(trailClass);
@@ -391,7 +391,7 @@
                             Proceed with Additional Requirements
                         </a>
                         <p class="text-xs text-red-400/80 text-center">
-                            <i class="fa-solid fa-circle-info mr-1"></i> A preparation plan is required. Medical clearance is required only when the separate health screening indicates it.
+                            <i class="fa-solid fa-circle-info mr-1"></i> A medical clearance document and preparation plan are required to register with a Not Recommended assessment result.
                         </p>
                     }
                     <a asp-controller="Participant" asp-action="Events"

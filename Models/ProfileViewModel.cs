@@ -18,6 +18,7 @@ namespace TrailGuard.Models
         public bool IsOwner { get; set; }
         public bool TargetIsActive { get; set; }
         public ProfileViewerType ViewerType { get; set; }
+        public string? BackUrl { get; set; }
 
 
 

@@ -28,6 +28,7 @@ namespace TrailGuard.Models
 
 
         public bool RequiresMedicalClearance { get; set; }
+        public string MedicalClearanceReason { get; set; } = string.Empty;
         public bool RequiresPreparationPlan { get; set; }
         public bool ShowNotRecommendedOrganizerNotice { get; set; }
     }

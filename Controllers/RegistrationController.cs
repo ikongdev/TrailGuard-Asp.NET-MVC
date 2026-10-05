@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using TrailGuard.Data;
 using TrailGuard.Models;
 using TrailGuard.Services;
@@ -154,6 +155,18 @@ namespace TrailGuard.Controllers
                 return RedirectToAction("Form", "Assessment", new { eventId = eventId });
             }
 
+            if (!PhilippineMobileNumber.TryNormalize(contactNumber, out var canonicalContactNumber))
+            {
+                TempData["Error"] = $"Enter a complete contact number: {PhilippineMobileNumber.LocalExample}.";
+                return RedirectToAction("Register", new { eventId, assessmentId });
+            }
+
+            if (!PhilippineMobileNumber.TryNormalize(emergencyContactNumber, out var canonicalEmergencyContactNumber))
+            {
+                TempData["Error"] = $"Enter a complete emergency contact number: {PhilippineMobileNumber.LocalExample}.";
+                return RedirectToAction("Register", new { eventId, assessmentId });
+            }
+
 
 
 
@@ -187,7 +200,7 @@ namespace TrailGuard.Controllers
 
             if (requiresClearance && (medicalClearance == null || medicalClearance.Length == 0))
             {
-                TempData["Error"] = "A medical clearance document is required based on your assessment.";
+                TempData["Error"] = $"A medical clearance document is required. {RegistrationRulesHelper.MedicalClearanceReason(assessment)}";
                 return RedirectToAction("Register", new { eventId, assessmentId });
             }
 
@@ -223,12 +236,12 @@ namespace TrailGuard.Controllers
             }
 
             await using var uploads = new UploadAttempt(Storage, _logger);
-            var transaction = await _context.Database.BeginTransactionAsync();
+            var transaction = await BeginRegistrationTransactionAsync();
             var commitStarted = false;
             try
             {
-                await ParticipantEventWorkflowLock.AcquireEventCapacityAsync(_context, eventId);
-                await ParticipantEventWorkflowLock.AcquireAsync(_context, eventId, userId);
+                await AcquireRegistrationEventCapacityLockAsync(eventId);
+                await AcquireRegistrationParticipantEventLockAsync(eventId, userId);
                 _context.ChangeTracker.Clear();
 
                 var lockedEvent = await FindEventAsync(eventId);
@@ -262,7 +275,7 @@ namespace TrailGuard.Controllers
                 if (RegistrationRulesHelper.RequiresMedicalClearance(lockedAssessment)
                     && (medicalClearance == null || medicalClearance.Length == 0))
                 {
-                    TempData["Error"] = "A medical clearance document is required based on your assessment.";
+                    TempData["Error"] = $"A medical clearance document is required. {RegistrationRulesHelper.MedicalClearanceReason(lockedAssessment)}";
                     return RedirectToAction("Register", new { eventId, assessmentId });
                 }
 
@@ -280,8 +293,7 @@ namespace TrailGuard.Controllers
                     return RedirectToAction("Register", new { eventId, assessmentId });
                 }
 
-                var cancelledRegistration = await _context.EventRegistrations
-                    .FirstOrDefaultAsync(r => r.EventId == eventId && r.UserId == userId && r.Status == "Cancelled");
+                var cancelledRegistration = await FindCancelledRegistrationAsync(eventId, userId);
 
             if (cancelledRegistration != null)
             {
@@ -320,13 +332,13 @@ namespace TrailGuard.Controllers
                 EventId = eventId,
                 UserId = userId,
                 ParticipantName = participantName,
-                ContactNumber = contactNumber,
+                ContactNumber = canonicalContactNumber,
                 Email = email,
                 PickupPoint = lockedPickupPoint,
                 Status = "Pending",
                 AssessmentId = assessmentId,
                 EmergencyContactName = emergencyContactName,
-                EmergencyContactNumber = emergencyContactNumber,
+                EmergencyContactNumber = canonicalEmergencyContactNumber,
                 MedicalClearanceUrl = medicalClearanceUrl,
                 PreparationPlan = preparationPlan,
                 RegisteredAt = DateTime.Now
@@ -381,8 +393,20 @@ namespace TrailGuard.Controllers
             .FirstOrDefaultAsync(r => r.EventId == eventId && r.UserId == userId &&
                 (RegistrationStatusHelper.ActiveStatuses.Contains(r.Status) || r.Status == "Alternative Recommended"));
 
+        protected virtual Task<EventRegistration?> FindCancelledRegistrationAsync(int eventId, string? userId) => _context.EventRegistrations
+            .FirstOrDefaultAsync(r => r.EventId == eventId && r.UserId == userId && r.Status == "Cancelled");
+
         protected virtual Task<int> CountActiveRegistrationsAsync(int eventId) => _context.EventRegistrations
             .CountAsync(r => r.EventId == eventId && RegistrationStatusHelper.ActiveStatuses.Contains(r.Status));
+
+        protected virtual Task<IDbContextTransaction> BeginRegistrationTransactionAsync() =>
+            _context.Database.BeginTransactionAsync();
+
+        protected virtual Task AcquireRegistrationEventCapacityLockAsync(int eventId) =>
+            ParticipantEventWorkflowLock.AcquireEventCapacityAsync(_context, eventId);
+
+        protected virtual Task AcquireRegistrationParticipantEventLockAsync(int eventId, string userId) =>
+            ParticipantEventWorkflowLock.AcquireAsync(_context, eventId, userId);
 
         // Test seam: production is a no-op. It runs only after the event-wide lock and
         // authoritative capacity check, before this controller creates a registration.

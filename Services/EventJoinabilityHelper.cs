@@ -6,8 +6,10 @@ namespace TrailGuard.Services
     {
 
 
-        public static bool IsJoinable(Event eventItem) =>
-            eventItem.Status == "Upcoming" && eventItem.EventDate >= DateTime.Today;
+        public static bool IsJoinable(Event eventItem) => IsJoinable(eventItem, DateTime.Today);
+
+        public static bool IsJoinable(Event eventItem, DateTime currentDate) =>
+            eventItem.Status == "Upcoming" && eventItem.EventDate.Date >= currentDate.Date;
 
 
 

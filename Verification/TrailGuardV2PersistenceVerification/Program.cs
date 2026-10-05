@@ -196,12 +196,27 @@ Check(TrailGuardV2Presentation.BuildV2Suggestions(presentationValues).SequenceEq
     "v2 recommendations must use only the reviewed actionable features and stored duration formatting.");
 
 var notRecommendedWithoutScreening = new Assessment { Result = "Not Recommended", MedicalClearanceRequired = false };
+var notRecommendedWithScreening = new Assessment { Result = "Not Recommended", MedicalClearanceRequired = true };
+var unscreenedGoodMatch = new Assessment { Result = "Good-Match", MedicalClearanceRequired = false };
+var unscreenedBorderline = new Assessment { Result = "Borderline", MedicalClearanceRequired = false };
 var screenedGoodMatch = new Assessment { Result = "Good-Match", MedicalClearanceRequired = true };
-Check(!RegistrationRulesHelper.RequiresMedicalClearance(notRecommendedWithoutScreening)
+var screenedBorderline = new Assessment { Result = "Borderline", MedicalClearanceRequired = true };
+Check(RegistrationRulesHelper.RequiresMedicalClearance(notRecommendedWithoutScreening)
+    && RegistrationRulesHelper.RequiresMedicalClearance(notRecommendedWithScreening)
+    && !RegistrationRulesHelper.RequiresMedicalClearance(unscreenedGoodMatch)
+    && !RegistrationRulesHelper.RequiresMedicalClearance(unscreenedBorderline)
     && RegistrationRulesHelper.RequiresPreparationPlan(notRecommendedWithoutScreening)
     && RegistrationRulesHelper.RequiresMedicalClearance(screenedGoodMatch)
+    && RegistrationRulesHelper.RequiresMedicalClearance(screenedBorderline)
     && !RegistrationRulesHelper.RequiresPreparationPlan(screenedGoodMatch),
-    "Medical-clearance and Not Recommended preparation-plan rules must remain independent.");
+    "Medical-clearance policy must require clearance for Not Recommended results or a health-screening flag while retaining the preparation-plan rule.");
+Check(RegistrationRulesHelper.MedicalClearanceReason(screenedGoodMatch)
+        == "Required because your health screening indicates medical clearance is needed before registration."
+      && RegistrationRulesHelper.MedicalClearanceReason(notRecommendedWithoutScreening)
+        == "Required by registration policy because your assessment result is Not Recommended."
+      && RegistrationRulesHelper.MedicalClearanceReason(notRecommendedWithScreening)
+        == "Required because your health screening indicates medical clearance is needed and registration policy requires it for a Not Recommended assessment result.",
+    "Medical-clearance reasons must distinguish health screening, assessment-result policy, and both reasons.");
 
 var priorActiveAssessment = new Assessment { IsActive = true };
 var failedRetake = new Assessment { IsActive = true };

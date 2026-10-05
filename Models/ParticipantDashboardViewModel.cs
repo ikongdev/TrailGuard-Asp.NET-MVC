@@ -8,6 +8,8 @@ namespace TrailGuard.Models
         public int PendingRegistrations { get; set; }
         public int TotalRegistrations { get; set; }
 
+        public List<ParticipantAttentionItem> AttentionItems { get; set; } = new();
+
 
         public List<Event> UpcomingEvents { get; set; } = new();
 
@@ -31,6 +33,26 @@ namespace TrailGuard.Models
         public int Rank { get; set; }
         public int TotalHikers { get; set; }
         public bool IsRanked { get; set; }
+    }
+
+    public enum ParticipantAttentionKind
+    {
+        Payment,
+        MedicalClearance,
+        AlternativeRecommendation
+    }
+
+    public sealed class ParticipantAttentionItem
+    {
+        public ParticipantAttentionKind Kind { get; init; }
+        public string Title { get; init; } = string.Empty;
+        public string Detail { get; init; } = string.Empty;
+        public string ActionLabel { get; init; } = string.Empty;
+        public int? RegistrationId { get; init; }
+        public int? EventId { get; init; }
+        public int? AssessmentId { get; init; }
+        internal DateTime SortDate { get; init; }
+        internal int StableId { get; init; }
     }
 
     public class LatestAssessmentResult

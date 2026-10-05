@@ -10,6 +10,16 @@
 
 <div class="pt-24 px-4 max-w-6xl mx-auto min-h-screen text-white pb-12">
 
+    @if (Model.ViewerType == ProfileViewerType.Organizer && !Model.IsOwner && !string.IsNullOrWhiteSpace(Model.BackUrl))
+    {
+        <div class="mb-6 scroll-mt-24">
+            <a href="@Model.BackUrl"
+               class="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors group focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded">
+                <i class="fa-solid fa-arrow-left group-hover:-translate-x-1 transition-transform" aria-hidden="true"></i>
+                Back
+            </a>
+        </div>
+    }
 
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 items-start lg:items-stretch">

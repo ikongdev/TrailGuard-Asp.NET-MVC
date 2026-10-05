@@ -78,12 +78,18 @@
                 <select id="statusFilter" data-custom-select data-custom-select-portal
                         data-cs-decorative-chevron="statusFilterChevron"
                         data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-4 py-3 rounded-full bg-black/20 border border-white/10 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                        data-cs-menu-class="overflow-x-hidden tg-status-filter-menu"
+                        data-cs-menu-width-class="w-64"
                         class="bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors w-full">
                     <option value="All" class="bg-surface-card">All Status</option>
                     <option value="Pending" class="bg-surface-card">Pending</option>
+                    <option value="Awaiting Payment" class="bg-surface-card">Awaiting Payment</option>
+                    <option value="For Payment Verification" class="bg-surface-card">For Payment Verification</option>
                     <option value="Accepted" class="bg-surface-card">Accepted</option>
+                    <option value="Alternative Recommended" class="bg-surface-card">Alternative Recommended</option>
                     <option value="Rejected" class="bg-surface-card">Rejected</option>
                     <option value="Cancelled" class="bg-surface-card">Cancelled</option>
+                    <option value="Voided" class="bg-surface-card">Voided</option>
                 </select>
                 <div id="statusFilterChevron" class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
                     <i class="fa-solid fa-chevron-down text-xs" aria-hidden="true"></i>
@@ -102,7 +108,6 @@
                     <option value="Good-Match" class="bg-surface-card">Good-Match</option>
                     <option value="Borderline" class="bg-surface-card">Borderline</option>
                     <option value="Not Recommended" class="bg-surface-card">Not Recommended</option>
-                    <option value="N/A" class="bg-surface-card">No Assessment</option>
                 </select>
                 <div id="assessmentFilterChevron" class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
                     <i class="fa-solid fa-chevron-down text-xs" aria-hidden="true"></i>
@@ -361,8 +366,7 @@
 
                 const matchesStatus = status === 'All' || statusValue === status;
 
-                const matchesAssessment = assessment === 'All' ||
-                    (assessment === 'N/A' ? assessmentValue === '' : assessmentValue === assessment);
+                const matchesAssessment = assessment === 'All' || assessmentValue === assessment;
 
                 const shouldShow = matchesSearch && matchesStatus && matchesAssessment;
                 li.style.display = shouldShow ? '' : 'none';
