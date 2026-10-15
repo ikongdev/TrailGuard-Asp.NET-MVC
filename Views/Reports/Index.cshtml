@@ -1,164 +1,86 @@
-@model TrailGuard.Controllers.ReportsViewModel
-@using TrailGuard.Controllers
+@model TrailGuard.Models.BusinessReportViewModel
+@using System.Text.Json
 @{
-    ViewData["Title"] = "Reports";
-    var categories = new[] { "Good Match", "Borderline", "Not Recommended" };
+    ViewData["Title"] = "Business Reports";
+    var report = Model.Report;
+    var chartJson = report is null ? "{}" : JsonSerializer.Serialize(BusinessReportChartPayload.From(report));
 }
 
 <div class="pt-24 px-4 max-w-7xl mx-auto min-h-screen text-white pb-12">
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+    <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5 mb-8">
         <div class="flex items-center gap-4">
-            <div class="w-14 h-14 rounded-full bg-linear-to-r from-blue-500 to-cyan-500 flex items-center justify-center shrink-0">
-                <i class="fa-solid fa-chart-line text-white text-2xl"></i>
-            </div>
+            <div class="w-14 h-14 rounded-full bg-accent/15 border border-accent/30 text-accent flex items-center justify-center shrink-0"><i class="fa-solid fa-chart-column text-2xl" aria-hidden="true"></i></div>
             <div>
-                <h1 class="text-2xl font-bold text-white">Model Validation Report</h1>
-                <p class="text-gray-400 text-sm">Prediction-vs-outcome reporting across every event</p>
+                <h1 class="text-2xl font-bold">Business &amp; Operational Reports</h1>
+                <p class="text-gray-400 text-sm mt-1">Admin-only reporting for events, registrations, payments, and operational follow-up.</p>
             </div>
         </div>
-        <div class="text-right">
-            <a asp-controller="Reports" asp-action="Export" class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full text-sm font-bold text-white bg-linear-to-r from-orange-500 to-purple-600 hover:opacity-90 transition-all">
-                <i class="fa-solid fa-download"></i> Export Retraining Data (CSV)
+        @if (report is not null)
+        {
+            <a id="reportPdfExport" asp-action="Export" asp-route-startDate="@Model.Filter.StartDate" asp-route-endDate="@Model.Filter.EndDate" asp-route-trailId="@Model.Filter.TrailId" asp-route-organizerId="@Model.Filter.OrganizerId"
+               class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-sm font-semibold bg-linear-to-r from-orange-500 via-pink-500 to-violet-500 hover:brightness-110 hover:scale-[1.02] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                <i class="fa-solid fa-file-pdf" aria-hidden="true"></i><span>Download PDF</span>
             </a>
-            <p class="text-xs text-gray-400 mt-2">
-                @Model.ExportIncludedCount included · @Model.ExportNonReadinessExcludedCount excluded as non-readiness · @Model.ExportIncompleteCaseKeys.Count excluded as incomplete data
-            </p>
-            @if (Model.ExportIncompleteCaseKeys.Any())
-            {
-                <p class="text-xs text-amber-300 mt-1">Investigate: @string.Join(", ", Model.ExportIncompleteCaseKeys)</p>
-            }
-        </div>
-    </div>
-
-    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 mb-8">
-        <h2 class="text-lg font-bold text-white mb-1"><i class="fa-solid fa-filter text-blue-400 mr-2"></i>Where the Data Comes From</h2>
-        <p class="text-gray-400 text-sm mb-5">A recorded outcome exists only for an assessed, registered, accepted participant after a completed event. Every drop-off below has no recorded outcome, so the collected data is skewed toward participants the system approved.</p>
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div class="bg-black/20 border border-white/10 rounded-xl p-4 text-center"><p class="text-3xl font-bold text-white">@Model.TotalAssessments</p><p class="text-gray-400 text-xs mt-1">Assessments Taken</p></div>
-            <div class="bg-black/20 border border-white/10 rounded-xl p-4 text-center"><p class="text-3xl font-bold text-white">@Model.TotalRegistrations</p><p class="text-gray-400 text-xs mt-1">Became Registrations</p></div>
-            <div class="bg-black/20 border border-white/10 rounded-xl p-4 text-center"><p class="text-3xl font-bold text-white">@Model.TotalAccepted</p><p class="text-gray-400 text-xs mt-1">Accepted</p></div>
-            <div class="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 text-center"><p class="text-3xl font-bold text-blue-400">@Model.TotalRecordedOutcomes</p><p class="text-gray-400 text-xs mt-1">Recorded Outcomes</p></div>
-        </div>
-    </div>
-
-    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 mb-8">
-        <h2 class="text-lg font-bold text-white mb-2">Model and UI-policy provenance</h2>
-        <p class="text-gray-400 text-sm mb-4">Outcome groupings are kept separate by stored model and UI-policy version. The binary decision is reported separately from the three UI labels.</p>
-        <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="text-gray-400"><th class="p-2 text-left">Model</th><th class="p-2 text-left">UI policy</th><th>Outcomes</th><th>UI labels</th><th>Binary decision</th></tr></thead><tbody>
-        @foreach (var group in Model.ModelPolicyGroups)
-        {
-            <tr class="border-t border-white/10"><td class="p-2">@group.ModelVersion</td><td class="p-2">@group.UiPolicyVersion</td><td class="text-center">@group.RecordedOutcomes</td><td class="text-center">@group.GoodMatch / @group.Borderline / @group.NotRecommended</td><td class="text-center">Yes @group.BinaryYes · No @group.BinaryNo</td></tr>
-        }
-        </tbody></table></div>
-        @if (Model.ModelPolicyGroups.Count > 1)
-        {
-            <p class="text-amber-300 text-sm mt-4">Aggregate outcome rates below are withheld because records span multiple model or UI-policy versions.</p>
         }
     </div>
 
-    @if (!Model.HasEnoughData)
+    <section aria-labelledby="report-filters" class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-5 mb-6">
+        <div class="flex items-baseline justify-between gap-4 mb-4"><div><h2 id="report-filters" class="font-semibold">Report filters</h2><p class="text-xs text-gray-400 mt-1">Event metrics use Event Date. Submission trend uses Registered At. Trail and organizer scope both cohorts.</p></div></div>
+        @if (Model.Errors.Count > 0)
+        {
+            <div role="alert" class="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">@string.Join(" ", Model.Errors)</div>
+        }
+        <form method="get" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+            <div class="min-w-0"><label for="reportStartDate" class="block text-sm text-gray-300">Start date</label><input id="reportStartDate" name="startDate" type="date" value="@Model.Filter.StartDate?.ToString("yyyy-MM-dd")" class="add-event-datetime block mt-1.5 w-full px-4 py-3 rounded-xl bg-black/20 border border-white/10 text-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent hover:bg-white/10 transition-colors text-sm" /></div>
+            <div class="min-w-0"><label for="reportEndDate" class="block text-sm text-gray-300">End date</label><input id="reportEndDate" name="endDate" type="date" value="@Model.Filter.EndDate?.ToString("yyyy-MM-dd")" class="add-event-datetime block mt-1.5 w-full px-4 py-3 rounded-xl bg-black/20 border border-white/10 text-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent hover:bg-white/10 transition-colors text-sm" /></div>
+            <div class="min-w-0"><label for="reportTrailFilter" class="block text-sm text-gray-300">Trail</label><div class="relative min-w-0 mt-1.5"><select id="reportTrailFilter" name="trailId" data-custom-select data-custom-select-portal data-cs-decorative-chevron="reportTrailFilterChevron" data-cs-menu-class="overflow-x-hidden tg-reports-filter-menu" data-cs-menu-width-class="w-64" data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-4 py-3 rounded-full bg-black/20 border border-white/10 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed" class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors"><option value="" class="bg-surface-card text-white">All trails</option>@foreach (var trail in Model.Trails) { <option value="@trail.Value" selected="@(trail.Value == Model.Filter.TrailId?.ToString() ? "selected" : null)" class="bg-surface-card text-white">@trail.Label</option> }</select><div id="reportTrailFilterChevron" class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400"><i class="fa-solid fa-chevron-down text-xs" aria-hidden="true"></i></div></div></div>
+            <div class="min-w-0"><label for="reportOrganizerFilter" class="block text-sm text-gray-300">Organizer</label><div class="relative min-w-0 mt-1.5"><select id="reportOrganizerFilter" name="organizerId" data-custom-select data-custom-select-portal data-cs-decorative-chevron="reportOrganizerFilterChevron" data-cs-menu-class="overflow-x-hidden tg-reports-filter-menu" data-cs-menu-width-class="w-64" data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-4 py-3 rounded-full bg-black/20 border border-white/10 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed" class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors"><option value="" class="bg-surface-card text-white">All organizers</option>@foreach (var organizer in Model.Organizers) { <option value="@organizer.Value" selected="@(organizer.Value == Model.Filter.OrganizerId ? "selected" : null)" class="bg-surface-card text-white">@organizer.Label</option> }</select><div id="reportOrganizerFilterChevron" class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400"><i class="fa-solid fa-chevron-down text-xs" aria-hidden="true"></i></div></div></div>
+            <div class="flex gap-2 min-w-0"><button type="submit" class="flex-1 rounded-full px-4 py-3 bg-accent hover:bg-accent/90 text-white text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-accent">Apply</button><a asp-action="Index" class="rounded-full px-4 py-3 text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-accent">Clear</a></div>
+        </form>
+    </section>
+
+    @if (report is null)
     {
-        <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-5 mb-8 flex items-start gap-3">
-            <i class="fa-solid fa-triangle-exclamation text-yellow-400 text-lg mt-0.5"></i>
-            <div>
-                <p class="text-yellow-300 font-semibold">Not enough recorded outcomes for reliable figures</p>
-                <p class="text-yellow-300/70 text-sm mt-1">Only @Model.TotalRecordedOutcomes recorded outcome@(Model.TotalRecordedOutcomes == 1 ? "" : "s") so far — below the @ReportsController.MinSampleSize sample size needed for future percentage and agreement statistics.</p>
-            </div>
-        </div>
+        <section class="bg-white/5 border border-white/10 rounded-xl p-8 text-center"><i class="fa-solid fa-circle-exclamation text-accent text-2xl" aria-hidden="true"></i><p class="mt-3 text-gray-300">Correct the filters to generate the report.</p></section>
     }
+    else
+    {
+        <section aria-label="Summary metrics" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-6">
+            @{ var cards = new[] { ("Total events", report.TotalEvents.ToString(), "fa-calendar-days"), ("Completed events", report.CompletedEvents.ToString(), "fa-circle-check"), ("Accepted registrations", report.AcceptedRegistrations.ToString(), "fa-user-check"), ("Unique registered participants", report.UniqueRegisteredParticipants.ToString(), "fa-users"), ("Closed-event completion rate", report.ClosedEventCompletionRate is null ? "—" : $"{report.ClosedEventCompletionRate}%", "fa-flag-checkered") }; }
+            @foreach (var card in cards) { <article class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-4"><i class="fa-solid @card.Item3 text-accent" aria-hidden="true"></i><p class="text-2xl font-bold mt-3">@card.Item2</p><p class="text-xs text-gray-400 mt-1">@card.Item1</p></article> }
+        </section>
+        <section aria-labelledby="report-graphs" class="mb-6"><h2 id="report-graphs" class="text-lg font-semibold mb-4">Graphs</h2><div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+            <article class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-4"><h3 class="font-medium">Registration submissions</h3><p class="text-xs text-gray-400 mt-1">Persisted attempts by Registered At; repeat attempts are included.</p><div class="h-64 mt-4"><canvas id="submissionTrend" aria-label="Registration submissions over time" role="img"></canvas><p id="submissionTrendEmpty" class="hidden h-full items-center justify-center text-center text-sm text-gray-400">No registration submissions match this scope.</p></div><p class="sr-only">@string.Join(", ", report.SubmissionTrend.Select(x => $"{x.Label}: {x.Count}"))</p></article>
+            <article class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-4"><h3 class="font-medium">Accepted registrations by trail</h3><p class="text-xs text-gray-400 mt-1">@(report.TrailChart.IsAggregated ? "Top 8 trails plus Other" : "All filtered trails"); full-scope total: @report.TrailChart.FullScopeAcceptedRegistrations. Every trail remains in Trail performance.</p><div class="h-64 mt-4"><canvas id="trailAccepted" aria-label="Accepted registrations by trail" role="img"></canvas><p id="trailAcceptedEmpty" class="hidden h-full items-center justify-center text-center text-sm text-gray-400">No accepted registrations match this scope.</p></div><p class="sr-only">@string.Join(", ", report.TrailChart.Entries.Select(x => $"{x.Label}: {x.Count}"))</p></article>
+            <article class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-4"><h3 class="font-medium">Event status distribution</h3><p class="text-xs text-gray-400 mt-1">Current stored statuses for filtered events.</p><div class="h-64 mt-4"><canvas id="eventStatuses" aria-label="Event status distribution" role="img"></canvas><p id="eventStatusesEmpty" class="hidden h-full items-center justify-center text-center text-sm text-gray-400">No events match this scope.</p></div><p class="sr-only">@string.Join(", ", report.EventStatusDistribution.Select(x => $"{x.Status}: {x.Count}"))</p></article>
+        </div></section>
 
-    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 mb-8">
-        <h2 class="text-lg font-bold text-white mb-4">Live calibration</h2>
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead><tr class="text-gray-400"><th class="p-2 text-left">Predicted band</th><th>Cases</th><th>Observed completion</th></tr></thead>
-                <tbody>
-                    @foreach (var b in Model.CalibrationBands)
-                    {
-                        <tr class="border-t border-white/10"><td class="p-2">@b.Label</td><td class="text-center">@b.Total</td><td class="text-center">@(b.HasEnoughData ? $"{b.CompletionRate:F1}%" : "—")</td></tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    </div>
+        <section aria-labelledby="trail-performance" class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-5 mb-6"><h2 id="trail-performance" class="text-lg font-semibold">Trail performance</h2><div class="mt-4 overflow-x-auto"><table class="w-full min-w-[46rem] text-sm"><thead class="text-left text-xs uppercase tracking-wide text-gray-400 border-b border-white/10"><tr><th class="pb-3 pr-4">Trail</th><th class="pb-3 pr-4">Events</th><th class="pb-3 pr-4">Completed</th><th class="pb-3 pr-4">Accepted</th><th class="pb-3">Avg. accepted / completed event</th></tr></thead><tbody class="divide-y divide-white/5">@if (report.TrailPerformance.Count == 0) { <tr><td colspan="5" class="py-5 text-gray-400">No events match this scope.</td></tr> } @foreach (var row in report.TrailPerformance) { <tr><td class="py-3 pr-4 font-medium">@row.Trail</td><td class="py-3 pr-4">@row.TotalEvents</td><td class="py-3 pr-4">@row.CompletedEvents</td><td class="py-3 pr-4">@row.AcceptedRegistrations</td><td class="py-3">@(row.AverageAcceptedPerCompletedEvent?.ToString("0.00") ?? "—")</td></tr> }</tbody></table></div><p class="text-xs text-gray-400 mt-3">The average uses accepted registrations on Completed events only and includes completed events with zero registrations in its denominator.</p></section>
 
-    <div class="grid lg:grid-cols-2 gap-6 mb-8">
-        <div class="bg-red-500/5 border border-red-500/30 rounded-3xl p-6">
-            <h2 class="font-bold text-red-300">Safety-critical errors</h2>
-            <p class="text-sm text-gray-400">Good Match predictions that did not complete.</p>
-            <p class="text-3xl font-bold mt-3">@Model.GoodMatchSafety.NotCompleted <span class="text-sm text-gray-400">of @Model.GoodMatchSafety.Total</span></p>
-            <p class="text-xs text-gray-400">@(Model.GoodMatchSafety.HasEnoughData ? $"{100 - Model.GoodMatchSafety.CompletionRate:F1}% did not complete" : "Rate unavailable below 20 cases")</p>
-        </div>
-        <div class="bg-white/5 border border-white/10 rounded-3xl p-6">
-            <h2 class="font-bold">Non-completion reasons</h2>
-            @foreach (var r in Model.NonCompletionReasons)
-            {
-                <p class="text-sm text-gray-300 mt-2">@r.Reason: @r.Count</p>
-            }
-            @if (!Model.NonCompletionReasons.Any())
-            {
-                <p class="text-sm text-gray-500 mt-2">No non-completions recorded.</p>
-            }
-        </div>
-    </div>
+        <section aria-labelledby="event-performance" class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-5 mb-6"><h2 id="event-performance" class="text-lg font-semibold">Event performance</h2><div class="mt-4 overflow-x-auto"><table class="w-full min-w-[62rem] text-sm"><thead class="text-left text-xs uppercase tracking-wide text-gray-400 border-b border-white/10"><tr><th class="pb-3 pr-4">Event / frozen trail</th><th class="pb-3 pr-4">Organizer</th><th class="pb-3 pr-4">Date</th><th class="pb-3 pr-4">Status</th><th class="pb-3 pr-4">Capacity</th><th class="pb-3 pr-4">Accepted</th><th class="pb-3">Active occupied slots</th></tr></thead><tbody class="divide-y divide-white/5">@if (report.EventPerformance.Count == 0) { <tr><td colspan="7" class="py-5 text-gray-400">No events match this scope.</td></tr> } @foreach (var row in report.EventPerformance) { <tr><td class="py-3 pr-4"><div class="font-medium">@row.EventTitle</div><div class="text-xs text-gray-400">@row.Trail</div></td><td class="py-3 pr-4">@row.Organizer</td><td class="py-3 pr-4 whitespace-nowrap">@row.EventDate.ToString("MMM d, yyyy")</td><td class="py-3 pr-4">@row.Status</td><td class="py-3 pr-4">@row.Capacity</td><td class="py-3 pr-4">@row.AcceptedRegistrations</td><td class="py-3">@row.ActiveOccupiedSlots @(row.OccupancyPercent is null ? "(—)" : $"({row.OccupancyPercent:0.#}%)")</td></tr> }</tbody></table></div><p class="text-xs text-gray-400 mt-3">Active occupancy uses the latest attempt and the existing active-status capacity policy. Cancelled and Voided never consume slots; event cancellation also closes occupancy.</p></section>
 
-    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 mb-8">
-        <h2 class="font-bold mb-3">Predicted category against actual completion</h2>
-        <table class="w-full text-center text-sm">
-            <thead><tr class="text-gray-400"><th></th><th>Completed</th><th>Did not complete</th></tr></thead>
-            <tbody>
-                @for (var i = 0; i < 3; i++)
-                {
-                    <tr class="border-t border-white/10"><td class="p-2 text-left">@categories[i]</td><td>@Model.ConfusionMatrix[i, 0]</td><td>@Model.ConfusionMatrix[i, 1]</td></tr>
-                }
-            </tbody>
-        </table>
-    </div>
-
-    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 mb-8">
-        <h2 class="font-bold mb-3">Threshold validation</h2>
-        <p class="text-sm text-gray-400 mb-3">Live outcomes at the 0.30 and 0.80 operating points.</p>
-        @foreach (var b in Model.ThresholdBands)
-        {
-            <p class="text-sm text-gray-300">@b.Label: @b.Completed completed of @b.Total @(b.HasEnoughData ? $"({b.CompletionRate:F1}%)" : "(rate unavailable below 20 cases)")</p>
-        }
-    </div>
-
-    <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 mb-8">
-        <h2 class="text-lg font-bold text-white mb-1">By Trail Class</h2>
-        <p class="text-gray-400 text-sm mb-4">Recorded completion outcomes by a model feature.</p>
-        @if (Model.ByTrailClass.Any())
-        {
-            <div class="space-y-2">
-                @foreach (var group in Model.ByTrailClass)
-                {
-                    <div class="bg-black/20 border border-white/10 rounded-xl p-3">
-                        <div class="flex items-center justify-between"><span class="text-white text-sm font-medium">@group.GroupName</span><span class="text-gray-500 text-xs">n = @group.Stats.Total</span></div>
-                        <p class="text-xs text-gray-400 mt-1">Completed: @group.CompletedCount · Did not complete: @group.NotCompletedCount</p>
-                        <p class="text-xs text-gray-500 mt-1">@(group.Stats.HasEnoughData ? $"Completion rate: {(double)group.CompletedCount / group.Stats.Total * 100:F1}%" : "Rate unavailable below 20 cases.")</p>
-                    </div>
-                }
-            </div>
-        }
-        else
-        {
-            <p class="text-gray-500 text-sm">No recorded outcomes yet.</p>
-        }
-    </div>
-
-    <div class="bg-red-500/5 backdrop-blur-xl border border-red-500/20 rounded-3xl p-6">
-        <h2 class="text-lg font-bold text-white mb-1">Not-Recommended Acknowledgement Pathway</h2>
-        <p class="text-gray-400 text-sm mb-4">The system never blocks registration on a Not Recommended result; it requires acknowledgement and organizer review. @Model.NotRecommendedResolvedCount recorded outcome@(Model.NotRecommendedResolvedCount == 1 ? "" : "s") came through this pathway.</p>
-        @if (Model.NotRecommendedResolvedCount > 0)
-        {
-            <div class="grid grid-cols-2 gap-4">
-                <div class="bg-green-500/10 border border-green-500/30 rounded-xl p-4 text-center"><p class="text-2xl font-bold text-green-400">@Model.NotRecommendedCompletedCount</p><p class="text-gray-400 text-xs mt-1">Completed</p></div>
-                <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 text-center"><p class="text-2xl font-bold text-yellow-400">@Model.NotRecommendedNotCompletedCount</p><p class="text-gray-400 text-xs mt-1">Did not complete</p></div>
-            </div>
-        }
-        else
-        {
-            <p class="text-gray-500 text-sm">No participant who received a Not Recommended result has a recorded outcome yet.</p>
-        }
-    </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6"><section aria-labelledby="registration-statuses" class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-5"><h2 id="registration-statuses" class="text-lg font-semibold">Registration status breakdown</h2><div class="mt-4 space-y-2">@foreach (var row in report.StatusBreakdown) { <div class="flex justify-between gap-4 text-sm"><span class="@(row.IsUnexpected ? "text-amber-300" : "text-gray-300")">@row.Status</span><span class="font-semibold">@row.Count</span></div> }</div><p class="text-xs text-gray-400 mt-4">All eight persisted statuses are shown, including zeros. Unexpected legacy statuses are explicit.</p></section>
+            <section aria-labelledby="operations" class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-5"><h2 id="operations" class="text-lg font-semibold">Payment &amp; operational summary</h2><dl class="mt-4 grid grid-cols-2 gap-3 text-sm"><div><dt class="text-gray-400">Verified paid</dt><dd class="font-semibold text-lg">@report.VerifiedPaid</dd></div><div><dt class="text-gray-400">Awaiting payment</dt><dd class="font-semibold text-lg">@report.AwaitingPayment</dd></div><div><dt class="text-gray-400">Awaiting verification</dt><dd class="font-semibold text-lg">@report.AwaitingPaymentVerification</dd></div><div><dt class="text-gray-400">Legacy payment exceptions</dt><dd class="font-semibold text-lg">@report.PaymentDataExceptions</dd></div><div><dt class="text-gray-400">Upcoming / Completed / Cancelled</dt><dd class="font-semibold">@report.UpcomingEvents / @report.CompletedEvents / @report.CancelledEvents</dd></div><div><dt class="text-gray-400">Manual closure needed</dt><dd class="font-semibold">@report.ManualClosureEvents</dd></div></dl><p class="text-xs text-gray-400 mt-4">Payment counts use workflow-consistent latest attempts; paid records outside Accepted are listed as legacy exceptions. Revenue is not available because payments have no verified structured amount.</p></section></div>
+    }
 </div>
+
+@section Scripts {
+<script id="reportChartData" type="application/json">@Html.Raw(chartJson)</script>
+<script src="~/js/business-reports-charts.js" asp-append-version="true"></script>
+<script>
+(() => {
+    const exportButton = document.getElementById('reportPdfExport');
+    if (exportButton) exportButton.addEventListener('click', async event => {
+        event.preventDefault();
+        if (!window.TrailGuardActionPending.begin(exportButton, 'Preparing PDF…')) return;
+        try {
+            const response = await fetch(exportButton.href, { credentials: 'same-origin' });
+            if (!response.ok) throw new Error(await response.text());
+            const link = document.createElement('a'); link.href = URL.createObjectURL(await response.blob()); link.download = 'TrailGuard_Business_Report.pdf'; document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(link.href);
+        } catch (error) { window.TrailGuardToast?.error(error.message || 'The PDF could not be generated. Please try again.'); }
+        finally { window.TrailGuardActionPending.restore(exportButton); }
+    });
+    window.TrailGuardBusinessReportCharts?.initialize(document.getElementById('reportChartData'));
+})();
+</script>
+}

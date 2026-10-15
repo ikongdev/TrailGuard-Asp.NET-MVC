@@ -12,8 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using SkiaSharp;
 using TrailGuard.Controllers;
 using TrailGuard.Models;
 using TrailGuard.Services;
@@ -35,6 +34,45 @@ UploadStorageOptions Options(string provider = "Local", params (string Key, stri
         ["Storage:Supabase:Url"] = "https://example.supabase.co", ["Storage:Supabase:SecretKey"] = "sb_secret_fixture_only" };
     foreach (var pair in overrides) values[pair.Key] = pair.Value;
     return UploadStorageOptions.Resolve(new ConfigurationBuilder().AddInMemoryCollection(values).Build(), env);
+}
+byte[] EncodeImage(SKEncodedImageFormat format)
+{
+    using var bitmap = new SKBitmap(new SKImageInfo(2, 2));
+    using var image = SKImage.FromBitmap(bitmap);
+    using var data = image.Encode(format, 100);
+    return data?.ToArray() ?? throw new InvalidOperationException("Unable to create image fixture.");
+}
+byte[] OversizedPngHeader(int width, int height)
+{
+    var bytes = new List<byte>(45) { 137, 80, 78, 71, 13, 10, 26, 10 };
+    var chunk = new byte[17];
+    System.Text.Encoding.ASCII.GetBytes("IHDR", chunk);
+    System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(chunk.AsSpan(4, 4), width);
+    System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(chunk.AsSpan(8, 4), height);
+    chunk[12] = 8;
+    chunk[13] = 2;
+    bytes.AddRange([0, 0, 0, 13]);
+    bytes.AddRange(chunk);
+    var crc = new byte[4];
+    System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(crc, Crc32(chunk));
+    bytes.AddRange(crc);
+    var idat = new byte[] { 73, 68, 65, 84, 120, 156, 3, 0, 0, 0, 0, 1 };
+    bytes.AddRange([0, 0, 0, 8]);
+    bytes.AddRange(idat);
+    System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(crc, Crc32(idat));
+    bytes.AddRange(crc);
+    bytes.AddRange([0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130]);
+    return bytes.ToArray();
+}
+uint Crc32(ReadOnlySpan<byte> data)
+{
+    var crc = uint.MaxValue;
+    foreach (var value in data)
+    {
+        crc ^= value;
+        for (var bit = 0; bit < 8; bit++) crc = (crc >> 1) ^ ((crc & 1) == 0 ? 0 : 0xEDB88320u);
+    }
+    return ~crc;
 }
 try
 {
@@ -142,13 +180,18 @@ try
         (System.Text.Encoding.ASCII.GetBytes("RIFF1234WEBP"), "photo.webp", VerifiedFileType.Webp) })
         Check(await DocumentUploadValidator.ValidateAsync(Form(sample.Bytes, sample.Name)) == sample.Type, "Existing document format lost.");
     await Throws(() => UploadBytes.ReadAsync(new MemoryStream(new byte[UploadStorageOptions.MaxFileBytes + 1])), "Bounded read exceeded limit.");
-    using (var picture = new Image<Rgba32>(2, 2))
-    {
-        using var buffer = new MemoryStream();
-        picture.SaveAsPng(buffer);
-        Check((await TrailImageUploadValidator.ValidateAsync(Form(buffer.ToArray(), "../../bad.exe"))).Image?.Extension == ".png", "Decoded format must determine image extension.");
-    }
-    Check((await TrailImageUploadValidator.ValidateAsync(Form([0x89, 0x50, 0x4e, 0x47], "fake.png"))).Image == null, "Corrupt trail image accepted.");
+    var png = EncodeImage(SKEncodedImageFormat.Png);
+    var jpeg = EncodeImage(SKEncodedImageFormat.Jpeg);
+    Check((await TrailImageUploadValidator.ValidateAsync(Form(png, "../../bad.exe"))).Image?.Extension == ".png", "Decoded format must determine PNG extension.");
+    Check((await TrailImageUploadValidator.ValidateAsync(Form(jpeg, "photo.jpg"))).Image?.Extension == ".jpg", "Valid JPEG rejected.");
+    var gif = Convert.FromBase64String("R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==");
+    Check((await TrailImageUploadValidator.ValidateAsync(Form(gif, "photo.png"))).Image == null, "Unsupported trail image format accepted.");
+    Check((await TrailImageUploadValidator.ValidateAsync(Form([], "empty.png"))).Image == null, "Empty trail image accepted.");
+    Check((await TrailImageUploadValidator.ValidateAsync(Form([0], "oversized.png", TrailImageUploadValidator.MaxImageBytes + 1))).Image == null, "Oversized trail image accepted.");
+    Check((await TrailImageUploadValidator.ValidateAsync(Form(jpeg[..3], "truncated.jpg"))).Image == null, "Truncated JPEG accepted.");
+    Check((await TrailImageUploadValidator.ValidateAsync(Form(png[..8], "truncated.png"))).Image == null, "Truncated PNG accepted.");
+    var oversizedDimensions = await TrailImageUploadValidator.ValidateAsync(Form(OversizedPngHeader(8000, 5001), "oversized-dimensions.png"));
+    Check(oversizedDimensions.Image == null && oversizedDimensions.Error == "Image dimensions are too large.", "Pixel limit was not enforced before full decode.");
 
     Check(typeof(DocumentsController).GetCustomAttributes(typeof(AuthorizeAttribute), true).Length == 1, "Document controller lost authorization filter.");
     var registration = new EventRegistration { Id = 1, UserId = "owner", Event = new Event { OrganizerId = "organizer" }, PaymentReceiptUrl = localReference };

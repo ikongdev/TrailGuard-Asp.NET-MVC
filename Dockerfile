@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0-noble@sha256:28e7a5db4f5d40cc805acd939a065668ba2e17d697a09153054dce98db240d0e AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0.402-noble@sha256:3a48280a9a7c6276c3eeaba1efa6a08820f18c84fb9e6274c187719ecfaf9fbc AS build
 WORKDIR /src
 COPY TrailGuard.csproj ./
 RUN dotnet restore TrailGuard.csproj
@@ -6,7 +6,7 @@ COPY . ./
 RUN dotnet publish TrailGuard.csproj --configuration Release --no-restore --output /app/publish /p:UseAppHost=false
 
 # The non-chiseled Noble runtime includes ICU and tzdata.
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble@sha256:ed6a2d26633ddcd3d42a1d9f9866214ecbbc11ba6ac5e0e843da02c13da24072
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.13-noble@sha256:e4b445f93a5deeb6bd7de300febceb8dd7e481ac65ccf1b474eddc3642a3010f
 WORKDIR /app
 ENV ASPNETCORE_HTTP_PORTS=8080 \
     ASPNETCORE_ENVIRONMENT=Production \

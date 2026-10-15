@@ -1101,6 +1101,12 @@
   .min-w-32 {
     min-width: calc(var(--spacing) * 32);
   }
+  .min-w-\[46rem\] {
+    min-width: 46rem;
+  }
+  .min-w-\[62rem\] {
+    min-width: 62rem;
+  }
   .flex-1 {
     flex: 1;
   }
@@ -1297,6 +1303,9 @@
   }
   .items-center {
     align-items: center;
+  }
+  .items-end {
+    align-items: flex-end;
   }
   .items-start {
     align-items: flex-start;
@@ -1782,12 +1791,6 @@
     border-color: color-mix(in srgb, #fff 20%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
       border-color: color-mix(in oklab, var(--color-white) 20%, transparent);
-    }
-  }
-  .border-yellow-500\/30 {
-    border-color: color-mix(in srgb, oklch(79.5% 0.184 86.047) 30%, transparent);
-    @supports (color: color-mix(in lab, red, red)) {
-      border-color: color-mix(in oklab, var(--color-yellow-500) 30%, transparent);
     }
   }
   .border-yellow-500\/40 {
@@ -2917,12 +2920,6 @@
   }
   .text-yellow-300 {
     color: var(--color-yellow-300);
-  }
-  .text-yellow-300\/70 {
-    color: color-mix(in srgb, oklch(90.5% 0.182 98.111) 70%, transparent);
-    @supports (color: color-mix(in lab, red, red)) {
-      color: color-mix(in oklab, var(--color-yellow-300) 70%, transparent);
-    }
   }
   .text-yellow-400 {
     color: var(--color-yellow-400);
@@ -4117,6 +4114,9 @@
     .lg\:grid-cols-4 {
       grid-template-columns: repeat(4, minmax(0, 1fr));
     }
+    .lg\:grid-cols-5 {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
     .lg\:grid-cols-\[minmax\(0\,1\.8fr\)_minmax\(0\,1\.4fr\)_minmax\(0\,1\.4fr\)_minmax\(0\,1fr\)_minmax\(0\,1fr\)_minmax\(0\,0\.8fr\)_minmax\(0\,0\.8fr\)\] {
       grid-template-columns: minmax(0,1.8fr) minmax(0,1.4fr) minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr) minmax(0,0.8fr) minmax(0,0.8fr);
     }
@@ -4143,6 +4143,9 @@
     }
     .lg\:items-center {
       align-items: center;
+    }
+    .lg\:items-start {
+      align-items: flex-start;
     }
     .lg\:items-stretch {
       align-items: stretch;
@@ -4642,6 +4645,14 @@
   scrollbar-width: none;
 }
 .tg-status-filter-menu::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+.tg-reports-filter-menu.tg-custom-select-scrollbar {
+  scrollbar-width: none;
+}
+.tg-reports-filter-menu.tg-custom-select-scrollbar::-webkit-scrollbar {
   display: none;
   width: 0;
   height: 0;

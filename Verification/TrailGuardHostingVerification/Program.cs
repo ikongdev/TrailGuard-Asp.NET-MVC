@@ -1,4 +1,5 @@
 using System.Net;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Diagnostics;
 using System.Text;
@@ -8,6 +9,7 @@ using Azure.Core.Pipeline;
 using Azure.Storage.Blobs;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
@@ -20,6 +22,20 @@ using Microsoft.Extensions.Logging;
 using TrailGuard.Services;
 
 var assertions = 0;
+
+static void ReportAssembly(string name, Assembly assembly)
+{
+    var file = FileVersionInfo.GetVersionInfo(assembly.Location);
+    var informationalVersion = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "(none)";
+    Console.WriteLine($"{name}: path={assembly.Location}; file={file.FileVersion}; product={file.ProductVersion}; informational={informationalVersion}");
+}
+
+Console.WriteLine($"Runtime: {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}; Environment.Version={Environment.Version}");
+ReportAssembly("DataProtection.Core", typeof(KeyManagementOptions).Assembly);
+ReportAssembly("DataProtection.Extensions", typeof(DataProtectionProvider).Assembly);
+ReportAssembly("System.Security.Cryptography.Xml", Assembly.Load("System.Security.Cryptography.Xml"));
+ReportAssembly("System.Security.Cryptography.Pkcs", Assembly.Load("System.Security.Cryptography.Pkcs"));
+
 void Check(bool condition, string message)
 {
     if (!condition)

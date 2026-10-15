@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Http;
-using SixLabors.ImageSharp;
+using SkiaSharp;
 
 namespace TrailGuard.Services;
 
@@ -40,27 +40,42 @@ public static class TrailImageUploadValidator
 
         try
         {
-            await using var imageStream = new MemoryStream(bytes);
-            var imageInfo = await Image.IdentifyAsync(imageStream);
-            if ((long)imageInfo.Width * imageInfo.Height > MaxImagePixels)
+            using var data = SKData.CreateCopy(bytes);
+            using var codec = SKCodec.Create(data);
+            if (codec == null)
+            {
+                return (null, "Image files must be valid JPG or PNG images.");
+            }
+
+            var extension = codec.EncodedFormat switch
+            {
+                SKEncodedImageFormat.Jpeg => ".jpg",
+                SKEncodedImageFormat.Png => ".png",
+                _ => null
+            };
+
+            if (extension == null)
+            {
+                return (null, "Image files must be valid JPG or PNG images.");
+            }
+
+            var imageInfo = codec.Info;
+            if (imageInfo.Width <= 0 || imageInfo.Height <= 0
+                || (long)imageInfo.Width * imageInfo.Height > MaxImagePixels)
             {
                 return (null, "Image dimensions are too large.");
             }
 
-            imageStream.Position = 0;
-            using var image = await Image.LoadAsync(imageStream);
-            var extension = image.Metadata.DecodedImageFormat?.Name switch
+            using var bitmap = new SKBitmap();
+            if (!bitmap.TryAllocPixels(imageInfo)
+                || codec.GetPixels(bitmap.Info, bitmap.GetPixels()) != SKCodecResult.Success)
             {
-                "JPEG" => ".jpg",
-                "PNG" => ".png",
-                _ => null
-            };
+                return (null, "Image files must be valid JPG or PNG images.");
+            }
 
-            return extension == null
-                ? (null, "Image files must be valid JPG or PNG images.")
-                : (new ValidatedTrailImage(bytes, extension), null);
+            return (new ValidatedTrailImage(bytes, extension), null);
         }
-        catch (ImageFormatException)
+        catch (ArgumentException)
         {
             return (null, "Image files must be valid JPG or PNG images.");
         }

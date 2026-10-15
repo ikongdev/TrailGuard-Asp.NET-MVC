@@ -15,8 +15,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using OptionsFactory = Microsoft.Extensions.Options.Options;
 using Npgsql;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using SkiaSharp;
 using TrailGuard.Controllers;
 using TrailGuard.Data;
 using TrailGuard.Models;
@@ -293,7 +292,13 @@ static class StorageConcurrencyScenarios
     private static UpdateProfileViewModel ProfileInput(string email, string name, byte[] bytes) => new() { FirstName = name, LastName = "Fixture", Email = email,
         Birthday = new DateOnly(1995, 1, 1), Gender = ParticipantDemographics.PreferNotToSay, ProfileImage = Form(bytes, "profile.png") };
     private static IFormFile Form(byte[] bytes, string name) => new FormFile(new MemoryStream(bytes), 0, bytes.Length, "upload", name);
-    private static byte[] Png() { using var image = new Image<Rgba32>(2, 2); using var stream = new MemoryStream(); image.SaveAsPng(stream); return stream.ToArray(); }
+    private static byte[] Png()
+    {
+        using var bitmap = new SKBitmap(new SKImageInfo(2, 2));
+        using var image = SKImage.FromBitmap(bitmap);
+        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+        return data?.ToArray() ?? throw new InvalidOperationException("Unable to create PNG fixture.");
+    }
     private static bool JsonSuccess(IActionResult result) => JsonSerializer.SerializeToElement(((JsonResult)result).Value).GetProperty("success").GetBoolean();
     private static void Configure(Controller controller, string userId, string role)
     {
