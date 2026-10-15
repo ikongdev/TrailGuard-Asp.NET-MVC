@@ -23,7 +23,7 @@ namespace TrailGuard.Models
 
         [Display(Name = "Phone Number")]
         [Phone(ErrorMessage = "Invalid phone number.")]
-        public string PhoneNumber { get; set; } = string.Empty;
+        public string? PhoneNumber { get; set; }
 
 
 
@@ -34,7 +34,7 @@ namespace TrailGuard.Models
 
         [Display(Name = "Facebook Link")]
         [Url(ErrorMessage = "Invalid URL format.")]
-        public string FacebookLink { get; set; } = string.Empty;
+        public string? FacebookLink { get; set; }
 
         [Display(Name = "Bio")]
         [MaxLength(500, ErrorMessage = "Bio cannot exceed 500 characters.")]

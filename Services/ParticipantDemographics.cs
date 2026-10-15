@@ -15,6 +15,36 @@ public static class ParticipantDemographics
 
     public static bool IsValidBirthday(DateOnly birthday, DateOnly today) => birthday <= today;
 
+    public const int MinimumParticipationAge = 18;
+    public const int MaximumParticipationAge = 60;
+    public const string ParticipationAgePolicyMessage = "TrailGuard's participation policy is for ages 18 through 60, measured in completed years.";
+
+    public static bool IsParticipationAge(int? completedYears) =>
+        completedYears is >= MinimumParticipationAge and <= MaximumParticipationAge;
+
+    public static bool IsParticipationAge(DateOnly birthday, DateOnly today) =>
+        IsValidBirthday(birthday, today) && IsParticipationAge(CalculateCompletedYears(birthday, today));
+
+    /// <summary>Returns the oldest birthday eligible today, including the February 29 convention.</summary>
+    public static DateOnly OldestEligibleBirthday(DateOnly today)
+    {
+        var birthday = today.AddYears(-(MaximumParticipationAge + 1)).AddDays(1);
+        // DateOnly.AddYears maps Feb 29 to Feb 28. Move forward when that
+        // candidate has already reached its February 28 anniversary this year.
+        while (!IsParticipationAge(birthday, today)) birthday = birthday.AddDays(1);
+        return birthday;
+    }
+
+    /// <summary>Returns the youngest birthday eligible today.</summary>
+    public static DateOnly YoungestEligibleBirthday(DateOnly today) => today.AddYears(-MinimumParticipationAge);
+
+    public static string? ValidateParticipationBirthday(DateOnly? birthday, DateOnly today)
+    {
+        if (!birthday.HasValue) return null;
+        if (!IsValidBirthday(birthday.Value, today)) return "Birthday cannot be in the future.";
+        return IsParticipationAge(birthday.Value, today) ? null : ParticipationAgePolicyMessage;
+    }
+
     /// <summary>
     /// Calculates completed years. A February 29 birthday uses February 28 as its anniversary in non-leap years.
     /// </summary>

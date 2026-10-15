@@ -1283,6 +1283,9 @@
   .flex-col {
     flex-direction: column;
   }
+  .flex-col-reverse {
+    flex-direction: column-reverse;
+  }
   .flex-row {
     flex-direction: row;
   }
@@ -3404,6 +3407,14 @@
         border-color: color-mix(in oklab, var(--color-white) 20%, transparent);
       }
     }
+    .hover\:border-white\/30:hover {
+      border-color: color-mix(in srgb, #fff 30%, transparent);
+    }
+    @supports (color: color-mix(in lab, red, red)) {
+      .hover\:border-white\/30:hover {
+        border-color: color-mix(in oklab, var(--color-white) 30%, transparent);
+      }
+    }
     .hover\:bg-accent\/10:hover {
       background-color: color-mix(in srgb, #8b5cf6 10%, transparent);
     }
@@ -4793,6 +4804,14 @@
 }
 .tg-event-participants-scroll::-webkit-scrollbar-thumb:hover {
   background: rgb(139 92 246 / 0.85);
+}
+.tg-settings-consent-scroll {
+  scrollbar-width: none;
+}
+.tg-settings-consent-scroll::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 .add-account-input:-webkit-autofill, .add-account-input:-webkit-autofill:hover, .add-account-input:-webkit-autofill:focus, .add-account-input:-webkit-autofill:active {
   -webkit-text-fill-color: #ffffff;

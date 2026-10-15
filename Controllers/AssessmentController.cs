@@ -91,9 +91,9 @@ namespace TrailGuard.Controllers
                 return RedirectToAction("Index", "Settings");
             }
 
-            if (input.Age is < 18 or > 60)
+            if (!ParticipantDemographics.IsParticipationAge(input.Age))
             {
-                TempData["Error"] = "Your current age must be between 18 and 60 to complete an assessment. You can update your Birthday in Settings.";
+                TempData["Error"] = "Your profile Birthday is outside TrailGuard's participation age policy (18 through 60 completed years), so an assessment is unavailable.";
                 return RedirectToAction("Index", "Settings");
             }
 
@@ -141,9 +141,9 @@ namespace TrailGuard.Controllers
             {
                 ModelState.AddModelError(string.Empty, $"{demographics.Error} Use Settings to provide your demographics.");
             }
-            else if (input.Age is < 18 or > 60)
+            else if (!ParticipantDemographics.IsParticipationAge(input.Age))
             {
-                ModelState.AddModelError(nameof(input.Age), "Your current age must be between 18 and 60 to complete an assessment.");
+                ModelState.AddModelError(nameof(input.Age), "Your profile Birthday is outside TrailGuard's participation age policy (18 through 60 completed years).");
             }
 
             if (!input.ConsentGiven || !input.DataPrivacyConsent)

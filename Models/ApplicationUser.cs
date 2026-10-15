@@ -24,6 +24,12 @@ namespace TrailGuard.Models
         [MaxLength(20)]
         public string? Gender { get; set; }
 
+        // Profile consent is independent from the assessment acknowledgement.  A null
+        // value deliberately represents an existing account that has not yet agreed.
+        [MaxLength(100)]
+        public string? ParticipantProfileConsentVersion { get; set; }
+        public DateTime? ParticipantProfileConsentedAtUtc { get; set; }
+
 
 
 

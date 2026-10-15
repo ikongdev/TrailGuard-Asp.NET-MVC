@@ -49,6 +49,8 @@ namespace TrailGuard.Data
                 "\"Gender\" IS NULL OR \"Gender\" IN ('Male', 'Female', 'Prefer not to say')"));
             builder.Entity<ApplicationUser>().Property(user => user.Birthday).HasColumnType("date");
             builder.Entity<ApplicationUser>().Property(user => user.Gender).HasMaxLength(20);
+            builder.Entity<ApplicationUser>().Property(user => user.ParticipantProfileConsentVersion).HasMaxLength(100);
+            builder.Entity<ApplicationUser>().Property(user => user.ParticipantProfileConsentedAtUtc).HasColumnType("timestamp with time zone");
             builder.Entity<IdentityRole>().ToTable("Roles");
             builder.Entity<IdentityUserRole<string>>().ToTable("UserRoles");
             builder.Entity<IdentityUserClaim<string>>().ToTable("UserClaims");

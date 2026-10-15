@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Hosting;
 using TrailGuard.Models;
 using TrailGuard.Services;
 using System.IO;
@@ -46,23 +45,7 @@ namespace TrailGuard.Controllers
                 return RedirectToAction("Login", "Account");
             }
 
-
-
-
-
-
             var integrity = OperationalRolePolicy.Evaluate(await _userManager.GetRolesAsync(user));
-            ViewBag.Role = integrity.Status switch
-            {
-                RoleIntegrityStatus.Conflict => "Role conflict",
-                RoleIntegrityStatus.Missing => "Role missing",
-                _ => integrity.SingleRole
-            };
-            ViewBag.RoleNeedsAttention = integrity.Status is RoleIntegrityStatus.Conflict or RoleIntegrityStatus.Missing;
-            ViewBag.IsParticipant = integrity.Status == RoleIntegrityStatus.Participant;
-            ViewBag.DateJoined = user.DateCreated.ToString("MMM dd, yyyy");
-            ViewBag.IsActive = user.IsActive;
-
             var model = new UpdateProfileViewModel
             {
                 FirstName = user.FirstName,
@@ -76,6 +59,8 @@ namespace TrailGuard.Controllers
                 Birthday = integrity.Status == RoleIntegrityStatus.Participant ? user.Birthday : null,
                 Gender = integrity.Status == RoleIntegrityStatus.Participant ? user.Gender : null
             };
+
+            await PopulateIndexViewDataAsync(user);
 
             return View(model);
         }
@@ -109,9 +94,10 @@ namespace TrailGuard.Controllers
             }
             else
             {
-                if (model.Birthday.HasValue && !ParticipantDemographics.IsValidBirthday(model.Birthday.Value, _philippineClock.Today))
+                var birthdayError = ParticipantDemographics.ValidateParticipationBirthday(model.Birthday, _philippineClock.Today);
+                if (birthdayError is not null)
                 {
-                    ModelState.AddModelError(nameof(model.Birthday), "Birthday cannot be in the future.");
+                    ModelState.AddModelError(nameof(model.Birthday), birthdayError);
                 }
 
                 if (!string.IsNullOrWhiteSpace(model.Gender) && !ParticipantDemographics.IsValidGender(model.Gender))
@@ -120,21 +106,41 @@ namespace TrailGuard.Controllers
                 }
             }
 
-
-
-
-
-
-
             if (string.IsNullOrWhiteSpace(model.PhoneNumber))
             {
+                model.PhoneNumber = null;
+                // Whitespace is the optional value for non-participants, but must
+                // receive one clear participant-specific error rather than a phone-format error.
                 ModelState.Remove(nameof(model.PhoneNumber));
+                if (isParticipant)
+                {
+                    ModelState.AddModelError(nameof(model.PhoneNumber), "Phone Number is required.");
+                }
             }
 
             if (string.IsNullOrWhiteSpace(model.FacebookLink))
             {
+                model.FacebookLink = null;
+                // An empty optional value is valid; preserve all nonempty validation errors.
                 ModelState.Remove(nameof(model.FacebookLink));
             }
+
+            // This check is intentionally before image inspection/upload and profile mutation.
+            // A browser checkbox or a stale page cannot substitute for persisted acceptance.
+            if (isParticipant && !ParticipantProfileConsent.IsCurrent(user.ParticipantProfileConsentVersion))
+            {
+                ModelState.AddModelError(string.Empty, "Review and agree to the current Profile Privacy Notice before saving profile changes.");
+                TempData["Error"] = BuildValidationErrorMessage();
+                model.CurrentProfilePictureUrl = user.ProfilePictureUrl;
+                await PopulateIndexViewDataAsync(user);
+                return View(nameof(Index), model);
+            }
+
+
+
+
+
+
 
 
 
@@ -170,14 +176,18 @@ namespace TrailGuard.Controllers
             if (!ModelState.IsValid)
             {
                 TempData["Error"] = BuildValidationErrorMessage();
-                return RedirectToAction(nameof(Index));
+                model.CurrentProfilePictureUrl = user.ProfilePictureUrl;
+                await PopulateIndexViewDataAsync(user);
+                return View(nameof(Index), model);
             }
 
 
             if (string.IsNullOrEmpty(confirmPassword) || !await _userManager.CheckPasswordAsync(user, confirmPassword))
             {
                 TempData["Error"] = "Current password is incorrect.";
-                return RedirectToAction(nameof(Index));
+                model.CurrentProfilePictureUrl = user.ProfilePictureUrl;
+                await PopulateIndexViewDataAsync(user);
+                return View(nameof(Index), model);
             }
 
 
@@ -230,6 +240,43 @@ namespace TrailGuard.Controllers
 
             TempData["Success"] = "Profile updated successfully!";
             return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AcceptProfileConsent(ParticipantProfileConsentRequest request)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return Unauthorized(new { message = "Sign in again before agreeing to the notice." });
+
+            var integrity = OperationalRolePolicy.Evaluate(await _userManager.GetRolesAsync(user));
+            if (!user.IsActive || integrity.Status != RoleIntegrityStatus.Participant)
+                return Forbid();
+
+            if (!request.Accepted)
+                return BadRequest(new { message = "Select the checkbox to explicitly agree to the Profile Privacy Notice." });
+
+            if (!ParticipantProfileConsent.IsCurrent(request.Version))
+                return Conflict(new { message = "The Privacy Notice was updated. Please review the current notice before agreeing." });
+
+            if (!ParticipantProfileConsent.IsCurrent(user.ParticipantProfileConsentVersion))
+            {
+                user.ParticipantProfileConsentVersion = ParticipantProfileConsent.CurrentVersion;
+                user.ParticipantProfileConsentedAtUtc = DateTime.UtcNow;
+                var result = await _userManager.UpdateAsync(user);
+                if (!result.Succeeded)
+                {
+                    _logger.LogWarning("Profile consent persistence failed for an authenticated participant.");
+                    return StatusCode(StatusCodes.Status500InternalServerError,
+                        new { message = "Unable to record your agreement. Please try again." });
+                }
+            }
+
+            return Ok(new
+            {
+                version = ParticipantProfileConsent.CurrentVersion,
+                acceptedAtUtc = user.ParticipantProfileConsentedAtUtc
+            });
         }
 
         [HttpPost]
@@ -289,6 +336,26 @@ namespace TrailGuard.Controllers
 
             var combined = string.Join(" ", messages);
             return string.IsNullOrWhiteSpace(combined) ? "Please correct the highlighted fields." : combined;
+        }
+
+        private async Task PopulateIndexViewDataAsync(ApplicationUser user)
+        {
+            var integrity = OperationalRolePolicy.Evaluate(await _userManager.GetRolesAsync(user));
+            var isParticipant = integrity.Status == RoleIntegrityStatus.Participant;
+            ViewBag.Role = integrity.Status switch
+            {
+                RoleIntegrityStatus.Conflict => "Role conflict",
+                RoleIntegrityStatus.Missing => "Role missing",
+                _ => integrity.SingleRole
+            };
+            ViewBag.RoleNeedsAttention = integrity.Status is RoleIntegrityStatus.Conflict or RoleIntegrityStatus.Missing;
+            ViewBag.IsParticipant = isParticipant;
+            ViewBag.IsActive = user.IsActive;
+            ViewBag.DateJoined = user.DateCreated.ToString("MMM dd, yyyy");
+            ViewBag.HasCurrentProfileConsent = isParticipant && ParticipantProfileConsent.IsCurrent(user.ParticipantProfileConsentVersion);
+            ViewBag.ProfileConsentAcceptedAtUtc = isParticipant ? user.ParticipantProfileConsentedAtUtc : null;
+            ViewBag.ParticipantBirthdayMin = isParticipant ? ParticipantDemographics.OldestEligibleBirthday(_philippineClock.Today).ToString("yyyy-MM-dd") : null;
+            ViewBag.ParticipantBirthdayMax = isParticipant ? ParticipantDemographics.YoungestEligibleBirthday(_philippineClock.Today).ToString("yyyy-MM-dd") : null;
         }
 
 

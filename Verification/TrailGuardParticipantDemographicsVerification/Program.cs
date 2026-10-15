@@ -46,6 +46,20 @@ Check(ParticipantDemographics.Resolve(new DateOnly(2008, 9, 30), ParticipantDemo
 Check(ParticipantDemographics.Resolve(new DateOnly(1966, 9, 30), ParticipantDemographics.Female, new DateOnly(2026, 9, 30)).Age == 60, "Upper assessment age boundary was incorrect.");
 Check(ParticipantDemographics.Resolve(new DateOnly(2009, 10, 1), ParticipantDemographics.Male, new DateOnly(2026, 9, 30)).Age == 16, "Below-range computed age was incorrect.");
 Check(ParticipantDemographics.Resolve(new DateOnly(1965, 9, 29), ParticipantDemographics.Female, new DateOnly(2026, 9, 30)).Age == 61, "Above-range computed age was incorrect.");
+var policyToday = new DateOnly(2026, 9, 30);
+Check(ParticipantDemographics.IsParticipationAge(new DateOnly(2008, 9, 30), policyToday), "Exactly 18 today must be eligible.");
+Check(ParticipantDemographics.IsParticipationAge(new DateOnly(1966, 9, 30), policyToday), "Age 60 must be eligible.");
+Check(ParticipantDemographics.IsParticipationAge(new DateOnly(1965, 10, 1), policyToday), "The day before the 61st birthday must be eligible.");
+Check(!ParticipantDemographics.IsParticipationAge(new DateOnly(1965, 9, 30), policyToday), "Exactly 61 must be ineligible.");
+Check(!ParticipantDemographics.IsParticipationAge(new DateOnly(2008, 10, 1), policyToday), "Under 18 must be ineligible.");
+Check(!ParticipantDemographics.IsParticipationAge(new DateOnly(2026, 10, 1), policyToday), "Future birthdays must be ineligible.");
+Check(ParticipantDemographics.OldestEligibleBirthday(policyToday) == new DateOnly(1965, 10, 1)
+      && ParticipantDemographics.YoungestEligibleBirthday(policyToday) == new DateOnly(2008, 9, 30),
+    "Client date-picker limits must agree with the completed-years policy.");
+var leapPolicyToday = new DateOnly(2025, 2, 28);
+Check(ParticipantDemographics.OldestEligibleBirthday(leapPolicyToday) == new DateOnly(1964, 3, 1)
+      && !ParticipantDemographics.IsParticipationAge(new DateOnly(1964, 2, 29), leapPolicyToday),
+    "Date-picker limits must honor the February 29 anniversary convention.");
 
 Console.WriteLine($"PASS: {assertions} demographic age, gender, leap-day, and Philippine-date assertions.");
 

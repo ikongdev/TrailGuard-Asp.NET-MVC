@@ -1,6 +1,13 @@
+@using TrailGuard.Services
 @model TrailGuard.Models.UpdateProfileViewModel
 @{
     ViewData["Title"] = "Settings";
+    var isParticipant = ViewBag.IsParticipant == true;
+    var hasCurrentProfileConsent = ViewBag.HasCurrentProfileConsent == true;
+    var automaticallyOpenProfileConsent = isParticipant && ViewBag.IsActive == true && !hasCurrentProfileConsent;
+    var profileConsentNotice = ParticipantProfileConsent.CurrentNotice;
+    var participantBirthdayMin = ViewBag.ParticipantBirthdayMin as string;
+    var participantBirthdayMax = ViewBag.ParticipantBirthdayMax as string;
 }
 
 
@@ -61,12 +68,20 @@
                 <div>
                     <h2 class="text-lg font-semibold text-white">Profile Information</h2>
                     <p class="text-gray-400 text-sm">Update your personal and contact details.</p>
+                    @if (isParticipant)
+                    {
+                        <button type="button" id="viewProfileConsentBtn" onclick="openProfileConsentModal(this)"
+                                class="mt-3 inline-flex items-center gap-2 text-sm font-medium text-accent hover:text-white focus:outline-none focus:ring-2 focus:ring-accent rounded">
+                            <i class="fa-solid fa-shield-heart" aria-hidden="true"></i> View Privacy Notice &amp; Consent
+                        </button>
+                    }
                 </div>
             </div>
 
             <form id="profileForm" asp-controller="Settings" asp-action="UpdateProfile" method="post" enctype="multipart/form-data">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="confirmPassword" id="profileConfirmPassword" value="" />
+                <div asp-validation-summary="ModelOnly" class="mb-4 text-sm text-red-400"></div>
 
 
                 <div class="flex items-center gap-4 pb-6 mb-6 border-b border-white/10">
@@ -128,15 +143,34 @@
                         <input asp-for="MiddleName" autocomplete="additional-name" placeholder="Enter middle name" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" />
                     </div>
                     <div>
-                        <label asp-for="PhoneNumber" class="block text-sm font-medium text-gray-300 mb-2">Phone Number <span class="text-gray-500 text-xs">(Optional)</span></label>
-                        <input asp-for="PhoneNumber" autocomplete="tel" placeholder="+63 912 345 6789" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" />
+                        <label asp-for="PhoneNumber" class="block text-sm font-medium text-gray-300 mb-2">
+                            Phone Number
+                            @if (isParticipant)
+                            {
+                                <span class="text-red-400" aria-hidden="true">*</span><span class="sr-only">required</span>
+                            }
+                            else
+                            {
+                                <span class="text-gray-500 text-xs">(Optional)</span>
+                            }
+                        </label>
+                        @if (isParticipant)
+                        {
+                            <input asp-for="PhoneNumber" autocomplete="tel" required aria-required="true" aria-describedby="phoneClientError" placeholder="+63 912 345 6789" class="participant-phone-required block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" />
+                            <p id="phoneClientError" class="hidden mt-1 text-xs text-red-400" role="alert"></p>
+                        }
+                        else
+                        {
+                            <input asp-for="PhoneNumber" autocomplete="tel" placeholder="+63 912 345 6789" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" />
+                        }
                         <span asp-validation-for="PhoneNumber" class="text-red-400 text-xs mt-1 block"></span>
                     </div>
-                    @if (ViewBag.IsParticipant == true)
+                    @if (isParticipant)
                     {
                         <div>
                             <label asp-for="Birthday" class="block text-sm font-medium text-gray-300 mb-2">Birthday</label>
-                            <input asp-for="Birthday" type="date" autocomplete="bday" class="participant-birthday-picker block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" />
+                            <input asp-for="Birthday" type="date" autocomplete="bday" min="@participantBirthdayMin" max="@participantBirthdayMax" aria-describedby="birthdayClientError" class="participant-birthday-picker block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" />
+                            <p id="birthdayClientError" class="hidden mt-1 text-xs text-red-400" role="alert"></p>
                             <span asp-validation-for="Birthday" class="text-red-400 text-xs mt-1 block"></span>
                         </div>
                         <div>
@@ -243,15 +277,68 @@
 </div>
 
 @section Modals {
+    @if (isParticipant)
+    {
+        <div id="profileConsentModal" data-auto-open="@automaticallyOpenProfileConsent.ToString().ToLowerInvariant()" data-consent-accepted="@hasCurrentProfileConsent.ToString().ToLowerInvariant()" class="fixed inset-0 z-60 hidden items-center justify-center p-4">
+            <div class="fixed inset-0 bg-black/70 backdrop-blur-sm z-60" onclick="closeProfileConsentModal()"></div>
+            <div class="relative z-60 flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-white/10 bg-surface-card shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="profileConsentTitle" aria-describedby="profileConsentDescription">
+                <div class="flex shrink-0 items-center justify-between border-b border-white/10 px-6 py-4">
+                    <div class="flex items-center gap-3">
+                        <span class="flex h-8 w-8 items-center justify-center rounded-full bg-accent/15 text-accent" aria-hidden="true"><i class="fa-solid fa-shield-heart text-sm"></i></span>
+                        <h2 id="profileConsentTitle" class="text-lg font-bold text-white">@profileConsentNotice.Title</h2>
+                    </div>
+                    <button id="profileConsentCloseButton" type="button" onclick="closeProfileConsentModal()" aria-label="Close privacy notice" class="rounded text-gray-400 transition-colors hover:text-white focus:outline-none focus:ring-2 focus:ring-accent"><i class="fa-solid fa-xmark text-xl" aria-hidden="true"></i></button>
+                </div>
+                <div class="tg-settings-consent-scroll overflow-y-auto p-6 text-sm leading-relaxed text-gray-300">
+                    <p id="profileConsentDescription">@profileConsentNotice.Description</p>
+                    <ul class="mt-4 list-disc space-y-3 pl-5 marker:text-accent">
+                        @foreach (var statement in profileConsentNotice.Statements)
+                        {
+                            <li>@statement</li>
+                        }
+                    </ul>
+                    <p class="mt-4">@profileConsentNotice.PrivacyPolicyPrompt<a asp-controller="@profileConsentNotice.PrivacyPolicyController" asp-action="@profileConsentNotice.PrivacyPolicyAction" target="@profileConsentNotice.PrivacyPolicyLinkTarget" rel="@profileConsentNotice.PrivacyPolicyLinkRel" class="font-medium text-accent hover:text-white focus:outline-none focus:ring-2 focus:ring-accent rounded">@profileConsentNotice.PrivacyPolicyLinkText</a>@profileConsentNotice.PrivacyPolicyTrailingText</p>
+                    <p class="mt-4 text-gray-400">@profileConsentNotice.DeclineMessage</p>
+
+                    <form id="profileConsentForm" asp-controller="Settings" asp-action="AcceptProfileConsent" method="post" class="mt-5">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="Version" value="@profileConsentNotice.Version" />
+                        @if (!hasCurrentProfileConsent)
+                        {
+                            <div id="profileConsentChoice" class="flex items-start gap-3">
+                                <input id="profileConsentCheckbox" name="Accepted" value="true" type="checkbox" data-modal-initial class="mt-1 h-4 w-4 rounded border-gray-600 bg-surface-card text-accent focus:ring-2 focus:ring-accent" />
+                                <label for="profileConsentCheckbox" class="text-sm text-gray-200">@profileConsentNotice.AffirmationLabel</label>
+                            </div>
+                        }
+                        <p id="profileConsentError" class="hidden mt-3 text-sm text-red-400" role="alert"></p>
+                        <p id="profileConsentAccepted" class="@(hasCurrentProfileConsent ? "" : "hidden") mt-3 text-sm text-green-300" role="status"><i class="fa-solid fa-circle-check mr-1" aria-hidden="true"></i>@profileConsentNotice.AcceptedMessage</p>
+                        <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                            @if (hasCurrentProfileConsent)
+                            {
+                                <button id="profileConsentFooterClose" type="button" onclick="closeProfileConsentModal()" class="min-h-10 rounded-full border border-white/15 px-5 py-2 text-sm font-semibold text-gray-200 transition hover:border-white/30 hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-accent">Close</button>
+                            }
+                            else
+                            {
+                                <button id="profileConsentCancelBtn" type="button" onclick="closeProfileConsentModal()" class="inline-flex min-h-10 items-center justify-center rounded-full border border-white/15 px-5 py-2 text-sm font-semibold text-gray-200 transition hover:border-white/30 hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-accent">Cancel</button>
+                                <button type="submit" id="profileConsentAgreeBtn" class="inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface-card"><i class="fa-solid fa-check" aria-hidden="true"></i> Agree</button>
+                                <button id="profileConsentFooterClose" type="button" onclick="closeProfileConsentModal()" hidden class="min-h-10 rounded-full border border-white/15 px-5 py-2 text-sm font-semibold text-gray-200 transition hover:border-white/30 hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-accent">Close</button>
+                            }
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    }
+
     <div id="passwordModal" class="fixed inset-0 z-60 hidden items-center justify-center p-4">
         <div class="fixed inset-0 bg-black/70 backdrop-blur-sm z-60" onclick="closePasswordModal()"></div>
-        <div class="relative bg-surface-card border border-white/10 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col z-60">
+        <div class="relative bg-surface-card border border-white/10 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col z-60" role="dialog" aria-modal="true" aria-labelledby="passwordModalTitle">
             <div class="flex justify-between items-center px-6 py-4 border-b border-white/10 shrink-0">
                 <div class="flex items-center gap-3">
                     <span class="w-8 h-8 rounded-full bg-accent/15 flex items-center justify-center" aria-hidden="true">
                         <i class="fa-solid fa-lock text-accent text-sm"></i>
                     </span>
-                    <h2 class="text-lg font-bold text-white">Confirm Password</h2>
+                    <h2 id="passwordModalTitle" class="text-lg font-bold text-white">Confirm Password</h2>
                 </div>
                 <button type="button" onclick="closePasswordModal()" aria-label="Close" class="text-gray-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded">
                     <i class="fa-solid fa-xmark text-xl" aria-hidden="true"></i>
@@ -261,7 +348,7 @@
                 <p class="text-gray-400 text-sm mb-4">Please enter your current password to save profile changes.</p>
                 <label for="modalPasswordInput" class="sr-only">Current password</label>
                 <div class="relative">
-                    <input type="password" id="modalPasswordInput" autocomplete="current-password" placeholder="Enter current password"
+                    <input type="password" id="modalPasswordInput" data-modal-initial autocomplete="current-password" placeholder="Enter current password"
                            class="block w-full px-4 py-3 pr-12 rounded-xl bg-surface-base border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" />
                     <button type="button" onclick="togglePassword('modalPasswordInput')" aria-label="Show password"
                             class="absolute inset-y-0 right-0 w-11 flex items-center justify-center text-gray-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-accent rounded-xl">
@@ -417,22 +504,74 @@
         });
     })();
 
-    // Password confirmation modal - gates the Profile Information submit,
-    // unrelated to the separate Security form/action above.
-    function showPasswordModal() {
-        document.getElementById('passwordModal').classList.remove('hidden');
-        document.getElementById('passwordModal').classList.add('flex');
+    // Settings has two modal workflows. They share one visibility, focus, Escape,
+    // and body-scroll owner so one cannot leave the other in a conflicting state.
+    let activeSettingsModal = null;
+    let settingsModalTrigger = null;
+    let settingsModalPreviousOverflow = '';
+
+    function isVisibleSettingsFocusable(element) {
+        return !!element
+            && !element.disabled
+            && !element.inert
+            && !element.closest('.hidden, [hidden], [aria-hidden="true"], [inert]')
+            && element.getClientRects().length > 0;
+    }
+
+    function settingsFocusable(modal) {
+        return Array.from(modal.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+            .filter(isVisibleSettingsFocusable);
+    }
+
+    function openSettingsModal(id, trigger) {
+        const modal = document.getElementById(id);
+        if (!modal) return;
+        if (activeSettingsModal && activeSettingsModal !== modal) closeSettingsModal(activeSettingsModal.id, false);
+        activeSettingsModal = modal;
+        settingsModalTrigger = trigger || document.activeElement;
+        settingsModalPreviousOverflow = document.body.style.overflow;
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
         document.body.style.overflow = 'hidden';
+        const initial = modal.querySelector('[data-modal-initial]');
+        const target = isVisibleSettingsFocusable(initial) ? initial : settingsFocusable(modal)[0];
+        if (target) requestAnimationFrame(function () { target.focus(); });
+    }
+
+    function closeSettingsModal(id, restoreFocus) {
+        const modal = document.getElementById(id);
+        if (!modal) return;
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        if (activeSettingsModal === modal) {
+            activeSettingsModal = null;
+            document.body.style.overflow = settingsModalPreviousOverflow;
+            if (restoreFocus !== false && settingsModalTrigger && document.contains(settingsModalTrigger)) settingsModalTrigger.focus();
+            settingsModalTrigger = null;
+        }
+    }
+
+    function openProfileConsentModal(trigger) { openSettingsModal('profileConsentModal', trigger); }
+    function closeProfileConsentModal() { closeSettingsModal('profileConsentModal'); }
+
+    function showPasswordModal() {
+        const profileForm = document.getElementById('profileForm');
+        const facebookLink = document.getElementById('FacebookLink');
+        if (facebookLink && !facebookLink.value.trim()) facebookLink.value = '';
+        const participantPhone = profileForm.querySelector('.participant-phone-required');
+        if (participantPhone) participantPhone.dispatchEvent(new Event('input'));
+        if (!profileForm.checkValidity()) {
+            profileForm.reportValidity();
+            return;
+        }
         document.getElementById('modalPasswordInput').value = '';
         document.getElementById('modalError').classList.add('hidden');
-        document.getElementById('modalPasswordInput').focus();
+        openSettingsModal('passwordModal', document.getElementById('saveProfileBtn'));
     }
 
     function closePasswordModal() {
-        document.getElementById('passwordModal').classList.add('hidden');
-        document.getElementById('passwordModal').classList.remove('flex');
-        document.body.style.overflow = 'auto';
         document.getElementById('modalError').classList.add('hidden');
+        closeSettingsModal('passwordModal');
     }
 
     function confirmPassword() {
@@ -453,14 +592,155 @@
         } else if (saveBtn) {
             saveBtn.disabled = true;
         }
-
+        // Validity was checked before opening this password gate. Submit directly so
+        // the shared pending-state listener does not treat this already-pending form
+        // as a duplicate submission.
         profileForm.submit();
     }
 
-    // Close modal on Escape key
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') {
-            closePasswordModal();
+    (function initializeParticipantPhoneRequirement() {
+        const phone = document.querySelector('.participant-phone-required');
+        const error = document.getElementById('phoneClientError');
+        if (!phone || !error) return;
+        function validatePhone(showError) {
+            const message = phone.value.trim() ? '' : 'Phone Number is required.';
+            phone.setCustomValidity(message);
+            if (showError) {
+                error.textContent = message;
+                error.classList.toggle('hidden', !message);
+            }
+        }
+        phone.addEventListener('input', function () { validatePhone(true); });
+        phone.addEventListener('change', function () { validatePhone(true); });
+        validatePhone(false);
+    })();
+
+    (function initializeParticipantBirthdayPolicy() {
+        const birthday = document.querySelector('.participant-birthday-picker');
+        const error = document.getElementById('birthdayClientError');
+        if (!birthday || !error) return;
+        function validateBirthday() {
+            let message = '';
+            if (birthday.value && (birthday.value < birthday.min || birthday.value > birthday.max)) {
+                message = "TrailGuard's participation policy is for ages 18 through 60, measured in completed years.";
+            }
+            birthday.setCustomValidity(message);
+            error.textContent = message;
+            error.classList.toggle('hidden', !message);
+        }
+        birthday.addEventListener('input', validateBirthday);
+        birthday.addEventListener('change', validateBirthday);
+        validateBirthday();
+    })();
+
+    document.addEventListener('DOMContentLoaded', function initializeProfileConsent() {
+        const modal = document.getElementById('profileConsentModal');
+        const form = document.getElementById('profileConsentForm');
+        if (!modal || !form) return;
+        const checkbox = document.getElementById('profileConsentCheckbox');
+        const agree = document.getElementById('profileConsentAgreeBtn');
+        const cancel = document.getElementById('profileConsentCancelBtn');
+        const footerClose = document.getElementById('profileConsentFooterClose');
+        const error = document.getElementById('profileConsentError');
+        const accepted = document.getElementById('profileConsentAccepted');
+        const choice = document.getElementById('profileConsentChoice');
+        const closeButton = document.getElementById('profileConsentCloseButton');
+
+        form.addEventListener('submit', async function (event) {
+            event.preventDefault();
+            if (!checkbox || !agree) return;
+            if (!checkbox.checked) {
+                error.textContent = 'Select the checkbox to explicitly agree to the Profile Privacy Notice.';
+                error.classList.remove('hidden');
+                checkbox.focus();
+                return;
+            }
+            error.classList.add('hidden');
+            if (!window.TrailGuardActionPending || !window.TrailGuardActionPending.begin(agree, 'Recording…', form)) {
+                error.textContent = 'Unable to begin recording your agreement. Please reload and try again.';
+                error.classList.remove('hidden');
+                return;
+            }
+
+            let succeeded = false;
+            const requestAbort = new AbortController();
+            const requestTimeout = window.setTimeout(function () { requestAbort.abort(); }, 20_000);
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    body: new FormData(form),
+                    credentials: 'same-origin',
+                    signal: requestAbort.signal
+                });
+                const payload = await response.json().catch(function () { return null; });
+                const failureMessage = payload && typeof payload.message === 'string'
+                    ? payload.message
+                    : 'Unable to record your agreement. Please try again.';
+                if (!response.ok) throw new Error(failureMessage);
+
+                const submittedVersion = form.elements.Version && form.elements.Version.value;
+                if (!payload || payload.version !== submittedVersion || typeof payload.acceptedAtUtc !== 'string' || Number.isNaN(Date.parse(payload.acceptedAtUtc))) {
+                    throw new Error('Unable to confirm that your agreement was recorded. Please try again.');
+                }
+
+                modal.dataset.consentAccepted = 'true';
+                modal.dataset.consentVersion = payload.version;
+                modal.dataset.consentedAtUtc = payload.acceptedAtUtc;
+                modal.dataset.autoOpen = 'false';
+                checkbox.checked = true;
+                checkbox.disabled = true;
+                if (choice) {
+                    choice.classList.remove('flex');
+                    choice.classList.add('hidden');
+                    choice.setAttribute('aria-hidden', 'true');
+                }
+                accepted.classList.remove('hidden');
+                if (cancel) cancel.remove();
+                if (footerClose) footerClose.hidden = false;
+
+                // Clear the shared pending marker before closing so the form never
+                // carries a stale Recording state into a later reopen.
+                window.TrailGuardActionPending.restore(agree, form);
+                agree.remove();
+                succeeded = true;
+                closeProfileConsentModal();
+                if (window.showToast) window.showToast('Profile Privacy Notice accepted.', 'success');
+            } catch (failure) {
+                error.textContent = requestAbort.signal.aborted
+                    ? 'We could not confirm your agreement before the connection timed out. It may have been recorded; reopen Settings to check before retrying.'
+                    : failure && typeof failure.message === 'string'
+                        ? failure.message
+                        : 'Unable to record your agreement. Please try again.';
+                error.classList.remove('hidden');
+            } finally {
+                window.clearTimeout(requestTimeout);
+                if (!succeeded) {
+                    window.TrailGuardActionPending.restore(agree, form);
+                }
+            }
+        });
+
+        if (modal.dataset.autoOpen === 'true') openProfileConsentModal(document.getElementById('viewProfileConsentBtn'));
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (!activeSettingsModal) return;
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            closeSettingsModal(activeSettingsModal.id);
+            return;
+        }
+        if (event.key !== 'Tab') return;
+        const focusable = settingsFocusable(activeSettingsModal);
+        if (!focusable.length) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
         }
     });
 </script>

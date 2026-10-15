@@ -704,6 +704,8 @@ Form inputs use the standard documented recipe (`rounded-xl bg-surface-card bord
 
 The password-confirmation modal (gating Profile Information's save) now renders inside `@section Modals` like every other modal in the app, instead of inline in page content — see Modals, above.
 
+The Profile Privacy Notice modal's body uses `.tg-settings-consent-scroll`, a Settings-consent-specific rule in `wwwroot/css/input.css` that hides only its scrollbar while retaining `overflow-y-auto` scrolling, mobile height bounds, and keyboard-focused-control visibility. It must not be generalized to page scrolling or other modals.
+
 ### Progress
 
 Restyled — no longer part of the app-wide remaining-pages list below.
