@@ -10,6 +10,7 @@ void Check(bool condition, string message)
 string Read(params string[] path) => File.ReadAllText(Path.Combine([root, .. path]));
 
 var helper = Read("wwwroot", "js", "action-state.js");
+var philippineMobileNumber = Read("wwwroot", "js", "philippine-mobile-number.js");
 var layout = Read("Views", "Shared", "_Layout.cshtml");
 var assessmentForm = Read("Views", "Assessment", "Form.cshtml");
 var myRegistrations = Read("Views", "Registration", "MyRegistrations.cshtml");
@@ -38,10 +39,11 @@ Check(helper.Contains("element.innerHTML = element.dataset.tgOriginalHtml"),
     "Handled async failures must restore non-submit controls without stripping their original icon markup.");
 Check(registration.Contains("form.addEventListener('invalid'") && registration.Contains("}, true);"),
     "Registration's capture-phase invalid handler must remain available before pending state begins.");
-Check(registration.Contains("normalizePhilippineMobileNumber")
-      && registration.Contains("setCustomValidity(message)")
+Check(registration.Contains("TrailGuardPhilippineMobileNumber")
+      && philippineMobileNumber.Contains("function normalize(raw)")
+      && philippineMobileNumber.Contains("setCustomValidity(message)")
       && !registration.Contains("'+63 ' + input.value"),
-    "Registration contact fields must keep native validation and must not mutate local input values by prepending a duplicate country prefix at submit time.");
+    "Registration contact fields must keep shared native validation and must not mutate local input values by prepending a duplicate country prefix at submit time.");
 Check(registrations.Contains("TrailGuardActionPending.restore(submitter, form)")
       && registrations.Contains("TrailGuardActionPending.restore(trigger)"),
     "Receipt upload and registration cancellation must recover after handled or network failures.");

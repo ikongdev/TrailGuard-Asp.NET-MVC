@@ -8,6 +8,8 @@
     var profileConsentNotice = ParticipantProfileConsent.CurrentNotice;
     var participantBirthdayMin = ViewBag.ParticipantBirthdayMin as string;
     var participantBirthdayMax = ViewBag.ParticipantBirthdayMax as string;
+    var emailConfirmed = ViewBag.EmailConfirmed == true;
+    var pendingEmailChange = ViewBag.PendingEmailChange as string;
 }
 
 
@@ -58,6 +60,50 @@
                 </div>
             </dl>
         </div>
+
+        @if (isParticipant)
+        {
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 sm:p-8">
+                <div class="flex items-start gap-3">
+                    <span class="w-10 h-10 rounded-full bg-accent/15 text-accent flex items-center justify-center shrink-0" aria-hidden="true"><i class="fa-solid fa-envelope-circle-check"></i></span>
+                    <div class="min-w-0 flex-1">
+                        <h2 class="text-lg font-semibold text-white">Email verification</h2>
+                        <p class="mt-1 text-sm text-gray-400">Current trusted email: <span class="text-gray-200 break-all">@Model.Email</span></p>
+                        @if (emailConfirmed)
+                        {
+                            <p class="mt-2 text-sm text-emerald-400"><i class="fa-solid fa-circle-check mr-1" aria-hidden="true"></i>Email verified</p>
+                        }
+                        else
+                        {
+                            <p class="mt-2 text-sm text-amber-300"><i class="fa-solid fa-clock mr-1" aria-hidden="true"></i>Email not yet verified</p>
+                            <form asp-action="SendCurrentEmailVerification" method="post" class="mt-4">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" data-tg-pending-label="Sending…" class="inline-flex items-center justify-center px-5 py-2.5 rounded-full text-sm font-semibold text-white bg-accent hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-accent">Send verification email</button>
+                            </form>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(pendingEmailChange))
+                        {
+                            <p class="mt-4 rounded-xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">Pending replacement email: <span class="font-medium break-all">@pendingEmailChange</span>. Your current trusted email will not change until this address is confirmed.</p>
+                        }
+                    </div>
+                </div>
+                <form asp-action="RequestEmailChange" method="post" class="mt-6 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-4">
+                    @Html.AntiForgeryToken()
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 min-w-0">
+                        <div>
+                            <label for="NewEmail" class="block text-sm font-medium text-gray-300 mb-2">Replacement email</label>
+                            <input id="NewEmail" name="NewEmail" type="email" autocomplete="email" required maxlength="256" data-tg-email-address data-tg-email-error="replacementEmailError" placeholder="you@example.com" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent" />
+                            <p id="replacementEmailError" class="hidden mt-1 text-xs text-red-400" role="alert"></p>
+                        </div>
+                        <div>
+                            <label for="EmailChangeCurrentPassword" class="block text-sm font-medium text-gray-300 mb-2">Current password</label>
+                            <input id="EmailChangeCurrentPassword" name="CurrentPassword" type="password" autocomplete="current-password" required class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent" />
+                        </div>
+                    </div>
+                    <button type="submit" data-tg-pending-label="Sending…" class="self-end inline-flex items-center justify-center px-5 py-3 rounded-full text-sm font-semibold text-white bg-accent hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-accent">Confirm replacement</button>
+                </form>
+            </div>
+        }
 
 
         <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 sm:p-8">
@@ -156,7 +202,10 @@
                         </label>
                         @if (isParticipant)
                         {
-                            <input asp-for="PhoneNumber" autocomplete="tel" required aria-required="true" aria-describedby="phoneClientError" placeholder="+63 912 345 6789" class="participant-phone-required block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" />
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 flex items-center border-r border-gray-700 pl-4 pr-3 text-sm text-gray-400 pointer-events-none">+63</span>
+                                <input asp-for="PhoneNumber" type="text" inputmode="tel" autocomplete="tel-national" required aria-required="true" aria-describedby="phoneClientError" placeholder="912 345 6789" class="participant-phone-required block w-full px-4 py-3 pl-16 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors" />
+                            </div>
                             <p id="phoneClientError" class="hidden mt-1 text-xs text-red-400" role="alert"></p>
                         }
                         else
@@ -186,8 +235,12 @@
                     }
                     <div class="sm:col-span-2">
                         <label asp-for="Email" class="block text-sm font-medium text-gray-300 mb-2">Email Address</label>
-                        <input asp-for="Email" type="email" autocomplete="email" placeholder="you@example.com" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors wrap-break-word" />
-                        <span asp-validation-for="Email" class="text-red-400 text-xs mt-1 block"></span>
+                        <input asp-for="Email" type="email" autocomplete="email" required maxlength="256" data-tg-email-address data-tg-email-error="profileEmailError" placeholder="you@example.com" readonly="@(isParticipant ? "readonly" : null)" aria-readonly="@(isParticipant ? "true" : null)" class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors wrap-break-word @(isParticipant ? "cursor-not-allowed opacity-75" : "")" />
+                        @if (isParticipant)
+                        {
+                            <p class="mt-1 text-xs text-gray-500">Use Email verification above to change this address.</p>
+                        }
+                        <span id="profileEmailError" asp-validation-for="Email" class="text-red-400 text-xs mt-1 block" role="alert"></span>
                     </div>
                     <div class="sm:col-span-2">
                         <label asp-for="FacebookLink" class="block text-sm font-medium text-gray-300 mb-2">Facebook Link <span class="text-gray-500 text-xs">(Optional)</span></label>
@@ -369,6 +422,7 @@
     </div>
 }
 
+<script src="~/js/philippine-mobile-number.js" asp-append-version="true"></script>
 <script>
     // Toggle password visibility - keeps the icon and the button's own
     // accessible name in sync (the icon itself is decorative).
@@ -602,17 +656,23 @@
         const phone = document.querySelector('.participant-phone-required');
         const error = document.getElementById('phoneClientError');
         if (!phone || !error) return;
+        window.TrailGuardPhilippineMobileNumber.attachLocalDigitLimit(
+            phone,
+            error,
+            'Phone Number is required.');
         function validatePhone(showError) {
-            const message = phone.value.trim() ? '' : 'Phone Number is required.';
-            phone.setCustomValidity(message);
-            if (showError) {
-                error.textContent = message;
-                error.classList.toggle('hidden', !message);
-            }
+            window.TrailGuardPhilippineMobileNumber.updateValidity(
+                phone,
+                showError ? error : null,
+                true,
+                'Phone Number is required.');
         }
         phone.addEventListener('input', function () { validatePhone(true); });
         phone.addEventListener('change', function () { validatePhone(true); });
-        validatePhone(false);
+        phone.addEventListener('blur', function () { validatePhone(true); });
+        // Surface malformed legacy values on initial render rather than hiding the
+        // custom-validity message until the participant edits the field.
+        validatePhone(true);
     })();
 
     (function initializeParticipantBirthdayPolicy() {

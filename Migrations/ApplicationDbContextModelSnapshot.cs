@@ -201,6 +201,9 @@ namespace TrailGuard.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
+                    b.Property<DateTime?>("LastEmailVerificationSentAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("LastName")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -224,6 +227,9 @@ namespace TrailGuard.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<bool>("ParticipantEmailVerificationRequired")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("ParticipantProfileConsentVersion")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
@@ -233,6 +239,13 @@ namespace TrailGuard.Migrations
 
                     b.Property<string>("PasswordHash")
                         .HasColumnType("text");
+
+                    b.Property<string>("PendingEmailChange")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTime?>("PendingEmailChangeRequestedAtUtc")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("PhoneNumber")
                         .HasColumnType("text");
@@ -673,6 +686,71 @@ namespace TrailGuard.Migrations
                         {
                             t.HasCheckConstraint("CK_FinalSuitabilityLabels_CompletionReason", "(\"Completed\" AND \"NonCompletionReason\" = 'NotApplicable') OR (NOT \"Completed\" AND \"NonCompletionReason\" IN ('Readiness', 'External', 'Withdrawal'))");
                         });
+                });
+
+            modelBuilder.Entity("TrailGuard.Models.PaymentDeadlineReminder", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("EventRegistrationId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("LastAttemptAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastOutcome")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<DateTime?>("LeaseExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("LeaseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("NextAttemptAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("PaymentDeadline")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("ReminderType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime?>("SentAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<DateTime?>("SupersededAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("State", "NextAttemptAtUtc");
+
+                    b.HasIndex("EventRegistrationId", "ReminderType", "PaymentDeadline")
+                        .IsUnique();
+
+                    b.ToTable("PaymentDeadlineReminders", (string)null);
                 });
 
             modelBuilder.Entity("TrailGuard.Models.PickupPoint", b =>
@@ -1156,6 +1234,17 @@ namespace TrailGuard.Migrations
                         .IsRequired();
 
                     b.Navigation("Assessment");
+                });
+
+            modelBuilder.Entity("TrailGuard.Models.PaymentDeadlineReminder", b =>
+                {
+                    b.HasOne("TrailGuard.Models.EventRegistration", "EventRegistration")
+                        .WithMany()
+                        .HasForeignKey("EventRegistrationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("EventRegistration");
                 });
 
             modelBuilder.Entity("TrailGuard.Models.PostEventAssessment", b =>

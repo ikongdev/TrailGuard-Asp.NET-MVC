@@ -41,6 +41,8 @@ namespace TrailGuard.Models
 
         public List<PickupScheduleInputModel> PickupSchedules { get; set; } = [];
 
+        // The Edit UI never sends Status. This remains bound only so forged
+        // Completed submissions can be explicitly rejected server-side.
         public string? Status { get; set; }
     }
 }

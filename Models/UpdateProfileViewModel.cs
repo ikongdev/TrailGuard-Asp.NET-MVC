@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Http;
+using TrailGuard.Services;
 
 namespace TrailGuard.Models
 {
@@ -17,8 +18,7 @@ namespace TrailGuard.Models
         [Display(Name = "Last Name")]
         public string LastName { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Email is required.")]
-        [EmailAddress(ErrorMessage = "Invalid email address.")]
+        [TrailGuardEmailAddress]
         public string Email { get; set; } = string.Empty;
 
         [Display(Name = "Phone Number")]

@@ -1,11 +1,11 @@
 using System.ComponentModel.DataAnnotations;
+using TrailGuard.Services;
 
 namespace TrailGuard.Models
 {
     public class LoginViewModel
     {
-        [Required(ErrorMessage = "Email is required.")]
-        [EmailAddress]
+        [TrailGuardEmailAddress]
         public string Email { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Password is required.")]

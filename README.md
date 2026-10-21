@@ -144,6 +144,40 @@ ConnectionStrings__DefaultConnection=<local PostgreSQL connection string>
 ConnectionStrings__SupabaseConnection=<Supabase connection string>
 ```
 
+## Email delivery and participant verification
+
+Self-registered Participant accounts must verify their email before their first sign-in. Existing accounts retain their current access: the migration defaults the rollout marker to `false` and does not alter `EmailConfirmed`, roles, passwords, consent, or historical records. A Participant may voluntarily verify their current address from Settings; later participant email changes keep the trusted address until the replacement link is confirmed.
+
+Email delivery is disabled by default. TrailGuard uses authenticated Gmail SMTP with STARTTLS on port 587 and requires a configuration-only Gmail App Password. Never put that password in this repository, `appsettings*.json`, Dockerfiles, fixtures, logs, or generated output. In Windows CMD, set the owner-controlled replacement App Password locally without displaying it in the command history handoff:
+
+```cmd
+dotnet user-secrets set "Email:Enabled" "true"
+dotnet user-secrets set "Email:FromAddress" "trailguard.notifications@gmail.com"
+dotnet user-secrets set "Email:FromName" "TrailGuard"
+dotnet user-secrets set "Email:Smtp:Host" "smtp.gmail.com"
+dotnet user-secrets set "Email:Smtp:Port" "587"
+dotnet user-secrets set "Email:Smtp:Username" "trailguard.notifications@gmail.com"
+dotnet user-secrets set "Email:Smtp:Password" "<owner-controlled Gmail App Password>"
+dotnet user-secrets set "Email:PublicBaseUrl" "https://localhost:7068"
+```
+
+The HTTPS launch profile uses `https://localhost:7068` (and also exposes HTTP on `http://localhost:5246`). Development may explicitly use a loopback HTTP `Email:PublicBaseUrl`; production requires an HTTPS public base URL. Confirmation links are always constructed from this validated setting, never from a request Host or posted return URL. SMTP acceptance only means Gmail accepted the message, not that it reached an inbox.
+
+For Azure App Settings, use these names (the platform converts double underscores to configuration paths):
+
+```text
+Email__Enabled
+Email__FromAddress
+Email__FromName
+Email__Smtp__Host
+Email__Smtp__Port
+Email__Smtp__Username
+Email__Smtp__Password
+Email__PublicBaseUrl
+```
+
+The resend cooldown is persisted per account for 60 seconds. Abuse limits are intentionally bounded in-memory counters (five requests per account per 15 minutes and 20 requests per IP per hour): they reset on process restart and are per instance, so a shared distributed limiter is required before multi-instance deployment.
+
 ## Initial Admin Account
 
 On first startup, `DbSeeder` creates exactly one account — `admin@trailguard.com` with the Admin role — and nothing else (no Organizer/Participant sample accounts, no Trails, no Events). It reads the account's password from configuration only; there is no hardcoded or default password. Which setting is read depends on the selected `Database:Target`, so a Local seed password is never reused as a Supabase fallback:

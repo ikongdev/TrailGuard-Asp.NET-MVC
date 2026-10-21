@@ -1,6 +1,7 @@
 @model TrailGuard.Models.Event
 @using TrailGuard.Models
 @using TrailGuard.Services
+@inject IPhilippineClock PhilippineClock
 @{
     ViewData["Title"] = Model.EventTitle;
     var registrations = ViewBag.Registrations as List<EventRegistration> ?? new List<EventRegistration>();
@@ -18,6 +19,7 @@
     var isCompleted = Model.Status == "Completed";
     var isCancelled = Model.Status == "Cancelled";
     var isUpcoming = Model.Status == "Upcoming";
+    var canComplete = EventCompletionEligibilityPolicy.CanComplete(Model, PhilippineClock);
 
     // Built server-side in EventController.Details from each participant's current
     // registration row alongside each row's Profile-link
@@ -532,10 +534,20 @@
             <div class="flex flex-wrap items-center justify-center gap-3">
                 @if (isUpcoming)
                 {
-                    <button type="button" id="completeEventBtn" data-tg-submit-action="true" onclick="confirmCompleteEvent()"
-                       class="px-5 py-2.5 rounded-xl text-white text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 transition-colors flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-surface-card">
-                        <i class="fa-solid fa-flag-checkered" aria-hidden="true"></i> Mark as Complete
-                    </button>
+                    @if (canComplete)
+                    {
+                        <button type="button" id="completeEventBtn" data-tg-submit-action="true" onclick="confirmCompleteEvent()"
+                           class="px-5 py-2.5 rounded-xl text-white text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 transition-colors flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-surface-card">
+                            <i class="fa-solid fa-flag-checkered" aria-hidden="true"></i> Mark as Complete
+                        </button>
+                    }
+                    else
+                    {
+                        <button type="button" id="completeEventBtn" data-tg-submit-action="true" disabled
+                                class="px-5 py-2.5 rounded-xl text-gray-500 text-sm font-semibold bg-white/5 border border-white/10 cursor-not-allowed flex items-center gap-2">
+                            <i class="fa-solid fa-flag-checkered" aria-hidden="true"></i> Mark as Complete
+                        </button>
+                    }
                     <button type="button" id="openRescheduleModalBtn"
                        class="px-5 py-2.5 rounded-xl text-blue-300 hover:text-white text-sm font-semibold bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 hover:border-blue-500/50 transition-colors flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-surface-card">
                         <i class="fa-solid fa-calendar-days" aria-hidden="true"></i> Reschedule

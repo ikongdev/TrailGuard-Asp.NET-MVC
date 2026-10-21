@@ -92,6 +92,7 @@
 
         element.dataset.tgOriginalHtml = element.innerHTML;
         if (element.tagName === 'INPUT') element.dataset.tgOriginalValue = element.value;
+        if ('disabled' in element) element.dataset.tgOriginalDisabled = element.disabled ? 'true' : 'false';
         removeSubmitIcons(element);
         element.dataset.tgPendingActive = 'true';
         element.dataset.tgOriginalLabel = visibleLabel(element);
@@ -124,7 +125,10 @@
         element.removeAttribute('aria-busy');
         element.removeAttribute('aria-disabled');
         pendingClassNames.forEach(function (className) { element.classList.remove(className); });
-        if ('disabled' in element) element.disabled = false;
+        if ('disabled' in element) {
+            element.disabled = element.dataset.tgOriginalDisabled === 'true';
+            delete element.dataset.tgOriginalDisabled;
+        }
 
         if (form) {
             delete form.dataset.tgPending;

@@ -4,7 +4,7 @@ using TrailGuard.Data;
 using TrailGuard.Models;
 using TrailGuard.Services;
 
-AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+TrailGuardNpgsqlConfiguration.ApplyTimestampCompatibility();
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -37,9 +37,29 @@ builder.Services.AddSingleton(databaseTarget);
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(databaseTarget.ConnectionString));
 
-builder.Services.AddDefaultIdentity<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = false)
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+    {
+        // Legacy accounts remain able to sign in. The custom account controller
+        // enforces the persisted participant rollout marker instead.
+        options.SignIn.RequireConfirmedAccount = false;
+        options.Tokens.EmailConfirmationTokenProvider = "TrailGuardEmailConfirmation";
+        options.Tokens.ChangeEmailTokenProvider = "TrailGuardEmailConfirmation";
+    })
     .AddRoles<IdentityRole>()
-    .AddEntityFrameworkStores<ApplicationDbContext>();
+    .AddEntityFrameworkStores<ApplicationDbContext>()
+    .AddDefaultTokenProviders()
+    .AddTokenProvider<EmailConfirmationTokenProvider<ApplicationUser>>("TrailGuardEmailConfirmation");
+
+builder.Services.Configure<EmailConfirmationTokenProviderOptions>(options => options.TokenLifespan = TimeSpan.FromHours(24));
+builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email"));
+builder.Services.Configure<PaymentReminderOptions>(builder.Configuration.GetSection("PaymentReminders"));
+builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
+builder.Services.AddSingleton<EmailVerificationThrottle>();
+builder.Services.AddScoped<IEmailVerificationStateStore, EmailVerificationStateStore>();
+builder.Services.AddScoped<IEmailVerificationService, EmailVerificationService>();
+builder.Services.AddScoped<IPaymentDeadlineReminderStore, EfPaymentDeadlineReminderStore>();
+builder.Services.AddScoped<PaymentDeadlineReminderProcessor>();
+builder.Services.AddHostedService<PaymentDeadlineReminderWorker>();
 
 builder.Services.ConfigureApplicationCookie(options =>
 {
@@ -114,13 +134,7 @@ app.UseRouting();
 app.UseAuthentication(); 
 app.UseAuthorization();
 
-app.MapStaticAssets();
-
-app.MapControllerRoute(
-    name: "default",
-    pattern: "{controller=Home}/{action=Index}/{id?}").WithStaticAssets();
-
-app.MapRazorPages();
+TrailGuardEndpointMapping.MapMvcEndpoints(app);
 
 using (var scope = app.Services.CreateScope())
 {

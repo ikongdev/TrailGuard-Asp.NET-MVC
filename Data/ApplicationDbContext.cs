@@ -21,6 +21,7 @@ namespace TrailGuard.Data
         public DbSet<EventFeedback> EventFeedbacks { get; set; }
         public DbSet<Assessment> Assessments { get; set; }
         public DbSet<PostEventAssessment> PostEventAssessments { get; set; }
+        public DbSet<PaymentDeadlineReminder> PaymentDeadlineReminders { get; set; }
 
         public DbSet<SuitabilityResult> SuitabilityResults { get; set; }
         public DbSet<ShapValue> ShapValues { get; set; }
@@ -51,12 +52,19 @@ namespace TrailGuard.Data
             builder.Entity<ApplicationUser>().Property(user => user.Gender).HasMaxLength(20);
             builder.Entity<ApplicationUser>().Property(user => user.ParticipantProfileConsentVersion).HasMaxLength(100);
             builder.Entity<ApplicationUser>().Property(user => user.ParticipantProfileConsentedAtUtc).HasColumnType("timestamp with time zone");
+            builder.Entity<ApplicationUser>().Property(user => user.LastEmailVerificationSentAtUtc).HasColumnType("timestamp with time zone");
+            builder.Entity<ApplicationUser>().Property(user => user.PendingEmailChange).HasMaxLength(256);
+            builder.Entity<ApplicationUser>().Property(user => user.PendingEmailChangeRequestedAtUtc).HasColumnType("timestamp with time zone");
             builder.Entity<IdentityRole>().ToTable("Roles");
             builder.Entity<IdentityUserRole<string>>().ToTable("UserRoles");
             builder.Entity<IdentityUserClaim<string>>().ToTable("UserClaims");
             builder.Entity<IdentityUserLogin<string>>().ToTable("UserLogins");
+            builder.Entity<IdentityUserLogin<string>>().Property(login => login.LoginProvider).HasMaxLength(128);
+            builder.Entity<IdentityUserLogin<string>>().Property(login => login.ProviderKey).HasMaxLength(128);
             builder.Entity<IdentityRoleClaim<string>>().ToTable("RoleClaims");
             builder.Entity<IdentityUserToken<string>>().ToTable("UserTokens");
+            builder.Entity<IdentityUserToken<string>>().Property(token => token.LoginProvider).HasMaxLength(128);
+            builder.Entity<IdentityUserToken<string>>().Property(token => token.Name).HasMaxLength(128);
 
             builder.Entity<FinalSuitabilityLabel>()
                 .ToTable("FinalSuitabilityLabels", table => table.HasCheckConstraint(
@@ -168,6 +176,26 @@ namespace TrailGuard.Data
 
             builder.Entity<Event>()
                 .HasIndex(e => e.OrganizerId);
+
+            builder.Entity<PaymentDeadlineReminder>(entity =>
+            {
+                entity.ToTable("PaymentDeadlineReminders");
+                entity.Property(reminder => reminder.ReminderType).HasMaxLength(64).IsRequired();
+                entity.Property(reminder => reminder.State).HasMaxLength(24).IsRequired();
+                entity.Property(reminder => reminder.LastOutcome).HasMaxLength(160);
+                entity.Property(reminder => reminder.PaymentDeadline).HasColumnType("timestamp without time zone");
+                entity.Property(reminder => reminder.LeaseExpiresAtUtc).HasColumnType("timestamp with time zone");
+                entity.Property(reminder => reminder.NextAttemptAtUtc).HasColumnType("timestamp with time zone");
+                entity.Property(reminder => reminder.LastAttemptAtUtc).HasColumnType("timestamp with time zone");
+                entity.Property(reminder => reminder.SentAtUtc).HasColumnType("timestamp with time zone");
+                entity.Property(reminder => reminder.SupersededAtUtc).HasColumnType("timestamp with time zone");
+                entity.Property(reminder => reminder.CreatedAtUtc).HasColumnType("timestamp with time zone");
+                entity.Property(reminder => reminder.UpdatedAtUtc).HasColumnType("timestamp with time zone");
+                entity.HasIndex(reminder => new { reminder.EventRegistrationId, reminder.ReminderType, reminder.PaymentDeadline }).IsUnique();
+                entity.HasIndex(reminder => new { reminder.State, reminder.NextAttemptAtUtc });
+                entity.HasOne(reminder => reminder.EventRegistration).WithMany().HasForeignKey(reminder => reminder.EventRegistrationId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
         }
     }
 }

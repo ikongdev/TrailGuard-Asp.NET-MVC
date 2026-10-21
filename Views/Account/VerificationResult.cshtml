@@ -1,0 +1,19 @@
+@model TrailGuard.Models.VerificationResultViewModel
+@{
+    ViewData["Title"] = Model.Succeeded ? "Email verified" : "Verification unavailable";
+}
+
+<main class="min-h-screen pt-24 px-4 pb-12 flex justify-center">
+    <section class="w-full max-w-lg bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 sm:p-8 text-center">
+        <span class="mx-auto w-12 h-12 rounded-full @(Model.Succeeded ? "bg-emerald-500/15 text-emerald-400" : "bg-amber-500/15 text-amber-300") flex items-center justify-center text-xl" aria-hidden="true"><i class="fa-solid @(Model.Succeeded ? "fa-circle-check" : "fa-circle-exclamation")"></i></span>
+        <h1 class="mt-4 text-2xl font-bold text-white">@(Model.Succeeded ? "Email verified" : "Verification unavailable")</h1>
+        <p class="mt-3 text-sm text-gray-300" role="status">@Model.Message</p>
+        <div class="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
+            <a asp-action="Login" class="inline-flex justify-center px-6 py-3 rounded-full text-sm font-semibold text-white bg-accent hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-accent">Sign in</a>
+            @if (!Model.Succeeded)
+            {
+                <a asp-action="CheckEmail" class="inline-flex justify-center px-6 py-3 rounded-full text-sm font-medium text-gray-200 border border-white/10 bg-white/5 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-accent">Request another email</a>
+            }
+        </div>
+    </section>
+</main>

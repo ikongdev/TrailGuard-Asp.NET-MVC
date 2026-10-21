@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 const source = readFileSync('Views/Settings/Index.cshtml', 'utf8');
 const layout = readFileSync('Views/Shared/_Layout.cshtml', 'utf8');
 const stylesheet = readFileSync('wwwroot/css/input.css', 'utf8');
+const phoneHelperSource = readFileSync('wwwroot/js/philippine-mobile-number.js', 'utf8');
 let assertions = 0;
 function check(condition, message) {
     if (!condition) throw new Error(message);
@@ -32,10 +33,117 @@ check(!source.includes('birthdayPolicyHint')
       && source.includes('aria-describedby="birthdayClientError"'),
     'The static birthday policy helper must be absent while its red validation error remains associated.');
 check(source.includes('participant-phone-required')
-      && source.includes("const message = phone.value.trim() ? '' : 'Phone Number is required.';")
-      && source.includes("phone.setCustomValidity(message);")
+      && source.includes('TrailGuardPhilippineMobileNumber.attachLocalDigitLimit')
+      && source.includes('TrailGuardPhilippineMobileNumber.updateValidity')
       && source.includes("phone.addEventListener('input', function () { validatePhone(true); });"),
     'Participant phone validation must reject empty and whitespace values before password confirmation.');
+check(phoneHelperSource.includes('function attachLocalDigitLimit')
+      && phoneHelperSource.includes("event.inputType === 'insertFromPaste' && applyCompleteCandidate(candidate)")
+      && phoneHelperSource.includes("'Phone Number cannot exceed 10 local digits.'"),
+    'The shared helper must normalize complete pasted country formats before enforcing the Settings-only local-digit limit.');
+
+const phoneWindow = {};
+new Function('window', phoneHelperSource)(phoneWindow);
+const phoneHelper = phoneWindow.TrailGuardPhilippineMobileNumber;
+class FakePhoneInput {
+    constructor(value = '') {
+        this.value = value;
+        this.selectionStart = value.length;
+        this.selectionEnd = value.length;
+        this.validationMessage = '';
+        this.listeners = new Map();
+    }
+    addEventListener(type, callback) {
+        const handlers = this.listeners.get(type) ?? [];
+        handlers.push(callback);
+        this.listeners.set(type, handlers);
+    }
+    setCustomValidity(message) { this.validationMessage = message; }
+    emit(type, properties = {}) {
+        const event = {
+            inputType: properties.inputType,
+            data: properties.data,
+            clipboardData: properties.clipboardData,
+            defaultPrevented: false,
+            preventDefault() { this.defaultPrevented = true; }
+        };
+        for (const callback of this.listeners.get(type) ?? []) callback(event);
+        return event;
+    }
+}
+function attachPhoneLimit(value = '') {
+    const input = new FakePhoneInput(value);
+    const error = { textContent: '', classList: { remove() {}, add() {}, toggle() {} } };
+    phoneHelper.attachLocalDigitLimit(input, error, 'Phone Number is required.');
+    return { input, error };
+}
+
+const completed = attachPhoneLimit('912 345 6789');
+const eleventhDigit = completed.input.emit('beforeinput', { inputType: 'insertText', data: '0' });
+check(eleventhDigit.defaultPrevented
+      && completed.input.value === '912 345 6789'
+      && completed.input.validationMessage.includes('cannot exceed 10'),
+    'An eleventh local digit must be blocked without changing a complete number.');
+
+completed.input.selectionStart = 0;
+completed.input.selectionEnd = 1;
+const replacement = completed.input.emit('beforeinput', { inputType: 'insertText', data: '8' });
+check(!replacement.defaultPrevented,
+    'Replacing a selected local digit must remain possible at the 10-digit limit.');
+completed.input.value = '812 345 6789';
+completed.input.emit('input');
+check(completed.input.value === '812 345 6789',
+    'Middle editing must not silently rewrite an invalid replacement.');
+
+const editable = attachPhoneLimit('912 345 6789');
+check(!editable.input.emit('beforeinput', { inputType: 'deleteContentBackward' }).defaultPrevented,
+    'Backspace and Delete input types must not be blocked by the digit guard.');
+editable.input.value = '912 345 678';
+editable.input.selectionStart = editable.input.selectionEnd = editable.input.value.length;
+editable.input.emit('input');
+check(!editable.input.emit('beforeinput', { inputType: 'insertText', data: '9' }).defaultPrevented,
+    'Retyping after deletion must remain possible.');
+editable.input.value = '912 345 6789';
+editable.input.emit('input');
+check(editable.input.value === '912 345 6789', 'A retyped complete local number must retain 3-3-4 formatting.');
+
+for (const accepted of [
+    '9123456789',
+    '912 345 6789',
+    '09123456789',
+    '09 123-456-789',
+    '639123456789',
+    '63 912-345-6789',
+    '+639123456789',
+    '+63 912 345 6789'
+]) {
+    const pasted = attachPhoneLimit();
+    const paste = pasted.input.emit('paste', { clipboardData: { getData: () => accepted } });
+    check(paste.defaultPrevented && pasted.input.value === '912 345 6789',
+        `A valid pasted Philippine format must normalize locally: ${accepted}`);
+}
+
+const overlongPaste = attachPhoneLimit('912 345 6789');
+overlongPaste.input.selectionStart = 0;
+overlongPaste.input.selectionEnd = overlongPaste.input.value.length;
+const rejectedPaste = overlongPaste.input.emit('paste', { clipboardData: { getData: () => '91234567890' } });
+check(rejectedPaste.defaultPrevented
+      && overlongPaste.input.value === '912 345 6789'
+      && overlongPaste.input.validationMessage.includes('cannot exceed 10'),
+    'An overlong paste must be rejected intact without truncation.');
+
+const autofill = attachPhoneLimit();
+autofill.input.value = '+639123456789';
+autofill.input.emit('input');
+check(autofill.input.value === '912 345 6789',
+    'The input fallback must safely normalize a complete mobile/autofill value.');
+
+const legacy = attachPhoneLimit('91234567890');
+check(legacy.input.value === '91234567890',
+    'An invalid legacy value must remain visible and editable on initial load.');
+legacy.input.selectionStart = legacy.input.selectionEnd = legacy.input.value.length;
+check(legacy.input.emit('beforeinput', { inputType: 'insertText', data: '1' }).defaultPrevented,
+    'An invalid legacy value must remain editable without accepting additional digits.');
 check(source.includes("if (facebookLink && !facebookLink.value.trim()) facebookLink.value = '';")
       && source.includes('Facebook Link <span class="text-gray-500 text-xs">(Optional)</span>'),
     'Facebook whitespace must be normalized as an optional value before native form validation.');

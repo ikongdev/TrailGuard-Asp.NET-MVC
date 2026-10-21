@@ -1002,17 +1002,6 @@
                     </div>
 
                     <div class="mb-6">
-                        <label for="editEventStatus" class="block text-sm font-medium text-gray-300 mb-2">Status</label>
-                        <select id="editEventStatus" name="Status" data-custom-select
-                                class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm appearance-none cursor-pointer">
-                            <option value="Upcoming" class="bg-surface-card">Upcoming</option>
-                            <option value="Cancelled" class="bg-surface-card">Cancelled</option>
-                            <option value="Postponed" class="bg-surface-card">Postponed</option>
-                            <option value="Completed" class="bg-surface-card">Completed</option>
-                        </select>
-                    </div>
-
-                    <div class="mb-6">
                         <label for="editEventDescription" class="block text-sm font-medium text-gray-300 mb-2">Event Description <span class="text-red-400">*</span></label>
                         <textarea id="editEventDescription" name="Description" required rows="4"
                                   class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm resize-none" placeholder="Provide a detailed description about the event..."></textarea>
@@ -3702,11 +3691,6 @@
             if (window.CustomSelect) window.CustomSelect.refresh(organizerSelect);
         }
 
-        const statusSelect = document.getElementById('editEventStatus');
-        if (statusSelect) {
-            statusSelect.value = data.status || 'Upcoming';
-            if (window.CustomSelect) window.CustomSelect.refresh(statusSelect);
-        }
     }
 
     // Fetch-first, open-second: the modal never opens on a failed load, so
@@ -3844,8 +3828,7 @@
             // sole authority that turns these into the canonical stored lines.
             PickupSchedules: editEventPickupSchedules.map(function (schedule) {
                 return { Location: schedule.location, Time: schedule.time };
-            }),
-            Status: document.getElementById('editEventStatus')?.value
+            })
         };
 
         setEditEventSubmitting(true);

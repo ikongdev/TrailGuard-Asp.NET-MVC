@@ -335,22 +335,22 @@
 
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">8. When was your most recent mountain hike? <span class="text-red-400">*</span></label>
-                            <div class="flex flex-wrap gap-2">
+                            <div class="flex flex-col gap-2">
                                 <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
                                     <input type="radio" name="recencyOfHike" value="Never" required class="w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">Never climbed</span>
                                 </label>
                                 <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
-                                    <input type="radio" name="recencyOfHike" value="&gt;12 months" class="w-4 h-4 accent-accent" />
-                                    <span class="text-gray-300 text-sm">More than 12 months ago</span>
+                                    <input type="radio" name="recencyOfHike" value="Within 3 months" class="w-4 h-4 accent-accent" />
+                                    <span class="text-gray-300 text-sm">Within 3 months</span>
                                 </label>
                                 <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
                                     <input type="radio" name="recencyOfHike" value="&gt;3–12 months" class="w-4 h-4 accent-accent" />
                                     <span class="text-gray-300 text-sm">More than 3 months ago, up to 12 months ago</span>
                                 </label>
                                 <label class="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl border border-gray-700 hover:border-accent transition-all has-checked:border-accent has-checked:bg-accent/10">
-                                    <input type="radio" name="recencyOfHike" value="Within 3 months" class="w-4 h-4 accent-accent" />
-                                    <span class="text-gray-300 text-sm">Within 3 months</span>
+                                    <input type="radio" name="recencyOfHike" value="&gt;12 months" class="w-4 h-4 accent-accent" />
+                                    <span class="text-gray-300 text-sm">More than 12 months ago</span>
                                 </label>
                             </div>
                             <span asp-validation-for="RecencyOfHike" class="text-red-300 text-xs"></span>

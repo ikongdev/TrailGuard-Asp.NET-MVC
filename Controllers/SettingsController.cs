@@ -20,13 +20,15 @@ namespace TrailGuard.Controllers
         private readonly TrailGuard.Data.ApplicationDbContext _context;
         private readonly ILogger<SettingsController> _logger;
         private readonly IPhilippineClock _philippineClock;
+        private readonly IEmailVerificationService _emailVerification;
 
         public SettingsController(
             UserManager<ApplicationUser> userManager,
             SignInManager<ApplicationUser> signInManager,
             IWebHostEnvironment webHostEnvironment,
             ILogger<SettingsController> logger,
-            IPhilippineClock philippineClock, IUploadStorage storage, TrailGuard.Data.ApplicationDbContext context)
+            IPhilippineClock philippineClock, IUploadStorage storage, TrailGuard.Data.ApplicationDbContext context,
+            IEmailVerificationService emailVerification)
         {
             _userManager = userManager;
             _signInManager = signInManager;
@@ -34,6 +36,7 @@ namespace TrailGuard.Controllers
             _context = context;
             _logger = logger;
             _philippineClock = philippineClock;
+            _emailVerification = emailVerification;
         }
 
         [HttpGet]
@@ -59,6 +62,7 @@ namespace TrailGuard.Controllers
                 Birthday = integrity.Status == RoleIntegrityStatus.Participant ? user.Birthday : null,
                 Gender = integrity.Status == RoleIntegrityStatus.Participant ? user.Gender : null
             };
+            FormatParticipantPhoneForDisplay(model, integrity.Status == RoleIntegrityStatus.Participant);
 
             await PopulateIndexViewDataAsync(user);
 
@@ -87,6 +91,14 @@ namespace TrailGuard.Controllers
 
             var integrity = OperationalRolePolicy.Evaluate(await _userManager.GetRolesAsync(user));
             var isParticipant = integrity.Status == RoleIntegrityStatus.Participant;
+            if (!TryNormalizeEmail(model.Email, nameof(model.Email), out var normalizedEmail))
+                return await ReturnProfileViewAsync(model, user, isParticipant);
+            model.Email = normalizedEmail;
+            if (isParticipant && !EmailMatches(user.Email, model.Email))
+            {
+                ModelState.AddModelError(nameof(model.Email), "Use the email verification section to change your email address.");
+                return await ReturnProfileViewAsync(model, user, true);
+            }
             if (!isParticipant)
             {
                 ModelState.Remove(nameof(model.Birthday));
@@ -106,16 +118,39 @@ namespace TrailGuard.Controllers
                 }
             }
 
-            if (string.IsNullOrWhiteSpace(model.PhoneNumber))
+            var phoneValidationFailed = false;
+            if (isParticipant)
+            {
+                ModelState.Remove(nameof(model.PhoneNumber));
+                if (string.IsNullOrWhiteSpace(model.PhoneNumber))
+                {
+                    model.PhoneNumber = null;
+                    ModelState.AddModelError(nameof(model.PhoneNumber), "Phone Number is required.");
+                    phoneValidationFailed = true;
+                }
+                else if (!PhilippineMobileNumber.TryNormalize(model.PhoneNumber, out var canonicalPhoneNumber))
+                {
+                    ModelState.AddModelError(nameof(model.PhoneNumber),
+                        $"Enter a complete contact number: {PhilippineMobileNumber.LocalExample}.");
+                    phoneValidationFailed = true;
+                }
+                else
+                {
+                    model.PhoneNumber = canonicalPhoneNumber;
+                }
+            }
+            else if (string.IsNullOrWhiteSpace(model.PhoneNumber))
             {
                 model.PhoneNumber = null;
-                // Whitespace is the optional value for non-participants, but must
-                // receive one clear participant-specific error rather than a phone-format error.
+                // Whitespace remains optional for non-participant Settings users.
                 ModelState.Remove(nameof(model.PhoneNumber));
-                if (isParticipant)
-                {
-                    ModelState.AddModelError(nameof(model.PhoneNumber), "Phone Number is required.");
-                }
+            }
+
+            // A forged POST with an invalid participant number must not reach image
+            // inspection, upload, or any profile mutation.
+            if (phoneValidationFailed)
+            {
+                return await ReturnProfileViewAsync(model, user, isParticipant);
             }
 
             if (string.IsNullOrWhiteSpace(model.FacebookLink))
@@ -130,10 +165,7 @@ namespace TrailGuard.Controllers
             if (isParticipant && !ParticipantProfileConsent.IsCurrent(user.ParticipantProfileConsentVersion))
             {
                 ModelState.AddModelError(string.Empty, "Review and agree to the current Profile Privacy Notice before saving profile changes.");
-                TempData["Error"] = BuildValidationErrorMessage();
-                model.CurrentProfilePictureUrl = user.ProfilePictureUrl;
-                await PopulateIndexViewDataAsync(user);
-                return View(nameof(Index), model);
+                return await ReturnProfileViewAsync(model, user, isParticipant);
             }
 
 
@@ -175,27 +207,26 @@ namespace TrailGuard.Controllers
 
             if (!ModelState.IsValid)
             {
-                TempData["Error"] = BuildValidationErrorMessage();
-                model.CurrentProfilePictureUrl = user.ProfilePictureUrl;
-                await PopulateIndexViewDataAsync(user);
-                return View(nameof(Index), model);
+                return await ReturnProfileViewAsync(model, user, isParticipant);
             }
 
 
             if (string.IsNullOrEmpty(confirmPassword) || !await _userManager.CheckPasswordAsync(user, confirmPassword))
             {
-                TempData["Error"] = "Current password is incorrect.";
-                model.CurrentProfilePictureUrl = user.ProfilePictureUrl;
-                await PopulateIndexViewDataAsync(user);
-                return View(nameof(Index), model);
+                return await ReturnProfileViewAsync(model, user, isParticipant, "Current password is incorrect.");
             }
 
 
             user.FirstName = model.FirstName;
             user.MiddleName = string.IsNullOrWhiteSpace(model.MiddleName) ? null : model.MiddleName;
             user.LastName = model.LastName;
-            user.Email = model.Email;
-            user.UserName = model.Email;
+            // Participant email ownership has its own token-confirmed workflow.
+            // Organizers and admins retain the pre-existing Settings behavior.
+            if (!isParticipant)
+            {
+                user.Email = model.Email;
+                user.UserName = model.Email;
+            }
             user.PhoneNumber = model.PhoneNumber;
             user.FacebookLink = model.FacebookLink;
             user.Bio = string.IsNullOrWhiteSpace(model.Bio) ? null : model.Bio;
@@ -219,12 +250,7 @@ namespace TrailGuard.Controllers
             {
                 if (validatedImageBytes != null && validatedImageExtension != null)
                     user.ProfilePictureUrl = await uploads.UploadAsync(UploadCategory.Profiles, validatedImageBytes, validatedImageExtension);
-                await UploadPersistence.CommitAsync(_context.Database, uploads, async () =>
-                {
-                    // Identity's ConcurrencyStamp makes a stale profile update fail across app instances.
-                    result = await _userManager.UpdateAsync(user);
-                    if (!result.Succeeded) throw new InvalidOperationException("Profile update rejected.");
-                });
+                await PersistProfileUpdateAsync(user, uploads, persistedResult => result = persistedResult);
             }
             catch (Exception ex)
             {
@@ -326,6 +352,70 @@ namespace TrailGuard.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SendCurrentEmailVerification()
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return RedirectToAction("Login", "Account");
+            var integrity = OperationalRolePolicy.Evaluate(await _userManager.GetRolesAsync(user));
+            if (!user.IsActive || integrity.Status != RoleIntegrityStatus.Participant) return Forbid();
+
+            if (user.EmailConfirmed)
+            {
+                TempData["Success"] = "Your current email is already verified.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var send = await _emailVerification.SendConfirmationAsync(user, GetRemoteIp());
+            TempData[send.Accepted ? "Success" : "Error"] = MessageFor(send, "verification email");
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RequestEmailChange(EmailChangeRequestViewModel model)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return RedirectToAction("Login", "Account");
+            var integrity = OperationalRolePolicy.Evaluate(await _userManager.GetRolesAsync(user));
+            if (!user.IsActive || integrity.Status != RoleIntegrityStatus.Participant) return Forbid();
+
+            if (!TryNormalizeEmail(model.NewEmail, nameof(model.NewEmail), out var normalizedEmail))
+            {
+                TempData["Error"] = TrailGuardEmailAddress.InvalidMessage;
+                return RedirectToAction(nameof(Index));
+            }
+            model.NewEmail = normalizedEmail;
+
+            if (!ModelState.IsValid || !await _userManager.CheckPasswordAsync(user, model.CurrentPassword))
+            {
+                TempData["Error"] = !ModelState.IsValid
+                    ? "Enter a valid replacement email and your current password."
+                    : "Current password is incorrect.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            if (EmailMatches(user.Email, model.NewEmail))
+            {
+                TempData["Error"] = "The replacement email must be different from your current trusted email.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            user.PendingEmailChange = model.NewEmail.Trim();
+            user.PendingEmailChangeRequestedAtUtc = DateTime.UtcNow;
+            var persisted = await _userManager.UpdateAsync(user);
+            if (!persisted.Succeeded)
+            {
+                TempData["Error"] = "We could not start the email change. Please reload and try again.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var send = await _emailVerification.SendChangeConfirmationAsync(user, user.PendingEmailChange, GetRemoteIp());
+            TempData[send.Accepted ? "Success" : "Error"] = MessageFor(send, "confirmation email");
+            return RedirectToAction(nameof(Index));
+        }
+
         private string BuildValidationErrorMessage()
         {
             var messages = ModelState.Values
@@ -336,6 +426,45 @@ namespace TrailGuard.Controllers
 
             var combined = string.Join(" ", messages);
             return string.IsNullOrWhiteSpace(combined) ? "Please correct the highlighted fields." : combined;
+        }
+
+        private async Task<IActionResult> ReturnProfileViewAsync(
+            UpdateProfileViewModel model,
+            ApplicationUser user,
+            bool isParticipant,
+            string? errorMessage = null)
+        {
+            TempData["Error"] = errorMessage ?? BuildValidationErrorMessage();
+            FormatParticipantPhoneForDisplay(model, isParticipant);
+            model.CurrentProfilePictureUrl = user.ProfilePictureUrl;
+            // Keep a rejected address visible for correction. The usual successful
+            // Settings render still shows the persisted trusted address.
+            if (!ModelState.TryGetValue(nameof(model.Email), out var emailState) || emailState.Errors.Count == 0)
+                model.Email = user.Email ?? string.Empty;
+            await PopulateIndexViewDataAsync(user);
+            return View(nameof(Index), model);
+        }
+
+        private static void FormatParticipantPhoneForDisplay(UpdateProfileViewModel model, bool isParticipant)
+        {
+            if (isParticipant && PhilippineMobileNumber.TryNormalize(model.PhoneNumber, out var canonicalPhoneNumber))
+            {
+                model.PhoneNumber = PhilippineMobileNumber.ToLocalDisplay(canonicalPhoneNumber);
+            }
+        }
+
+        protected virtual async Task PersistProfileUpdateAsync(
+            ApplicationUser user,
+            UploadAttempt uploads,
+            Action<IdentityResult> setResult)
+        {
+            await UploadPersistence.CommitAsync(_context.Database, uploads, async () =>
+            {
+                // Identity's ConcurrencyStamp makes a stale profile update fail across app instances.
+                var result = await _userManager.UpdateAsync(user);
+                setResult(result);
+                if (!result.Succeeded) throw new InvalidOperationException("Profile update rejected.");
+            });
         }
 
         private async Task PopulateIndexViewDataAsync(ApplicationUser user)
@@ -354,6 +483,9 @@ namespace TrailGuard.Controllers
             ViewBag.DateJoined = user.DateCreated.ToString("MMM dd, yyyy");
             ViewBag.HasCurrentProfileConsent = isParticipant && ParticipantProfileConsent.IsCurrent(user.ParticipantProfileConsentVersion);
             ViewBag.ProfileConsentAcceptedAtUtc = isParticipant ? user.ParticipantProfileConsentedAtUtc : null;
+            ViewBag.EmailConfirmed = user.EmailConfirmed;
+            ViewBag.ParticipantEmailVerificationRequired = user.ParticipantEmailVerificationRequired;
+            ViewBag.PendingEmailChange = isParticipant ? user.PendingEmailChange : null;
             ViewBag.ParticipantBirthdayMin = isParticipant ? ParticipantDemographics.OldestEligibleBirthday(_philippineClock.Today).ToString("yyyy-MM-dd") : null;
             ViewBag.ParticipantBirthdayMax = isParticipant ? ParticipantDemographics.YoungestEligibleBirthday(_philippineClock.Today).ToString("yyyy-MM-dd") : null;
         }
@@ -386,5 +518,33 @@ namespace TrailGuard.Controllers
 
             return (null, null);
         }
+
+        private string? GetRemoteIp() => HttpContext.Connection.RemoteIpAddress?.ToString();
+
+        private bool TryNormalizeEmail(string? supplied, string key, out string normalized)
+        {
+            if (TrailGuardEmailAddress.TryNormalize(supplied, out normalized, out var error))
+            {
+                if (!string.Equals(supplied, normalized, StringComparison.Ordinal))
+                    ModelState.Remove(key);
+                return true;
+            }
+
+            ModelState.Remove(key);
+            ModelState.AddModelError(key, error);
+            return false;
+        }
+
+        private bool EmailMatches(string? current, string? candidate) => current is not null && candidate is not null &&
+            string.Equals(_userManager.NormalizeEmail(current), _userManager.NormalizeEmail(candidate), StringComparison.Ordinal);
+
+        private static string MessageFor(VerificationSendResult send, string messageType) => send.Status switch
+        {
+            VerificationSendStatus.Sent => $"A {messageType} was sent. It expires in 24 hours.",
+            VerificationSendStatus.Cooldown => "Please wait 60 seconds before requesting another email.",
+            VerificationSendStatus.RateLimited => "Too many requests were made. Please try again later.",
+            VerificationSendStatus.Unavailable => "Email delivery is not configured or is currently unavailable. Please try again later.",
+            _ => $"We could not send the {messageType}. Your request was saved; please try again later."
+        };
     }
 }

@@ -19,6 +19,8 @@ namespace TrailGuard.Controllers
         private readonly WeatherService _weatherService;
         private readonly ILogger<EventController> _logger;
         private readonly RoleAssignmentService _roleAssignmentService;
+        private readonly IPhilippineClock _philippineClock;
+        private readonly IEventLifecycleStore _eventLifecycleStore;
 
         public const string DefaultSortOrder = "date_asc";
 
@@ -38,7 +40,7 @@ namespace TrailGuard.Controllers
 
         private static readonly string[] FixedStatusPriority = { "Upcoming", "Completed" };
 
-        public EventController(ApplicationDbContext context, IWebHostEnvironment webHostEnvironment, UserManager<ApplicationUser> userManager, WeatherService weatherService, ILogger<EventController> logger, RoleAssignmentService roleAssignmentService)
+        public EventController(ApplicationDbContext context, IWebHostEnvironment webHostEnvironment, UserManager<ApplicationUser> userManager, WeatherService weatherService, ILogger<EventController> logger, RoleAssignmentService roleAssignmentService, IPhilippineClock? philippineClock = null, IEventLifecycleStore? eventLifecycleStore = null)
         {
             _context = context;
             _webHostEnvironment = webHostEnvironment;
@@ -46,6 +48,8 @@ namespace TrailGuard.Controllers
             _weatherService = weatherService;
             _logger = logger;
             _roleAssignmentService = roleAssignmentService;
+            _philippineClock = philippineClock ?? new PhilippineClock(TimeProvider.System);
+            _eventLifecycleStore = eventLifecycleStore ?? new EventLifecycleStore(context);
         }
 
 
@@ -56,11 +60,15 @@ namespace TrailGuard.Controllers
 
 
 
-        private async Task<bool> CanManageEventAsync(Event eventItem, ApplicationUser currentUser)
+        protected virtual async Task<bool> CanManageEventAsync(Event eventItem, ApplicationUser currentUser)
         {
             if (await _userManager.IsInRoleAsync(currentUser, "Admin")) return true;
             return eventItem.OrganizerId != null && eventItem.OrganizerId == currentUser.Id;
         }
+
+        protected virtual Task<ApplicationUser?> GetCurrentUserAsync() => _userManager.GetUserAsync(User);
+
+        protected virtual Task<ApplicationUser?> FindUserByIdAsync(string userId) => _userManager.FindByIdAsync(userId);
 
         private async Task<string?> ValidatePickupLocationsAsync(
             IEnumerable<PickupScheduleInputModel>? schedules,
@@ -803,13 +811,13 @@ namespace TrailGuard.Controllers
         {
             try
             {
-                var eventItem = await _context.Events.FindAsync(request.Id);
+                var eventItem = await _eventLifecycleStore.FindEventAsync(request.Id);
                 if (eventItem == null)
                 {
                     return Json(new { success = false, message = "Event not found" });
                 }
 
-                var currentUser = await _userManager.GetUserAsync(User);
+                var currentUser = await GetCurrentUserAsync();
                 if (currentUser == null || !await CanManageEventAsync(eventItem, currentUser))
                 {
                     return Json(new { success = false, message = "Event not found" });
@@ -820,14 +828,19 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "Only upcoming events can be marked as completed" });
                 }
 
+                if (!EventCompletionEligibilityPolicy.CanComplete(eventItem, _philippineClock))
+                {
+                    return Json(new { success = false, message = EventCompletionEligibilityPolicy.IneligibilityMessage(eventItem, _philippineClock) });
+                }
+
                 var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-                var organizer = await _userManager.FindByIdAsync(userId ?? "");
+                var organizer = await FindUserByIdAsync(userId ?? "");
                 var organizerName = organizer != null ? $"{organizer.FirstName} {organizer.LastName}" : "Organizer";
 
-                await using var transaction = await _context.Database.BeginTransactionAsync();
-                await ParticipantEventWorkflowLock.AcquireEventCapacityAsync(_context, request.Id);
-                _context.ChangeTracker.Clear();
-                eventItem = await _context.Events.FirstOrDefaultAsync(e => e.Id == request.Id);
+                await using var transaction = await _eventLifecycleStore.BeginTransactionAsync();
+                await _eventLifecycleStore.AcquireEventLockAsync(request.Id);
+                _eventLifecycleStore.ClearTracking();
+                eventItem = await _eventLifecycleStore.ReloadEventAsync(request.Id);
                 if (eventItem == null || !await CanManageEventAsync(eventItem, currentUser))
                 {
                     return Json(new { success = false, message = "Event not found" });
@@ -838,22 +851,27 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "Only upcoming events can be marked as completed" });
                 }
 
+                // The event date and Philippine calendar date are both re-evaluated
+                // after the event-wide lock and authoritative reload. A competing
+                // reschedule therefore cannot leave a future-dated Completed event.
+                if (!EventCompletionEligibilityPolicy.CanComplete(eventItem, _philippineClock))
+                {
+                    return Json(new { success = false, message = EventCompletionEligibilityPolicy.IneligibilityMessage(eventItem, _philippineClock) });
+                }
+
                 eventItem.Status = "Completed";
                 eventItem.CompletedAt = DateTime.Now;
                 eventItem.CompletedBy = organizerName;
                 eventItem.DateUpdated = DateTime.Now;
 
-                var registrationsToVoid = await _context.EventRegistrations
-                    .Where(r => r.EventId == request.Id &&
-                        (r.Status == "Pending" || r.Status == "Awaiting Payment" || r.Status == "For Payment Verification"))
-                    .ToListAsync();
+                var registrationsToVoid = await _eventLifecycleStore.GetRegistrationsToVoidAsync(request.Id);
 
                 foreach (var registration in registrationsToVoid)
                 {
                     registration.Status = "Voided";
                 }
 
-                await _context.SaveChangesAsync();
+                await _eventLifecycleStore.SaveChangesAsync();
                 await transaction.CommitAsync();
 
                 return Json(new { success = true, message = "Event marked as completed" });
@@ -941,14 +959,28 @@ namespace TrailGuard.Controllers
         {
             try
             {
-                var eventItem = await _context.Events.FindAsync(request.Id);
+                var eventItem = await _eventLifecycleStore.FindEventAsync(request.Id);
                 if (eventItem == null)
                 {
                     return Json(new { success = false, message = "Event not found" });
                 }
 
-                var currentUser = await _userManager.GetUserAsync(User);
+                var currentUser = await GetCurrentUserAsync();
                 if (currentUser == null || !await CanManageEventAsync(eventItem, currentUser))
+                {
+                    return Json(new { success = false, message = "Event not found" });
+                }
+
+                if (eventItem.Status != "Upcoming")
+                {
+                    return Json(new { success = false, message = "Only upcoming events can be rescheduled" });
+                }
+
+                await using var transaction = await _eventLifecycleStore.BeginTransactionAsync();
+                await _eventLifecycleStore.AcquireEventLockAsync(request.Id);
+                _eventLifecycleStore.ClearTracking();
+                eventItem = await _eventLifecycleStore.ReloadEventAsync(request.Id);
+                if (eventItem == null || !await CanManageEventAsync(eventItem, currentUser))
                 {
                     return Json(new { success = false, message = "Event not found" });
                 }
@@ -962,7 +994,8 @@ namespace TrailGuard.Controllers
                 eventItem.EventTime = request.NewTime;
                 eventItem.DateUpdated = DateTime.Now;
 
-                await _context.SaveChangesAsync();
+                await _eventLifecycleStore.SaveChangesAsync();
+                await transaction.CommitAsync();
 
                 return Json(new { success = true, message = "Event rescheduled" });
             }
@@ -986,13 +1019,26 @@ namespace TrailGuard.Controllers
         {
             try
             {
-
-
-
-                var existingEvent = await _context.Events.FindAsync(model.Id);
+                var existingEvent = await _eventLifecycleStore.FindEventAsync(model.Id);
                 if (existingEvent == null)
                 {
                     return Json(new { success = false, message = "Event not found" });
+                }
+
+                var currentUser = await GetCurrentUserAsync();
+                if (currentUser == null)
+                {
+                    return Json(new { success = false, message = "Unable to verify your account. Please sign in again." });
+                }
+
+                if (!await CanManageEventAsync(existingEvent, currentUser))
+                {
+                    return Json(new { success = false, message = "Event not found" });
+                }
+
+                if (EventCompletionEligibilityPolicy.IsCompletedStatusSubmission(model.Status))
+                {
+                    return Json(new { success = false, message = "Events must be marked as completed using Mark as Complete." });
                 }
 
                 var trail = await _context.Trails.FindAsync(model.TrailId);
@@ -1011,20 +1057,6 @@ namespace TrailGuard.Controllers
                 if (existingEvent.TrailId != model.TrailId && !trail.IsActive)
                 {
                     return Json(new { success = false, message = "The selected trail is no longer active. Please choose another trail." });
-                }
-
-
-
-
-
-
-
-
-
-                var currentUser = await _userManager.GetUserAsync(User);
-                if (currentUser == null)
-                {
-                    return Json(new { success = false, message = "Unable to verify your account. Please sign in again." });
                 }
 
                 string organizerName;
@@ -1083,6 +1115,11 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "Completed events are read-only and cannot be edited." });
                 }
 
+                if (EventCompletionEligibilityPolicy.IsCompletedStatusSubmission(model.Status))
+                {
+                    return Json(new { success = false, message = "Events must be marked as completed using Mark as Complete." });
+                }
+
                 var scheduleResult = PickupScheduleHelper.ValidateAndFormat(model.PickupSchedules);
                 if (!scheduleResult.Success)
                 {
@@ -1103,6 +1140,11 @@ namespace TrailGuard.Controllers
                 if (existingEvent.Status == "Completed")
                 {
                     return Json(new { success = false, message = "Completed events are read-only and cannot be edited." });
+                }
+
+                if (EventCompletionEligibilityPolicy.IsCompletedStatusSubmission(model.Status))
+                {
+                    return Json(new { success = false, message = "Events must be marked as completed using Mark as Complete." });
                 }
 
                 await _context.Database.ExecuteSqlRawAsync("LOCK TABLE \"PickupPoints\" IN SHARE MODE");
@@ -1175,7 +1217,6 @@ namespace TrailGuard.Controllers
                 existingEvent.Capacity = model.Capacity;
                 existingEvent.OrganizedBy = organizerName;
                 existingEvent.OrganizerId = resolvedOrganizerId;
-                existingEvent.Status = model.Status ?? existingEvent.Status;
                 existingEvent.WeatherForecastAdvisory = model.WeatherForecastAdvisory;
                 existingEvent.WeatherRiskLevel = model.WeatherRiskLevel ?? existingEvent.WeatherRiskLevel;
                 existingEvent.WeatherReminder = model.WeatherReminder ?? existingEvent.WeatherReminder;

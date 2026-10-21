@@ -30,6 +30,18 @@ namespace TrailGuard.Models
         public string? ParticipantProfileConsentVersion { get; set; }
         public DateTime? ParticipantProfileConsentedAtUtc { get; set; }
 
+        // This is a rollout marker, not a replacement for Identity's EmailConfirmed
+        // flag. Existing accounts deliberately remain false until they opt in or a
+        // newly self-registered participant is created.
+        public bool ParticipantEmailVerificationRequired { get; set; }
+        public DateTime? LastEmailVerificationSentAtUtc { get; set; }
+
+        // A replacement address never becomes the account's email until Identity
+        // validates a change-email token for this exact pending value.
+        [MaxLength(256)]
+        public string? PendingEmailChange { get; set; }
+        public DateTime? PendingEmailChangeRequestedAtUtc { get; set; }
+
 
 
 
