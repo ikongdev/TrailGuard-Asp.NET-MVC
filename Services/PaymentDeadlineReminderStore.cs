@@ -6,12 +6,15 @@ using TrailGuard.Models;
 
 namespace TrailGuard.Services;
 
+// Discovery-time keys remain stable even if processing changes a registration or its tracking.
+public sealed record PaymentDeadlineReminderCandidate(int RegistrationId, DateTime PaymentDeadline);
+
 // The processor depends on this small unit-of-work seam so its real orchestration
 // (discovery, claim, recheck, dispatch, and terminal/retry updates) can be driven
 // without a database or SMTP server. The production implementation remains EF Core.
 public interface IPaymentDeadlineReminderStore
 {
-    Task<IReadOnlyList<int>> FindCandidateIdsAsync(DateTime now, DateTime nowUtc, CancellationToken cancellationToken);
+    Task<IReadOnlyList<PaymentDeadlineReminderCandidate>> FindCandidatesAsync(DateTime now, DateTime nowUtc, PaymentDeadlineReminderCandidate? after, CancellationToken cancellationToken);
     Task<EventRegistration?> FindRegistrationAsync(int registrationId, CancellationToken cancellationToken);
     Task<bool> IsLatestAttemptAsync(EventRegistration registration, CancellationToken cancellationToken);
     Task<bool> HasVerifiedParticipantAsync(ApplicationUser? user, CancellationToken cancellationToken);
@@ -29,12 +32,12 @@ public sealed class EfPaymentDeadlineReminderStore(
 {
     private readonly PaymentReminderOptions _options = options.Value;
 
-    public async Task<IReadOnlyList<int>> FindCandidateIdsAsync(DateTime now, DateTime nowUtc, CancellationToken cancellationToken)
-        => await PaymentDeadlineReminderCandidateQuery.Build(context, _options, now, nowUtc)
-            .Select(r => r.Id).ToListAsync(cancellationToken);
+    public async Task<IReadOnlyList<PaymentDeadlineReminderCandidate>> FindCandidatesAsync(DateTime now, DateTime nowUtc, PaymentDeadlineReminderCandidate? after, CancellationToken cancellationToken)
+        => await PaymentDeadlineReminderCandidateQuery.Build(context, _options, now, nowUtc, after)
+            .Select(r => new PaymentDeadlineReminderCandidate(r.Id, r.PaymentDeadline!.Value)).ToListAsync(cancellationToken);
 
     public Task<EventRegistration?> FindRegistrationAsync(int registrationId, CancellationToken cancellationToken) =>
-        context.EventRegistrations.Include(r => r.Event).Include(r => r.User)
+        context.EventRegistrations.AsNoTracking().Include(r => r.Event).Include(r => r.User)
             .SingleOrDefaultAsync(r => r.Id == registrationId, cancellationToken);
 
     public async Task<bool> IsLatestAttemptAsync(EventRegistration registration, CancellationToken cancellationToken) =>
@@ -51,7 +54,7 @@ public sealed class EfPaymentDeadlineReminderStore(
 
     public async Task<PaymentDeadlineReminder?> EnsureReminderAsync(int registrationId, DateTime deadline, DateTime nowUtc, CancellationToken cancellationToken)
     {
-        var existing = await context.PaymentDeadlineReminders.SingleOrDefaultAsync(r => r.EventRegistrationId == registrationId &&
+        var existing = await context.PaymentDeadlineReminders.AsNoTracking().SingleOrDefaultAsync(r => r.EventRegistrationId == registrationId &&
             r.ReminderType == PaymentDeadlineReminder.PaymentDeadlineApproaching && r.PaymentDeadline == deadline, cancellationToken);
         if (existing is not null) return existing;
         var created = new PaymentDeadlineReminder { EventRegistrationId = registrationId, PaymentDeadline = deadline, CreatedAtUtc = nowUtc, UpdatedAtUtc = nowUtc };
@@ -60,8 +63,13 @@ public sealed class EfPaymentDeadlineReminderStore(
         catch (DbUpdateException exception) when (ParticipantEventWorkflowLock.IsUniqueConstraintConflict(exception))
         {
             context.ChangeTracker.Clear();
-            return await context.PaymentDeadlineReminders.SingleAsync(r => r.EventRegistrationId == registrationId &&
+            return await context.PaymentDeadlineReminders.AsNoTracking().SingleAsync(r => r.EventRegistrationId == registrationId &&
                 r.ReminderType == PaymentDeadlineReminder.PaymentDeadlineApproaching && r.PaymentDeadline == deadline, cancellationToken);
+        }
+        finally
+        {
+            // All subsequent writes use conditional ExecuteUpdate; retain no entities across pages.
+            context.Entry(created).State = EntityState.Detached;
         }
     }
 
@@ -104,10 +112,10 @@ public sealed class EfPaymentDeadlineReminderStore(
 // Npgsql provider can translate it in verification without opening a database connection.
 public static class PaymentDeadlineReminderCandidateQuery
 {
-    public static IQueryable<EventRegistration> Build(ApplicationDbContext context, PaymentReminderOptions options, DateTime now, DateTime nowUtc)
+    public static IQueryable<EventRegistration> Build(ApplicationDbContext context, PaymentReminderOptions options, DateTime now, DateTime nowUtc, PaymentDeadlineReminderCandidate? after = null)
     {
         var windowEnd = now.AddHours(24);
-        return context.EventRegistrations.AsNoTracking()
+        var query = context.EventRegistrations.AsNoTracking()
             .Where(r => r.Id == context.EventRegistrations
                 .Where(other => other.UserId == r.UserId && other.EventId == r.EventId)
                 .OrderByDescending(other => other.RegisteredAt).ThenByDescending(other => other.Id)
@@ -123,7 +131,13 @@ public static class PaymentDeadlineReminderCandidateQuery
                 (reminder.SentAtUtc != null || reminder.SupersededAtUtc != null ||
                  reminder.AttemptCount >= options.MaxAttempts ||
                  (reminder.NextAttemptAtUtc != null && reminder.NextAttemptAtUtc > nowUtc) ||
-                 (reminder.LeaseExpiresAtUtc != null && reminder.LeaseExpiresAtUtc > nowUtc))))
-            .OrderBy(r => r.PaymentDeadline).ThenBy(r => r.Id).Take(options.BatchSize);
+                 (reminder.LeaseExpiresAtUtc != null && reminder.LeaseExpiresAtUtc > nowUtc))));
+        if (after is not null)
+        {
+            var deadline = after.PaymentDeadline;
+            var registrationId = after.RegistrationId;
+            query = query.Where(r => r.PaymentDeadline > deadline || (r.PaymentDeadline == deadline && r.Id > registrationId));
+        }
+        return query.OrderBy(r => r.PaymentDeadline).ThenBy(r => r.Id).Take(options.BatchSize);
     }
 }

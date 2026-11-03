@@ -8,7 +8,7 @@ public sealed class PaymentReminderOptions
 {
     public bool Enabled { get; set; }
     public int PollingIntervalMinutes { get; set; } = 15;
-    public int BatchSize { get; set; } = 50;
+    public int BatchSize { get; set; } = 50; // Discovery page size; a poll continues through all due pages.
     public int LeaseMinutes { get; set; } = 10;
     public int MaxAttempts { get; set; } = 3;
 
@@ -57,13 +57,27 @@ public sealed class PaymentDeadlineReminderProcessor(
 
         var nowUtc = clock.GetUtcNow().UtcDateTime;
         var now = PhilippineWallClock.Now(clock);
-        var candidates = await store.FindCandidateIdsAsync(now, nowUtc, cancellationToken);
-
-        foreach (var candidate in candidates)
+        // The cursor is local to this poll: rejected accounts are reconsidered next poll.
+        // Do not cap the scan at one page or an ineligible prefix can starve later recipients.
+        PaymentDeadlineReminderCandidate? after = null;
+        while (true)
         {
-            try { await ProcessCandidateAsync(candidate, now, nowUtc, cancellationToken); }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
-            catch (Exception exception) { logger.LogWarning(exception, "Payment reminder processing failed for registration {RegistrationId}.", candidate); }
+            cancellationToken.ThrowIfCancellationRequested();
+            var candidates = await store.FindCandidatesAsync(now, nowUtc, after, cancellationToken);
+            if (candidates.Count == 0) return;
+
+            // Advance using the discovered keys, regardless of rejection, deletion, or send outcome.
+            after = candidates[^1];
+            foreach (var candidate in candidates)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                // A long scan must not issue a new claim with an already expired poll-start lease.
+                try { await ProcessCandidateAsync(candidate.RegistrationId, PhilippineWallClock.Now(clock), clock.GetUtcNow().UtcDateTime, cancellationToken); }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+                catch (Exception exception) { logger.LogWarning(exception, "Payment reminder processing failed for registration {RegistrationId}.", candidate.RegistrationId); }
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            if (candidates.Count < _options.BatchSize) return;
         }
     }
 
