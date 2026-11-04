@@ -191,8 +191,10 @@ public sealed class BusinessReportPdfRenderer : IBusinessReportPdfRenderer
         public void DrawLineChart(IReadOnlyList<BusinessReportTrendPoint> points, string title)
         {
             ChartFrame(title, 160, out var frame);
-            var plot = new SKRect(frame.Left + 32, frame.Top + 16, frame.Right - 16, frame.Bottom - 38);
             var max = Math.Max(1, points.DefaultIfEmpty().Max(point => point?.Count ?? 0));
+            using var tickFont = new SKFont(_regular, 7);
+            var leftInset = Math.Max(32, tickFont.MeasureText(max.ToString()) + 9);
+            var plot = new SKRect(frame.Left + leftInset, frame.Top + 16, frame.Right - 16, frame.Bottom - 38);
             DrawLineChartScale(plot, max);
             DrawDateTicks(points, plot);
             if (points.Count == 0 || points.All(point => point.Count == 0))
@@ -296,9 +298,11 @@ public sealed class BusinessReportPdfRenderer : IBusinessReportPdfRenderer
             using var axis = new SKPaint { Color = new SKColor(203, 213, 225), StrokeWidth = .7f };
             _canvas.DrawLine(plot.Left, plot.Top, plot.Left, plot.Bottom, axis);
             _canvas.DrawLine(plot.Left, plot.Bottom, plot.Right, plot.Bottom, axis);
-            Text("Count", 7, _medium, _muted, plot.Left - 29, plot.Top + 7);
-            Text(max.ToString(), 7, _regular, _muted, plot.Left - 22, plot.Top + 8);
-            Text("0", 7, _regular, _muted, plot.Left - 9, plot.Bottom + 2);
+            // Keep the axis title above the plot and right-align ticks within the measured gutter.
+            Text("Count", 7, _medium, _muted, Margin + 4, plot.Top - 6);
+            using var tickFont = new SKFont(_regular, 7);
+            Text(max.ToString(), 7, _regular, _muted, plot.Left - 5 - tickFont.MeasureText(max.ToString()), plot.Top + 2);
+            Text("0", 7, _regular, _muted, plot.Left - 5 - tickFont.MeasureText("0"), plot.Bottom + 2);
             Text($"Submissions: 0 to {max}", 7.5f, _medium, _muted, plot.Left, plot.Bottom + 13);
         }
 
