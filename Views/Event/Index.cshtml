@@ -53,23 +53,43 @@
         </header>
 
         <form method="get" asp-action="Index" id="filterForm" onsubmit="return false" class="mb-2">
-            <div class="flex flex-col lg:flex-row gap-3 mb-8 bg-white/5 backdrop-blur-xl p-5 rounded-xl border border-white/10">
+            <div class="flex flex-col lg:flex-row items-end gap-3 mb-8 bg-white/5 backdrop-blur-xl p-5 rounded-xl border border-white/10">
 
-                <div class="relative grow">
+                <div class="relative w-full min-w-0 lg:flex-1">
                     <label for="searchInput" class="sr-only">Search events by title, location, or trail</label>
                     <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden="true"></i>
                     <input type="search" name="searchString" id="searchInput" value="@currentSearch" placeholder="Search events by title, location, or trail..." autocomplete="off"
                         class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-11 pr-4 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none transition-colors placeholder-gray-500">
                 </div>
 
-                <div class="flex flex-wrap sm:flex-nowrap gap-3">
-                    <div class="relative shrink-0 w-full sm:w-44">
+                <div class="flex flex-wrap items-end gap-3 w-full lg:w-fit shrink-0">
+                    @if (!Model.IsAdmin)
+                    {
+                        <div class="shrink-0 w-full sm:w-32">
+                            <label for="visibilityFilter" class="sr-only">Show Events</label>
+                            <div class="relative">
+                                <select id="visibilityFilter" name="visibility" data-custom-select data-custom-select-portal
+                                        data-cs-decorative-chevron="visibilityFilterChevron"
+                                        data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-3 py-3 rounded-full bg-black/20 border border-white/10 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        onchange="document.getElementById('filterForm').submit()"
+                                        class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-4 pr-8 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors">
+                                    <option value="my" selected="@(Model.Visibility == "my" ? "selected" : null)" class="bg-surface-card text-white">My Events</option>
+                                    <option value="all" selected="@(Model.Visibility == "all" ? "selected" : null)" class="bg-surface-card text-white">All Events</option>
+                                </select>
+                                <div id="visibilityFilterChevron" class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
+                                    <i class="fa-solid fa-chevron-down text-xs" aria-hidden="true"></i>
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    <div class="relative shrink-0 w-full sm:w-32">
                         <label for="trailFilter" class="sr-only">Filter by trail</label>
                         <select id="trailFilter" name="trailId" data-custom-select data-custom-select-portal
                                 data-cs-decorative-chevron="trailFilterChevron"
-                                data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-4 py-3 rounded-full bg-black/20 border border-white/10 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                                data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-3 py-3 rounded-full bg-black/20 border border-white/10 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
                                 onchange="document.getElementById('filterForm').submit()"
-                                class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors">
+                                class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-4 pr-8 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors">
                             <option value="All" selected="@(currentTrailId == "All" ? "selected" : null)" class="bg-surface-card text-white">All Trails</option>
                             @{
                                 var distinctTrails = ViewBag.Trails as List<TrailGuard.Models.Trail>;
@@ -91,9 +111,9 @@
                         <label for="difficultyFilter" class="sr-only">Filter by difficulty</label>
                         <select id="difficultyFilter" name="difficulty" data-custom-select data-custom-select-portal
                                 data-cs-decorative-chevron="difficultyFilterChevron"
-                                data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-4 py-3 rounded-full bg-black/20 border border-white/10 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                                data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-3 py-3 rounded-full bg-black/20 border border-white/10 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
                                 onchange="document.getElementById('filterForm').submit()"
-                                class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors">
+                                class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-4 pr-8 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors">
                             <option value="All" selected="@(currentDifficulty == "All" ? "selected" : null)" class="bg-surface-card text-white">All Difficulties</option>
                             @foreach (var band in TrailGuard.Services.DifficultyCalculator.Bands)
                             {
@@ -105,13 +125,13 @@
                         </div>
                     </div>
 
-                    <div class="relative shrink-0 w-full sm:w-40">
+                    <div class="relative shrink-0 w-full sm:w-36">
                         <label for="statusFilter" class="sr-only">Filter by status</label>
                         <select id="statusFilter" name="status" data-custom-select data-custom-select-portal
                                 data-cs-decorative-chevron="statusFilterChevron"
-                                data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-4 py-3 rounded-full bg-black/20 border border-white/10 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                                data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-3 py-3 rounded-full bg-black/20 border border-white/10 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
                                 onchange="document.getElementById('filterForm').submit()"
-                                class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors">
+                                class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-4 pr-8 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors">
                             <option value="All" selected="@(currentStatus == "All" ? "selected" : null)" class="bg-surface-card text-white">All Status</option>
                             @foreach (var s in Model.AvailableStatuses)
                             {
@@ -123,13 +143,13 @@
                         </div>
                     </div>
 
-                    <div class="relative shrink-0 w-full sm:w-48">
+                    <div class="relative shrink-0 w-full sm:w-44">
                         <label for="sortFilter" class="sr-only">Sort events by</label>
                         <select id="sortFilter" name="sortOrder" data-custom-select data-custom-select-portal
                                 data-cs-decorative-chevron="sortFilterChevron"
-                                data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-4 py-3 rounded-full bg-black/20 border border-white/10 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                                data-cs-trigger-class="flex w-full items-center justify-between gap-2 px-3 py-3 rounded-full bg-black/20 border border-white/10 text-white text-sm text-left focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
                                 onchange="document.getElementById('filterForm').submit()"
-                                class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-5 pr-10 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors">
+                                class="w-full bg-black/20 border border-white/10 text-white text-sm rounded-full pl-4 pr-8 py-3 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none cursor-pointer appearance-none hover:bg-white/10 transition-colors">
                             <option value="date_asc" selected="@(currentSort == "date_asc" ? "selected" : null)" class="bg-surface-card text-white">Sort by: Soonest</option>
                             <option value="date_desc" selected="@(currentSort == "date_desc" ? "selected" : null)" class="bg-surface-card text-white">Sort by: Latest</option>
                         </select>
@@ -240,21 +260,28 @@
                                             <span class="px-2.5 py-1 rounded-full text-xs font-medium @TrailGuard.Services.DifficultyCalculator.BadgeClass(eventItem.Difficulty)">@TrailGuard.Services.DifficultyCalculator.DisplayLabel(eventItem.Difficulty)</span>
                                         </div>
 
-                                        <div class="flex gap-2 mt-auto">
-                                            <a asp-controller="Event" asp-action="Details" asp-route-id="@eventItem.Id"
-                                               aria-label="View details for @eventItem.EventTitle"
-                                               class="@(isCompleted ? "w-full" : "flex-1") bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-2">
-                                                <i class="fa-regular fa-eye" aria-hidden="true"></i> View
-                                            </a>
-                                            @if (!isCompleted)
-                                            {
-                                                <button type="button" onclick="openEditModal(this, @eventItem.Id)"
-                                                        aria-label="Edit @eventItem.EventTitle"
-                                                        class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-2">
-                                                    <i class="fa-solid fa-pen" aria-hidden="true"></i> Edit
-                                                </button>
-                                            }
-                                        </div>
+                                        @if (Model.CanManageEvent(eventItem))
+                                        {
+                                            <div class="flex gap-2 mt-auto">
+                                                <a asp-controller="Event" asp-action="Details" asp-route-id="@eventItem.Id"
+                                                   aria-label="View details for @eventItem.EventTitle"
+                                                   class="@(isCompleted ? "w-full" : "flex-1") bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+                                                    <i class="fa-regular fa-eye" aria-hidden="true"></i> View
+                                                </a>
+                                                @if (!isCompleted)
+                                                {
+                                                    <button type="button" onclick="openEditModal(this, @eventItem.Id)"
+                                                            aria-label="Edit @eventItem.EventTitle"
+                                                            class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+                                                        <i class="fa-solid fa-pen" aria-hidden="true"></i> Edit
+                                                    </button>
+                                                }
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <p class="text-sm text-gray-400 mt-auto">@(eventItem.OrganizerId == null ? "No organizer assigned" : "Assigned to another organizer")</p>
+                                        }
                                     </div>
                                 </div>
                             }
@@ -1246,7 +1273,7 @@
         };
     }
 
-    // Trail/Difficulty/Status/Sort are real <select name="..."> fields inside
+    // Visibility/Trail/Difficulty/Status/Sort are real <select name="..."> fields inside
     // #filterForm and submit a normal GET on change (see the custom-select-enhanced
     // markup above) - EventController.Index applies them server-side, including the
     // status grouping and Soonest/Latest ordering. Only free-text search stays

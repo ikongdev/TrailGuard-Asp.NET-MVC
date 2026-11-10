@@ -187,8 +187,19 @@ namespace TrailGuard.Controllers
             }
         }
 
-        public async Task<IActionResult> Index(string searchString, string status, string trailId, string difficulty, string sortOrder)
+        public async Task<IActionResult> Index(string searchString, string status, string trailId, string difficulty, string sortOrder, string? visibility = null)
         {
+            var currentUser = await GetCurrentUserAsync();
+            if (currentUser == null) return Forbid();
+
+            var isAdmin = await _userManager.IsInRoleAsync(currentUser, "Admin");
+            var normalizedVisibility = isAdmin || visibility == "all" ? "all" : "my";
+            IQueryable<Event> scopedEvents = _context.Events;
+            if (!isAdmin && normalizedVisibility == "my")
+            {
+                scopedEvents = scopedEvents.Where(e => e.OrganizerId == currentUser.Id);
+            }
+
             await RegistrationStatusHelper.ExpireOverdueRegistrations(_context);
 
             var normalizedSearch = (searchString ?? string.Empty).Trim();
@@ -198,7 +209,6 @@ namespace TrailGuard.Controllers
             var normalizedSort = AllowedSortOrders.Contains(sortOrder ?? string.Empty) ? sortOrder! : DefaultSortOrder;
 
             ViewData["CurrentFilter"] = normalizedSearch;
-            ViewData["CurrentStatus"] = normalizedStatus;
             ViewData["CurrentTrailId"] = normalizedTrailId;
             ViewData["CurrentDifficulty"] = normalizedDifficulty;
             ViewData["CurrentSort"] = normalizedSort;
@@ -215,18 +225,33 @@ namespace TrailGuard.Controllers
             var organizers = await _userManager.GetUsersInRoleAsync("Organizer");
             ViewBag.Organizers = organizers.ToList();
 
-            var actualStatuses = await _context.Events.Select(e => e.Status).Distinct().ToListAsync();
+            var actualStatuses = await scopedEvents.Select(e => e.Status).Distinct().ToListAsync();
             var orderedStatuses = FixedStatusPriority
                 .Concat(actualStatuses.Except(FixedStatusPriority, StringComparer.Ordinal).OrderBy(s => s, StringComparer.Ordinal))
                 .ToList();
 
+            var statusUnavailable = normalizedStatus != "All" && !orderedStatuses.Contains(normalizedStatus, StringComparer.Ordinal);
+            if (statusUnavailable) normalizedStatus = "All";
+            ViewData["CurrentStatus"] = normalizedStatus;
+
+            if (statusUnavailable)
+            {
+                return RedirectToAction(nameof(Index), new
+                {
+                    visibility = normalizedVisibility,
+                    searchString = normalizedSearch,
+                    status = normalizedStatus,
+                    trailId = normalizedTrailId,
+                    difficulty = normalizedDifficulty,
+                    sortOrder = normalizedSort
+                });
+            }
 
 
 
+            var upcomingEventsCount = await scopedEvents.CountAsync(e => e.Status == "Upcoming");
 
-            var upcomingEventsCount = await _context.Events.CountAsync(e => e.Status == "Upcoming");
-
-            IQueryable<Event> query = _context.Events;
+            IQueryable<Event> query = scopedEvents;
 
             if (!string.IsNullOrEmpty(normalizedSearch))
             {
@@ -288,6 +313,9 @@ namespace TrailGuard.Controllers
 
             var viewModel = new EventManagementViewModel
             {
+                IsAdmin = isAdmin,
+                CurrentUserId = currentUser.Id,
+                Visibility = normalizedVisibility,
                 StatusGroups = statusGroups,
                 AvailableStatuses = orderedStatuses,
                 UpcomingEventsCount = upcomingEventsCount,
@@ -342,6 +370,19 @@ namespace TrailGuard.Controllers
         {
             try
             {
+                Event? existingEvent = null;
+                if (eventId is <= 0 || (Request.Query.ContainsKey(nameof(eventId)) && !eventId.HasValue) ||
+                    (ModelState.TryGetValue(nameof(eventId), out var eventIdState) && eventIdState.Errors.Count > 0))
+                    return Json(new { success = false, message = "Event not found" });
+
+                if (eventId.HasValue)
+                {
+                    existingEvent = await _context.Events.FindAsync(eventId.Value);
+                    var currentUser = await GetCurrentUserAsync();
+                    if (existingEvent == null || currentUser == null || !await CanManageEventAsync(existingEvent, currentUser))
+                        return Json(new { success = false, message = "Event not found" });
+                }
+
                 var trail = await _context.Trails.FindAsync(trailId);
                 if (trail == null)
                 {
@@ -351,16 +392,11 @@ namespace TrailGuard.Controllers
                 var forecast = await _weatherService.GetWeatherForecastAsync(trail.Location, eventDate);
                 var reminder = forecast.SuggestedReminder;
 
-                if (eventId.HasValue)
+                if (existingEvent != null &&
+                    !string.IsNullOrEmpty(existingEvent.WeatherReminder) &&
+                    existingEvent.WeatherRiskLevel == forecast.RiskLevel)
                 {
-                    var existingEvent = await _context.Events.FindAsync(eventId.Value);
-                    if (existingEvent != null &&
-                        !string.IsNullOrEmpty(existingEvent.WeatherReminder) &&
-                        existingEvent.WeatherRiskLevel == forecast.RiskLevel)
-                    {
-
-                        reminder = existingEvent.WeatherReminder;
-                    }
+                    reminder = existingEvent.WeatherReminder;
                 }
 
                 return Json(new
