@@ -10,6 +10,7 @@
                 This notice explains how TrailGuard handles personal information when you use its hiking-event,
                 trail-management, and suitability-assessment features. TrailGuard is developed as a capstone project.
             </p>
+            <p class="mt-3 text-sm text-gray-400">Last revised: <time datetime="2026-11-10">November 10, 2026</time>.</p>
         </header>
 
         <div class="space-y-5 sm:space-y-6">
@@ -87,7 +88,10 @@
                     <div>
                         <h2 id="privacy-access" class="text-xl font-bold text-white">Access and service providers</h2>
                         <p class="mt-3 leading-relaxed text-gray-300">
-                            Access is role- and relationship-based: participants access their own records; organizers access records for the Events they organize; and administrators access management functions assigned to their role. Profile information is not available to anonymous visitors. Authorized signed-in roles may see information only through the screens and event relationships the application permits.
+                            Access to account, profile, registration, assessment, and document screens is role- and relationship-based: participants access their own permitted records; organizers access permitted records for the Events they organize; and administrators access management functions assigned to their role. Anonymous visitors cannot access protected account or profile screens. Receipts and medical-clearance documents are served through authorized application document routes.
+                        </p>
+                        <p class="mt-3 leading-relaxed text-gray-300">
+                            Profile and trail images use public image-serving locations and may be accessible to anyone with the image URL. Protecting a profile screen does not make its image URL private.
                         </p>
                         <p class="mt-3 leading-relaxed text-gray-300">
                             TrailGuard uses PostgreSQL for application data. The repository's development configuration is local, while the application also supports a Supabase PostgreSQL target and Supabase Storage for public images and private documents when configured. In local development, uploads use application-controlled storage outside the public web root. This notice does not identify a verified production hosting provider or storage location.
@@ -102,10 +106,16 @@
                     <div>
                         <h2 id="privacy-retention" class="text-xl font-bold text-white">Storage and retention</h2>
                         <p class="mt-3 leading-relaxed text-gray-300">
-                            TrailGuard retains registration and assessment histories that are part of Event and workflow records. Cancelling an Event closes further processing, but does not itself erase registrations, assessments, results, receipts, documents, or historical snapshots.
+                            TrailGuard retains registration and assessment histories that are part of Event and workflow records. Account deactivation, Event or registration cancellation, and marking an assessment inactive do not themselves erase personal information, receipts, medical-clearance documents, results, or historical snapshots. Removing a database record does not automatically delete its uploaded files.
+                        </p>
+                        <p class="mt-3 leading-relaxed text-gray-300">
+                            If TrailGuard is discontinued after evaluation, the planned target is manual review and cleanup of personal data no longer needed within 30 calendar days after final project acceptance, including acceptance of any required revisions. The December 1–2, 2026 final defense schedule is not the cleanup trigger. The TrailGuard project administrator coordinates this manual plan.
+                        </p>
+                        <p class="mt-3 leading-relaxed text-gray-300">
+                            Any justified retention exception requires a confirmed reason and a defined review or retention period. Applicable school retention requirements remain unconfirmed and must be checked before any school-based exception is finalized.
                         </p>
                         <p class="mt-3 leading-relaxed text-gray-400">
-                            The project does not currently publish an owner-approved retention schedule or deletion timetable. Records are not represented here as automatically erased after a fixed period.
+                            This is a planned manual-cleanup target, not an implemented automatic deletion feature or a guarantee of complete erasure within 30 days. Backups, logs, exports, and other copies need separate review and handling. Their actual retention settings and expiry periods remain unverified; they are not represented here as automatically purged or fully erased within that target.
                         </p>
                     </div>
                 </div>
@@ -134,8 +144,13 @@
                         <p class="mt-3 leading-relaxed text-gray-300">
                             Subject to applicable law, including the Data Privacy Act of 2012 (Republic Act No. 10173), you may ask to access or correct personal information, object to processing in appropriate circumstances, withdraw consent, or request erasure where the law allows. Withdrawal or erasure can affect features that need the information, and may be limited where records must be retained for lawful or legitimate workflow purposes.
                         </p>
+                        <p class="mt-3 leading-relaxed text-gray-300">
+                            For privacy concerns or requests, contact the TrailGuard project administrator at
+                            <a href="mailto:admin.trailguard@gmail.com" class="break-all text-accent underline decoration-accent/50 underline-offset-4 hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base">admin.trailguard@gmail.com</a>.
+                            The project administrator monitors this inbox and coordinates manual cleanup. Requests require review and may require identity verification.
+                        </p>
                         <p class="mt-3 leading-relaxed text-gray-400">
-                            TrailGuard does not currently provide a self-service privacy-request flow, an official privacy-request email, or a published Data Protection Officer contact in the application. Do not send sensitive personal or medical information through an unverified channel; an owner-approved contact channel must be published before external deployment.
+                            Describe your initial concern without attaching passwords, receipts, medical documents, or other sensitive material. TrailGuard does not currently provide a self-service privacy-request or account-erasure feature. Sending a request does not automatically delete records.
                         </p>
                     </div>
                 </div>
