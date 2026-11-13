@@ -77,6 +77,12 @@ namespace TrailGuard.Controllers
 
             TempData.Remove("Error");
 
+            if (AssessmentSubmissionGuards.IsEventCompleted(eventItem))
+            {
+                TempData["Error"] = AssessmentSubmissionGuards.CompletedEventMessage;
+                return RedirectToAction("Details", "Participant", new { id = eventId });
+            }
+
             if (await HasActiveRegistrationAsync(eventId, userId))
             {
                 TempData["Success"] = "You are already registered for this event.";
@@ -128,6 +134,12 @@ namespace TrailGuard.Controllers
                 return RedirectToAction("Details", "Participant", new { id = input.EventId });
             }
 
+            if (AssessmentSubmissionGuards.IsEventCompleted(eventItem))
+            {
+                TempData["Error"] = AssessmentSubmissionGuards.CompletedEventMessage;
+                return RedirectToAction("Details", "Participant", new { id = input.EventId });
+            }
+
             if (await HasActiveRegistrationAsync(input.EventId, userId))
             {
                 ModelState.AddModelError(string.Empty, "You are already registered for this event.");
@@ -168,13 +180,14 @@ namespace TrailGuard.Controllers
                 return View(input);
             }
 
-            var mapping = _trailGuardV2Mapper.Map(new TrailGuardV2AssessmentAnswers
+            var answers = new TrailGuardV2AssessmentAnswers
             {
                 ExerciseFrequency = input.ExerciseFrequency, CardioDuration = input.CardioEndurance,
                 ExerciseConsistency = input.ExerciseConsistency, HikingExperience = input.MountainsClimbed,
                 HikingRecency = input.RecencyOfHike, HardestTrailCompleted = input.TrailDifficultyCompleted,
                 GearItems = input.GearItems
-            }, eventItem);
+            };
+            var mapping = _trailGuardV2Mapper.Map(answers, eventItem);
             if (!mapping.IsValid)
             {
                 AddMappingErrors(mapping.Errors);
@@ -182,6 +195,7 @@ namespace TrailGuard.Controllers
                 return View(input);
             }
 
+            var scoredTrail = AssessmentTrailInputSnapshot.Capture(eventItem);
             var selectedMedicalConditions = medicalSelection.CanonicalSelections;
             var medicalConditions = string.Join(",", selectedMedicalConditions.Select(value => value.Trim()));
             var acsmClearanceRequired = AcsmClearanceService.RequiresMedicalClearance(
@@ -225,6 +239,20 @@ namespace TrailGuard.Controllers
                     return RedirectToAction("Details", "Participant", new { id = input.EventId });
                 }
 
+                if (AssessmentSubmissionGuards.IsEventCompleted(lockedEvent))
+                {
+                    TempData["Error"] = AssessmentSubmissionGuards.CompletedEventMessage;
+                    return RedirectToAction("Details", "Participant", new { id = input.EventId });
+                }
+
+                // Revalidate the authoritative inputs using the same frozen contract. Never
+                // infer under a database lock or accept a score for superseded trail values.
+                if (!_trailGuardV2Mapper.Map(answers, lockedEvent).IsValid || !scoredTrail.Matches(lockedEvent))
+                {
+                    TempData["Error"] = AssessmentSubmissionGuards.TrailChangedMessage;
+                    return RedirectToAction("Details", "Participant", new { id = input.EventId });
+                }
+
                 if (await HasActiveRegistrationAsync(input.EventId, userId))
                 {
                     ModelState.AddModelError(string.Empty, "You are already registered for this event.");
@@ -232,8 +260,7 @@ namespace TrailGuard.Controllers
                     return View(input);
                 }
 
-                var oldAssessment = await _context.Assessments
-                    .FirstOrDefaultAsync(a => a.EventId == input.EventId && a.UserId == userId && a.IsActive);
+                var oldAssessment = await FindActiveAssessmentForPersistenceAsync(input.EventId, userId);
                 await OnActiveAssessmentLoadedForPersistenceAsync(oldAssessment);
 
                 var assessment = new Assessment
@@ -287,6 +314,10 @@ namespace TrailGuard.Controllers
 
         protected virtual Task<bool> HasActiveAssessmentAsync(int eventId, string? userId) => _context.Assessments
             .AnyAsync(a => a.EventId == eventId && a.UserId == userId && a.IsActive == true);
+
+        protected virtual Task<Assessment?> FindActiveAssessmentForPersistenceAsync(int eventId, string userId) =>
+            _context.Assessments.SingleOrDefaultAsync(assessment => assessment.EventId == eventId
+                && assessment.UserId == userId && assessment.IsActive);
 
         protected virtual Task<bool> HasActiveRegistrationAsync(int eventId, string userId) => _context.EventRegistrations
             .AnyAsync(r => r.EventId == eventId

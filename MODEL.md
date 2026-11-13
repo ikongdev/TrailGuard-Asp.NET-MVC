@@ -10,6 +10,7 @@
 | Model type | XGBoost binary logistic |
 | Positive class | Yes (1) / probability_yes |
 | Selected trees | 985 |
+| Stored trees / selected inference range | 1,000 / [0, 985), end exclusive |
 | Frozen binary threshold | 0.50 |
 | Frozen SHA-256 | bdc93bff426fadbcab6d4ce16b4a457050a6875fb67c355df0da5101caeb4e35 |
 
@@ -40,6 +41,8 @@ The exact ordered input contract is:
 feature_schema.json stores explicit ordinal mappings for the six categorical fields; frozen constants hold numeric range/integer constraints. The adapter rejects unknown categories, nonfinite/non-numeric values, missing keys, and extra keys. MVC validates the same participant-facing contract first.
 
 Trail inputs come from immutable Event snapshots. TrailDurationHoursSnapshot, not editable EstimatedDuration, is model input. Gear score derives from recognized gear selections. First-time hiking answers must be internally consistent.
+
+Before persistence, the locked Event's trail identity and exact inputs are revalidated against their pre-inference snapshot; changed/invalid inputs require review and retry without rescaling or automatic re-inference. Completed Events reject new assessments/retakes. Event trail replacement is allowed only before any assessment or registration row exists, including inactive/historical rows and every registration status. These guards prevent new mismatches; they do not establish consistency of pre-existing records.
 
 BMI, height, weight, age/demographics, medical conditions, weather, payment history, and Organizer decisions are not active inputs. Some have separate application uses, including medical clearance/registration logic and weather advisory.
 

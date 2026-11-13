@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using TrailGuard.Models;
 
 namespace TrailGuard.Services;
 
@@ -6,6 +7,10 @@ namespace TrailGuard.Services;
 public static class AssessmentSubmissionGuards
 {
     public const string NoneOfTheAbove = "None of the above";
+    public const string CompletedEventMessage = "This event has been completed. New assessments and retakes are closed.";
+    public const string TrailChangedMessage = "The event's trail has changed. Review the updated event and retry your assessment.";
+
+    public static bool IsEventCompleted(Event eventItem) => eventItem.Status == "Completed";
 
     public static readonly IReadOnlySet<string> MedicalChoices = new HashSet<string>(StringComparer.Ordinal)
     {
@@ -61,6 +66,24 @@ public static class AssessmentSubmissionGuards
 
         return MedicalSelectionValidationResult.Valid(canonical);
     }
+}
+
+/// <summary>
+/// Exact Event trail values captured beside the immutable prediction request before inference.
+/// Keep decimal duration here so changes lost in its model-facing double conversion are rejected too.
+/// </summary>
+public readonly record struct AssessmentTrailInputSnapshot(
+    int TrailId, double DistanceKm, int ElevationGainMeters, int TrailClass, decimal DurationHours)
+{
+    public static AssessmentTrailInputSnapshot Capture(Event eventItem) => new(
+        eventItem.TrailId, eventItem.TrailDistanceKmSnapshot, eventItem.TrailElevationGainMetersSnapshot,
+        eventItem.TrailClassSnapshot, eventItem.TrailDurationHoursSnapshot);
+
+    public bool Matches(Event eventItem) => TrailId == eventItem.TrailId
+        && DistanceKm == eventItem.TrailDistanceKmSnapshot
+        && ElevationGainMeters == eventItem.TrailElevationGainMetersSnapshot
+        && TrailClass == eventItem.TrailClassSnapshot
+        && DurationHours == eventItem.TrailDurationHoursSnapshot;
 }
 
 public sealed record MedicalSelectionValidationResult(bool IsValid, IReadOnlyList<string> CanonicalSelections, string? Error)

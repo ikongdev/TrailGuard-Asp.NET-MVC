@@ -724,7 +724,8 @@
                     <div class="mb-6">
                         <label for="editEventTrailId" class="block text-sm font-medium text-gray-300 mb-2">Select Trail <span class="text-red-400">*</span></label>
                         <select id="editEventTrailId" name="TrailId" required data-custom-select
-                                class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm appearance-none cursor-pointer">
+                                aria-describedby="editEventTrailLockedNote" data-cs-describedby="editEventTrailLockedNote"
+                                class="block w-full px-4 py-3 rounded-xl bg-surface-card border border-gray-700 text-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors text-sm appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
                             <option value="" disabled selected>-- Select a trail --</option>
                             @{
                                 // Active Trails only - a deactivated Trail can never be
@@ -745,6 +746,9 @@
                                 }
                             }
                         </select>
+                        <p id="editEventTrailLockedNote" hidden class="text-xs text-amber-400 mt-2">
+                            @TrailGuard.Services.EventTrailReplacementPolicy.LockedMessage
+                        </p>
                         <p id="editEventTrailDeactivatedNote" hidden class="text-xs text-amber-400 mt-2 flex items-start gap-1.5">
                             <i class="fa-solid fa-box-archive mt-0.5 shrink-0" aria-hidden="true"></i>
                             <span>This trail has been deactivated. It remains linked to this event and does not need to be changed.</span>
@@ -3305,6 +3309,7 @@
     let editEventTrailRequestToken = 0;
 
     async function handleEditEventTrailChange() {
+        if (this.disabled) return;
         const requestToken = ++editEventTrailRequestToken;
         const trailId = this.value;
         const durationInput = document.getElementById('editEventDuration');
@@ -3553,6 +3558,8 @@
         removeInjectedCurrentTrailOption();
         document.getElementById('editEventTrailDeactivatedNote')?.setAttribute('hidden', '');
         const trailSelect = document.getElementById('editEventTrailId');
+        if (trailSelect) trailSelect.disabled = false;
+        document.getElementById('editEventTrailLockedNote')?.setAttribute('hidden', '');
         if (trailSelect && window.CustomSelect) window.CustomSelect.refresh(trailSelect);
     }
 
@@ -3605,8 +3612,12 @@
                 trailSelect.appendChild(injectedOption);
             }
             trailSelect.value = String(data.trailId);
+            // The explicit JSON payload reads this value even when disabled.
+            // A stale modal/forged payload is independently checked under the server lock.
+            trailSelect.disabled = data.canChangeTrail !== true;
             if (window.CustomSelect) window.CustomSelect.refresh(trailSelect);
         }
+        document.getElementById('editEventTrailLockedNote')?.toggleAttribute('hidden', data.canChangeTrail === true);
         deactivatedNote?.toggleAttribute('hidden', data.trailIsActive !== false);
 
         document.getElementById('editPreviewDifficulty').textContent = data.trailDifficulty || '-';

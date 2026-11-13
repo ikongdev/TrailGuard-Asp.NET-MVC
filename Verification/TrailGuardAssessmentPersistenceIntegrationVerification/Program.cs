@@ -26,7 +26,8 @@ using TrailGuard.Services;
 // Keep the harness's Npgsql model conventions aligned with Program.cs before EF builds its model.
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
-var run = args.SequenceEqual(["--run"]);
+var mlPolicyOnly = args.SequenceEqual(["--run-ml-policy"]);
+var run = args.SequenceEqual(["--run"]) || mlPolicyOnly;
 var modelCheck = args.SequenceEqual(["--model-check"]);
 string fixture;
 try
@@ -69,7 +70,7 @@ if (!run)
 
 var settings = IntegrationSettings.Load();
 var runner = new IntegrationRunner(settings, fixture);
-Environment.ExitCode = await runner.RunAsync();
+Environment.ExitCode = await runner.RunAsync(mlPolicyOnly);
 
 sealed class IntegrationSettings
 {
@@ -237,7 +238,7 @@ static class HarnessDbContextFactory
     }
 }
 
-sealed class IntegrationRunner(IntegrationSettings settings, string fixture)
+sealed partial class IntegrationRunner(IntegrationSettings settings, string fixture)
 {
     private readonly string _fixture = fixture;
     private readonly string _uploads = Path.Combine(Path.GetTempPath(), "TrailGuardAssessmentPersistenceIntegrationVerification", Guid.NewGuid().ToString("N"));
@@ -245,7 +246,7 @@ sealed class IntegrationRunner(IntegrationSettings settings, string fixture)
     private readonly MemoryUploadStorage _storage = new();
     private bool _createdDatabase;
 
-    public async Task<int> RunAsync()
+    public async Task<int> RunAsync(bool mlPolicyOnly = false)
     {
         var exitCode = 0;
         try
@@ -256,15 +257,23 @@ sealed class IntegrationRunner(IntegrationSettings settings, string fixture)
             await SuccessfulPersistenceAsync();
             await ForcedRollbackAsync();
             await ConcurrentRetakesAsync();
-            await RegistrationFirstAsync();
-            await RetakeFirstAsync();
-            await CapacityOneAllowsOneAsync();
-            await CapacityTwoAllowsTwoAsync();
-            await CapacityReductionPolicyAsync();
-            await RegistrationBeforeCapacityReductionAsync();
-            await CapacityReductionBeforeRegistrationAsync();
-            await StorageConcurrencyScenarios.RunAsync(settings.AppConnectionString, _uploads);
-            Console.WriteLine("PASS: isolated PostgreSQL assessment and storage persistence scenarios completed.");
+            await MlPolicyScenariosAsync();
+            if (mlPolicyOnly)
+            {
+                Console.WriteLine("PASS: isolated PostgreSQL ML policy, persistence, rollback and retake scenarios completed.");
+            }
+            else
+            {
+                await RegistrationFirstAsync();
+                await RetakeFirstAsync();
+                await CapacityOneAllowsOneAsync();
+                await CapacityTwoAllowsTwoAsync();
+                await CapacityReductionPolicyAsync();
+                await RegistrationBeforeCapacityReductionAsync();
+                await CapacityReductionBeforeRegistrationAsync();
+                await StorageConcurrencyScenarios.RunAsync(settings.AppConnectionString, _uploads);
+                Console.WriteLine("PASS: isolated PostgreSQL assessment and storage persistence scenarios completed.");
+            }
         }
         catch (Exception exception)
         {
@@ -348,7 +357,7 @@ sealed class IntegrationRunner(IntegrationSettings settings, string fixture)
     {
         await using var admin = new NpgsqlConnection(settings.AdminConnectionString);
         await admin.OpenAsync();
-        await using var drop = new NpgsqlCommand("DROP DATABASE \"trailguard_assessment_it\" WITH (FORCE)", admin);
+        await using var drop = new NpgsqlCommand("DROP DATABASE \"trailguard_assessment_it\"", admin);
         await drop.ExecuteNonQueryAsync();
         _createdDatabase = false;
     }

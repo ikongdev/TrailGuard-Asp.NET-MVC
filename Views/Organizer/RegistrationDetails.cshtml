@@ -135,6 +135,9 @@
 
     var hasMlPrediction = ViewBag.HasMlPrediction == true;
     var isTrailGuardV2 = ViewBag.IsTrailGuardV2 == true;
+    var factorMagnitudeDescription = isTrailGuardV2
+        ? "contribution magnitude relative to the largest absolute contribution"
+        : "share of displayed impact";
     var shapFactors = hasMlPrediction ? (ViewBag.ShapFactors as List<ShapDisplayItem> ?? new List<ShapDisplayItem>()) : new List<ShapDisplayItem>();
     var supportedFactors = shapFactors.Where(f => isTrailGuardV2 ? f.Direction == "raised" : f.IsPositive).ToList();
     var weakenedFactors = shapFactors.Where(f => isTrailGuardV2 ? f.Direction == "lowered" : !f.IsPositive).ToList();
@@ -538,7 +541,7 @@
                                                 <i class="fa-solid fa-arrow-up mr-1" aria-hidden="true"></i>Raised model score
                                             </span>
                                         </div>
-                                        <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden" role="progressbar" aria-valuenow="@factor.BarWidth" aria-valuemin="0" aria-valuemax="100" aria-label="@($"{factor.FriendlyName} share of impact")">
+                                        <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden" role="progressbar" aria-valuenow="@factor.BarWidth" aria-valuemin="0" aria-valuemax="100" aria-label="@($"{factor.FriendlyName} {factorMagnitudeDescription}")">
                                             <div class="h-full rounded-full bg-emerald-500" style="width: @(factor.BarWidth.ToString(System.Globalization.CultureInfo.InvariantCulture))%"></div>
                                         </div>
                                     </div>
@@ -564,7 +567,7 @@
                                                 <i class="fa-solid fa-arrow-down mr-1" aria-hidden="true"></i>Lowered model score
                                             </span>
                                         </div>
-                                        <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden" role="progressbar" aria-valuenow="@factor.BarWidth" aria-valuemin="0" aria-valuemax="100" aria-label="@($"{factor.FriendlyName} share of impact")">
+                                        <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden" role="progressbar" aria-valuenow="@factor.BarWidth" aria-valuemin="0" aria-valuemax="100" aria-label="@($"{factor.FriendlyName} {factorMagnitudeDescription}")">
                                             <div class="h-full rounded-full bg-red-500" style="width: @(factor.BarWidth.ToString(System.Globalization.CultureInfo.InvariantCulture))%"></div>
                                         </div>
                                     </div>

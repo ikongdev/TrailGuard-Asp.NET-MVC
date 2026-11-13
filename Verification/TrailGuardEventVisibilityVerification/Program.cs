@@ -46,7 +46,8 @@ using var context = new ApplicationDbContext(new DbContextOptionsBuilder<Applica
         new() { Id = 2, Name = "Trail 2", Location = "Laguna", IsActive = false }]),
     EventRegistrations = new MemorySet<EventRegistration>([
         new() { Id = 1, EventId = 1, Status = "Accepted" },
-        new() { Id = 2, EventId = 1, Status = "Voided" }])
+        new() { Id = 2, EventId = 1, Status = "Voided" }]),
+    Assessments = new MemorySet<Assessment>([])
 };
 using var users = new ControlledUsers(context);
 using var handler = new WeatherHandler();
@@ -153,8 +154,10 @@ Denied(await a.CancelEvent(new() { Id = 3, Reason = "Forged cancellation" }), "C
 Denied(await a.RescheduleEvent(new() { Id = 3, NewDate = new DateTime(2027, 1, 1) }), "Cross-organizer rescheduling remains denied.");
 Check(events[2].OrganizerId == "B" && events[2].Status == "Upcoming", "Denied mutations preserve assignment and lifecycle data.");
 Check(Json(await a.GetEvent(1)).GetProperty("success").GetBoolean(), "Owned edit data stays accessible.");
+Check(!Json(await a.GetEvent(1)).GetProperty("canChangeTrail").GetBoolean(), "Participation freezes the owned Event trail in edit state.");
 Check(!Json(await a.GetEvent(2)).GetProperty("success").GetBoolean(), "Completed events remain read-only.");
 Check(Json(await Controller("Admin", true).GetEvent(3)).GetProperty("success").GetBoolean(), "Admin retains cross-organizer edit-data access.");
+Check(Json(await Controller("Admin", true).GetEvent(3)).GetProperty("canChangeTrail").GetBoolean(), "No-record Event trail stays editable for Admin.");
 
 a = Controller("A");
 foreach (var id in new[] { 3, 5, 999, 0, -1 })

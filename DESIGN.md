@@ -556,7 +556,7 @@ The assessment report is the centrepiece of the capstone and shouldn't look like
 Information hierarchy:
 
 ```
-Suitability Result → Confidence → Why This Result? → SHAP Factors → Recommendations
+Suitability Result → Model score → Why This Result? → SHAP Factors → Recommendations
 ```
 
 **Do not reintroduce** the legacy rule-based display:
@@ -572,17 +572,17 @@ These were removed because they contradicted the ML result on the same screen �
 
 ### SHAP presentation
 
-Each factor shows a **percentage of the total displayed impact**, with the bar width matching. Raw SHAP values (`-1.836`) mean nothing to a reader; "32%" answers "how much of the reason is this?"
+Each factor's bar width is its **absolute contribution relative to the largest absolute contribution** across all factors: `abs(contribution) / max(abs(contributions)) * 100`. The largest magnitude has width 100%; all-zero contributions have width zero. Order by descending absolute contribution, with frozen feature-order tie breaks.
 
-The percentage is a share of displayed impact, **not** a probability of the outcome.
+This width is not a share of total impact or a percentage-point probability change. Native TreeSHAP values are on the raw-margin/log-odds scale; positive pushes toward Yes, negative toward No, and zero is neutral. They do not establish causal effects or medical conclusions.
 
-Recommendations derive from **negative** SHAP factors. Trail-side features (distance, elevation, terrain, duration) are excluded — there's no action a participant can take about a mountain's height. When every displayed factor is positive, say so plainly rather than padding with filler advice.
+Recommendations use at most three **negative** contributions from exercise frequency, cardio duration, exercise consistency, and gear score. Trail-side and other features are excluded. When no eligible negative factors exist, retain the empty recommendation state.
 
-### Confidence
+### Model score
 
-One decimal place, **raw — no cap**. This is the model's calibrated completion probability, not v2 class confidence. **Do not cap it.** 63.1% of predictions fall in extreme probability bands; the interpretation and limitation are documented in `MODEL.md`.
+Store `probability_yes` unchanged as `ModelScore`. Display two decimal percentage places: exact 0/1 are `0.00%`/`100.00%`; nonzero values rounding to zero show `<0.01%`, and non-one values rounding to 100 show `>99.99%`. Formatting never changes storage. This is a raw binary-model score; active-model calibration to real-world completion is not established. The 0.50 binary threshold and inherited 0.30/0.80 UI bands are separate policies, not three predicted class probabilities. See `MODEL.md` for evidence limits.
 
-With no `SuitabilityResult` — the ML service was unreachable and the assessment was rejected, not answered by a fallback — show the label without a donut. Don't leave an empty space and don't invent a number.
+Failed new inference produces no replacement score or partial assessment/result/screening graph. Show the retryable form error and preserve any previous assessment. A retained historical record without an ML result may omit the donut; never invent a score or a new fallback label.
 
 ### Disclaimer
 
@@ -594,7 +594,7 @@ Organizer-facing explanations state that the ML result is decision support only 
 
 The page's job is the registration task. It shouldn't repeat what the participant just saw on the assessment report.
 
-Keep: suitability result, confidence when available, a link to the full report, and essential event and trail details.
+Keep: suitability result, model score when available, a link to the full report, and essential event and trail details.
 
 Don't reintroduce the category-score bars or the trail-demand percentage bars — the latter showed a fill percentage against no stated maximum.
 

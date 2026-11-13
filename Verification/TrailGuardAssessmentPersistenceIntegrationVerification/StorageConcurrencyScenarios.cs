@@ -121,8 +121,8 @@ static class StorageConcurrencyScenarios
         var firstSignIn = new NoCookieSignInManager(firstUsers);
         var secondSignIn = new NoCookieSignInManager(secondUsers);
         var clock = new PhilippineClock(TimeProvider.System);
-        var winner = new SettingsController(firstUsers, firstSignIn, new TestEnvironment(root), NullLogger<SettingsController>.Instance, clock, firstStorage, first);
-        var loser = new SettingsController(secondUsers, secondSignIn, new TestEnvironment(root), NullLogger<SettingsController>.Instance, clock, secondStorage, second);
+        var winner = new SettingsController(firstUsers, firstSignIn, new TestEnvironment(root), NullLogger<SettingsController>.Instance, clock, firstStorage, first, new ForbidFixtureEmailVerification());
+        var loser = new SettingsController(secondUsers, secondSignIn, new TestEnvironment(root), NullLogger<SettingsController>.Instance, clock, secondStorage, second, new ForbidFixtureEmailVerification());
         Configure(winner, seed.UserId, "Participant"); Configure(loser, seed.UserId, "Participant");
         Task<IActionResult>? firstTask = null, secondTask = null;
         try
@@ -541,4 +541,12 @@ sealed class NoCookieSignInManager(UserManager<ApplicationUser> users) : SignInM
 {
     public int RefreshCalls { get; private set; }
     public override Task RefreshSignInAsync(ApplicationUser user) { RefreshCalls++; return Task.CompletedTask; }
+}
+
+sealed class ForbidFixtureEmailVerification : IEmailVerificationService
+{
+    public Task<VerificationSendResult> SendConfirmationAsync(ApplicationUser user, string? remoteIp, CancellationToken cancellationToken = default) =>
+        throw new InvalidOperationException("Email verification must not run in the storage fixture.");
+    public Task<VerificationSendResult> SendChangeConfirmationAsync(ApplicationUser user, string newEmail, string? remoteIp, CancellationToken cancellationToken = default) =>
+        throw new InvalidOperationException("Email verification must not run in the storage fixture.");
 }

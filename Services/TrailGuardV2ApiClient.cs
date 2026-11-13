@@ -8,8 +8,8 @@ using TrailGuard.Models;
 namespace TrailGuard.Services;
 
 /// <summary>
-/// Isolated client for the frozen TrailGuard v2 adapter. It is intentionally not
-/// registered with the running MVC application until a later integration stage.
+/// Active MVC client for the frozen TrailGuard v2 adapter, registered in Program.cs
+/// using TrailGuardV2Api:BaseUrl. Invalid or unavailable inference fails without a fallback.
 /// </summary>
 public sealed class TrailGuardV2ApiClient
 {

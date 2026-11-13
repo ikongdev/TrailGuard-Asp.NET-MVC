@@ -155,6 +155,97 @@ foreach (var input in new[]
         "A post-lock cancellation must leave the retained assessment history unchanged and save no prediction graph.");
 }
 
+// Regressions converted from the external audit probes: these now require rejection.
+foreach (var useGet in new[] { true, false })
+{
+    using var context = NewContext();
+    var completed = PredictionEvent();
+    completed.Status = "Completed";
+    var handler = new RecordedPredictionHandler(LoadRecordedAdapterResponse());
+    var controller = NewAssessmentController(context, handler, completed, hasActiveRegistration: false);
+    var prior = RetainedAssessment();
+    context.Attach(prior);
+    var result = useGet ? await controller.Form(41) : await controller.Form(CompleteValidAssessmentInput());
+    Check(result is RedirectToActionResult { ActionName: "Details", ControllerName: "Participant" }
+        && TempDataError(controller) == AssessmentSubmissionGuards.CompletedEventMessage,
+        "Completed GET/POST must explain that assessments and retakes are closed.");
+    Check(handler.RequestCount == 0 && controller.PersistenceCalls.Count == 0 && context.SaveChangesAsyncCalls == 0,
+        "Completed entry must reject before inference or persistence.");
+    Check(prior.IsActive && prior.SuitabilityResults.Single().ShapValues.Count == 11,
+        "Completed entry must preserve the prior prediction history.");
+}
+
+var staleChanges = new Dictionary<string, Action<Event>>
+{
+    ["completion"] = item => item.Status = "Completed",
+    ["trail identity only"] = item => item.TrailId++,
+    ["distance"] = item => item.TrailDistanceKmSnapshot = Math.BitIncrement(8d),
+    ["elevation"] = item => item.TrailElevationGainMetersSnapshot++,
+    ["class"] = item => item.TrailClassSnapshot++,
+    ["duration"] = item => item.TrailDurationHoursSnapshot += 0.000000000000000000000000001m,
+    ["invalid distance"] = item => item.TrailDistanceKmSnapshot = double.NaN,
+    ["invalid elevation"] = item => item.TrailElevationGainMetersSnapshot = -1,
+    ["invalid class"] = item => item.TrailClassSnapshot = 5,
+    ["invalid duration"] = item => item.TrailDurationHoursSnapshot = 25
+};
+foreach (var (name, change) in staleChanges)
+{
+    using var context = NewContext();
+    var handler = new RecordedPredictionHandler(LoadRecordedAdapterResponse());
+    var controller = NewAssessmentController(context, handler, PredictionEvent(), hasActiveRegistration: false);
+    controller.LockedEvent = PredictionEvent();
+    change(controller.LockedEvent);
+    var prior = RetainedAssessment();
+    context.Attach(prior);
+    controller.PreviousAssessment = prior;
+    var result = await controller.Form(CompleteValidAssessmentInput());
+    var expected = name == "completion" ? AssessmentSubmissionGuards.CompletedEventMessage : AssessmentSubmissionGuards.TrailChangedMessage;
+    Check(result is RedirectToActionResult { ActionName: "Details", ControllerName: "Participant" }
+        && TempDataError(controller) == expected, $"Changed {name} must require review/retry or close assessments.");
+    Check(handler.RequestCount == 1 && controller.PersistenceCalls.SequenceEqual(["begin", "event-lock", "participant-event-lock", "dispose"]),
+        $"Changed {name} must reject after reload, without re-inference or loading the prior graph.");
+    Check(context.SaveChangesAsyncCalls == 0 && prior.IsActive && prior.SuitabilityResults.Single().ShapValues.Count == 11
+        && !context.ChangeTracker.Entries().Any(), $"Changed {name} must not replace or attach any graph.");
+}
+
+// Unchanged model inputs permit ordinary persistence, even when unrelated Event fields/live Trail change.
+{
+    using var context = NewContext();
+    var handler = new RecordedPredictionHandler(LoadRecordedAdapterResponse());
+    var controller = NewAssessmentController(context, handler, PredictionEvent(), hasActiveRegistration: false);
+    controller.LockedEvent = PredictionEvent();
+    controller.LockedEvent.EstimatedDuration = 20;
+    controller.LockedEvent.Trail = new Trail { DistanceKm = 99, TypicalDurationHours = 22 };
+    controller.LockedEvent.EventDate = DateTime.Today.AddDays(-1); // No unrelated event-date policy.
+    var prior = RetainedAssessment();
+    controller.PreviousAssessment = prior;
+    controller.AllowCommit = true;
+    var result = await controller.Form(CompleteValidAssessmentInput());
+    Check(result is RedirectToActionResult { ActionName: "Report" } && handler.RequestCount == 1
+        && context.SaveChangesAsyncCalls == 1 && !prior.IsActive, "Unchanged trail inputs must preserve successful retake behavior.");
+    Check(controller.PersistenceCalls.SequenceEqual(["begin", "event-lock", "participant-event-lock", "find-active", "active-assessment", "commit", "dispose"]),
+        "Successful persistence must keep the existing lock and transaction order.");
+    var saved = context.ChangeTracker.Entries<Assessment>().Single().Entity;
+    Check(saved.SuitabilityResults.Single().DistanceKm == 8 && saved.SuitabilityResults.Single().TypicalDurationHours == 5
+        && saved.SuitabilityResults.Single().ShapValues.Count == 11, "Successful graph must retain the exact scored inputs and all SHAP values.");
+}
+
+foreach (var failure in new[] { "503", "422", "malformed", "wrong-hash", "transport", "timeout" })
+{
+    using var context = NewContext();
+    var handler = new FailedPredictionHandler(failure, LoadRecordedAdapterResponse());
+    var controller = NewAssessmentController(context, handler, PredictionEvent(), hasActiveRegistration: false);
+    var prior = RetainedAssessment();
+    context.Attach(prior);
+    var result = await controller.Form(CompleteValidAssessmentInput());
+    Check(result is ViewResult && controller.ModelState.ErrorCount > 0 && handler.Calls == 1,
+        $"Inference failure {failure} must remain retryable.");
+    Check(controller.PersistenceCalls.Count == 0 && context.SaveChangesAsyncCalls == 0 && prior.IsActive
+        && prior.SuitabilityResults.Single().ShapValues.Count == 11
+        && !context.ChangeTracker.Entries<Assessment>().Any(entry => entry.State == EntityState.Added),
+        $"Inference failure {failure} must not start persistence or replace history.");
+}
+
 if (!assessmentOnly)
 {
 // Registration contact numbers are parsed without truncation and stored in one canonical format.
@@ -385,6 +476,27 @@ static TrailGuardV2AssessmentFormInput CompleteValidAssessmentInput() => new()
     DataPrivacyConsent = true
 };
 
+static Event PredictionEvent() => new()
+{
+    Id = 41, TrailId = 7, Status = "Upcoming", EventDate = DateTime.Today.AddDays(7), Capacity = 20,
+    TrailDistanceKmSnapshot = 8, TrailElevationGainMetersSnapshot = 600, TrailClassSnapshot = 3, TrailDurationHoursSnapshot = 5
+};
+
+static Assessment RetainedAssessment()
+{
+    var assessment = new Assessment { Id = 91, EventId = 41, UserId = "participant-1", IsActive = true };
+    var input = CompleteValidAssessmentInput();
+    var request = new TrailGuardV2AssessmentRequestMapper().Map(new TrailGuardV2AssessmentAnswers
+    {
+        ExerciseFrequency = input.ExerciseFrequency, CardioDuration = input.CardioEndurance,
+        ExerciseConsistency = input.ExerciseConsistency, HikingExperience = input.MountainsClimbed,
+        HikingRecency = input.RecencyOfHike, HardestTrailCompleted = input.TrailDifficultyCompleted, GearItems = input.GearItems
+    }, PredictionEvent()).Request!;
+    var prediction = JsonSerializer.Deserialize<TrailGuardV2PredictionResponse>(LoadRecordedAdapterResponse(), new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+    TrailGuardV2SuitabilityResultFactory.Create(assessment, DateTimeOffset.UtcNow, request, prediction);
+    return assessment;
+}
+
 static string LoadRecordedAdapterResponse() => File.ReadAllText(Path.Combine(
     FindRepositoryRoot(), "Verification", "TrailGuardV2AdapterVerification", "Fixtures", "adapter-recorded-example.json"));
 
@@ -511,6 +623,8 @@ sealed class TestAssessmentController : AssessmentController
     public bool ActiveRegistration { get; init; }
     public ParticipantDemographicsResult TestDemographics { get; init; } = ParticipantDemographicsResult.Complete(30, ParticipantDemographics.Female);
     public List<string> PersistenceCalls { get; } = [];
+    public Assessment? PreviousAssessment { get; set; }
+    public bool AllowCommit { get; set; }
     private int eventLookups;
 
     protected override Task<Event?> FindEventAsync(int eventId) => Task.FromResult(++eventLookups == 1 ? TestEvent : LockedEvent ?? TestEvent);
@@ -533,7 +647,7 @@ sealed class TestAssessmentController : AssessmentController
     protected override Task<IDbContextTransaction> BeginAssessmentPersistenceTransactionAsync()
     {
         PersistenceCalls.Add("begin");
-        return Task.FromResult<IDbContextTransaction>(new GuardTransaction(PersistenceCalls));
+        return Task.FromResult<IDbContextTransaction>(new GuardTransaction(PersistenceCalls, AllowCommit));
     }
     protected override Task AcquireAssessmentEventLockAsync(int eventId)
     {
@@ -549,6 +663,11 @@ sealed class TestAssessmentController : AssessmentController
     {
         PersistenceCalls.Add("active-assessment");
         return Task.CompletedTask;
+    }
+    protected override Task<Assessment?> FindActiveAssessmentForPersistenceAsync(int eventId, string userId)
+    {
+        PersistenceCalls.Add("find-active");
+        return Task.FromResult(PreviousAssessment);
     }
 }
 
@@ -647,10 +766,14 @@ sealed class TestOrganizerController : OrganizerController
     }
 }
 
-sealed class GuardTransaction(List<string> calls) : IDbContextTransaction
+sealed class GuardTransaction(List<string> calls, bool allowCommit = false) : IDbContextTransaction
 {
     public Guid TransactionId { get; } = Guid.NewGuid();
-    public void Commit() => throw new InvalidOperationException("A denied decision must not commit.");
+    public void Commit()
+    {
+        if (!allowCommit) throw new InvalidOperationException("A denied decision must not commit.");
+        calls.Add("commit");
+    }
     public Task CommitAsync(CancellationToken cancellationToken = default) { Commit(); return Task.CompletedTask; }
     public void Rollback() => calls.Add("rollback");
     public Task RollbackAsync(CancellationToken cancellationToken = default) { Rollback(); return Task.CompletedTask; }
@@ -701,6 +824,22 @@ sealed class RecordedPredictionHandler(string body) : HttpMessageHandler
         {
             Content = new StringContent(body, Encoding.UTF8, "application/json")
         });
+    }
+}
+
+sealed class FailedPredictionHandler(string mode, string fixture) : HttpMessageHandler
+{
+    public int Calls { get; private set; }
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        Calls++;
+        if (mode == "transport") throw new HttpRequestException("Controlled transport failure");
+        if (mode == "timeout") throw new TaskCanceledException("Controlled timeout");
+        var status = mode == "503" ? HttpStatusCode.ServiceUnavailable
+            : mode == "422" ? HttpStatusCode.UnprocessableEntity : HttpStatusCode.OK;
+        var body = mode == "malformed" ? "{" : mode == "wrong-hash"
+            ? fixture.Replace(TrailGuardV2ResponseValidator.ExpectedFrozenModelSha256, new string('0', 64)) : fixture;
+        return Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") });
     }
 }
 

@@ -202,6 +202,8 @@ Class multipliers are 1.00/1.15/1.35/1.60; Class 4 has a score floor of 35. The 
 
 EventTrailSnapshotHelper.CaptureSnapshot(Event, Trail) is the single writer for Trail identity, location, difficulty/score, and all name/distance/duration/elevation/terrain/class/thumbnail snapshots. It captures from a fresh persisted Trail. Editing without a Trail change preserves every snapshot; deliberate Trail replacement captures all values atomically. Completed Events cannot be edited. Historical displays, assessment inputs, and participant progress use snapshots, not live Trail values.
 
+Policy A: Admin and the assigned Organizer may replace an Event's trail only before any Assessment (active or inactive) or EventRegistration (any status) exists. EditEvent rechecks this under the event-wide lock before mutation. After inference, assessment persistence takes the event-wide then participant/event lock, reloads, validates the contract, and rejects changed trail identity/inputs exactly; no inference runs under locks. Completed Events reject new assessments/retakes while permitted historical reads and post-event workflows remain available. Existing history is retained; possible pre-existing snapshot mismatches require a separate follow-up.
+
 EstimatedDuration is an organizer-editable per-event estimate, not the inference input. TrailDurationHoursSnapshot is the recorded trail duration used by inference and route effort.
 
 ---

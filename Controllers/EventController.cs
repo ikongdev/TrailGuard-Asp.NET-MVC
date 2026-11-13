@@ -70,7 +70,7 @@ namespace TrailGuard.Controllers
 
         protected virtual Task<ApplicationUser?> FindUserByIdAsync(string userId) => _userManager.FindByIdAsync(userId);
 
-        private async Task<string?> ValidatePickupLocationsAsync(
+        protected virtual async Task<string?> ValidatePickupLocationsAsync(
             IEnumerable<PickupScheduleInputModel>? schedules,
             IEnumerable<PickupScheduleHelper.EditablePickupSchedule>? originalSchedules = null)
         {
@@ -568,15 +568,14 @@ namespace TrailGuard.Controllers
         {
             try
             {
-                var eventItem = await _context.Events
-                    .FirstOrDefaultAsync(e => e.Id == id);
+                var eventItem = await _eventLifecycleStore.FindEventAsync(id);
 
                 if (eventItem == null)
                 {
                     return Json(new { success = false, message = "Event not found" });
                 }
 
-                var currentUser = await _userManager.GetUserAsync(User);
+                var currentUser = await GetCurrentUserAsync();
                 if (currentUser == null || !await CanManageEventAsync(eventItem, currentUser))
                 {
                     return Json(new { success = false, message = "Event not found" });
@@ -611,10 +610,8 @@ namespace TrailGuard.Controllers
 
 
 
-                var trailIsActive = await _context.Trails
-                    .Where(t => t.Id == eventItem.TrailId)
-                    .Select(t => (bool?)t.IsActive)
-                    .FirstOrDefaultAsync() ?? true;
+                var trailIsActive = (await FindTrailForEditAsync(eventItem.TrailId))?.IsActive ?? true;
+                var canChangeTrail = !await HasEventParticipationRecordsAsync(eventItem.Id);
 
                 return Json(new
                 {
@@ -627,6 +624,7 @@ namespace TrailGuard.Controllers
                     trailId = eventItem.TrailId,
                     trailName = eventItem.TrailNameSnapshot,
                     trailIsActive = trailIsActive,
+                    canChangeTrail,
 
 
 
@@ -1077,24 +1075,6 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "Events must be marked as completed using Mark as Complete." });
                 }
 
-                var trail = await _context.Trails.FindAsync(model.TrailId);
-                if (trail == null)
-                {
-                    return Json(new { success = false, message = "Trail not found" });
-                }
-
-
-
-
-
-
-
-
-                if (existingEvent.TrailId != model.TrailId && !trail.IsActive)
-                {
-                    return Json(new { success = false, message = "The selected trail is no longer active. Please choose another trail." });
-                }
-
                 string organizerName;
                 string? resolvedOrganizerId;
                 if (await _userManager.IsInRoleAsync(currentUser, "Admin"))
@@ -1162,13 +1142,12 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = scheduleResult.Error });
                 }
 
-                await using var transaction = await _context.Database.BeginTransactionAsync();
-                await ParticipantEventWorkflowLock.AcquireEventCapacityAsync(_context, model.Id);
-                _context.ChangeTracker.Clear();
+                await using var transaction = await _eventLifecycleStore.BeginTransactionAsync();
+                await _eventLifecycleStore.AcquireEventLockAsync(model.Id);
+                _eventLifecycleStore.ClearTracking();
 
-                existingEvent = await _context.Events.FirstOrDefaultAsync(e => e.Id == model.Id);
-                if (existingEvent == null ||
-                    (!await _userManager.IsInRoleAsync(currentUser, "Admin") && existingEvent.OrganizerId != currentUser.Id))
+                existingEvent = await _eventLifecycleStore.ReloadEventAsync(model.Id);
+                if (existingEvent == null || !await CanManageEventAsync(existingEvent, currentUser))
                 {
                     return Json(new { success = false, message = "Event not found" });
                 }
@@ -1183,7 +1162,29 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = "Events must be marked as completed using Mark as Complete." });
                 }
 
-                await _context.Database.ExecuteSqlRawAsync("LOCK TABLE \"PickupPoints\" IN SHARE MODE");
+                var replacingTrail = existingEvent.TrailId != model.TrailId;
+                if (replacingTrail && await HasEventParticipationRecordsAsync(model.Id))
+                {
+                    return Json(new { success = false, message = EventTrailReplacementPolicy.LockedMessage });
+                }
+
+                // Read the persisted Trail after the locked reload. Same-trail edits retain
+                // every existing snapshot, including snapshots of an inactive current Trail.
+                var trail = await FindTrailForEditAsync(model.TrailId);
+                if (trail == null)
+                {
+                    return Json(new { success = false, message = "Trail not found" });
+                }
+                if (replacingTrail && !trail.IsActive)
+                {
+                    return Json(new { success = false, message = "The selected trail is no longer active. Please choose another trail." });
+                }
+                if (replacingTrail && !DifficultyCalculator.TryCompute(trail, out _, out _, out var difficultyInputError))
+                {
+                    return Json(new { success = false, message = difficultyInputError });
+                }
+
+                await LockPickupPointCatalogForEditAsync();
                 var pickupLocationError = await ValidatePickupLocationsAsync(
                     model.PickupSchedules,
                     PickupScheduleHelper.ParseForEditing(existingEvent.PickupPoints));
@@ -1192,8 +1193,7 @@ namespace TrailGuard.Controllers
                     return Json(new { success = false, message = pickupLocationError });
                 }
 
-                var occupiedSlots = await _context.EventRegistrations
-                    .CountAsync(r => r.EventId == model.Id && RegistrationStatusHelper.ActiveStatuses.Contains(r.Status));
+                var occupiedSlots = await CountActiveRegistrationsForEditAsync(model.Id);
                 if (model.Capacity < occupiedSlots)
                 {
                     return Json(new
@@ -1240,12 +1240,8 @@ namespace TrailGuard.Controllers
 
 
 
-                if (existingEvent.TrailId != model.TrailId)
+                if (replacingTrail)
                 {
-                    if (!DifficultyCalculator.TryCompute(trail, out _, out _, out var difficultyInputError))
-                    {
-                        return Json(new { success = false, message = difficultyInputError });
-                    }
                     EventTrailSnapshotHelper.CaptureSnapshot(existingEvent, trail);
                 }
 
@@ -1262,7 +1258,7 @@ namespace TrailGuard.Controllers
                 existingEvent.PickupPoints = string.Join("\n", scheduleResult.CanonicalLines);
                 existingEvent.DateUpdated = DateTime.Now;
 
-                await _context.SaveChangesAsync();
+                await _eventLifecycleStore.SaveChangesAsync();
                 await transaction.CommitAsync();
 
                 return Json(new { success = true, message = "Event updated successfully!" });
@@ -1278,5 +1274,18 @@ namespace TrailGuard.Controllers
         // the authoritative occupied-slot count has been read.
         [NonAction]
         protected virtual Task OnCapacityStateLoadedForEditAsync(int eventId) => Task.CompletedTask;
+
+        protected virtual Task<bool> HasEventParticipationRecordsAsync(int eventId) =>
+            EventTrailReplacementPolicy.HasParticipationRecordsAsync(_context, eventId);
+
+        protected virtual Task<Trail?> FindTrailForEditAsync(int trailId) =>
+            _context.Trails.AsNoTracking().FirstOrDefaultAsync(trail => trail.Id == trailId);
+
+        protected virtual Task LockPickupPointCatalogForEditAsync() =>
+            _context.Database.ExecuteSqlRawAsync("LOCK TABLE \"PickupPoints\" IN SHARE MODE");
+
+        protected virtual Task<int> CountActiveRegistrationsForEditAsync(int eventId) =>
+            _context.EventRegistrations.CountAsync(registration => registration.EventId == eventId
+                && RegistrationStatusHelper.ActiveStatuses.Contains(registration.Status));
     }
 }

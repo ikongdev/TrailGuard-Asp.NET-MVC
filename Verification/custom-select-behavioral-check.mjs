@@ -181,4 +181,13 @@ check(document.activeElement === first.before, 'Shift+Tab skips the enhanced hid
 const optionIds = descendants(document.body).filter(element => element.getAttribute('role') === 'option').map(element => element.id);
 check(optionIds.length === new Set(optionIds).size && optionIds.every(Boolean), 'Searchable option IDs are unique and non-empty across instances.');
 
+first.select.disabled = true;
+window.CustomSelect.closeAll();
+window.CustomSelect.refresh(first.select);
+check(trigger.disabled, 'Refreshing a disabled native select must disable its enhanced trigger.');
+trigger.dispatch(event('click'));
+check(trigger.getAttribute('aria-expanded') === 'false', 'Disabled enhanced trigger must not open its menu.');
+first.select.disabled = false;
+window.CustomSelect.refresh(first.select);
+check(!trigger.disabled, 'Refreshing a re-enabled native select must restore keyboard availability.');
 console.log(`PASS: ${assertions} custom-select behavioral assertions with a controlled DOM mock.`);

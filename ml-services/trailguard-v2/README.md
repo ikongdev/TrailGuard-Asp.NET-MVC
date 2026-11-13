@@ -19,9 +19,14 @@ python -m pip install -r requirements.txt
 python -m uvicorn app:app --host 127.0.0.1 --port 8011
 ```
 
-The adapter is intentionally not connected to the MVC application's configured ML
-endpoint. Its API exposes `GET /health` (with `GET /` as an alias),
+The MVC assessment path uses this adapter through `TrailGuardV2ApiClient` and
+`TrailGuardV2Api:BaseUrl` (locally `http://127.0.0.1:8011`). Its API exposes `GET /health` (with `GET /` as an alias),
 `GET /model-info`, and `POST /predict`.
+
+The model artifact stores 1,000 trees; prediction and native TreeSHAP use only the
+selected range `[0, 985)`. Integrity and explanation checks do not establish
+predictive performance, calibration, or dataset/agency provenance. Original dataset
+and training/final-Test run evidence remain unavailable in the reviewed checkout.
 
 `POST /predict` accepts exactly the 11 frozen feature keys. It rejects extra fields,
 including medical and BMI fields, before the frozen bundle validates and scores the

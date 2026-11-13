@@ -164,7 +164,7 @@ const pickupFunction = extractAsyncFunction('openPickupPointsModal');
     const focusFunction = extractFunction('focusPickupPointsControl');
     const saveFunction = extractAsyncFunction('savePickupPoint');
     const sandbox = {
-        document: dom.document, pickupPointMutationInFlight: false, pickupPointDeletingId: null, pickupPointEditingId: null,
+        document: dom.document, window: {}, pickupPointMutationInFlight: false, pickupPointDeletingId: null, pickupPointEditingId: null,
         pickupPointFormSessionToken: 0, pickupPointMutationOperationId: 0, pickupPointsModalOpen: true,
         postJson: async () => ({ ok: true, json: async () => ({ success: false, message: 'Duplicate pickup point.' }) }),
         setPickupPointFormError() { }, hidePickupPointForm() { }, loadPickupPoints: async () => true, showToast() { }, console
